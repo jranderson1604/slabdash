@@ -108,4 +108,36 @@ export default function Scanner({ onCardsScanned }) {
             <div className="flex-1">
               <p className="font-semibold text-green-800 mb-1">Scan Complete!</p>
               <p className="text-sm text-green-700">
-                Found {result.cardCount} card{result
+                Found {result.cardCount} card{result.cardCount !== 1 ? 's' : ''} in the image
+              </p>
+              {result.cards && result.cards.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {result.cards.map((card, idx) => (
+                    <div key={idx} className="bg-white rounded p-2 text-xs border border-green-200">
+                      <span className="text-brand-600 font-semibold">{card.player_name}</span>
+                      {card.year && <span className="text-gray-600 ml-2">{card.year}</span>}
+                      {card.card_set && <span className="text-gray-600 ml-2">{card.card_set}</span>}
+                      {card.card_number && <span className="text-gray-500 ml-2">#{card.card_number}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <XCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold text-red-800 mb-1">Scan Failed</p>
+              <p className="text-sm text-red-700">{error}</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
