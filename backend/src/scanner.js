@@ -9,9 +9,8 @@ const upload = multer({
 });
 
 const client = new vision.ImageAnnotatorClient({
-  credentials: JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS)
+  keyFilename: './google-credentials.json'
 });
-
 router.post('/scan', upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
