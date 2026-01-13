@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { submissions, customers } from '../api/client';
-import { ArrowLeft, Loader2, Plus } from 'lucide-react';
+import { ArrowLeft, Loader2, Plus, Camera } from 'lucide-react';
+import Scanner from '../components/Scanner';
 
 export default function NewSubmission() {
   const navigate = useNavigate();
   const [customerList, setCustomerList] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
   const [formData, setFormData] = useState({
     customer_id: '',
     internal_id: '',
@@ -62,11 +64,30 @@ export default function NewSubmission() {
         <Link to="/submissions" className="p-2 hover:bg-gray-100 rounded-lg">
           <ArrowLeft className="w-5 h-5 text-gray-500" />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">New Submission</h1>
           <p className="text-gray-500">Track a new PSA order</p>
         </div>
+        <button
+          type="button"
+          onClick={() => setShowScanner(!showScanner)}
+          className="btn btn-secondary gap-2"
+        >
+          <Camera className="w-4 h-4" />
+          {showScanner ? 'Hide Scanner' : 'Scan Form'}
+        </button>
       </div>
+
+      {/* Scanner Section */}
+      {showScanner && (
+        <div className="card p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-4">📷 Scan PSA Form</h2>
+          <Scanner onCardsScanned={(cards) => {
+            console.log('Scanned cards:', cards);
+            alert(`Found ${cards.length} cards! (Card details will be added after submission creation)`);
+          }} />
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="card p-6 space-y-6">
         {/* PSA Submission Number */}
@@ -207,8 +228,8 @@ export default function NewSubmission() {
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
         <h3 className="font-medium text-blue-900 mb-2">💡 Pro Tip</h3>
         <p className="text-sm text-blue-800">
+          Use the "Scan Form" button above to automatically extract card details from your PSA submission form photo!
           After creating the submission, you can add individual cards and their cert numbers.
-          If you have your PSA API key configured, status updates will sync automatically every 6 hours.
         </p>
       </div>
     </div>
