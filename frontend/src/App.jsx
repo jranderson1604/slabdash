@@ -102,16 +102,21 @@ export default function App() {
     try {
       const r = await fetch(`${API}/api/submissions`);
       const data = await r.json();
-      setSubs(data);
+      
+      // Make sure data is an array
+      const subsArray = Array.isArray(data) ? data : [];
+      setSubs(subsArray);
       
       // Calculate stats
-      const total = data.length;
-      const completed = data.filter(s => s.current_status === "Completed").length;
+      const total = subsArray.length;
+      const completed = subsArray.filter(s => s.current_status === "Completed").length;
       const inProgress = total - completed;
-      const totalCards = data.reduce((sum, s) => sum + (s.card_count || 0), 0);
+      const totalCards = subsArray.reduce((sum, s) => sum + (s.card_count || 0), 0);
       
       setStats({ total, inProgress, completed, totalCards });
     } catch (err) {
+      console.error("Load error:", err);
+      setSubs([]);
       showMessage("Failed to load submissions", "error");
     }
     setLoading(false);
@@ -123,8 +128,9 @@ export default function App() {
       const r = await fetch(`${API}/api/submissions/${psa}`);
       const d = await r.json();
       setSelected(d.submission);
-      setCards(d.cards || []);
+      setCards(Array.isArray(d.cards) ? d.cards : []);
     } catch (err) {
+      console.error("Open sub error:", err);
       showMessage("Failed to load submission details", "error");
     }
     setLoading(false);
@@ -160,6 +166,7 @@ export default function App() {
         showMessage(d.error || "Failed to connect PSA", "error");
       }
     } catch (err) {
+      console.error("Connect error:", err);
       showMessage("Connection error", "error");
     }
     setLoading(false);
@@ -190,6 +197,7 @@ export default function App() {
         showMessage(d.error || "Sync failed", "error");
       }
     } catch (err) {
+      console.error("Sync error:", err);
       showMessage("Sync error", "error");
     }
     setLoading(false);
@@ -211,6 +219,7 @@ export default function App() {
         showMessage("Refresh failed", "error");
       }
     } catch (err) {
+      console.error("Refresh error:", err);
       showMessage("Refresh error", "error");
     }
     setLoading(false);
