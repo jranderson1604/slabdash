@@ -1,5 +1,3 @@
 node_modules
 .vite
-.env
-*.log
 dist
