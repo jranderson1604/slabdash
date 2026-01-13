@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
@@ -17,7 +16,6 @@ const portalRoutes = require('./routes/portal');
 const { refreshAllSubmissions } = require('./services/psaService');
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.use(helmet());
 app.use(cors({ origin: true, credentials: true }));
 app.use(compression());
 app.use(morgan('combined'));
