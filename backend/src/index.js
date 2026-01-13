@@ -1,4 +1,5 @@
 require('dotenv').config();
+const scannerRoutes = require('./scanner');
 const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
@@ -17,6 +18,7 @@ const { refreshAllSubmissions } = require('./services/psaService');
 const app = express();
 const PORT = process.env.PORT || 3000;
 app.use(cors({ origin: true, credentials: true }));
+app.use('/api/scanner', scannerRoutes);
 app.use(compression());
 app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
