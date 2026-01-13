@@ -108,7 +108,7 @@ router.post('/:id/send-portal-link', authenticate, async (req, res) => {
         
         if (result.rows.length === 0) return res.status(404).json({ error: 'Customer not found' });
         
-        const portalUrl = `${process.env.FRONTEND_URL}/portal/login?token=${token}`;
+        const portalUrl = `${process.env.FRONTEND_URL}/portal?token=${token}`;
         res.json({ message: 'Portal link generated', portalUrl });
     } catch (error) {
         res.status(500).json({ error: 'Failed to send portal link' });
