@@ -77,8 +77,8 @@ router.post('/register', async (req, res) => {
         // Create company
         const companySlug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
         const companyResult = await db.query(
-            'INSERT INTO companies (name, slug) VALUES ($1, $2) RETURNING id, name, slug',
-            [companyName, companySlug]
+            'INSERT INTO companies (name, slug, email) VALUES ($1, $2, $3) RETURNING id, name, slug',
+            [companyName, companySlug, email.toLowerCase()]
         );
         const company = companyResult.rows[0];
 
