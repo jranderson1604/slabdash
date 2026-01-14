@@ -9,9 +9,11 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }
 });
 
-const client = new vision.ImageAnnotatorClient({
-  credentials: JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS)
-});
+const client = process.env.GOOGLE_CLOUD_CREDENTIALS 
+  ? new vision.ImageAnnotatorClient({
+      credentials: JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS)
+    })
+  : null;
 
 router.post('/scan', upload.single('image'), async (req, res) => {
   try {
