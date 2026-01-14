@@ -82,9 +82,17 @@ export default function NewSubmission() {
       {showScanner && (
         <div className="card p-6 mb-6">
           <h2 className="text-lg font-semibold mb-4">📷 Scan PSA Form</h2>
-          <Scanner onCardsScanned={(cards) => {
-            console.log('Scanned cards:', cards);
-            alert(`Found ${cards.length} cards! (Card details will be added after submission creation)`);
+          <Scanner onDataScanned={(data) => {
+            console.log('Scanned data:', data);
+            if (data.customer || data.submission) {
+              setFormData({
+                ...formData,
+                psa_submission_number: data.submission?.psa_number || formData.psa_submission_number,
+                service_level: data.submission?.service_level || formData.service_level,
+                date_sent: data.customer?.date || formData.date_sent
+              });
+              alert('Form auto-filled with scanned data!');
+            }
           }} />
         </div>
       )}
@@ -228,8 +236,7 @@ export default function NewSubmission() {
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
         <h3 className="font-medium text-blue-900 mb-2">💡 Pro Tip</h3>
         <p className="text-sm text-blue-800">
-          Use the "Scan Form" button above to automatically extract card details from your PSA submission form photo!
-          After creating the submission, you can add individual cards and their cert numbers.
+          Use the "Scan Form" button above to automatically extract submission details from your PSA form photo!
         </p>
       </div>
     </div>
