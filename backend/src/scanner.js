@@ -40,45 +40,71 @@ router.post('/scan', upload.single('image'), async (req, res) => {
 });
 
 function parseSubmissionForm(text) {
+  console.log('Full text:', text);
+  
   const result = {
     customer: { first_name: '', last_name: '', phone: '', email: '', date: '' },
     submission: { psa_number: '', service_level: '' }
   };
 
-  const nameMatch = text.match(/FIRST NAME:\s*([A-Z\s]+)\s+LAST NAME:\s*([A-Z\s]+)/i);
-  if (nameMatch) {
-    result.customer.first_name = nameMatch[1].trim();
-    result.customer.last_name = nameMatch[2].trim();
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    
+    // Look for JAKE ANDERSON pattern (actual handwritten names)
+    if (line.includes('FIRST NAME') && i + 1 < lines.length) {
+      const nextLine = lines[i + 1].trim();
+      if (nextLine && nextLine.length < 30) {
+        result.customer.first_name = nextLine.split(/\s+/)[0];
+      }
+    }
+    
+    if (line.includes('LAST NAME') && i + 1 < lines.length) {
+      const nextLine = lines[i + 1].trim();
+      if (nextLine && nextLine.length < 30) {
+        result.customer.last_name = nextLine.split(/\s+/)[0];
+      }
+    }
+    
+    // Phone - look for patterns like 6013520293
+    const phoneMatch = line.match(/(\d{10})/);
+    if (phoneMatch && !result.customer.phone) {
+      result.customer.phone = phoneMatch[1];
+    }
+    
+    // Email - look for @ symbol
+    const emailMatch = line.match(/([\w\.\-]+@[\w\.\-]+\.\w+)/);
+    if (emailMatch) {
+      result.customer.email = emailMatch[1];
+    }
+    
+    // Date - MM/DD/YY pattern
+    const dateMatch = line.match(/(\d{2}\/\d{2}\/\d{2,4})/);
+    if (dateMatch && !result.customer.date) {
+      result.customer.date = dateMatch[1];
+    }
+    
+    // PSA number - any 8+ digit number after "PSA SUBMISSION"
+    if (line.includes('PSA SUBMISSION') || line.includes('SUBMISSION #')) {
+      const numMatch = line.match(/(\d{8,})/);
+      if (numMatch) result.submission.psa_number = numMatch[1];
+    }
   }
-
-  const phoneMatch = text.match(/PHONE NUMBER:\s*([\d\s\-]+)/i);
-  if (phoneMatch) {
-    result.customer.phone = phoneMatch[1].replace(/\s/g, '').trim();
-  }
-
-  const emailMatch = text.match(/EMAIL ADDRESS:\s*([\w\.\-]+@[\w\.\-]+)/i);
-  if (emailMatch) {
-    result.customer.email = emailMatch[1].trim();
-  }
-
-  const dateMatch = text.match(/DATE:\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
-  if (dateMatch) {
-    result.customer.date = dateMatch[1].trim();
-  }
-
-  const psaMatch = text.match(/PSA SUBMISSION #:\s*([\d\s]+)/i);
-  if (psaMatch) {
-    result.submission.psa_number = psaMatch[1].replace(/\s/g, '').trim();
-  }
-
+  
+  // Service level - check for checkmarks near service names
   const serviceLevels = ['Value', 'Regular', 'Express', 'Super Express', 'Walk-Through'];
   for (const level of serviceLevels) {
-    if (text.toUpperCase().includes(level.toUpperCase())) {
-      result.submission.service_level = level;
-      break;
+    const idx = text.indexOf(level);
+    if (idx !== -1) {
+      const before = text.substring(Math.max(0, idx - 10), idx);
+      if (before.includes('☑') || before.includes('✓') || before.includes('X')) {
+        result.submission.service_level = level;
+        break;
+      }
     }
   }
 
+  console.log('Parsed result:', result);
   return result;
 }
 
