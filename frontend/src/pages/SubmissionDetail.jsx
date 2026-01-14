@@ -18,12 +18,13 @@ import {
   Save,
   X,
   Truck,
+  Upload,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
 function StepTimeline({ steps }) {
   if (!steps?.length) return null;
-
   return (
     <div className="space-y-3">
       {steps.map((step, i) => (
@@ -99,7 +100,7 @@ function CardRow({ card, onUpdate, onDelete }) {
       </td>
       <td>
         {card.psa_cert_number ? (
-          <a
+          
             href={`https://www.psacard.com/cert/${card.psa_cert_number}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -179,7 +180,6 @@ function AddCardForm({ submissionId, onAdd, onCancel }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!description.trim()) return;
-
     setSaving(true);
     try {
       const res = await cards.create({
@@ -239,6 +239,7 @@ export default function SubmissionDetail() {
   const [showAddCard, setShowAddCard] = useState(false);
   const [customerList, setCustomerList] = useState([]);
   const [assigningCustomer, setAssigningCustomer] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const loadSubmission = async () => {
     try {
@@ -329,6 +330,26 @@ export default function SubmissionDetail() {
       cards: [...(prev.cards || []), newCard],
     }));
     setShowAddCard(false);
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      await submissions.uploadImage(id, formData);
+      await loadSubmission();
+      alert('Form image uploaded successfully!');
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   if (loading) {
@@ -562,6 +583,44 @@ export default function SubmissionDetail() {
                 </dd>
               </div>
             </dl>
+          </div>
+
+          {/* Form Images */}
+          <div className="card p-6">
+            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <ImageIcon className="w-4 h-4" />
+              Form Images ({submission.form_images?.length || 0})
+            </h3>
+            
+            {/* Upload button */}
+            <label className="btn btn-secondary gap-2 w-full cursor-pointer mb-4">
+              <Upload className="w-4 h-4" />
+              {uploadingImage ? 'Uploading...' : 'Upload Image'}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                disabled={uploadingImage}
+                className="hidden"
+              />
+            </label>
+            
+            {/* Image gallery */}
+            {submission.form_images?.length > 0 ? (
+              <div className="grid grid-cols-2 gap-2">
+                {submission.form_images.map((img, idx) => (
+                  <img
+                    key={idx}
+                    src={img}
+                    alt={`Form ${idx + 1}`}
+                    className="w-full h-24 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75"
+                    onClick={() => window.open(img, '_blank')}
+                  />
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No images uploaded yet</p>
+            )}
           </div>
 
           {/* Customer */}
