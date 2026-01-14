@@ -76,21 +76,22 @@ router.post('/', authenticate, async (req, res) => {
     } = req.body;
     
     const result = await db.query(
-      `INSERT INTO submissions (
-        company_id, customer_id, internal_id, psa_submission_number,
-        service_level, date_sent, notes
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING *`,
-      [
-        req.user.company_id,
-        customer_id || null,
-        internal_id || null,
-        psa_submission_number || null,
-        service_level || null,
-        date_sent || null,
-        notes || null
-      ]
-    );
+  `INSERT INTO submissions (
+    company_id, user_id, customer_id, internal_id, psa_submission_number,
+    service_level, date_sent, notes
+  ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+  RETURNING *`,
+  [
+    req.user.company_id,
+    req.user.id,
+    customer_id || null,
+    internal_id || null,
+    psa_submission_number || null,
+    service_level || null,
+    date_sent || null,
+    notes || null
+  ]
+);
     
     res.json(result.rows[0]);
   } catch (error) {
