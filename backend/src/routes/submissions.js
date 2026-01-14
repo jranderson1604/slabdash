@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const authenticateToken = require('../middleware/auth');
+const { authenticate } = require('../middleware/auth');
 const multer = require('multer');
 
 const upload = multer({ 
@@ -10,7 +10,7 @@ const upload = multer({
 });
 
 // List submissions
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticate, async (req, res) => {
   try {
     const { limit = 100, shipped } = req.query;
     
@@ -40,7 +40,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Get single submission
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -64,7 +64,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create submission
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', authenticate, async (req, res) => {
   try {
     const {
       customer_id,
@@ -100,7 +100,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Update submission
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const {
@@ -156,7 +156,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // Delete submission
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -177,7 +177,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 // Upload form image to submission
-router.post('/:id/images', authenticateToken, upload.single('image'), async (req, res) => {
+router.post('/:id/images', authenticate, upload.single('image'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No image provided' });
