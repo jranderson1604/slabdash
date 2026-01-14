@@ -92,4 +92,4 @@ router.get('/test', (req, res) => {
   res.json({ status: 'Scanner ready', hasCredentials: !!process.env.GOOGLE_CLOUD_CREDENTIALS });
 });
 
-module.exports = router;
+module.exports = router; 
