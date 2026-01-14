@@ -26,13 +26,13 @@ router.post('/scan', upload.single('image'), async (req, res) => {
     const detections = result.textAnnotations;
     
     if (!detections || detections.length === 0) {
-      return res.status(400).json({ error: 'No text found', cards: [] });
+      return res.status(400).json({ error: 'No text found', data: null });
     }
 
     const fullText = detections[0].description;
-    const cards = parseSubmissionForm(fullText);
+    const data = parseSubmissionForm(fullText);
 
-    res.json({ success: true, fullText, cards, cardCount: cards.length });
+    res.json({ success: true, data });
   } catch (error) {
     console.error('SCANNER ERROR:', error);
     res.status(500).json({ error: 'Failed to process image', details: error.message });
@@ -40,54 +40,52 @@ router.post('/scan', upload.single('image'), async (req, res) => {
 });
 
 function parseSubmissionForm(text) {
-  const cards = [];
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l);
-  
-  let currentCard = null;
-  
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const yearMatch = line.match(/\b(19\d{2}|20[0-2]\d)\b/);
-    const cardNumMatch = line.match(/#?\s*(\d+)/);
-    
-    if (yearMatch || (line.length > 5 && line.length < 50)) {
-      if (currentCard && (currentCard.player_name || currentCard.year)) {
-        cards.push(currentCard);
-      }
-      
-      currentCard = {
-        year: yearMatch ? yearMatch[1] : '',
-        card_set: '',
-        card_number: cardNumMatch ? cardNumMatch[1] : '',
-        player_name: '',
-        variety: ''
-      };
-      
-      const nameMatch = line.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/);
-      if (nameMatch) currentCard.player_name = nameMatch[1];
-      
-      const brandMatch = line.match(/\b(Topps|Bowman|Upper Deck|Panini|Fleer|Score|Donruss)\b/i);
-      if (brandMatch) currentCard.card_set = brandMatch[1];
-      
-      if (!nameMatch && !yearMatch && line.length > 2) {
-        currentCard.player_name = line;
-      }
-    }
-  }
-  
-  if (currentCard && (currentCard.player_name || currentCard.year)) {
-    cards.push(currentCard);
+  const result = {
+    customer: { first_name: '', last_name: '', phone: '', email: '', date: '' },
+    submission: { psa_number: '', service_level: '' }
+  };
+
+  // Extract customer name
+  const nameMatch = text.match(/FIRST NAME:\s*([A-Z\s]+)\s+LAST NAME:\s*([A-Z\s]+)/i);
+  if (nameMatch) {
+    result.customer.first_name = nameMatch[1].trim();
+    result.customer.last_name = nameMatch[2].trim();
   }
 
-  return cards.filter(card => 
-    card.player_name || card.year || card.card_set
-  ).map(card => ({
-    year: card.year || '',
-    card_set: card.card_set || 'Unknown',
-    card_number: card.card_number || '',
-    player_name: card.player_name || 'Unknown',
-    variety: card.variety || ''
-  }));
+  // Extract phone
+  const phoneMatch = text.match(/PHONE NUMBER:\s*([\d\s\-]+)/i);
+  if (phoneMatch) {
+    result.customer.phone = phoneMatch[1].replace(/\s/g, '').trim();
+  }
+
+  // Extract email
+  const emailMatch = text.match(/EMAIL ADDRESS:\s*([\w\.\-]+@[\w\.\-]+)/i);
+  if (emailMatch) {
+    result.customer.email = emailMatch[1].trim();
+  }
+
+  // Extract date
+  const dateMatch = text.match(/DATE:\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/i);
+  if (dateMatch) {
+    result.customer.date = dateMatch[1].trim();
+  }
+
+  // Extract PSA submission number
+  const psaMatch = text.match(/PSA SUBMISSION #:\s*([\d\s]+)/i);
+  if (psaMatch) {
+    result.submission.psa_number = psaMatch[1].replace(/\s/g, '').trim();
+  }
+
+  // Extract service level
+  const serviceLevels = ['Value', 'Regular', 'Express', 'Super Express', 'Walk-Through'];
+  for (const level of serviceLevels) {
+    if (text.toUpperCase().includes(level.toUpperCase())) {
+      result.submission.service_level = level;
+      break;
+    }
+  }
+
+  return result;
 }
 
 router.get('/test', (req, res) => {
