@@ -46,7 +46,7 @@ app.get("/api/health", (req, res) => {
 });
 
 app.get("/", (req, res) => {
-  res.send("SlabDash API is running");
+  res.send("SlabDash API is running v2");
 });
 
 /* -------------------- API ROUTES -------------------- */
