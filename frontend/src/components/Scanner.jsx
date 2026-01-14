@@ -71,7 +71,7 @@ export default function Scanner({ onCardsScanned }) {
       >
         <input
           type="file"
-          accept="image/*"
+          accept="image/*,application/pdf"
           onChange={handleFileInput}
           disabled={uploading}
           className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
