@@ -1,5 +1,10 @@
 {
-  "buildCommand": "cd frontend && npm install && npm run build",
+  "version": 2,
+  "buildCommand": "cd frontend && npm ci && npm run build",
   "outputDirectory": "frontend/dist",
-  "framework": null
+  "installCommand": "cd frontend && npm ci",
+  "framework": null,
+  "env": {
+    "VITE_API_URL": "https://slabdash-production.up.railway.app"
+  }
 }
