@@ -12,6 +12,8 @@ import {
   X,
   ChevronDown,
   Zap,
+  Upload,
+  DollarSign,
 } from 'lucide-react';
 
 const navigation = [
@@ -19,6 +21,8 @@ const navigation = [
   { name: 'Submissions', href: '/submissions', icon: Package },
   { name: 'Customers', href: '/customers', icon: Users },
   { name: 'Cards', href: '/cards', icon: CreditCard },
+  { name: 'Import CSV', href: '/import', icon: Upload },
+  { name: 'Buyback Offers', href: '/buyback', icon: DollarSign },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
