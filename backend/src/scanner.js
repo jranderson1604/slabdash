@@ -1,3 +1,4 @@
+console.log('CREDS:', process.env.GOOGLE_CLOUD_CREDENTIALS ? 'EXISTS-'+process.env.GOOGLE_CLOUD_CREDENTIALS.length+'chars' : 'MISSING');
 const vision = require('@google-cloud/vision');
 const express = require('express');
 const router = express.Router();
