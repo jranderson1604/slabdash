@@ -34,6 +34,7 @@ router.post('/scan', upload.single('image'), async (req, res) => {
 
     res.json({ success: true, fullText, cards, cardCount: cards.length });
   } catch (error) {
+    console.error('SCANNER ERROR:', error);
     res.status(500).json({ error: 'Failed to process image', details: error.message });
   }
 });
