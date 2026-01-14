@@ -14,6 +14,9 @@ const companyRoutes = require("./routes/companies");
 const customerRoutes = require("./routes/customers");
 const cardRoutes = require("./routes/cards");
 const portalRoutes = require("./routes/portal");
+const documentRoutes = require("./routes/documents");
+const buybackRoutes = require("./routes/buyback");
+const importRoutes = require("./routes/import");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -71,6 +74,9 @@ app.use("/api/cards", cardRoutes);
 app.use("/api/submissions", submissionRoutes);
 app.use("/api/psa", psaRoutes);
 app.use("/api/portal", portalRoutes);
+app.use("/api/documents", documentRoutes);
+app.use("/api/buyback", buybackRoutes);
+app.use("/api/import", importRoutes);
 
 /* -------------------- 404 HANDLER -------------------- */
 
