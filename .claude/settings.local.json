@@ -8,7 +8,9 @@
       "Bash(git push:*)",
       "Bash(git pull:*)",
       "Bash(git commit:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(start https://vercel.com/jake-andersons-projects-568d4911/slabdash-8n99/deployments)",
+      "Bash(start https://railway.com/project/23b6ca53-eb96-4302-9206-db0fc82b07af/service/7872e156-d674-4ee0-83fa-4d7776985132)"
     ]
   }
 }
