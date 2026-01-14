@@ -37,12 +37,24 @@ app.use("/api", apiLimiter);
 
 /* -------------------- HEALTH & META -------------------- */
 
-app.get("/api/health", (req, res) => {
-  res.json({
-    ok: true,
-    service: "SlabDash API",
-    timestamp: new Date().toISOString()
-  });
+app.get("/api/health", async (req, res) => {
+  try {
+    await db.query("SELECT 1");
+    res.json({
+      ok: true,
+      service: "SlabDash API",
+      database: "connected",
+      timestamp: new Date().toISOString(),
+      message: "🚀 Edited from phone via Claude Code!"
+    });
+  } catch (err) {
+    res.status(503).json({
+      ok: false,
+      service: "SlabDash API",
+      database: "disconnected",
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 app.get("/", (req, res) => {
