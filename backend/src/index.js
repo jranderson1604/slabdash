@@ -15,7 +15,7 @@ const cardRoutes = require('./routes/cards');
 const psaRoutes = require('./routes/psa');
 const portalRoutes = require('./routes/portal');
 const { refreshAllSubmissions } = require('./services/psaService');
-const app = express();
+const app = express(); app.set('trust proxy', true);
 const PORT = process.env.PORT || 3000;
 app.use(cors({ origin: true, credentials: true }));
 app.use('/api/scanner', scannerRoutes);
