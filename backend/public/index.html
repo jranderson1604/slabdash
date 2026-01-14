@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>SlabDash</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    h1 { margin-bottom: 5px; }
+    .meta { margin-bottom: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
+    th { background: #f0f0f0; }
+  </style>
+</head>
+<body>
+
+<h1 id="title">Loading…</h1>
+<div class="meta" id="meta"></div>
+
+<table>
+  <thead>
+    <tr>
+      <th>Player</th>
+      <th>Set</th>
+      <th>Year</th>
+      <th>Grade</th>
+      <th>Cert</th>
+      <th>Declared Value</th>
+    </tr>
+  </thead>
+  <tbody id="cards"></tbody>
+</table>
+
+<script>
+fetch("/api/submissions/PSA123456")
+  .then(res => res.json())
+  .then(data => {
+    const s = data.submission;
+
+    document.getElementById("title").textContent =
+      `Submission ${s.psa_submission_number}`;
+
+    document.getElementById("meta").textContent =
+      `Status: ${s.current_status} | Cards: ${s.card_count} | Total Value: $${s.total_value}`;
+
+    const tbody = document.getElementById("cards");
+
+    data.cards.forEach(c => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${c.player_name}</td>
+        <td>${c.card_set}</td>
+        <td>${c.year}</td>
+        <td>${c.grade ?? "-"}</td>
+        <td>${c.psa_cert_number ?? "-"}</td>
+        <td>${c.declared_value ?? "-"}</td>
+      `;
+      tbody.appendChild(row);
+    });
+  });
+</script>
+
+</body>
+</html>

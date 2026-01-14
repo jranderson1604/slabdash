@@ -1,0 +1,240 @@
+﻿import { useEffect, useState } from "react";
+
+const API = "http://localhost:3001";
+
+const StatusPill = ({ status }) => {
+  const colors = {
+    "QA Check": "#f59e0b",
+    Submitted: "#3b82f6",
+    Grading: "#8b5cf6",
+    Completed: "#10b981"
+  };
+
+  return (
+    <span
+      style={{
+        background: colors[status] || "#6b7280",
+        color: "white",
+        padding: "4px 10px",
+        borderRadius: 999,
+        fontSize: 12,
+        fontWeight: 600
+      }}
+    >
+      {status}
+    </span>
+  );
+};
+
+export default function App() {
+  const [subs, setSubs] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [cards, setCards] = useState([]);
+  const [apiKey, setApiKey] = useState("");
+  const [submissionInput, setSubmissionInput] = useState("");
+  const [msg, setMsg] = useState("");
+  const [psaConnected, setPsaConnected] = useState(false);
+
+  async function loadSubs() {
+    const r = await fetch(`${API}/api/submissions`);
+    setSubs(await r.json());
+  }
+
+  async function openSub(psa) {
+    const r = await fetch(`${API}/api/submissions/${psa}`);
+    const d = await r.json();
+    setSelected(d.submission);
+    setCards(d.cards || []);
+  }
+
+  async function connectPSA() {
+    setMsg("Connecting PSA...");
+    const r = await fetch(`${API}/api/psa/connect`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apiKey })
+    });
+
+    if (r.ok) {
+      setPsaConnected(true);
+      setMsg("PSA connected ✓");
+    } else {
+      const d = await r.json();
+      setMsg(d.error || "Failed to connect PSA");
+    }
+  }
+
+  async function syncSubmission() {
+    setMsg("Syncing from PSA...");
+    const r = await fetch(`${API}/api/psa/sync/submission`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ submissionNumber: submissionInput })
+    });
+    const d = await r.json();
+    setMsg(d.ok ? "Sync complete" : d.error);
+    loadSubs();
+  }
+
+  useEffect(() => {
+    loadSubs();
+  }, []);
+
+  return (
+    <div
+      style={{
+        background: "#0f172a",
+        minHeight: "100vh",
+        color: "#e5e7eb",
+        fontFamily: "system-ui"
+      }}
+    >
+      <header
+        style={{
+          padding: 20,
+          fontSize: 22,
+          fontWeight: 800,
+          background: "#020617"
+        }}
+      >
+        SLABDASH
+      </header>
+
+      <div style={{ display: "grid", gridTemplateColumns: "320px 1fr" }}>
+        <aside
+          style={{
+            borderRight: "1px solid #1e293b",
+            padding: 12
+          }}
+        >
+          <div style={{ marginBottom: 12 }}>
+            <input
+              placeholder="PSA API Key"
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              disabled={psaConnected}
+              style={{ width: "100%", padding: 8, marginBottom: 6 }}
+            />
+            <button
+              onClick={connectPSA}
+              disabled={psaConnected}
+              style={{
+                width: "100%",
+                padding: 8,
+                background: psaConnected ? "#10b981" : "#334155",
+                color: "white"
+              }}
+            >
+              {psaConnected ? "PSA Connected" : "Connect PSA"}
+            </button>
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <input
+              placeholder="Submission #"
+              value={submissionInput}
+              onChange={e => setSubmissionInput(e.target.value)}
+              style={{ width: "100%", padding: 8, marginBottom: 6 }}
+            />
+            <button
+              onClick={syncSubmission}
+              style={{ width: "100%", padding: 8 }}
+            >
+              Sync Submission
+            </button>
+          </div>
+
+          {msg && <div style={{ fontSize: 12, opacity: 0.85 }}>{msg}</div>}
+
+          <hr
+            style={{ margin: "12px 0", borderColor: "#1e293b" }}
+          />
+
+          {subs.length === 0 && (
+            <div style={{ opacity: 0.6 }}>No submissions yet</div>
+          )}
+
+          {subs.map(s => (
+            <div
+              key={s.psa_submission_number}
+              onClick={() => openSub(s.psa_submission_number)}
+              style={{
+                padding: 12,
+                marginBottom: 8,
+                borderRadius: 8,
+                background: "#020617",
+                cursor: "pointer"
+              }}
+            >
+              <div style={{ fontWeight: 700 }}>
+                {s.psa_submission_number}
+              </div>
+              <StatusPill status={s.current_status} />
+              <div style={{ fontSize: 12, opacity: 0.7 }}>
+                {s.card_count} cards
+              </div>
+            </div>
+          ))}
+        </aside>
+
+        <main style={{ padding: 24 }}>
+          {!selected && <div>Select a submission</div>}
+
+          {selected && (
+            <>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 16,
+                  marginBottom: 20
+                }}
+              >
+                <StatusPill status={selected.current_status} />
+                <div>{cards.length} cards</div>
+              </div>
+
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse"
+                }}
+              >
+                <thead>
+                  <tr
+                    style={{
+                      borderBottom: "1px solid #1e293b",
+                      textAlign: "left"
+                    }}
+                  >
+                    <th>Year</th>
+                    <th>Player</th>
+                    <th>Set</th>
+                    <th>Grade</th>
+                    <th>Cert</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cards.map((c, i) => (
+                    <tr
+                      key={`${c.psa_cert_number}-${i}`}
+                      style={{
+                        borderBottom: "1px solid #1e293b"
+                      }}
+                    >
+                      <td>{c.year}</td>
+                      <td>{c.player_name}</td>
+                      <td>{c.card_set}</td>
+                      <td>{c.grade}</td>
+                      <td>{c.psa_cert_number}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
