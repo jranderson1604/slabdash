@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Camera, Loader2, CheckCircle, XCircle } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
+import api from '../api/client';
 export default function Scanner({ onCardsScanned }) {
   const [uploading, setUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -18,7 +17,7 @@ export default function Scanner({ onCardsScanned }) {
     try {
       const formData = new FormData();
       formData.append('image', file);
-      const response = await fetch(`${API_URL}/api/scanner/scan`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/scanner/scan`, {
         method: 'POST',
         body: formData,
       });
