@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import logoIcon from '../assets/logo-icon.png';
+import logoHorizontal from '../assets/logo-horizontal.png';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
 export default function Login() {
@@ -32,10 +32,7 @@ export default function Login() {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Logo */}
         <div className="flex justify-center">
-          <div className="flex flex-col items-center gap-4">
-            <img src={logoIcon} alt="SlabDash" className="w-24 h-24" />
-            <span className="text-3xl font-bold tracking-tight text-gray-900" style={{ fontFamily: 'Inter, system-ui, sans-serif', letterSpacing: '-0.02em' }}>SLABDASH</span>
-          </div>
+          <img src={logoHorizontal} alt="SlabDash" className="h-16" />
         </div>
         <h2 className="mt-4 text-center text-lg text-gray-600 font-medium">
           PSA Submission Tracking for Card Shops

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import logoIcon from '../assets/logo-icon.png';
+import logoSidebar from '../assets/logo-sidebar.png';
 import {
   LayoutDashboard,
   Package,
@@ -51,10 +51,9 @@ export default function Layout({ children }) {
         }`}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-100">
-          <Link to="/" className="flex items-center gap-3">
-            <img src={logoIcon} alt="SlabDash" className="w-10 h-10" />
-            <span className="text-xl font-bold text-gray-900">SlabDash</span>
+        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-100" style={{ backgroundColor: '#FFF1E3' }}>
+          <Link to="/" className="flex items-center">
+            <img src={logoSidebar} alt="SlabDash" className="h-10" />
           </Link>
           <button
             onClick={() => setSidebarOpen(false)}
