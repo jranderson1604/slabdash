@@ -14,11 +14,16 @@ const companyRoutes = require("./routes/companies");
 const customerRoutes = require("./routes/customers");
 const cardRoutes = require("./routes/cards");
 const portalRoutes = require("./routes/portal");
+const buybackRoutes = require("./routes/buyback");
+const cardImportRoutes = require("./routes/cardImport");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 /* -------------------- GLOBAL MIDDLEWARE -------------------- */
+
+// Trust proxy for Railway/production deployments
+app.set('trust proxy', 1);
 
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
@@ -59,6 +64,8 @@ app.use("/api/cards", cardRoutes);
 app.use("/api/submissions", submissionRoutes);
 app.use("/api/psa", psaRoutes);
 app.use("/api/portal", portalRoutes);
+app.use("/api/buyback", buybackRoutes);
+app.use("/api/card-import", cardImportRoutes);
 
 /* -------------------- 404 HANDLER -------------------- */
 

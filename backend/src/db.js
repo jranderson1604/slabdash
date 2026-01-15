@@ -7,4 +7,6 @@ const pool = new Pool({
     : { rejectUnauthorized: false }
 });
 
+// Export pool with query helper
 module.exports = pool;
+module.exports.pool = pool;

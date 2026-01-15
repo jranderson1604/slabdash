@@ -7,6 +7,7 @@ import {
   Loader2,
   ExternalLink,
   Filter,
+  Upload,
 } from 'lucide-react';
 
 export default function Cards() {
@@ -50,9 +51,15 @@ export default function Cards() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Cards</h1>
-        <p className="text-gray-500 mt-1">View all cards across submissions</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Cards</h1>
+          <p className="text-gray-500 mt-1">View all cards across submissions</p>
+        </div>
+        <Link to="/cards/import" className="btn btn-primary">
+          <Upload className="w-4 h-4" />
+          Import CSV
+        </Link>
       </div>
 
       {/* Filters */}
@@ -118,10 +125,12 @@ export default function Cards() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {filteredCards.map((card) => (
-                  <tr key={card.id}>
+                  <tr key={card.id} className="hover:bg-gray-50">
                     <td>
                       <div>
-                        <p className="font-medium text-gray-900">{card.description}</p>
+                        <Link to={`/cards/${card.id}`} className="font-medium text-gray-900 hover:text-brand-600">
+                          {card.description}
+                        </Link>
                         {card.player_name && (
                           <p className="text-xs text-gray-500">
                             {card.year} {card.brand} {card.player_name}
