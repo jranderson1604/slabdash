@@ -20,6 +20,9 @@ const PORT = process.env.PORT || 3001;
 
 /* -------------------- GLOBAL MIDDLEWARE -------------------- */
 
+// Trust proxy for Railway/production deployments
+app.set('trust proxy', 1);
+
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 app.use(morgan("dev"));
