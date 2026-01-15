@@ -3,37 +3,38 @@
 /* SlabDash - B2B SaaS Design System */
 
 @theme {
-  /* EXACT Brand Colors - DO NOT ALTER */
-  --color-brand-salmon: #F26C63;
+  /* EXACT Brand Colors - SOURCE OF TRUTH */
+  --color-brand-salmon: #FF8170;
   --color-brand-cream: #FFF1E3;
-  --color-bg-offwhite: #FAF7F5;
+  --color-bg-offwhite: #F8F0E3;
+
   --color-text-primary: #1F2933;
   --color-text-secondary: #6B7280;
   --color-border: #E5E7EB;
 
-  /* Brand variants for UI states */
-  --color-brand-50: #FEF5F4;
-  --color-brand-100: #FDE9E7;
-  --color-brand-200: #FBD4D0;
-  --color-brand-300: #F9BFB9;
-  --color-brand-400: #F69589;
-  --color-brand-500: #F26C63;  /* PRIMARY */
-  --color-brand-600: #E0524A;
-  --color-brand-700: #C73E36;
-  --color-brand-800: #A32D26;
-  --color-brand-900: #7A211B;
+  /* Brand variants */
+  --color-brand-50: #FFF3F0;
+  --color-brand-100: #FFE4DF;
+  --color-brand-200: #FFC7BE;
+  --color-brand-300: #FFA69A;
+  --color-brand-400: #FF8C7E;
+  --color-brand-500: #FF8170; /* PRIMARY */
+  --color-brand-600: #F56553;
+  --color-brand-700: #DB4D3A;
+  --color-brand-800: #B93A2B;
+  --color-brand-900: #8F2B20;
 
-  /* Neutrals - Professional gray scale */
-  --color-gray-50: #FAF7F5;   /* Same as bg-offwhite */
+  /* Neutrals */
+  --color-gray-50: #F8F0E3;   /* page background */
   --color-gray-100: #F3F4F6;
-  --color-gray-200: #E5E7EB;  /* Same as border */
+  --color-gray-200: #E5E7EB;
   --color-gray-300: #D1D5DB;
   --color-gray-400: #9CA3AF;
-  --color-gray-500: #6B7280;  /* Same as text-secondary */
+  --color-gray-500: #6B7280;
   --color-gray-600: #4B5563;
   --color-gray-700: #374151;
   --color-gray-800: #1F2937;
-  --color-gray-900: #1F2933;  /* Same as text-primary */
+  --color-gray-900: #1F2933;
 }
 
 @layer base {
@@ -42,28 +43,20 @@
   }
 
   body {
-    @apply bg-gray-50 text-gray-900;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+    background-color: var(--color-bg-offwhite);
+    color: var(--color-text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display',
+      'Segoe UI', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Mobile optimizations */
     -webkit-tap-highlight-color: transparent;
     touch-action: manipulation;
   }
 
-  /* Prevent iOS zoom on inputs */
-  input[type="text"],
-  input[type="email"],
-  input[type="password"],
-  input[type="number"],
+  input,
   select,
   textarea {
     font-size: 16px !important;
-  }
-
-  /* Better mobile scrolling */
-  * {
-    -webkit-overflow-scrolling: touch;
   }
 
   html {
@@ -71,196 +64,142 @@
   }
 
   ::selection {
-    @apply bg-brand-100 text-brand-700;
+    background-color: var(--color-brand-100);
+    color: var(--color-brand-700);
   }
 }
 
 @layer components {
-  /* Buttons - Stripe/Linear inspired */
+  /* Buttons */
   .btn {
     @apply px-4 py-2 rounded-lg font-medium transition-all duration-150
-           focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500
-           disabled:opacity-50 disabled:cursor-not-allowed
-           inline-flex items-center justify-center gap-2;
+      focus:outline-none focus:ring-2 focus:ring-offset-2
+      disabled:opacity-50 disabled:cursor-not-allowed
+      inline-flex items-center justify-center gap-2;
+    --tw-ring-color: var(--color-brand-salmon);
   }
 
   .btn-primary {
-    @apply bg-brand-500 text-white hover:bg-brand-600
-           shadow-sm;
+    background-color: var(--color-brand-salmon);
+    color: white;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-brand-600);
   }
 
   .btn-secondary {
-    @apply bg-white text-gray-900 hover:bg-gray-50
-           border border-gray-200 shadow-sm;
+    background-color: white;
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+  }
+
+  .btn-secondary:hover {
+    background-color: var(--color-gray-100);
   }
 
   .btn-ghost {
-    @apply bg-transparent text-gray-700 hover:bg-gray-100;
+    background-color: transparent;
+    color: var(--color-text-secondary);
   }
 
-  .btn-danger {
-    @apply bg-red-600 text-white hover:bg-red-700
-           shadow-sm;
+  .btn-ghost:hover {
+    background-color: var(--color-gray-100);
   }
 
-  .btn-sm {
-    @apply px-3 py-1.5 text-sm;
-  }
-
-  .btn-lg {
-    @apply px-6 py-3 text-base;
-  }
-
-  /* Inputs - Clean & minimal */
+  /* Inputs */
   .input {
-    @apply w-full px-3 py-2 bg-white border border-gray-200 rounded-lg
-           focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent
-           transition-all duration-150 placeholder:text-gray-400
-           text-gray-900;
+    background-color: white;
+    border: 1px solid var(--color-border);
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    color: var(--color-text-primary);
   }
 
-  .input:hover {
-    @apply border-gray-300;
+  .input:focus {
+    outline: none;
+    border-color: var(--color-brand-salmon);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brand-salmon) 30%, transparent);
   }
 
   .label {
-    @apply block text-sm font-medium text-gray-700 mb-1.5;
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    margin-bottom: 0.375rem;
   }
 
-  /* Cards - Flat surfaces */
+  /* Cards */
   .card {
-    @apply bg-white rounded-lg border border-gray-200;
+    background-color: white;
+    border: 1px solid var(--color-border);
+    border-radius: 0.75rem;
   }
 
-  .card-hover {
-    @apply hover:border-gray-300 cursor-pointer transition-colors duration-150;
+  .card-hover:hover {
+    border-color: var(--color-gray-300);
   }
 
-  /* Badges - Minimal */
+  /* Badges */
   .badge {
-    @apply inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium;
-  }
-
-  .badge-gray {
-    @apply bg-gray-100 text-gray-700;
+    font-size: 0.75rem;
+    padding: 0.125rem 0.625rem;
+    border-radius: 9999px;
+    font-weight: 500;
   }
 
   .badge-brand {
-    @apply bg-brand-50 text-brand-700;
+    background-color: var(--color-brand-50);
+    color: var(--color-brand-700);
   }
 
-  .badge-green {
-    @apply bg-green-50 text-green-700;
-  }
-
-  .badge-blue {
-    @apply bg-blue-50 text-blue-700;
-  }
-
-  .badge-yellow {
-    @apply bg-yellow-50 text-yellow-700;
-  }
-
-  .badge-red {
-    @apply bg-red-50 text-red-700;
-  }
-
-  /* Progress bar */
-  .progress-bar {
-    @apply h-1.5 bg-gray-100 rounded-full overflow-hidden;
-  }
-
-  .progress-bar-fill {
-    @apply h-full rounded-full transition-all duration-300;
-  }
-
-  /* Tables - Clean data presentation */
-  .table-container {
-    @apply overflow-hidden rounded-lg border border-gray-200;
-  }
-
-  table {
-    @apply min-w-full divide-y divide-gray-200;
-  }
-
+  /* Tables */
   thead {
-    @apply bg-gray-50;
-  }
-
-  th {
-    @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
-  }
-
-  td {
-    @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
-  }
-
-  tr {
-    @apply transition-colors duration-100;
+    background-color: var(--color-gray-50);
   }
 
   tbody tr:hover {
-    @apply bg-gray-50;
-  }
-
-  /* Loading */
-  .spinner {
-    @apply animate-spin rounded-full border-2 border-gray-200 border-t-brand-500;
-  }
-
-  .skeleton {
-    @apply animate-pulse bg-gray-100 rounded;
+    background-color: var(--color-gray-50);
   }
 
   /* Dropzone */
   .dropzone {
-    @apply border-2 border-dashed border-gray-300 rounded-lg p-8
-           transition-colors duration-150 hover:border-brand-500 hover:bg-brand-50;
+    border: 2px dashed var(--color-gray-300);
+    background-color: var(--color-gray-50);
   }
 
-  .dropzone-active {
-    @apply border-brand-500 bg-brand-50;
-  }
-
-  /* Divider */
-  .divider {
-    @apply border-t border-gray-200;
+  .dropzone:hover {
+    border-color: var(--color-brand-salmon);
+    background-color: var(--color-brand-50);
   }
 }
 
-/* Minimal animations - no exaggeration */
+/* Animations */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .animate-fade-in {
   animation: fadeIn 0.2s ease-out forwards;
 }
 
-/* Custom scrollbar - macOS minimal style */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 rounded-full;
+  background-color: #D1D5DB;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400;
+  background-color: #9CA3AF;
 }
 
-/* Focus - Accessibility */
+/* Focus */
 :focus-visible {
-  @apply outline-none ring-2 ring-brand-500 ring-offset-2;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-brand-salmon);
 }
