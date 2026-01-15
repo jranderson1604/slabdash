@@ -21,7 +21,7 @@ const importRoutes = require("./routes/import");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Trust Railway proxy for rate limiting
+// Trust Railway proxy for rate limiting and proper IP detection
 app.set('trust proxy', 1);
 
 /* -------------------- GLOBAL MIDDLEWARE -------------------- */
