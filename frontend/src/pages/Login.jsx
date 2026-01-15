@@ -28,18 +28,18 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+    <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-8 px-4 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-2xl mb-4">
         {/* Logo */}
-        <div className="flex justify-center">
-          <img src={logoHorizontal} alt="SlabDash" className="h-16" />
+        <div className="flex justify-center mb-6">
+          <img src={logoHorizontal} alt="SlabDash" className="w-full max-w-xl px-8" />
         </div>
-        <h2 className="mt-4 text-center text-lg text-gray-600 font-medium">
+        <h2 className="text-center text-xl text-gray-600 font-medium">
           PSA Submission Tracking for Card Shops
         </h2>
       </div>
 
-      <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-md">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
         <div className="card p-8 sm:p-10">
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (

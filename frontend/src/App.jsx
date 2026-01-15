@@ -11,6 +11,10 @@ import Customers from './pages/Customers';
 import CustomerDetail from './pages/CustomerDetail';
 import NewCustomer from './pages/NewCustomer';
 import Cards from './pages/Cards';
+import CardDetail from './pages/CardDetail';
+import CardImport from './pages/CardImport';
+import BuybackOffers from './pages/BuybackOffers';
+import NewBuybackOffer from './pages/NewBuybackOffer';
 import Settings from './pages/Settings';
 import Portal from './pages/Portal';
 import { Loader2 } from 'lucide-react';
@@ -43,6 +47,10 @@ function AppRoutes() {
       <Route path="/customers/new" element={<ProtectedRoute><NewCustomer /></ProtectedRoute>} />
       <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
       <Route path="/cards" element={<ProtectedRoute><Cards /></ProtectedRoute>} />
+      <Route path="/cards/import" element={<ProtectedRoute><CardImport /></ProtectedRoute>} />
+      <Route path="/cards/:id" element={<ProtectedRoute><CardDetail /></ProtectedRoute>} />
+      <Route path="/buyback" element={<ProtectedRoute><BuybackOffers /></ProtectedRoute>} />
+      <Route path="/buyback/new" element={<ProtectedRoute><NewBuybackOffer /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

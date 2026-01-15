@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import logoSidebar from '../assets/logo-sidebar.png';
+import logoIcon from '../assets/logo-icon-final.png';
 import {
   LayoutDashboard,
   Package,
   Users,
   CreditCard,
+  DollarSign,
   Settings,
   LogOut,
   Menu,
@@ -19,6 +20,7 @@ const navigation = [
   { name: 'Submissions', href: '/submissions', icon: Package },
   { name: 'Customers', href: '/customers', icon: Users },
   { name: 'Cards', href: '/cards', icon: CreditCard },
+  { name: 'Buyback', href: '/buyback', icon: DollarSign },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
@@ -51,9 +53,9 @@ export default function Layout({ children }) {
         }`}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-100" style={{ backgroundColor: '#FFF1E3' }}>
+        <div className="flex items-center justify-between h-32 px-6 border-b border-gray-200">
           <Link to="/" className="flex items-center">
-            <img src={logoSidebar} alt="SlabDash" className="h-10" />
+            <img src={logoIcon} alt="SlabDash" className="h-32 w-32" style={{ imageRendering: 'crisp-edges' }} />
           </Link>
           <button
             onClick={() => setSidebarOpen(false)}

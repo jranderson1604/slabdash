@@ -52,9 +52,14 @@ export const cards = {
   list: (params) => api.get('/cards', { params }),
   get: (id) => api.get(`/cards/${id}`),
   create: (data) => api.post('/cards', data),
-  update: (id, data) => api.put(`/cards/${id}`, data),
+  update: (id, data) => api.patch(`/cards/${id}`, data),
   delete: (id) => api.delete(`/cards/${id}`),
-  lookupCert: (id) => api.post(`/cards/${id}/lookup-cert`)
+  lookupCert: (id) => api.post(`/cards/${id}/lookup-cert`),
+  uploadImages: (id, formData) =>
+    api.post(`/cards/${id}/images`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }),
+  deleteImage: (id, imageIndex) => api.delete(`/cards/${id}/images/${imageIndex}`)
 };
 
 export const psa = {
@@ -66,6 +71,24 @@ export const portal = {
   login: (email, password) => api.post('/portal/login', { email, password }),
   me: () => api.get('/portal/me'),
   submissions: () => api.get('/portal/submissions')
+};
+
+export const buyback = {
+  list: (params) => api.get('/buyback', { params }),
+  get: (id) => api.get(`/buyback/${id}`),
+  create: (data) => api.post('/buyback', data),
+  update: (id, data) => api.put(`/buyback/${id}`, data),
+  delete: (id) => api.delete(`/buyback/${id}`),
+  accept: (id, message) => api.post(`/buyback/${id}/accept`, { message }),
+  decline: (id, message) => api.post(`/buyback/${id}/decline`, { message })
+};
+
+export const cardImport = {
+  uploadCsv: (submissionId, formData) =>
+    api.post(`/card-import/upload-csv?submission_id=${submissionId}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }),
+  downloadTemplate: () => api.get('/card-import/csv-template', { responseType: 'blob' })
 };
 
 export default api;
