@@ -3,6 +3,9 @@ const router = express.Router();
 const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 const psaService = require('../services/psaService');
+const multer = require('multer');
+const cloudinary = require('../config/cloudinary');
+const upload = multer({ storage: multer.memoryStorage() });
 
 // List cards
 router.get('/', authenticate, async (req, res) => {
@@ -130,6 +133,74 @@ router.post('/:id/lookup-cert', authenticate, async (req, res) => {
         res.json({ card: updated.rows[0], certData: cert });
     } catch (error) {
         res.status(500).json({ error: 'Failed to lookup cert' });
+    }
+});
+
+// Upload card images
+router.post('/:id/images', authenticate, upload.array('images', 5), async (req, res) => {
+    try {
+        const cardResult = await db.query('SELECT * FROM cards WHERE id = $1 AND company_id = $2', [req.params.id, req.companyId]);
+        if (cardResult.rows.length === 0) return res.status(404).json({ error: 'Card not found' });
+
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ error: 'No images provided' });
+        }
+
+        const imageUrls = [];
+        for (const file of req.files) {
+            const result = await new Promise((resolve, reject) => {
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    { folder: 'slabdash/cards', resource_type: 'image' },
+                    (error, result) => {
+                        if (error) reject(error);
+                        else resolve(result);
+                    }
+                );
+                uploadStream.end(file.buffer);
+            });
+            imageUrls.push(result.secure_url);
+        }
+
+        // Get existing images and append new ones
+        const card = cardResult.rows[0];
+        const existingImages = card.card_images || [];
+        const allImages = [...existingImages, ...imageUrls];
+
+        await db.query(
+            'UPDATE cards SET card_images = $1 WHERE id = $2',
+            [allImages, req.params.id]
+        );
+
+        const updated = await db.query('SELECT * FROM cards WHERE id = $1', [req.params.id]);
+        res.json({ card: updated.rows[0], uploadedUrls: imageUrls });
+    } catch (error) {
+        console.error('Image upload error:', error);
+        res.status(500).json({ error: 'Failed to upload images' });
+    }
+});
+
+// Delete card image
+router.delete('/:id/images/:imageIndex', authenticate, async (req, res) => {
+    try {
+        const cardResult = await db.query('SELECT * FROM cards WHERE id = $1 AND company_id = $2', [req.params.id, req.companyId]);
+        if (cardResult.rows.length === 0) return res.status(404).json({ error: 'Card not found' });
+
+        const card = cardResult.rows[0];
+        const images = card.card_images || [];
+        const imageIndex = parseInt(req.params.imageIndex);
+
+        if (imageIndex < 0 || imageIndex >= images.length) {
+            return res.status(400).json({ error: 'Invalid image index' });
+        }
+
+        images.splice(imageIndex, 1);
+
+        await db.query('UPDATE cards SET card_images = $1 WHERE id = $2', [images, req.params.id]);
+
+        const updated = await db.query('SELECT * FROM cards WHERE id = $1', [req.params.id]);
+        res.json({ card: updated.rows[0] });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to delete image' });
     }
 });
 

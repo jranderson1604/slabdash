@@ -21,10 +21,10 @@ const importRoutes = require("./routes/import");
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+/* -------------------- GLOBAL MIDDLEWARE -------------------- */
+
 // Trust Railway proxy for rate limiting and proper IP detection
 app.set('trust proxy', 1);
-
-/* -------------------- GLOBAL MIDDLEWARE -------------------- */
 
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
