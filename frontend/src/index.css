@@ -3,16 +3,16 @@
 /* SlabDash - PSA Submission Tracking */
 
 @theme {
-  --color-brand-50: #fef2f2;
-  --color-brand-100: #fee2e2;
-  --color-brand-200: #fecaca;
-  --color-brand-300: #fca5a5;
-  --color-brand-400: #f87171;
-  --color-brand-500: #ef4444;
-  --color-brand-600: #dc2626;
-  --color-brand-700: #b91c1c;
-  --color-brand-800: #991b1b;
-  --color-brand-900: #7f1d1d;
+  --color-brand-50: #FFF5F3;
+  --color-brand-100: #FFE8E3;
+  --color-brand-200: #FFD1C7;
+  --color-brand-300: #FFB5A5;
+  --color-brand-400: #FF9483;
+  --color-brand-500: #FF8170;
+  --color-brand-600: #FF6B56;
+  --color-brand-700: #E85A46;
+  --color-brand-800: #C74A38;
+  --color-brand-900: #A03A2C;
 }
 
 @layer base {
