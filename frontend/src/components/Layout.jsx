@@ -39,7 +39,7 @@ export default function Layout({ children }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-brand-50">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -113,7 +113,7 @@ export default function Layout({ children }) {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top header */}
-        <header className="sticky top-0 z-30 bg-white border-b border-gray-200">
+        <header className="sticky top-0 z-30 bg-white border-b border-brand-100">
           <div className="flex items-center justify-between h-16 px-4 sm:px-6">
             {/* Mobile menu button */}
             <button

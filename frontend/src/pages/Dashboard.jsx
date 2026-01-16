@@ -72,7 +72,7 @@ function RecentSubmissionRow({ submission }) {
   return (
     <tr>
       <td>
-        <Link to={`/submissions/${submission.id}`} className="font-medium text-gray-900 hover:text-brand-600">
+        <Link to={`/submissions/${submission.id}`} className="font-medium text-gray-900 hover:text-brand-500 transition-colors">
           {submission.psa_submission_number || submission.internal_id || 'No ID'}
         </Link>
       </td>
@@ -225,7 +225,7 @@ export default function Dashboard() {
             <h2 className="text-lg font-semibold text-gray-900">Active Submissions</h2>
             <Link
               to="/submissions"
-              className="text-sm text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1"
+              className="text-sm text-brand-500 hover:text-brand-600 font-medium flex items-center gap-1 transition-colors"
             >
               View all
               <ArrowRight className="w-4 h-4" />
@@ -268,14 +268,14 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link
           to="/submissions/new"
-          className="card p-6 hover:border-brand-300 hover:shadow-md transition-all group"
+          className="card p-6 hover:border-brand-500 hover:shadow-lg transition-all group cursor-pointer"
         >
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-brand-100 rounded-lg flex items-center justify-center group-hover:bg-brand-200 transition-colors">
-              <Package className="w-5 h-5 text-brand-600" />
+            <div className="w-10 h-10 bg-brand-100 rounded-lg flex items-center justify-center group-hover:bg-brand-500 transition-colors">
+              <Package className="w-5 h-5 text-brand-600 group-hover:text-white transition-colors" />
             </div>
             <div>
-              <p className="font-medium text-gray-900">New Submission</p>
+              <p className="font-medium text-gray-900 group-hover:text-brand-600 transition-colors">New Submission</p>
               <p className="text-sm text-gray-500">Track a new PSA order</p>
             </div>
           </div>
@@ -283,14 +283,14 @@ export default function Dashboard() {
 
         <Link
           to="/customers/new"
-          className="card p-6 hover:border-brand-300 hover:shadow-md transition-all group"
+          className="card p-6 hover:border-brand-500 hover:shadow-lg transition-all group cursor-pointer"
         >
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 transition-colors">
-              <Users className="w-5 h-5 text-green-600" />
+            <div className="w-10 h-10 bg-brand-100 rounded-lg flex items-center justify-center group-hover:bg-brand-500 transition-colors">
+              <Users className="w-5 h-5 text-brand-600 group-hover:text-white transition-colors" />
             </div>
             <div>
-              <p className="font-medium text-gray-900">Add Customer</p>
+              <p className="font-medium text-gray-900 group-hover:text-brand-600 transition-colors">Add Customer</p>
               <p className="text-sm text-gray-500">Create a new customer</p>
             </div>
           </div>
@@ -298,14 +298,14 @@ export default function Dashboard() {
 
         <Link
           to="/settings"
-          className="card p-6 hover:border-brand-300 hover:shadow-md transition-all group"
+          className="card p-6 hover:border-brand-500 hover:shadow-lg transition-all group cursor-pointer"
         >
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-              <TrendingUp className="w-5 h-5 text-blue-600" />
+            <div className="w-10 h-10 bg-brand-100 rounded-lg flex items-center justify-center group-hover:bg-brand-500 transition-colors">
+              <TrendingUp className="w-5 h-5 text-brand-600 group-hover:text-white transition-colors" />
             </div>
             <div>
-              <p className="font-medium text-gray-900">Connect PSA</p>
+              <p className="font-medium text-gray-900 group-hover:text-brand-600 transition-colors">Connect PSA</p>
               <p className="text-sm text-gray-500">Set up API integration</p>
             </div>
           </div>
