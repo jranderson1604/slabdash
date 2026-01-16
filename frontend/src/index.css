@@ -18,7 +18,7 @@
 @layer base {
   body {
     @apply bg-brand-50 text-gray-900;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    font-family: 'Raleway', system-ui, -apple-system, sans-serif;
   }
 }
 
