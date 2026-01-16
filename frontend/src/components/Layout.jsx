@@ -113,21 +113,21 @@ export default function Layout({ children }) {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top header */}
-        <header className="sticky top-0 z-30 bg-white border-b border-brand-100">
+        <header className="sticky top-0 z-30 bg-brand-500 border-b border-brand-600">
           <div className="flex items-center justify-between h-16 px-4 sm:px-6">
             {/* Mobile menu button */}
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden text-gray-500 hover:text-gray-700"
+              className="lg:hidden text-white hover:text-brand-100"
             >
               <Menu className="w-6 h-6" />
             </button>
 
             {/* Page title (shows on desktop) */}
             <div className="hidden lg:block">
-              <h1 className="text-lg font-semibold text-gray-900">
-                {navigation.find(n => 
-                  n.href === location.pathname || 
+              <h1 className="text-lg font-semibold text-white">
+                {navigation.find(n =>
+                  n.href === location.pathname ||
                   (n.href !== '/' && location.pathname.startsWith(n.href))
                 )?.name || 'Dashboard'}
               </h1>
@@ -139,9 +139,9 @@ export default function Layout({ children }) {
               <div className="relative">
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900"
+                  className="flex items-center gap-2 text-sm text-white hover:text-brand-100"
                 >
-                  <div className="w-8 h-8 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center font-medium">
+                  <div className="w-8 h-8 bg-white text-brand-600 rounded-full flex items-center justify-center font-medium">
                     {user?.name?.charAt(0).toUpperCase() || 'U'}
                   </div>
                   <span className="hidden sm:block font-medium">{user?.name}</span>
