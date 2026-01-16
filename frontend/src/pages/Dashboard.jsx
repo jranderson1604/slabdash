@@ -275,8 +275,8 @@ export default function Dashboard() {
               <Package className="w-5 h-5 text-brand-600 group-hover:text-white transition-colors" />
             </div>
             <div>
-              <p className="font-medium text-gray-900 group-hover:text-brand-600 transition-colors">New Submission</p>
-              <p className="text-sm text-gray-500">Track a new PSA order</p>
+              <p className="font-bold text-black group-hover:text-brand-600 transition-colors">New Submission</p>
+              <p className="text-sm text-gray-700 font-medium">Track a new PSA order</p>
             </div>
           </div>
         </Link>
@@ -290,8 +290,8 @@ export default function Dashboard() {
               <Users className="w-5 h-5 text-brand-600 group-hover:text-white transition-colors" />
             </div>
             <div>
-              <p className="font-medium text-gray-900 group-hover:text-brand-600 transition-colors">Add Customer</p>
-              <p className="text-sm text-gray-500">Create a new customer</p>
+              <p className="font-bold text-black group-hover:text-brand-600 transition-colors">Add Customer</p>
+              <p className="text-sm text-gray-700 font-medium">Create a new customer</p>
             </div>
           </div>
         </Link>
@@ -305,8 +305,8 @@ export default function Dashboard() {
               <TrendingUp className="w-5 h-5 text-brand-600 group-hover:text-white transition-colors" />
             </div>
             <div>
-              <p className="font-medium text-gray-900 group-hover:text-brand-600 transition-colors">Connect PSA</p>
-              <p className="text-sm text-gray-500">Set up API integration</p>
+              <p className="font-bold text-black group-hover:text-brand-600 transition-colors">Connect PSA</p>
+              <p className="text-sm text-gray-700 font-medium">Set up API integration</p>
             </div>
           </div>
         </Link>
