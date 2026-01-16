@@ -1,458 +1,275 @@
-const express = require('express');
+const express = require("express");
+const db = require("../db");
+const { authenticate } = require("../middleware/auth");
+
 const router = express.Router();
-const db = require('../db');
-const { authenticate } = require('../middleware/auth');
 
-/**
- * Create a multi-card buyback offer (Admin only)
- * Body: {
- *   customer_id: UUID,
- *   cards: [{ card_id: UUID, offer_amount: number, grading_fee: number }],
- *   offer_message: string,
- *   response_deadline_hours: 24|48|72,
- *   is_bulk_offer: boolean,
- *   bulk_discount_percent: number (optional)
- * }
- */
-router.post('/', authenticate, async (req, res) => {
-  const client = await db.pool.getClient();
-
+// Create buyback offer
+router.post("/", authenticate, async (req, res) => {
   try {
-    const {
-      customer_id,
-      cards,
-      offer_message,
-      response_deadline_hours = 24,
-      is_bulk_offer = false,
-      bulk_discount_percent = 0
-    } = req.body;
+    const { company_id, user_id } = req.user;
+    const { card_id, offer_price, message, expires_at } = req.body;
 
-    // Validation
-    if (!customer_id || !cards || !Array.isArray(cards) || cards.length === 0) {
-      return res.status(400).json({ error: 'customer_id and cards array required' });
+    if (!card_id || !offer_price) {
+      return res.status(400).json({ error: "card_id and offer_price are required" });
     }
 
-    // Verify all cards belong to customer
-    const cardIds = cards.map(c => c.card_id);
-    const cardCheck = await client.query(
-      `SELECT c.id, c.grading_fee, c.description, c.card_images
-       FROM cards c
-       JOIN submissions s ON c.submission_id = s.id
-       WHERE c.id = ANY($1) AND s.customer_id = $2 AND c.company_id = $3`,
-      [cardIds, customer_id, req.user.company_id]
+    // Verify card belongs to company and get customer_id
+    const cardResult = await db.query(
+      `SELECT c.id, c.customer_id, c.description, c.grade, c.psa_cert_number,
+        cu.name as customer_name, cu.email as customer_email
+      FROM cards c
+      LEFT JOIN customers cu ON c.customer_id = cu.id
+      WHERE c.id = $1 AND c.company_id = $2`,
+      [card_id, company_id]
     );
 
-    if (cardCheck.rows.length !== cards.length) {
-      return res.status(400).json({ error: 'One or more cards not found or do not belong to customer' });
+    if (cardResult.rows.length === 0) {
+      return res.status(404).json({ error: "Card not found" });
     }
 
-    await client.query('BEGIN');
+    const card = cardResult.rows[0];
 
-    // Calculate totals
-    let totalOfferAmount = 0;
-    let totalGradingFees = 0;
-
-    cards.forEach(card => {
-      totalOfferAmount += parseFloat(card.offer_amount || 0);
-      totalGradingFees += parseFloat(card.grading_fee || 0);
-    });
-
-    // Apply bulk discount if enabled
-    let finalOfferAmount = totalOfferAmount;
-    if (is_bulk_offer && bulk_discount_percent > 0) {
-      const discount = (totalOfferAmount * bulk_discount_percent) / 100;
-      finalOfferAmount = totalOfferAmount - discount;
+    if (!card.customer_id) {
+      return res.status(400).json({ error: "Card does not have an associated customer" });
     }
 
-    const finalPayout = finalOfferAmount - totalGradingFees;
+    // Check for existing pending offer
+    const existingOffer = await db.query(
+      `SELECT id FROM buyback_offers
+      WHERE card_id = $1 AND status = 'pending'`,
+      [card_id]
+    );
 
-    // Calculate expiration
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + response_deadline_hours);
+    if (existingOffer.rows.length > 0) {
+      return res.status(400).json({ error: "A pending offer already exists for this card" });
+    }
 
-    // Create buyback offer
-    const offerResult = await client.query(
+    const result = await db.query(
       `INSERT INTO buyback_offers (
-        company_id, customer_id, offer_amount, offer_message,
-        response_deadline_hours, expires_at, created_by,
-        is_bulk_offer, bulk_discount_percent, total_grading_fees, final_payout
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        company_id, card_id, customer_id, offer_price, message,
+        offered_by_user_id, expires_at, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
       RETURNING *`,
       [
-        req.user.company_id,
-        customer_id,
-        finalOfferAmount,
-        offer_message,
-        response_deadline_hours,
-        expiresAt,
-        req.user.id,
-        is_bulk_offer,
-        bulk_discount_percent,
-        totalGradingFees,
-        finalPayout
+        company_id,
+        card_id,
+        card.customer_id,
+        offer_price,
+        message || null,
+        user_id,
+        expires_at || null,
+        "pending"
       ]
     );
 
-    const offer = offerResult.rows[0];
+    // TODO: Send notification to customer via email/SMS
+    console.log(`📧 Buyback offer created for ${card.customer_email}: $${offer_price} for ${card.description}`);
 
-    // Insert cards into junction table
-    for (const card of cards) {
-      await client.query(
-        `INSERT INTO buyback_offer_cards (
-          buyback_offer_id, card_id, individual_offer_amount, grading_fee
-        ) VALUES ($1, $2, $3, $4)`,
-        [offer.id, card.card_id, card.offer_amount, card.grading_fee || 0]
-      );
-    }
-
-    await client.query('COMMIT');
-
-    // TODO: Send email notification
-    // TODO: Send push notification
-
-    // Fetch complete offer with cards
-    const completeOffer = await getOfferWithCards(client, offer.id, req.user.company_id);
-
-    res.json(completeOffer);
-
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Create buyback offer error:', error);
-    res.status(500).json({ error: 'Failed to create buyback offer', details: error.message });
-  } finally {
-    client.release();
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Create buyback offer error:", err);
+    res.status(500).json({ error: "Failed to create buyback offer" });
   }
 });
 
-/**
- * List buyback offers with cards
- */
-router.get('/', authenticate, async (req, res) => {
+// Get buyback offers (with filters)
+router.get("/", authenticate, async (req, res) => {
   try {
-    const { status, customer_id } = req.query;
+    const { company_id } = req.user;
+    const { status, customer_id, card_id, payment_status } = req.query;
 
     let query = `
-      SELECT
-        bo.*,
-        cu.email as customer_email,
+      SELECT bo.*,
+        c.description as card_description,
+        c.grade as card_grade,
+        c.psa_cert_number,
+        c.player_name,
+        c.year,
+        c.brand,
         cu.name as customer_name,
-        u.name as created_by_name,
-        COUNT(boc.id) as card_count
+        cu.email as customer_email,
+        u.name as offered_by_name,
+        s.psa_submission_number
       FROM buyback_offers bo
-      JOIN customers cu ON bo.customer_id = cu.id
-      LEFT JOIN users u ON bo.created_by = u.id
-      LEFT JOIN buyback_offer_cards boc ON bo.id = boc.buyback_offer_id
+      LEFT JOIN cards c ON bo.card_id = c.id
+      LEFT JOIN customers cu ON bo.customer_id = cu.id
+      LEFT JOIN users u ON bo.offered_by_user_id = u.id
+      LEFT JOIN submissions s ON c.submission_id = s.id
       WHERE bo.company_id = $1
     `;
-    const params = [req.user.company_id];
-    let paramCount = 2;
+    const params = [company_id];
+    let paramCount = 1;
 
     if (status) {
+      paramCount++;
+      query += ` AND bo.status = $${paramCount}`;
       params.push(status);
-      query += ` AND bo.status = $${paramCount++}`;
     }
 
     if (customer_id) {
+      paramCount++;
+      query += ` AND bo.customer_id = $${paramCount}`;
       params.push(customer_id);
-      query += ` AND bo.customer_id = $${paramCount++}`;
     }
 
-    query += ' GROUP BY bo.id, cu.email, cu.name, u.name ORDER BY bo.created_at DESC';
+    if (card_id) {
+      paramCount++;
+      query += ` AND bo.card_id = $${paramCount}`;
+      params.push(card_id);
+    }
+
+    if (payment_status) {
+      paramCount++;
+      query += ` AND bo.payment_status = $${paramCount}`;
+      params.push(payment_status);
+    }
+
+    query += ` ORDER BY bo.created_at DESC`;
 
     const result = await db.query(query, params);
     res.json(result.rows);
-
-  } catch (error) {
-    console.error('List buyback offers error:', error);
-    res.status(500).json({ error: 'Failed to list buyback offers' });
+  } catch (err) {
+    console.error("Get buyback offers error:", err);
+    res.status(500).json({ error: "Failed to fetch buyback offers" });
   }
 });
 
-/**
- * Get single buyback offer with all cards
- */
-router.get('/:id', authenticate, async (req, res) => {
+// Get single buyback offer
+router.get("/:id", authenticate, async (req, res) => {
   try {
-    const offer = await getOfferWithCards(db, req.params.id, req.user.company_id);
-
-    if (!offer) {
-      return res.status(404).json({ error: 'Buyback offer not found' });
-    }
-
-    res.json(offer);
-
-  } catch (error) {
-    console.error('Get buyback offer error:', error);
-    res.status(500).json({ error: 'Failed to get buyback offer' });
-  }
-});
-
-/**
- * Update buyback offer (Admin only)
- */
-router.put('/:id', authenticate, async (req, res) => {
-  try {
-    const { offer_message, response_deadline_hours, status } = req.body;
-
-    const updates = [];
-    const params = [];
-    let paramCount = 1;
-
-    if (offer_message !== undefined) {
-      params.push(offer_message);
-      updates.push(`offer_message = $${paramCount++}`);
-    }
-
-    if (response_deadline_hours !== undefined) {
-      params.push(response_deadline_hours);
-      updates.push(`response_deadline_hours = $${paramCount++}`);
-
-      // Recalculate expiration
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + response_deadline_hours);
-      params.push(expiresAt);
-      updates.push(`expires_at = $${paramCount++}`);
-    }
-
-    if (status !== undefined) {
-      params.push(status);
-      updates.push(`status = $${paramCount++}`);
-    }
-
-    if (updates.length === 0) {
-      return res.status(400).json({ error: 'No updates provided' });
-    }
-
-    params.push(req.params.id, req.user.company_id);
+    const { company_id } = req.user;
+    const { id } = req.params;
 
     const result = await db.query(
-      `UPDATE buyback_offers
-       SET ${updates.join(', ')}
-       WHERE id = $${paramCount++} AND company_id = $${paramCount}
-       RETURNING *`,
-      params
+      `SELECT bo.*,
+        c.description as card_description,
+        c.grade as card_grade,
+        c.psa_cert_number,
+        c.player_name,
+        c.year,
+        c.brand,
+        cu.name as customer_name,
+        cu.email as customer_email,
+        u.name as offered_by_name,
+        s.psa_submission_number
+      FROM buyback_offers bo
+      LEFT JOIN cards c ON bo.card_id = c.id
+      LEFT JOIN customers cu ON bo.customer_id = cu.id
+      LEFT JOIN users u ON bo.offered_by_user_id = u.id
+      LEFT JOIN submissions s ON c.submission_id = s.id
+      WHERE bo.id = $1 AND bo.company_id = $2`,
+      [id, company_id]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Buyback offer not found' });
+      return res.status(404).json({ error: "Buyback offer not found" });
     }
 
     res.json(result.rows[0]);
-
-  } catch (error) {
-    console.error('Update buyback offer error:', error);
-    res.status(500).json({ error: 'Failed to update buyback offer' });
+  } catch (err) {
+    console.error("Get buyback offer error:", err);
+    res.status(500).json({ error: "Failed to fetch buyback offer" });
   }
 });
 
-/**
- * Customer accepts buyback offer
- */
-router.post('/:id/accept', authenticate, async (req, res) => {
+// Update buyback offer status (shop owner)
+router.patch("/:id/status", authenticate, async (req, res) => {
   try {
-    const { message } = req.body;
+    const { company_id } = req.user;
+    const { id } = req.params;
+    const { status, payment_method, payment_id } = req.body;
+
+    const validStatuses = ["pending", "accepted", "rejected", "paid", "cancelled"];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    const offerCheck = await db.query(
+      "SELECT id FROM buyback_offers WHERE id = $1 AND company_id = $2",
+      [id, company_id]
+    );
+
+    if (offerCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Buyback offer not found" });
+    }
+
+    let updateQuery = `UPDATE buyback_offers SET status = $1`;
+    const params = [status, id, company_id];
+    let paramCount = 3;
+
+    if (status === "paid") {
+      paramCount++;
+      updateQuery += `, paid_at = NOW(), payment_status = 'completed'`;
+      if (payment_method) {
+        paramCount++;
+        updateQuery += `, payment_method = $${paramCount}`;
+        params.splice(3, 0, payment_method);
+      }
+      if (payment_id) {
+        paramCount++;
+        updateQuery += `, payment_id = $${paramCount}`;
+        params.push(payment_id);
+      }
+    }
+
+    updateQuery += ` WHERE id = $2 AND company_id = $3 RETURNING *`;
+
+    const result = await db.query(updateQuery, params);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Update buyback offer status error:", err);
+    res.status(500).json({ error: "Failed to update buyback offer status" });
+  }
+});
+
+// Delete/cancel buyback offer
+router.delete("/:id", authenticate, async (req, res) => {
+  try {
+    const { company_id } = req.user;
+    const { id } = req.params;
 
     const result = await db.query(
-      `UPDATE buyback_offers
-       SET status = 'accepted',
-           customer_response = $1,
-           responded_at = CURRENT_TIMESTAMP
-       WHERE id = $2 AND company_id = $3 AND status = 'pending'
-       RETURNING *`,
-      [message, req.params.id, req.user.company_id]
+      "DELETE FROM buyback_offers WHERE id = $1 AND company_id = $2 RETURNING *",
+      [id, company_id]
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Buyback offer not found or already responded to' });
+      return res.status(404).json({ error: "Buyback offer not found" });
     }
 
-    // TODO: Trigger payment processing
-    // TODO: Send confirmation email
+    res.json({ message: "Buyback offer deleted successfully" });
+  } catch (err) {
+    console.error("Delete buyback offer error:", err);
+    res.status(500).json({ error: "Failed to delete buyback offer" });
+  }
+});
+
+// Get buyback stats (for dashboard)
+router.get("/stats/summary", authenticate, async (req, res) => {
+  try {
+    const { company_id } = req.user;
+
+    const result = await db.query(
+      `SELECT
+        COUNT(*) as total_offers,
+        COUNT(*) FILTER (WHERE status = 'pending') as pending_offers,
+        COUNT(*) FILTER (WHERE status = 'accepted') as accepted_offers,
+        COUNT(*) FILTER (WHERE status = 'rejected') as rejected_offers,
+        COUNT(*) FILTER (WHERE status = 'paid') as paid_offers,
+        COALESCE(SUM(offer_price) FILTER (WHERE status = 'pending'), 0) as pending_value,
+        COALESCE(SUM(offer_price) FILTER (WHERE status = 'accepted'), 0) as accepted_value,
+        COALESCE(SUM(offer_price) FILTER (WHERE status = 'paid'), 0) as paid_value
+      FROM buyback_offers
+      WHERE company_id = $1`,
+      [company_id]
+    );
 
     res.json(result.rows[0]);
-
-  } catch (error) {
-    console.error('Accept buyback offer error:', error);
-    res.status(500).json({ error: 'Failed to accept buyback offer' });
+  } catch (err) {
+    console.error("Get buyback stats error:", err);
+    res.status(500).json({ error: "Failed to fetch buyback stats" });
   }
 });
-
-/**
- * Customer declines buyback offer
- */
-router.post('/:id/decline', authenticate, async (req, res) => {
-  try {
-    const { message } = req.body;
-
-    const result = await db.query(
-      `UPDATE buyback_offers
-       SET status = 'declined',
-           customer_response = $1,
-           responded_at = CURRENT_TIMESTAMP
-       WHERE id = $2 AND company_id = $3 AND status = 'pending'
-       RETURNING *`,
-      [message, req.params.id, req.user.company_id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Buyback offer not found or already responded to' });
-    }
-
-    // TODO: Send declined notification email to admin
-
-    res.json(result.rows[0]);
-
-  } catch (error) {
-    console.error('Decline buyback offer error:', error);
-    res.status(500).json({ error: 'Failed to decline buyback offer' });
-  }
-});
-
-/**
- * Customer submits counter-offer (ONE TIME ONLY)
- */
-router.post('/:id/counter-offer', authenticate, async (req, res) => {
-  try {
-    const { counter_amount, counter_message } = req.body;
-
-    if (!counter_amount) {
-      return res.status(400).json({ error: 'counter_amount is required' });
-    }
-
-    const result = await db.query(
-      `UPDATE buyback_offers
-       SET status = 'counter_offered',
-           customer_counter_amount = $1,
-           customer_counter_message = $2,
-           counter_offered_at = CURRENT_TIMESTAMP
-       WHERE id = $3 AND company_id = $4 AND status = 'pending' AND customer_counter_amount IS NULL
-       RETURNING *`,
-      [counter_amount, counter_message, req.params.id, req.user.company_id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        error: 'Offer not found, already responded to, or counter-offer already submitted'
-      });
-    }
-
-    // TODO: Send admin notification of counter-offer
-
-    res.json(result.rows[0]);
-
-  } catch (error) {
-    console.error('Counter-offer error:', error);
-    res.status(500).json({ error: 'Failed to submit counter-offer' });
-  }
-});
-
-/**
- * Admin responds to counter-offer
- */
-router.post('/:id/respond-to-counter', authenticate, async (req, res) => {
-  try {
-    const { response, message } = req.body;
-
-    if (!['accepted', 'declined', 'in_person'].includes(response)) {
-      return res.status(400).json({ error: 'response must be: accepted, declined, or in_person' });
-    }
-
-    let newStatus = 'pending';
-    if (response === 'accepted') newStatus = 'accepted';
-    if (response === 'declined') newStatus = 'declined';
-
-    const result = await db.query(
-      `UPDATE buyback_offers
-       SET admin_counter_response = $1,
-           admin_counter_response_message = $2,
-           admin_counter_responded_at = CURRENT_TIMESTAMP,
-           status = $3,
-           in_person_requested = $4
-       WHERE id = $5 AND company_id = $6 AND status = 'counter_offered'
-       RETURNING *`,
-      [response, message, newStatus, response === 'in_person', req.params.id, req.user.company_id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Offer not found or not in counter-offered status' });
-    }
-
-    // TODO: Send customer notification of admin response
-
-    res.json(result.rows[0]);
-
-  } catch (error) {
-    console.error('Respond to counter-offer error:', error);
-    res.status(500).json({ error: 'Failed to respond to counter-offer' });
-  }
-});
-
-/**
- * Delete buyback offer (Admin only)
- */
-router.delete('/:id', authenticate, async (req, res) => {
-  try {
-    // Cards in junction table will auto-delete due to CASCADE
-    const result = await db.query(
-      'DELETE FROM buyback_offers WHERE id = $1 AND company_id = $2 RETURNING id',
-      [req.params.id, req.user.company_id]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Buyback offer not found' });
-    }
-
-    res.json({ success: true });
-
-  } catch (error) {
-    console.error('Delete buyback offer error:', error);
-    res.status(500).json({ error: 'Failed to delete buyback offer' });
-  }
-});
-
-/**
- * Helper: Get offer with all associated cards
- */
-async function getOfferWithCards(dbClient, offerId, companyId) {
-  const offerResult = await dbClient.query(
-    `SELECT
-      bo.*,
-      cu.email as customer_email,
-      cu.name as customer_name,
-      cu.phone as customer_phone,
-      u.name as created_by_name
-     FROM buyback_offers bo
-     JOIN customers cu ON bo.customer_id = cu.id
-     LEFT JOIN users u ON bo.created_by = u.id
-     WHERE bo.id = $1 AND bo.company_id = $2`,
-    [offerId, companyId]
-  );
-
-  if (offerResult.rows.length === 0) {
-    return null;
-  }
-
-  const offer = offerResult.rows[0];
-
-  // Get associated cards
-  const cardsResult = await dbClient.query(
-    `SELECT
-      boc.*,
-      c.description,
-      c.year,
-      c.player_name,
-      c.psa_cert_number,
-      c.grade,
-      c.card_images
-     FROM buyback_offer_cards boc
-     JOIN cards c ON boc.card_id = c.id
-     WHERE boc.buyback_offer_id = $1`,
-    [offerId]
-  );
-
-  offer.cards = cardsResult.rows;
-
-  return offer;
-}
 
 module.exports = router;

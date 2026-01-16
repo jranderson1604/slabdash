@@ -14,15 +14,16 @@ const companyRoutes = require("./routes/companies");
 const customerRoutes = require("./routes/customers");
 const cardRoutes = require("./routes/cards");
 const portalRoutes = require("./routes/portal");
+const documentRoutes = require("./routes/documents");
 const buybackRoutes = require("./routes/buyback");
-const cardImportRoutes = require("./routes/cardImport");
+const importRoutes = require("./routes/import");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
 /* -------------------- GLOBAL MIDDLEWARE -------------------- */
 
-// Trust proxy for Railway/production deployments
+// Trust Railway proxy for rate limiting and proper IP detection
 app.set('trust proxy', 1);
 
 app.use(cors());
@@ -42,12 +43,24 @@ app.use("/api", apiLimiter);
 
 /* -------------------- HEALTH & META -------------------- */
 
-app.get("/api/health", (req, res) => {
-  res.json({
-    ok: true,
-    service: "SlabDash API",
-    timestamp: new Date().toISOString()
-  });
+app.get("/api/health", async (req, res) => {
+  try {
+    await db.query("SELECT 1");
+    res.json({
+      ok: true,
+      service: "SlabDash API",
+      database: "connected",
+      timestamp: new Date().toISOString(),
+      message: "✅ v2.0 - Document upload, CSV import, and buyback system ready!"
+    });
+  } catch (err) {
+    res.status(503).json({
+      ok: false,
+      service: "SlabDash API",
+      database: "disconnected",
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 app.get("/", (req, res) => {
@@ -64,8 +77,9 @@ app.use("/api/cards", cardRoutes);
 app.use("/api/submissions", submissionRoutes);
 app.use("/api/psa", psaRoutes);
 app.use("/api/portal", portalRoutes);
+app.use("/api/documents", documentRoutes);
 app.use("/api/buyback", buybackRoutes);
-app.use("/api/card-import", cardImportRoutes);
+app.use("/api/import", importRoutes);
 
 /* -------------------- 404 HANDLER -------------------- */
 

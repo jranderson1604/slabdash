@@ -1,205 +1,86 @@
 @import "tailwindcss";
 
-/* SlabDash - B2B SaaS Design System */
+/* SlabDash - PSA Submission Tracking */
 
 @theme {
-  /* EXACT Brand Colors - SOURCE OF TRUTH */
-  --color-brand-salmon: #FF8170;
-  --color-brand-cream: #FFF1E3;
-  --color-bg-offwhite: #F8F0E3;
-
-  --color-text-primary: #1F2933;
-  --color-text-secondary: #6B7280;
-  --color-border: #E5E7EB;
-
-  /* Brand variants */
-  --color-brand-50: #FFF3F0;
-  --color-brand-100: #FFE4DF;
-  --color-brand-200: #FFC7BE;
-  --color-brand-300: #FFA69A;
-  --color-brand-400: #FF8C7E;
-  --color-brand-500: #FF8170; /* PRIMARY */
-  --color-brand-600: #F56553;
-  --color-brand-700: #DB4D3A;
-  --color-brand-800: #B93A2B;
-  --color-brand-900: #8F2B20;
-
-  /* Neutrals */
-  --color-gray-50: #F8F0E3;   /* page background */
-  --color-gray-100: #F3F4F6;
-  --color-gray-200: #E5E7EB;
-  --color-gray-300: #D1D5DB;
-  --color-gray-400: #9CA3AF;
-  --color-gray-500: #6B7280;
-  --color-gray-600: #4B5563;
-  --color-gray-700: #374151;
-  --color-gray-800: #1F2937;
-  --color-gray-900: #1F2933;
+  --color-brand-50: #FFF5F3;
+  --color-brand-100: #FFE8E3;
+  --color-brand-200: #FFD1C7;
+  --color-brand-300: #FFB5A5;
+  --color-brand-400: #FF9483;
+  --color-brand-500: #FF8170;
+  --color-brand-600: #FF6B56;
+  --color-brand-700: #E85A46;
+  --color-brand-800: #C74A38;
+  --color-brand-900: #A03A2C;
 }
 
 @layer base {
-  * {
-    @apply antialiased;
-  }
-
   body {
-    background-color: var(--color-bg-offwhite);
-    color: var(--color-text-primary);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display',
-      'Segoe UI', system-ui, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    -webkit-tap-highlight-color: transparent;
-    touch-action: manipulation;
-  }
-
-  input,
-  select,
-  textarea {
-    font-size: 16px !important;
-  }
-
-  html {
-    scroll-behavior: smooth;
-  }
-
-  ::selection {
-    background-color: var(--color-brand-100);
-    color: var(--color-brand-700);
+    @apply bg-brand-50 text-gray-900;
+    font-family: 'Raleway', system-ui, -apple-system, sans-serif;
   }
 }
 
 @layer components {
-  /* Buttons */
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-all duration-150
-      focus:outline-none focus:ring-2 focus:ring-offset-2
-      disabled:opacity-50 disabled:cursor-not-allowed
-      inline-flex items-center justify-center gap-2;
-    --tw-ring-color: var(--color-brand-salmon);
+    @apply px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
   }
-
   .btn-primary {
-    background-color: var(--color-brand-salmon);
-    color: white;
+    @apply bg-brand-500 text-white hover:bg-brand-600 focus:ring-brand-500;
   }
-
-  .btn-primary:hover {
-    background-color: var(--color-brand-600);
-  }
-
   .btn-secondary {
-    background-color: white;
-    color: var(--color-text-primary);
-    border: 1px solid var(--color-border);
+    @apply bg-white text-gray-900 hover:bg-brand-100 border border-gray-200 focus:ring-brand-500;
   }
-
-  .btn-secondary:hover {
-    background-color: var(--color-gray-100);
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
   }
-
-  .btn-ghost {
-    background-color: transparent;
-    color: var(--color-text-secondary);
-  }
-
-  .btn-ghost:hover {
-    background-color: var(--color-gray-100);
-  }
-
-  /* Inputs */
   .input {
-    background-color: white;
-    border: 1px solid var(--color-border);
-    border-radius: 0.5rem;
-    padding: 0.5rem 0.75rem;
-    color: var(--color-text-primary);
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent;
   }
-
-  .input:focus {
-    outline: none;
-    border-color: var(--color-brand-salmon);
-    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-brand-salmon) 30%, transparent);
-  }
-
-  .label {
-    color: var(--color-text-secondary);
-    font-size: 0.875rem;
-    margin-bottom: 0.375rem;
-  }
-
-  /* Cards */
   .card {
-    background-color: white;
-    border: 1px solid var(--color-border);
-    border-radius: 0.75rem;
+    @apply bg-white rounded-xl shadow-sm border border-gray-200;
   }
-
-  .card-hover:hover {
-    border-color: var(--color-gray-300);
-  }
-
-  /* Badges */
   .badge {
-    font-size: 0.75rem;
-    padding: 0.125rem 0.625rem;
-    border-radius: 9999px;
-    font-weight: 500;
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
-
-  .badge-brand {
-    background-color: var(--color-brand-50);
-    color: var(--color-brand-700);
+  .badge-gray {
+    @apply bg-gray-100 text-gray-800;
   }
-
-  /* Tables */
+  .badge-green {
+    @apply bg-green-100 text-green-800;
+  }
+  .badge-blue {
+    @apply bg-blue-100 text-blue-800;
+  }
+  .badge-yellow {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+  .badge-red {
+    @apply bg-red-100 text-red-800;
+  }
+  .table-container {
+    @apply overflow-x-auto;
+  }
+  table {
+    @apply min-w-full divide-y divide-gray-200;
+  }
   thead {
-    background-color: var(--color-gray-50);
+    @apply bg-white;
   }
-
-  tbody tr:hover {
-    background-color: var(--color-gray-50);
+  th {
+    @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
   }
-
-  /* Dropzone */
-  .dropzone {
-    border: 2px dashed var(--color-gray-300);
-    background-color: var(--color-gray-50);
+  td {
+    @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
   }
-
-  .dropzone:hover {
-    border-color: var(--color-brand-salmon);
-    background-color: var(--color-brand-50);
+  .progress-bar {
+    @apply h-2 bg-brand-100 rounded-full overflow-hidden;
   }
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.2s ease-out forwards;
-}
-
-/* Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-thumb {
-  background-color: #D1D5DB;
-  border-radius: 9999px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background-color: #9CA3AF;
-}
-
-/* Focus */
-:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-brand-salmon);
+  .progress-bar-fill {
+    @apply h-full transition-all duration-300;
+  }
+  .link {
+    @apply text-brand-500 hover:text-brand-600 font-medium;
+  }
 }

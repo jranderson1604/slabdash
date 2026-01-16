@@ -86,11 +86,126 @@ router.get('/stats', authenticateCustomer, async (req, res) => {
                 (SELECT COUNT(*) FROM submissions WHERE customer_id = $1) as total_submissions,
                 (SELECT COUNT(*) FROM submissions WHERE customer_id = $1 AND shipped = false) as active_submissions,
                 (SELECT COUNT(*) FROM cards WHERE customer_id = $1) as total_cards,
-                (SELECT COUNT(*) FROM cards WHERE customer_id = $1 AND grade IS NOT NULL) as graded_cards
+                (SELECT COUNT(*) FROM cards WHERE customer_id = $1 AND grade IS NOT NULL) as graded_cards,
+                (SELECT COUNT(*) FROM buyback_offers WHERE customer_id = $1 AND status = 'pending') as pending_offers,
+                (SELECT COUNT(*) FROM buyback_offers WHERE customer_id = $1 AND status = 'accepted') as accepted_offers,
+                (SELECT COALESCE(SUM(offer_price), 0) FROM buyback_offers WHERE customer_id = $1 AND status = 'paid') as total_earnings
         `, [req.customer.id]);
         res.json(stats.rows[0]);
     } catch (error) {
         res.status(500).json({ error: 'Failed to get stats' });
+    }
+});
+
+// Get customer's buyback offers
+router.get('/buyback-offers', authenticateCustomer, async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT bo.*,
+                c.description as card_description,
+                c.grade as card_grade,
+                c.psa_cert_number,
+                c.player_name,
+                c.year,
+                c.brand,
+                s.psa_submission_number
+            FROM buyback_offers bo
+            LEFT JOIN cards c ON bo.card_id = c.id
+            LEFT JOIN submissions s ON c.submission_id = s.id
+            WHERE bo.customer_id = $1
+            ORDER BY bo.created_at DESC`,
+            [req.customer.id]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get buyback offers' });
+    }
+});
+
+// Get single buyback offer
+router.get('/buyback-offers/:id', authenticateCustomer, async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT bo.*,
+                c.description as card_description,
+                c.grade as card_grade,
+                c.psa_cert_number,
+                c.player_name,
+                c.year,
+                c.brand,
+                s.psa_submission_number
+            FROM buyback_offers bo
+            LEFT JOIN cards c ON bo.card_id = c.id
+            LEFT JOIN submissions s ON c.submission_id = s.id
+            WHERE bo.id = $1 AND bo.customer_id = $2`,
+            [req.params.id, req.customer.id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Buyback offer not found' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get buyback offer' });
+    }
+});
+
+// Respond to buyback offer (accept/reject)
+router.patch('/buyback-offers/:id/respond', authenticateCustomer, async (req, res) => {
+    try {
+        const { response, customer_response } = req.body; // response: 'accepted' or 'rejected'
+
+        if (!response || !['accepted', 'rejected'].includes(response)) {
+            return res.status(400).json({ error: 'Invalid response. Must be "accepted" or "rejected"' });
+        }
+
+        const offerCheck = await db.query(
+            'SELECT id, status FROM buyback_offers WHERE id = $1 AND customer_id = $2',
+            [req.params.id, req.customer.id]
+        );
+
+        if (offerCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Buyback offer not found' });
+        }
+
+        if (offerCheck.rows[0].status !== 'pending') {
+            return res.status(400).json({ error: 'This offer has already been responded to' });
+        }
+
+        const result = await db.query(
+            `UPDATE buyback_offers
+            SET status = $1, customer_response = $2, responded_at = NOW()
+            WHERE id = $3 AND customer_id = $4
+            RETURNING *`,
+            [response, customer_response || null, req.params.id, req.customer.id]
+        );
+
+        // TODO: Notify shop owner of customer response
+        console.log(`📧 Customer responded to buyback offer: ${response}`);
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Respond to buyback offer error:', error);
+        res.status(500).json({ error: 'Failed to respond to buyback offer' });
+    }
+});
+
+// Get documents for customer's submissions
+router.get('/documents', authenticateCustomer, async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT d.*,
+                s.psa_submission_number
+            FROM documents d
+            LEFT JOIN submissions s ON d.submission_id = s.id
+            WHERE d.customer_id = $1 AND d.is_public = true
+            ORDER BY d.created_at DESC`,
+            [req.customer.id]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get documents' });
     }
 });
 

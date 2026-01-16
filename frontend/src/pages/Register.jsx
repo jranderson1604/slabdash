@@ -59,7 +59,7 @@ export default function Register() {
   ];
 
   return (
-    <div className="min-h-screen bg-gray-900 flex">
+    <div className="min-h-screen bg-brand-50 flex">
       {/* Left side - Form */}
       <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24">
         <div className="mx-auto w-full max-w-sm">
@@ -68,22 +68,22 @@ export default function Register() {
             <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center">
               <Zap className="w-6 h-6 text-white" />
             </div>
-            <span className="text-2xl font-bold text-white">SlabDash</span>
+            <span className="text-2xl font-bold text-gray-900">SlabDash</span>
           </div>
 
-          <h2 className="text-2xl font-bold text-white">Create your account</h2>
-          <p className="mt-2 text-gray-400">Start tracking PSA submissions today</p>
+          <h2 className="text-2xl font-bold text-gray-900">Create your account</h2>
+          <p className="mt-2 text-gray-600">Start tracking PSA submissions today</p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             {error && (
-              <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 flex items-center gap-2 text-red-400 text-sm">
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2 text-red-700 text-sm">
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 {error}
               </div>
             )}
 
             <div>
-              <label htmlFor="companyName" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
                 Shop / Business Name
               </label>
               <input
@@ -93,13 +93,13 @@ export default function Register() {
                 required
                 value={formData.companyName}
                 onChange={handleChange}
-                className="input bg-gray-800 border-gray-700 text-white placeholder-gray-500"
+                className="input"
                 placeholder="Ace Card Shop"
               />
             </div>
 
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
                 Your Name
               </label>
               <input
@@ -109,13 +109,13 @@ export default function Register() {
                 required
                 value={formData.name}
                 onChange={handleChange}
-                className="input bg-gray-800 border-gray-700 text-white placeholder-gray-500"
+                className="input"
                 placeholder="John Smith"
               />
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
                 Email
               </label>
               <input
@@ -125,13 +125,13 @@ export default function Register() {
                 required
                 value={formData.email}
                 onChange={handleChange}
-                className="input bg-gray-800 border-gray-700 text-white placeholder-gray-500"
+                className="input"
                 placeholder="you@cardshop.com"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
                 Password
               </label>
               <input
@@ -141,13 +141,13 @@ export default function Register() {
                 required
                 value={formData.password}
                 onChange={handleChange}
-                className="input bg-gray-800 border-gray-700 text-white placeholder-gray-500"
+                className="input"
                 placeholder="••••••••"
               />
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-1">
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
                 Confirm Password
               </label>
               <input
@@ -157,7 +157,7 @@ export default function Register() {
                 required
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className="input bg-gray-800 border-gray-700 text-white placeholder-gray-500"
+                className="input"
                 placeholder="••••••••"
               />
             </div>
@@ -175,9 +175,9 @@ export default function Register() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-gray-500">
+          <p className="mt-6 text-center text-sm text-gray-600">
             Already have an account?{' '}
-            <Link to="/login" className="text-brand-500 hover:text-brand-400 font-medium">
+            <Link to="/login" className="text-brand-500 hover:text-brand-600 font-medium">
               Sign in
             </Link>
           </p>
@@ -185,25 +185,25 @@ export default function Register() {
       </div>
 
       {/* Right side - Features (hidden on mobile) */}
-      <div className="hidden lg:flex lg:flex-1 bg-gray-800 items-center justify-center p-12">
+      <div className="hidden lg:flex lg:flex-1 bg-white items-center justify-center p-12 border-l border-brand-100">
         <div className="max-w-md">
-          <h3 className="text-2xl font-bold text-white mb-6">
+          <h3 className="text-2xl font-bold text-gray-900 mb-6">
             Everything you need to manage PSA submissions
           </h3>
           <ul className="space-y-4">
             {features.map((feature, i) => (
-              <li key={i} className="flex items-center gap-3 text-gray-300">
+              <li key={i} className="flex items-center gap-3 text-gray-700">
                 <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
                 {feature}
               </li>
             ))}
           </ul>
 
-          <div className="mt-12 p-6 bg-gray-900/50 rounded-xl border border-gray-700">
-            <p className="text-gray-400 text-sm">
+          <div className="mt-12 p-6 bg-brand-50 rounded-xl border border-brand-100">
+            <p className="text-gray-600 text-sm">
               "SlabDash has transformed how we track submissions. Our customers love being able to check their order status anytime."
             </p>
-            <p className="mt-3 text-white font-medium">— Card Shop Owner</p>
+            <p className="mt-3 text-gray-900 font-medium">— Card Shop Owner</p>
           </div>
         </div>
       </div>
