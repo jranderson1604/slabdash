@@ -312,8 +312,7 @@ async function importSubmissionsFromCSV(csvContent, companyId, userId = null) {
           await db.query(
             `INSERT INTO cards (
               submission_id, year, player_name, card_set, grade, psa_cert_number
-            ) VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (psa_cert_number) DO NOTHING`,
+            ) VALUES ($1, $2, $3, $4, $5, $6)`,
             [
               submissionId,
               cardData.year,
