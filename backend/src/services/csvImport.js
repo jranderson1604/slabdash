@@ -229,7 +229,7 @@ async function importSubmissionsFromCSV(csvContent, companyId, customerId = null
         // Create new submission
         const newSubmission = await db.query(
           `INSERT INTO submissions (
-            company_id, customer_id, psa_submission_number, service_level
+            company_id, user_id, psa_submission_number, service_level
           ) VALUES ($1, $2, $3, $4)
           RETURNING id`,
           [companyId, customerId, submissionData.psa_submission_number, submissionData.service_level]
@@ -251,6 +251,7 @@ async function importSubmissionsFromCSV(csvContent, companyId, customerId = null
 
             if (existingCard.rows.length > 0) {
               // Update existing card
+              const imageArray = cardData.image_url ? [cardData.image_url] : [];
               await db.query(
                 `UPDATE cards
                  SET year = COALESCE($1, year),
@@ -261,6 +262,7 @@ async function importSubmissionsFromCSV(csvContent, companyId, customerId = null
                      grade = COALESCE($6, grade),
                      qualifier = COALESCE($7, qualifier),
                      submission_id = $8,
+                     card_images = CASE WHEN $10::text IS NOT NULL THEN $10::text[] ELSE card_images END,
                      updated_at = NOW()
                  WHERE id = $9`,
                 [
@@ -272,7 +274,8 @@ async function importSubmissionsFromCSV(csvContent, companyId, customerId = null
                   cardData.grade,
                   cardData.qualifier,
                   submissionId,
-                  existingCard.rows[0].id
+                  existingCard.rows[0].id,
+                  imageArray.length > 0 ? imageArray : null
                 ]
               );
               continue;
@@ -280,12 +283,13 @@ async function importSubmissionsFromCSV(csvContent, companyId, customerId = null
           }
 
           // Create new card
+          const imageArray = cardData.image_url ? [cardData.image_url] : [];
           await db.query(
             `INSERT INTO cards (
               company_id, submission_id, customer_id, description,
               year, brand, card_number, player_name, variation,
-              psa_cert_number, grade, qualifier, status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+              psa_cert_number, grade, qualifier, status, card_images
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
             [
               companyId,
               submissionId,
@@ -299,7 +303,8 @@ async function importSubmissionsFromCSV(csvContent, companyId, customerId = null
               cardData.psa_cert_number,
               cardData.grade,
               cardData.qualifier,
-              cardData.grade ? "graded" : "pending"
+              cardData.grade ? "graded" : "pending",
+              imageArray
             ]
           );
           results.cardsCreated++;
