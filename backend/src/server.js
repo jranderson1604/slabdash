@@ -55,6 +55,11 @@ app.get("/api/health", (req, res) => {
 ========================= */
 app.get("/api/submissions", async (req, res) => {
   try {
+    // Prevent caching to ensure fresh data after CSV imports
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
+
     const result = await pool.query(`
       SELECT
         s.id,
