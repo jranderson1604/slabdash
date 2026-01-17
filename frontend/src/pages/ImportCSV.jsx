@@ -10,6 +10,7 @@ export default function ImportCSV() {
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
   const [customerId, setCustomerId] = useState('');
+  const [psaSubmissionNumber, setPsaSubmissionNumber] = useState('');
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -53,6 +54,9 @@ export default function ImportCSV() {
     formData.append('file', file);
     if (customerId) {
       formData.append('customer_id', customerId);
+    }
+    if (psaSubmissionNumber) {
+      formData.append('psa_submission_number', psaSubmissionNumber);
     }
 
     try {
@@ -159,20 +163,38 @@ export default function ImportCSV() {
             </div>
           </div>
 
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Link to Customer (Optional)
-            </label>
-            <input
-              type="text"
-              placeholder="Enter customer ID to link all submissions"
-              value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)}
-              className="input w-full md:w-96"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Leave empty to import without linking to a specific customer
-            </p>
+          <div className="mb-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                PSA Submission Number (Recommended)
+              </label>
+              <input
+                type="text"
+                placeholder="Enter your PSA order number (e.g., 12345678)"
+                value={psaSubmissionNumber}
+                onChange={(e) => setPsaSubmissionNumber(e.target.value)}
+                className="input w-full md:w-96"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Enter the real PSA submission/order number from your account. If left empty, a placeholder will be generated.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Link to Customer (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="Enter customer ID to link all submissions"
+                value={customerId}
+                onChange={(e) => setCustomerId(e.target.value)}
+                className="input w-full md:w-96"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Leave empty to import without linking to a specific customer
+              </p>
+            </div>
           </div>
 
           <div className="overflow-x-auto mb-6">
