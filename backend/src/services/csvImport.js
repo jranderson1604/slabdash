@@ -5,8 +5,10 @@ const db = require("../db");
  * Parse PSA CSV file - supports two formats:
  * 1. Detailed format: Order #, Service Level, Cert #, Year, Brand, Card #, Player, Variety/Pedigree, Grade, Qualifier
  * 2. PSA export format: Cert #, Type, Description, Grade, After Service, Images
+ * @param {string} csvContent - CSV file content
+ * @param {string} psaSubmissionNumber - Optional PSA submission number to use instead of auto-generated one
  */
-function parsePSACSV(csvContent) {
+function parsePSACSV(csvContent, psaSubmissionNumber = null) {
   try {
     const records = parse(csvContent, {
       columns: true,
@@ -26,7 +28,7 @@ function parsePSACSV(csvContent) {
     const hasPSAFormat = firstRecord["Cert #"] && firstRecord["Description"];
 
     if (hasPSAFormat && !hasDetailedFormat) {
-      return parsePSAExportFormat(records);
+      return parsePSAExportFormat(records, psaSubmissionNumber);
     } else {
       return parseDetailedFormat(records);
     }
@@ -38,11 +40,19 @@ function parsePSACSV(csvContent) {
 
 /**
  * Parse PSA export format: Cert #, Type, Description, Grade, After Service, Images
+ * @param {Array} records - Parsed CSV records
+ * @param {string} psaSubmissionNumber - Optional PSA submission number from user
  */
-function parsePSAExportFormat(records) {
+function parsePSAExportFormat(records, psaSubmissionNumber = null) {
   // Create a single submission for all cards in this import
-  const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const submissionNumber = `PSA-IMPORT-${timestamp}-${Date.now().toString().slice(-6)}`;
+  // Use provided PSA submission number, or generate a placeholder
+  let submissionNumber;
+  if (psaSubmissionNumber) {
+    submissionNumber = psaSubmissionNumber;
+  } else {
+    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    submissionNumber = `PSA-IMPORT-${timestamp}-${Date.now().toString().slice(-6)}`;
+  }
 
   const cards = [];
 
@@ -229,9 +239,10 @@ function buildCardDescription(record) {
  * @param {string} csvContent - CSV file content
  * @param {string} companyId - Company UUID
  * @param {string} userId - User ID (admin user or customer) to assign submissions to
+ * @param {string} psaSubmissionNumber - Optional PSA submission number from user
  */
-async function importSubmissionsFromCSV(csvContent, companyId, userId = null) {
-  const submissions = parsePSACSV(csvContent);
+async function importSubmissionsFromCSV(csvContent, companyId, userId = null, psaSubmissionNumber = null) {
+  const submissions = parsePSACSV(csvContent, psaSubmissionNumber);
   const results = {
     success: true,
     submissionsCreated: 0,
