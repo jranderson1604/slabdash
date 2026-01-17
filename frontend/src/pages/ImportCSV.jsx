@@ -31,7 +31,7 @@ export default function ImportCSV() {
     formData.append('file', file);
 
     try {
-      const response = await apiClient.post('/api/import/psa-csv/preview', formData, {
+      const response = await apiClient.post('/import/psa-csv/preview', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setPreview(response.data);
@@ -56,7 +56,7 @@ export default function ImportCSV() {
     }
 
     try {
-      const response = await apiClient.post('/api/import/psa-csv', formData, {
+      const response = await apiClient.post('/import/psa-csv', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       setResults(response.data);
