@@ -108,11 +108,11 @@ async function startServer() {
 ╔══════════════════════════════════════════════════╗
 ║                  SLABDASH API                   ║
 ║                                                  ║
-║  Environment : ${process.env.NODE_ENV || "dev"}                   
-║  Port        : ${PORT}                            
-║  Status      : Live                              
+║  Environment : ${process.env.NODE_ENV || "dev"}
+║  Port        : ${PORT}
+║  Status      : Live
 ║                                                  ║
-║  https://slabdash.io                             ║
+║  https://slabdash.app                            ║
 ╚══════════════════════════════════════════════════╝
       `);
     });
