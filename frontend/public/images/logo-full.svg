@@ -1,0 +1,8 @@
+<svg width="400" height="100" viewBox="0 0 400 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- S Icon -->
+  <rect x="10" y="10" width="80" height="80" rx="16" fill="#EF4444"/>
+  <text x="50" y="68" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="white" text-anchor="middle">S</text>
+
+  <!-- SLABDASH Text -->
+  <text x="110" y="68" font-family="Arial, sans-serif" font-size="42" font-weight="800" fill="#EF4444" letter-spacing="2">SLABDASH</text>
+</svg>

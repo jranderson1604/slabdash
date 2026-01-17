@@ -64,11 +64,15 @@ export default function Register() {
       <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24">
         <div className="mx-auto w-full max-w-sm">
           {/* Logo */}
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-brand-500 rounded-xl flex items-center justify-center">
-              <Zap className="w-6 h-6 text-white" />
-            </div>
-            <span className="text-2xl font-bold text-gray-900">SlabDash</span>
+          <div className="mb-8">
+            <img
+              src="/images/logo-full.svg"
+              alt="SlabDash"
+              className="h-12 w-auto"
+              onError={(e) => {
+                e.target.src = '/images/logo-full.png';
+              }}
+            />
           </div>
 
           <h2 className="text-2xl font-bold text-gray-900">Create your account</h2>

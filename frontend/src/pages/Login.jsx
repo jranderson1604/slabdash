@@ -31,12 +31,14 @@ export default function Login() {
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Logo */}
         <div className="flex justify-center">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-brand-500 rounded-xl flex items-center justify-center">
-              <Zap className="w-7 h-7 text-white" />
-            </div>
-            <span className="text-3xl font-bold text-gray-900">SlabDash</span>
-          </div>
+          <img
+            src="/images/logo-full.svg"
+            alt="SlabDash"
+            className="h-16 w-auto"
+            onError={(e) => {
+              e.target.src = '/images/logo-full.png';
+            }}
+          />
         </div>
         <h2 className="mt-6 text-center text-xl text-gray-600">
           PSA Submission Tracking for Card Shops
