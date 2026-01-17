@@ -66,9 +66,12 @@ export default function Register() {
           {/* Logo */}
           <div className="mb-8">
             <img
-              src="/images/logo-full.png"
+              src="/images/logo-full.svg"
               alt="SlabDash"
               className="h-12 w-auto"
+              onError={(e) => {
+                e.target.src = '/images/logo-full.png';
+              }}
             />
           </div>
 

@@ -32,9 +32,12 @@ export default function Login() {
         {/* Logo */}
         <div className="flex justify-center">
           <img
-            src="/images/logo-full.png"
+            src="/images/logo-full.svg"
             alt="SlabDash"
             className="h-16 w-auto"
+            onError={(e) => {
+              e.target.src = '/images/logo-full.png';
+            }}
           />
         </div>
         <h2 className="mt-6 text-center text-xl text-gray-600">
