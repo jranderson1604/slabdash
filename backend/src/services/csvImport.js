@@ -222,8 +222,7 @@ async function importSubmissionsFromCSV(csvContent, companyId, userId = null) {
         submissionId = existingSubmission.rows[0].id;
         await db.query(
           `UPDATE submissions
-           SET service_level = COALESCE($1, service_level),
-               updated_at = NOW()
+           SET service_level = COALESCE($1, service_level)
            WHERE id = $2`,
           [submissionData.service_level, submissionId]
         );
@@ -256,16 +255,16 @@ async function importSubmissionsFromCSV(csvContent, companyId, userId = null) {
               // Update existing card - match production schema
               await db.query(
                 `UPDATE cards
-                 SET year = COALESCE($1, year),
+                 SET player_name = COALESCE($1, player_name),
                      card_set = COALESCE($2, card_set),
-                     player_name = COALESCE($3, player_name),
+                     year = COALESCE($3, year),
                      grade = COALESCE($4, grade),
                      submission_id = $5
                  WHERE id = $6`,
                 [
+                  cardData.player_name || cardData.description || 'Unknown Player',
+                  cardData.brand || 'Unknown',
                   cardData.year,
-                  cardData.brand,
-                  cardData.player_name,
                   cardData.grade,
                   submissionId,
                   existingCard.rows[0].id
@@ -275,18 +274,19 @@ async function importSubmissionsFromCSV(csvContent, companyId, userId = null) {
             }
           }
 
-          // Create new card - match EXACTLY what server.js does
+          // Create new card - column order from production error: player_name, card_set, year, psa_cert_number, grade
+          // player_name is NOT NULL, so provide a default if missing
           await db.query(
             `INSERT INTO cards (
-              submission_id, year, player_name, card_set, grade, psa_cert_number
+              submission_id, player_name, card_set, year, psa_cert_number, grade
             ) VALUES ($1, $2, $3, $4, $5, $6)`,
             [
               submissionId,
+              cardData.player_name || cardData.description || 'Unknown Player',
+              cardData.brand || 'Unknown',
               cardData.year,
-              cardData.player_name,
-              cardData.brand,
-              cardData.grade,
-              cardData.psa_cert_number
+              cardData.psa_cert_number,
+              cardData.grade
             ]
           );
           results.cardsCreated++;
