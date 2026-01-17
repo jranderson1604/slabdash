@@ -253,24 +253,21 @@ async function importSubmissionsFromCSV(csvContent, companyId, userId = null) {
             );
 
             if (existingCard.rows.length > 0) {
-              // Update existing card with production DB columns
-              const imageArray = cardData.image_url ? [cardData.image_url] : [];
+              // Update existing card - match production schema
               await db.query(
                 `UPDATE cards
                  SET year = COALESCE($1, year),
                      card_set = COALESCE($2, card_set),
                      player_name = COALESCE($3, player_name),
                      grade = COALESCE($4, grade),
-                     submission_id = $5,
-                     card_images = CASE WHEN $6::text[] IS NOT NULL THEN $6::text[] ELSE card_images END
-                 WHERE id = $7`,
+                     submission_id = $5
+                 WHERE id = $6`,
                 [
                   cardData.year,
                   cardData.brand,
                   cardData.player_name,
                   cardData.grade,
                   submissionId,
-                  imageArray.length > 0 ? imageArray : null,
                   existingCard.rows[0].id
                 ]
               );
@@ -278,20 +275,18 @@ async function importSubmissionsFromCSV(csvContent, companyId, userId = null) {
             }
           }
 
-          // Create new card - using only columns that exist in production DB
-          const imageArray = cardData.image_url ? [cardData.image_url] : [];
+          // Create new card - match EXACTLY what server.js does
           await db.query(
             `INSERT INTO cards (
-              submission_id, year, player_name, card_set, grade, psa_cert_number, card_images
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+              submission_id, year, player_name, card_set, grade, psa_cert_number
+            ) VALUES ($1, $2, $3, $4, $5, $6)`,
             [
               submissionId,
               cardData.year,
               cardData.player_name,
-              cardData.brand, // card_set in production DB
+              cardData.brand,
               cardData.grade,
-              cardData.psa_cert_number,
-              imageArray
+              cardData.psa_cert_number
             ]
           );
           results.cardsCreated++;
