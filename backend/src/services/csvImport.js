@@ -82,8 +82,9 @@ function parsePSAExportFormat(records) {
 }
 
 /**
- * Parse card description to extract year, brand, player, etc.
- * Example: "2024 PANINI NEAR MINT" or "2018 Topps Chrome Mike Trout Refractor"
+ * Parse PSA description to extract year, brand, player, etc.
+ * Example: "2024 PANINI DONRUSS DOWNTOWN! 13 DRAKE MAYE"
+ * Format: YEAR BRAND SET CARDNUMBER PLAYER_NAME
  */
 function parseCardDescription(description) {
   const result = {
@@ -96,31 +97,64 @@ function parseCardDescription(description) {
 
   if (!description) return result;
 
-  // Try to extract year (4 digits at start or in string)
-  const yearMatch = description.match(/\b(19|20)\d{2}\b/);
+  // Extract year (first 4 digits)
+  const yearMatch = description.match(/^(\d{4})\s+/);
   if (yearMatch) {
-    result.year = yearMatch[0];
+    result.year = yearMatch[1];
+    description = description.substring(yearMatch[0].length); // Remove year
   }
 
-  // Common card brands
-  const brands = ['TOPPS', 'PANINI', 'BOWMAN', 'DONRUSS', 'UPPER DECK', 'FLEER', 'PRIZM', 'CHROME', 'OPTIC', 'SELECT'];
+  // Common brands to detect
+  const brands = ['PANINI', 'TOPPS', 'BOWMAN', 'DONRUSS', 'UPPER DECK', 'FLEER', 'PRIZM', 'CHROME', 'OPTIC', 'SELECT', 'LEAF'];
   const descUpper = description.toUpperCase();
 
+  let brandFound = null;
+  let brandIndex = -1;
   for (const brand of brands) {
-    if (descUpper.includes(brand)) {
-      result.brand = brand.charAt(0) + brand.slice(1).toLowerCase();
+    const idx = descUpper.indexOf(brand);
+    if (idx !== -1) {
+      brandFound = brand;
+      brandIndex = idx;
       break;
     }
   }
 
-  // Try to extract card number (like #1, #123, #RC1, etc.)
-  const cardNumMatch = description.match(/#(\w+)/);
-  if (cardNumMatch) {
-    result.cardNumber = cardNumMatch[1];
-  }
+  if (brandFound) {
+    // Extract everything from brand to end of set name (usually ends before card number or player name)
+    // Pattern: brand might be followed by set name, then card number, then player
+    const afterBrand = description.substring(brandIndex);
 
-  // Store remaining as variation/notes
-  result.variation = description;
+    // Try to find player name (usually at the end, capitalized words)
+    // Pattern: "PANINI DONRUSS DOWNTOWN! 13 DRAKE MAYE"
+    // Split by spaces and find capitalized proper names at the end
+    const parts = afterBrand.split(/\s+/);
+
+    // Player name is usually the last 2-3 capitalized words
+    const playerParts = [];
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const part = parts[i];
+      // Stop if we hit a number or special chars (likely card number or set name)
+      if (/^\d+$/.test(part) || /[!#]/.test(part)) break;
+      // Collect capitalized words (likely player name)
+      if (/^[A-Z][A-Z]*$/.test(part)) {
+        playerParts.unshift(part);
+      } else {
+        break;
+      }
+    }
+
+    if (playerParts.length > 0) {
+      result.player = playerParts.join(' ');
+    }
+
+    // Card set is from brand to before player name
+    const playerName = result.player || '';
+    const setEndIndex = playerName ? afterBrand.lastIndexOf(playerName) : afterBrand.length;
+    result.brand = afterBrand.substring(0, setEndIndex).trim();
+  } else {
+    // No brand found, use whole description as brand
+    result.brand = description.trim();
+  }
 
   return result;
 }
@@ -252,19 +286,19 @@ async function importSubmissionsFromCSV(csvContent, companyId, userId = null) {
             );
 
             if (existingCard.rows.length > 0) {
-              // Update existing card - match production schema
+              // Update existing card with new data
               await db.query(
                 `UPDATE cards
-                 SET player_name = COALESCE($1, player_name),
-                     card_set = COALESCE($2, card_set),
-                     year = COALESCE($3, year),
+                 SET year = COALESCE($1, year),
+                     player_name = COALESCE($2, player_name),
+                     card_set = COALESCE($3, card_set),
                      grade = COALESCE($4, grade),
                      submission_id = $5
                  WHERE id = $6`,
                 [
+                  cardData.year,
                   cardData.player_name || cardData.description || 'Unknown Player',
                   cardData.brand || 'Unknown',
-                  cardData.year,
                   cardData.grade,
                   submissionId,
                   existingCard.rows[0].id
@@ -274,19 +308,19 @@ async function importSubmissionsFromCSV(csvContent, companyId, userId = null) {
             }
           }
 
-          // Create new card - column order from production error: player_name, card_set, year, psa_cert_number, grade
-          // player_name is NOT NULL, so provide a default if missing
+          // Create new card - match EXACT format from server.js that works in production
           await db.query(
             `INSERT INTO cards (
-              submission_id, player_name, card_set, year, psa_cert_number, grade
-            ) VALUES ($1, $2, $3, $4, $5, $6)`,
+              submission_id, year, player_name, card_set, grade, psa_cert_number
+            ) VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (psa_cert_number) DO NOTHING`,
             [
               submissionId,
+              cardData.year,
               cardData.player_name || cardData.description || 'Unknown Player',
               cardData.brand || 'Unknown',
-              cardData.year,
-              cardData.psa_cert_number,
-              cardData.grade
+              cardData.grade,
+              cardData.psa_cert_number
             ]
           );
           results.cardsCreated++;
