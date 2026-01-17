@@ -5,6 +5,6 @@
   "installCommand": "cd frontend && npm ci",
   "framework": null,
   "env": {
-    "VITE_API_URL": "https://slabdash-production.up.railway.app/api"
+    "VITE_API_URL": "https://api.slabdash.app/api"
   }
 }
