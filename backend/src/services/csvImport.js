@@ -12,7 +12,8 @@ function parsePSACSV(csvContent) {
       columns: true,
       skip_empty_lines: true,
       trim: true,
-      relax_column_count: true
+      relax_column_count: true,
+      bom: true  // Handle UTF-8 BOM that Excel adds to CSV files
     });
 
     if (records.length === 0) {
