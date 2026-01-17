@@ -237,6 +237,7 @@ async function importSubmissionsFromCSV(csvContent, companyId, userId = null) {
     submissionsCreated: 0,
     submissionsUpdated: 0,
     cardsCreated: 0,
+    cardsUpdated: 0,
     errors: []
   };
 
@@ -304,6 +305,7 @@ async function importSubmissionsFromCSV(csvContent, companyId, userId = null) {
                   existingCard.rows[0].id
                 ]
               );
+              results.cardsUpdated++;
               continue;
             }
           }
