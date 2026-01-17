@@ -7,9 +7,11 @@ const { authenticate, requireRole } = require('../middleware/auth');
 router.get('/settings', authenticate, async (req, res) => {
     try {
         const result = await db.query(
-            `SELECT id, name, slug, email, phone, website, logo_url, psa_api_key IS NOT NULL as has_psa_key,
-             primary_color, auto_refresh_enabled, plan, created_at FROM companies WHERE id = $1`,
-            [req.companyId]
+            `SELECT id, name, slug, email, phone, website, logo_url, psa_api_key,
+             primary_color, auto_refresh_enabled, auto_refresh_interval_hours,
+             email_notifications_enabled, plan, created_at
+             FROM companies WHERE id = $1`,
+            [req.user.company_id]
         );
         res.json(result.rows[0]);
     } catch (error) {
@@ -20,23 +22,28 @@ router.get('/settings', authenticate, async (req, res) => {
 // Update settings
 router.patch('/settings', authenticate, requireRole('owner', 'admin'), async (req, res) => {
     try {
-        const allowed = ['name', 'email', 'phone', 'website', 'logo_url', 'primary_color', 'auto_refresh_enabled'];
+        const allowed = [
+            'name', 'email', 'phone', 'website', 'logo_url', 'primary_color',
+            'psa_api_key', 'auto_refresh_enabled', 'auto_refresh_interval_hours',
+            'email_notifications_enabled'
+        ];
         const updates = [], values = [];
         let i = 1;
-        
+
         for (const field of allowed) {
             if (req.body[field] !== undefined) {
                 updates.push(`${field} = $${i++}`);
                 values.push(req.body[field]);
             }
         }
-        
+
         if (updates.length === 0) return res.status(400).json({ error: 'No valid fields' });
-        
-        values.push(req.companyId);
+
+        values.push(req.user.company_id);
         const result = await db.query(`UPDATE companies SET ${updates.join(', ')} WHERE id = $${i} RETURNING *`, values);
         res.json(result.rows[0]);
     } catch (error) {
+        console.error('Update settings error:', error);
         res.status(500).json({ error: 'Failed to update settings' });
     }
 });

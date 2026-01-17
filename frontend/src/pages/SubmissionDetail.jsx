@@ -20,6 +20,7 @@ import {
   Truck,
   Upload,
   Image as ImageIcon,
+  Search,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -62,6 +63,9 @@ function CardRow({ card, onUpdate, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [grade, setGrade] = useState(card.grade || '');
   const [lookingUp, setLookingUp] = useState(false);
+  const [showImage, setShowImage] = useState(false);
+
+  const cardImages = card.card_images ? (Array.isArray(card.card_images) ? card.card_images : JSON.parse(card.card_images)) : [];
 
   const handleLookup = async () => {
     if (!card.psa_cert_number) return;
@@ -89,13 +93,25 @@ function CardRow({ card, onUpdate, onDelete }) {
   return (
     <tr>
       <td>
-        <div>
-          <p className="font-medium text-gray-900">{card.description}</p>
-          {card.player_name && (
-            <p className="text-xs text-gray-500">
-              {card.year} {card.brand} {card.player_name}
-            </p>
+        <div className="flex items-center gap-3">
+          {cardImages.length > 0 && (
+            <div className="relative">
+              <img
+                src={cardImages[0]}
+                alt={card.player_name || card.description}
+                className="w-16 h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75"
+                onClick={() => setShowImage(!showImage)}
+              />
+            </div>
           )}
+          <div>
+            <p className="font-medium text-gray-900">{card.description || card.player_name || 'Untitled'}</p>
+            {card.player_name && (
+              <p className="text-xs text-gray-500">
+                {card.year} {card.card_set || card.brand} {card.player_name}
+              </p>
+            )}
+          </div>
         </div>
       </td>
       <td>
@@ -240,6 +256,7 @@ export default function SubmissionDetail() {
   const [customerList, setCustomerList] = useState([]);
   const [assigningCustomer, setAssigningCustomer] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const loadSubmission = async () => {
     try {
@@ -473,17 +490,39 @@ export default function SubmissionDetail() {
           {/* Cards */}
           <div className="card">
             <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <h2 className="text-lg font-semibold text-gray-900">
-                  Cards ({submission.cards?.length || 0})
+                  Cards ({submission.cards?.filter(c => {
+                    if (!searchQuery) return true;
+                    const query = searchQuery.toLowerCase();
+                    return (
+                      c.player_name?.toLowerCase().includes(query) ||
+                      c.description?.toLowerCase().includes(query) ||
+                      c.card_set?.toLowerCase().includes(query) ||
+                      c.brand?.toLowerCase().includes(query) ||
+                      c.psa_cert_number?.toString().includes(query)
+                    );
+                  }).length || 0})
                 </h2>
-                <button
-                  onClick={() => setShowAddCard(true)}
-                  className="btn btn-secondary gap-2"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Card
-                </button>
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:flex-initial">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search by player, cert #..."
+                      className="input pl-10 w-full sm:w-64"
+                    />
+                  </div>
+                  <button
+                    onClick={() => setShowAddCard(true)}
+                    className="btn btn-secondary gap-2 whitespace-nowrap"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Card
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -502,7 +541,7 @@ export default function SubmissionDetail() {
                 <table>
                   <thead>
                     <tr>
-                      <th>Description</th>
+                      <th>Card</th>
                       <th>Cert #</th>
                       <th>Grade</th>
                       <th>Status</th>
@@ -510,16 +549,44 @@ export default function SubmissionDetail() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {submission.cards.map((card) => (
-                      <CardRow
-                        key={card.id}
-                        card={card}
-                        onUpdate={handleCardUpdate}
-                        onDelete={handleCardDelete}
-                      />
-                    ))}
+                    {submission.cards
+                      .filter(c => {
+                        if (!searchQuery) return true;
+                        const query = searchQuery.toLowerCase();
+                        return (
+                          c.player_name?.toLowerCase().includes(query) ||
+                          c.description?.toLowerCase().includes(query) ||
+                          c.card_set?.toLowerCase().includes(query) ||
+                          c.brand?.toLowerCase().includes(query) ||
+                          c.psa_cert_number?.toString().includes(query)
+                        );
+                      })
+                      .map((card) => (
+                        <CardRow
+                          key={card.id}
+                          card={card}
+                          onUpdate={handleCardUpdate}
+                          onDelete={handleCardDelete}
+                        />
+                      ))
+                    }
                   </tbody>
                 </table>
+                {searchQuery && submission.cards.filter(c => {
+                  const query = searchQuery.toLowerCase();
+                  return (
+                    c.player_name?.toLowerCase().includes(query) ||
+                    c.description?.toLowerCase().includes(query) ||
+                    c.card_set?.toLowerCase().includes(query) ||
+                    c.brand?.toLowerCase().includes(query) ||
+                    c.psa_cert_number?.toString().includes(query)
+                  );
+                }).length === 0 && (
+                  <div className="p-8 text-center">
+                    <Package className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                    <p className="text-gray-500">No cards match "{searchQuery}"</p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="p-8 text-center">
