@@ -248,65 +248,50 @@ async function importSubmissionsFromCSV(csvContent, companyId, userId = null) {
           if (cardData.psa_cert_number) {
             const existingCard = await db.query(
               `SELECT id FROM cards
-               WHERE company_id = $1 AND psa_cert_number = $2`,
-              [companyId, cardData.psa_cert_number]
+               WHERE psa_cert_number = $1`,
+              [cardData.psa_cert_number]
             );
 
             if (existingCard.rows.length > 0) {
-              // Update existing card
+              // Update existing card with production DB columns
               const imageArray = cardData.image_url ? [cardData.image_url] : [];
               await db.query(
                 `UPDATE cards
                  SET year = COALESCE($1, year),
-                     brand = COALESCE($2, brand),
-                     card_number = COALESCE($3, card_number),
-                     player_name = COALESCE($4, player_name),
-                     variation = COALESCE($5, variation),
-                     grade = COALESCE($6, grade),
-                     qualifier = COALESCE($7, qualifier),
-                     submission_id = $8,
-                     card_images = CASE WHEN $10::text IS NOT NULL THEN $10::text[] ELSE card_images END,
-                     updated_at = NOW()
-                 WHERE id = $9`,
+                     card_set = COALESCE($2, card_set),
+                     player_name = COALESCE($3, player_name),
+                     grade = COALESCE($4, grade),
+                     submission_id = $5,
+                     card_images = CASE WHEN $6::text[] IS NOT NULL THEN $6::text[] ELSE card_images END
+                 WHERE id = $7`,
                 [
                   cardData.year,
                   cardData.brand,
-                  cardData.card_number,
                   cardData.player_name,
-                  cardData.variation,
                   cardData.grade,
-                  cardData.qualifier,
                   submissionId,
-                  existingCard.rows[0].id,
-                  imageArray.length > 0 ? imageArray : null
+                  imageArray.length > 0 ? imageArray : null,
+                  existingCard.rows[0].id
                 ]
               );
               continue;
             }
           }
 
-          // Create new card
+          // Create new card - using only columns that exist in production DB
           const imageArray = cardData.image_url ? [cardData.image_url] : [];
           await db.query(
             `INSERT INTO cards (
-              company_id, submission_id, customer_id, description,
-              year, brand, card_number, player_name, variation,
-              psa_cert_number, grade, qualifier, status, card_images
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+              submission_id, year, player_name, card_set, grade, psa_cert_number, card_images
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            ON CONFLICT (psa_cert_number) DO NOTHING`,
             [
-              companyId,
               submissionId,
-              null, // customer_id - can be assigned later when you link submission to customer
-              cardData.description,
               cardData.year,
-              cardData.brand,
-              cardData.card_number,
               cardData.player_name,
-              cardData.variation,
-              cardData.psa_cert_number,
+              cardData.brand, // card_set in production DB
               cardData.grade,
-              cardData.qualifier,
-              cardData.grade ? "graded" : "pending",
+              cardData.psa_cert_number,
               imageArray
             ]
           );
