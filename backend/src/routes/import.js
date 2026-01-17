@@ -26,7 +26,7 @@ const upload = multer({
 // Import PSA CSV
 router.post("/psa-csv", authenticate, upload.single("file"), async (req, res) => {
   try {
-    const { company_id } = req.user;
+    const { company_id, id: user_id } = req.user;
     const { customer_id } = req.body;
 
     if (!req.file) {
@@ -37,7 +37,8 @@ router.post("/psa-csv", authenticate, upload.single("file"), async (req, res) =>
     const csvContent = req.file.buffer.toString("utf-8");
 
     // Import submissions and cards
-    const results = await importSubmissionsFromCSV(csvContent, company_id, customer_id || null);
+    // Use customer_id if provided, otherwise use logged-in user's ID as placeholder
+    const results = await importSubmissionsFromCSV(csvContent, company_id, customer_id || user_id);
 
     res.json({
       message: "CSV import completed",

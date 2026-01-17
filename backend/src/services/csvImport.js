@@ -192,8 +192,11 @@ function buildCardDescription(record) {
 
 /**
  * Import submissions and cards into database
+ * @param {string} csvContent - CSV file content
+ * @param {string} companyId - Company UUID
+ * @param {string} userId - User ID (admin user or customer) to assign submissions to
  */
-async function importSubmissionsFromCSV(csvContent, companyId, customerId = null) {
+async function importSubmissionsFromCSV(csvContent, companyId, userId = null) {
   const submissions = parsePSACSV(csvContent);
   const results = {
     success: true,
@@ -232,7 +235,7 @@ async function importSubmissionsFromCSV(csvContent, companyId, customerId = null
             company_id, user_id, psa_submission_number, service_level
           ) VALUES ($1, $2, $3, $4)
           RETURNING id`,
-          [companyId, customerId, submissionData.psa_submission_number, submissionData.service_level]
+          [companyId, userId, submissionData.psa_submission_number, submissionData.service_level]
         );
         submissionId = newSubmission.rows[0].id;
         results.submissionsCreated++;
@@ -293,7 +296,7 @@ async function importSubmissionsFromCSV(csvContent, companyId, customerId = null
             [
               companyId,
               submissionId,
-              customerId,
+              null, // customer_id - can be assigned later when you link submission to customer
               cardData.description,
               cardData.year,
               cardData.brand,
