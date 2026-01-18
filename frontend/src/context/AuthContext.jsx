@@ -48,9 +48,11 @@ export function AuthProvider({ children }) {
   };
 
   const refreshUser = async () => {
+    // Add cache-busting timestamp to force fresh data
     const res = await auth.me();
     setUser(res.data.user);
-    setCompany(res.data.company);
+    // Force new object reference so React detects the change
+    setCompany({ ...res.data.company });
   };
 
   return (

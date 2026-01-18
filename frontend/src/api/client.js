@@ -16,7 +16,10 @@ api.interceptors.request.use((config) => {
 export const auth = {
   login: (email, password) => api.post('/auth/login', { email, password }),
   register: (data) => api.post('/auth/register', data),
-  me: () => api.get('/auth/me')
+  me: () => api.get('/auth/me', {
+    headers: { 'Cache-Control': 'no-cache' },
+    params: { _t: Date.now() } // Cache-busting timestamp
+  })
 };
 
 export const companies = {

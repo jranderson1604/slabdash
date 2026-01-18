@@ -83,6 +83,10 @@ export default function Settings() {
       await companies.update(settings);
       await refreshUser();
       alert('Settings saved!');
+      // Force page reload to apply theme changes immediately
+      if (section === 'branding') {
+        window.location.reload();
+      }
     } catch (error) {
       console.error('Failed to save settings:', error);
       alert('Failed to save settings');
