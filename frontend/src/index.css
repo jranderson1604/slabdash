@@ -2,6 +2,20 @@
 
 /* SlabDash - PSA Submission Tracking */
 
+:root {
+  /* Default brand colors (coral/peach theme) - can be customized per company */
+  --brand-50: 255 245 243;
+  --brand-100: 255 232 227;
+  --brand-200: 255 209 199;
+  --brand-300: 255 181 165;
+  --brand-400: 255 148 131;
+  --brand-500: 255 129 112;
+  --brand-600: 255 107 86;
+  --brand-700: 232 90 70;
+  --brand-800: 199 74 56;
+  --brand-900: 160 58 44;
+}
+
 @theme {
   --color-brand-50: #FFF5F3;
   --color-brand-100: #FFE8E3;
