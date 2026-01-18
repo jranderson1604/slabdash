@@ -145,6 +145,14 @@ router.post("/", authenticate, async (req, res) => {
       }
     }
 
+    // Check if PSA order is complete (grades ready)
+    const psaStatus = psaOrderData?.Status || null;
+    const gradesReady = psaStatus && (
+      psaStatus.toLowerCase().includes('complete') ||
+      psaStatus.toLowerCase().includes('ready') ||
+      psaStatus.toLowerCase().includes('graded')
+    );
+
     // Insert submission with data from PSA API if available
     const result = await db.query(
       `INSERT INTO submissions (
@@ -156,8 +164,9 @@ router.post("/", authenticate, async (req, res) => {
         date_sent,
         notes,
         psa_status,
+        grades_ready,
         last_refreshed_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *`,
       [
         req.user.company_id,
@@ -167,7 +176,8 @@ router.post("/", authenticate, async (req, res) => {
         psaOrderData?.ServiceLevel || service_level || null,
         date_sent || null,
         notes || null,
-        psaOrderData?.Status || null,
+        psaStatus,
+        gradesReady || false,
         psa_submission_number && psaOrderData ? new Date() : null
       ]
     );
@@ -328,14 +338,23 @@ router.post("/:id/refresh", authenticate, async (req, res) => {
       return res.status(500).json({ error: "Failed to fetch data from PSA API" });
     }
 
+    // Check if grades are ready based on PSA status
+    const psaStatus = psaOrderData.Status;
+    const gradesReady = psaStatus && (
+      psaStatus.toLowerCase().includes('complete') ||
+      psaStatus.toLowerCase().includes('ready') ||
+      psaStatus.toLowerCase().includes('graded')
+    );
+
     // Update submission
     await db.query(
       `UPDATE submissions
        SET service_level = COALESCE($1, service_level),
            psa_status = $2,
+           grades_ready = $3,
            last_refreshed_at = NOW()
-       WHERE id = $3`,
-      [psaOrderData.ServiceLevel, psaOrderData.Status, submission.id]
+       WHERE id = $4`,
+      [psaOrderData.ServiceLevel, psaStatus, gradesReady, submission.id]
     );
 
     // Update or import cards
