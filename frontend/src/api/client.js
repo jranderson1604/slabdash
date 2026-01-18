@@ -20,9 +20,9 @@ export const auth = {
 };
 
 export const companies = {
-  get: (id) => api.get(`/companies/${id}`),
-  update: (id, data) => api.put(`/companies/${id}`, data),
-  updatePsaKey: (id, psaApiKey) => api.put(`/companies/${id}/psa-key`, { psa_api_key: psaApiKey })
+  get: () => api.get('/companies/settings'),
+  update: (data) => api.patch('/companies/settings', data),
+  updatePsaKey: (psaApiKey) => api.post('/companies/psa-key', { apiKey: psaApiKey })
 };
 
 export const customers = {

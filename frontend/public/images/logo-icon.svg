@@ -1,0 +1,6 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="128" height="128" rx="24" fill="#EF4444"/>
+  <path d="M45 85C45 85 35 82 35 70C35 58 45 55 45 55H65C65 55 75 58 75 70C75 82 65 85 65 85H45Z" fill="white"/>
+  <path d="M65 43C65 43 75 46 75 58C75 70 65 73 65 73H45C45 73 35 70 35 58C35 46 45 43 45 43H65Z" fill="white"/>
+  <text x="64" y="80" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="white" text-anchor="middle">S</text>
+</svg>

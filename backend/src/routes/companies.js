@@ -11,7 +11,7 @@ router.get('/settings', authenticate, async (req, res) => {
              primary_color, auto_refresh_enabled, auto_refresh_interval_hours,
              email_notifications_enabled, plan, created_at
              FROM companies WHERE id = $1`,
-            [req.companyId]
+            [req.user.company_id]
         );
         res.json(result.rows[0]);
     } catch (error) {
@@ -39,7 +39,7 @@ router.patch('/settings', authenticate, async (req, res) => {
 
         if (updates.length === 0) return res.status(400).json({ error: 'No valid fields' });
 
-        values.push(req.companyId);
+        values.push(req.user.company_id);
         const result = await db.query(`UPDATE companies SET ${updates.join(', ')} WHERE id = $${i} RETURNING *`, values);
         res.json(result.rows[0]);
     } catch (error) {

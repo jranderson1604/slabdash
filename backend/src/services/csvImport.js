@@ -2,62 +2,36 @@ const { parse } = require("csv-parse/sync");
 const db = require("../db");
 
 /**
- * Parse PSA CSV file and extract submission and card data
- * Expected CSV format (common PSA export format):
- * Order #, Service Level, Cert #, Year, Brand, Card #, Player, Variety/Pedigree, Grade, Qualifier
+ * Parse PSA CSV file - supports two formats:
+ * 1. Detailed format: Order #, Service Level, Cert #, Year, Brand, Card #, Player, Variety/Pedigree, Grade, Qualifier
+ * 2. PSA export format: Cert #, Type, Description, Grade, After Service, Images
+ * @param {string} csvContent - CSV file content
+ * @param {string} psaSubmissionNumber - Optional PSA submission number to use instead of auto-generated one
  */
-function parsePSACSV(csvContent) {
+function parsePSACSV(csvContent, psaSubmissionNumber = null) {
   try {
     const records = parse(csvContent, {
       columns: true,
       skip_empty_lines: true,
       trim: true,
-      relax_column_count: true
+      relax_column_count: true,
+      bom: true  // Handle UTF-8 BOM that Excel adds to CSV files
     });
 
-    // Group cards by order/submission number
-    const submissions = {};
+    if (records.length === 0) {
+      return [];
+    }
 
-    records.forEach((record, index) => {
-      // Extract submission number (could be in different column names)
-      const submissionNumber =
-        record["Order #"] ||
-        record["Order Number"] ||
-        record["Submission #"] ||
-        record["Submission Number"] ||
-        record["PSA Submission #"];
+    // Detect CSV format by checking column names
+    const firstRecord = records[0];
+    const hasDetailedFormat = firstRecord["Order #"] || firstRecord["Order Number"];
+    const hasPSAFormat = firstRecord["Cert #"] && firstRecord["Description"];
 
-      if (!submissionNumber) {
-        console.warn(`Row ${index + 1}: No submission number found, skipping`);
-        return;
-      }
-
-      // Initialize submission group if not exists
-      if (!submissions[submissionNumber]) {
-        submissions[submissionNumber] = {
-          psa_submission_number: submissionNumber,
-          service_level: record["Service Level"] || record["Service"] || null,
-          cards: []
-        };
-      }
-
-      // Extract card data
-      const card = {
-        psa_cert_number: record["Cert #"] || record["Cert Number"] || record["Certificate #"] || null,
-        year: record["Year"] || null,
-        brand: record["Brand"] || record["Set"] || null,
-        card_number: record["Card #"] || record["Card Number"] || null,
-        player_name: record["Player"] || record["Subject"] || null,
-        variation: record["Variety/Pedigree"] || record["Variety"] || record["Pedigree"] || null,
-        grade: record["Grade"] || null,
-        qualifier: record["Qualifier"] || null,
-        description: buildCardDescription(record)
-      };
-
-      submissions[submissionNumber].cards.push(card);
-    });
-
-    return Object.values(submissions);
+    if (hasPSAFormat && !hasDetailedFormat) {
+      return parsePSAExportFormat(records, psaSubmissionNumber);
+    } else {
+      return parseDetailedFormat(records);
+    }
   } catch (err) {
     console.error("CSV Parse Error:", err);
     throw new Error(`Failed to parse CSV: ${err.message}`);
@@ -65,7 +39,186 @@ function parsePSACSV(csvContent) {
 }
 
 /**
- * Build a card description from CSV record
+ * Parse PSA export format: Cert #, Type, Description, Grade, After Service, Images
+ * @param {Array} records - Parsed CSV records
+ * @param {string} psaSubmissionNumber - Optional PSA submission number from user
+ */
+function parsePSAExportFormat(records, psaSubmissionNumber = null) {
+  // Create a single submission for all cards in this import
+  // Use provided PSA submission number, or generate a placeholder
+  let submissionNumber;
+  if (psaSubmissionNumber) {
+    submissionNumber = psaSubmissionNumber;
+  } else {
+    const timestamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    submissionNumber = `PSA-IMPORT-${timestamp}-${Date.now().toString().slice(-6)}`;
+  }
+
+  const cards = [];
+
+  records.forEach((record, index) => {
+    const certNumber = record["Cert #"];
+    if (!certNumber) {
+      console.warn(`Row ${index + 1}: No cert number found, skipping`);
+      return;
+    }
+
+    // Parse the description field to extract what we can
+    const description = record["Description"] || "Imported Card";
+    const parsed = parseCardDescription(description);
+
+    const card = {
+      psa_cert_number: certNumber,
+      year: parsed.year,
+      brand: parsed.brand,
+      card_number: parsed.cardNumber,
+      player_name: parsed.player,
+      variation: parsed.variation,
+      grade: record["Grade"] || null,
+      qualifier: null,
+      description: description,
+      status: record["After Service"] || null,
+      image_url: record["Images"] || null
+    };
+
+    cards.push(card);
+  });
+
+  return [{
+    psa_submission_number: submissionNumber,
+    service_level: null,
+    cards: cards
+  }];
+}
+
+/**
+ * Parse PSA description to extract year, brand, player, etc.
+ * Example: "2024 PANINI DONRUSS DOWNTOWN! 13 DRAKE MAYE"
+ * Format: YEAR BRAND SET CARDNUMBER PLAYER_NAME
+ */
+function parseCardDescription(description) {
+  const result = {
+    year: null,
+    brand: null,
+    player: null,
+    variation: null,
+    cardNumber: null
+  };
+
+  if (!description) return result;
+
+  // Extract year (first 4 digits)
+  const yearMatch = description.match(/^(\d{4})\s+/);
+  if (yearMatch) {
+    result.year = yearMatch[1];
+    description = description.substring(yearMatch[0].length); // Remove year
+  }
+
+  // Common brands to detect
+  const brands = ['PANINI', 'TOPPS', 'BOWMAN', 'DONRUSS', 'UPPER DECK', 'FLEER', 'PRIZM', 'CHROME', 'OPTIC', 'SELECT', 'LEAF'];
+  const descUpper = description.toUpperCase();
+
+  let brandFound = null;
+  let brandIndex = -1;
+  for (const brand of brands) {
+    const idx = descUpper.indexOf(brand);
+    if (idx !== -1) {
+      brandFound = brand;
+      brandIndex = idx;
+      break;
+    }
+  }
+
+  if (brandFound) {
+    // Extract everything from brand to end of set name (usually ends before card number or player name)
+    // Pattern: brand might be followed by set name, then card number, then player
+    const afterBrand = description.substring(brandIndex);
+
+    // Try to find player name (usually at the end, capitalized words)
+    // Pattern: "PANINI DONRUSS DOWNTOWN! 13 DRAKE MAYE"
+    // Split by spaces and find capitalized proper names at the end
+    const parts = afterBrand.split(/\s+/);
+
+    // Player name is usually the last 2-3 capitalized words
+    const playerParts = [];
+    for (let i = parts.length - 1; i >= 0; i--) {
+      const part = parts[i];
+      // Stop if we hit a number or special chars (likely card number or set name)
+      if (/^\d+$/.test(part) || /[!#]/.test(part)) break;
+      // Collect capitalized words (likely player name)
+      if (/^[A-Z][A-Z]*$/.test(part)) {
+        playerParts.unshift(part);
+      } else {
+        break;
+      }
+    }
+
+    if (playerParts.length > 0) {
+      result.player = playerParts.join(' ');
+    }
+
+    // Card set is from brand to before player name
+    const playerName = result.player || '';
+    const setEndIndex = playerName ? afterBrand.lastIndexOf(playerName) : afterBrand.length;
+    result.brand = afterBrand.substring(0, setEndIndex).trim();
+  } else {
+    // No brand found, use whole description as brand
+    result.brand = description.trim();
+  }
+
+  return result;
+}
+
+/**
+ * Parse detailed format: Order #, Service Level, Cert #, Year, Brand, Card #, Player, etc.
+ */
+function parseDetailedFormat(records) {
+  const submissions = {};
+
+  records.forEach((record, index) => {
+    // Extract submission number (could be in different column names)
+    const submissionNumber =
+      record["Order #"] ||
+      record["Order Number"] ||
+      record["Submission #"] ||
+      record["Submission Number"] ||
+      record["PSA Submission #"];
+
+    if (!submissionNumber) {
+      console.warn(`Row ${index + 1}: No submission number found, skipping`);
+      return;
+    }
+
+    // Initialize submission group if not exists
+    if (!submissions[submissionNumber]) {
+      submissions[submissionNumber] = {
+        psa_submission_number: submissionNumber,
+        service_level: record["Service Level"] || record["Service"] || null,
+        cards: []
+      };
+    }
+
+    // Extract card data
+    const card = {
+      psa_cert_number: record["Cert #"] || record["Cert Number"] || record["Certificate #"] || null,
+      year: record["Year"] || null,
+      brand: record["Brand"] || record["Set"] || null,
+      card_number: record["Card #"] || record["Card Number"] || null,
+      player_name: record["Player"] || record["Subject"] || null,
+      variation: record["Variety/Pedigree"] || record["Variety"] || record["Pedigree"] || null,
+      grade: record["Grade"] || null,
+      qualifier: record["Qualifier"] || null,
+      description: buildCardDescription(record)
+    };
+
+    submissions[submissionNumber].cards.push(card);
+  });
+
+  return Object.values(submissions);
+}
+
+/**
+ * Build a card description from detailed CSV record
  */
 function buildCardDescription(record) {
   const parts = [];
@@ -83,14 +236,19 @@ function buildCardDescription(record) {
 
 /**
  * Import submissions and cards into database
+ * @param {string} csvContent - CSV file content
+ * @param {string} companyId - Company UUID
+ * @param {string} userId - User ID (admin user or customer) to assign submissions to
+ * @param {string} psaSubmissionNumber - Optional PSA submission number from user
  */
-async function importSubmissionsFromCSV(csvContent, companyId, customerId = null) {
-  const submissions = parsePSACSV(csvContent);
+async function importSubmissionsFromCSV(csvContent, companyId, userId = null, psaSubmissionNumber = null) {
+  const submissions = parsePSACSV(csvContent, psaSubmissionNumber);
   const results = {
     success: true,
     submissionsCreated: 0,
     submissionsUpdated: 0,
     cardsCreated: 0,
+    cardsUpdated: 0,
     errors: []
   };
 
@@ -110,8 +268,7 @@ async function importSubmissionsFromCSV(csvContent, companyId, customerId = null
         submissionId = existingSubmission.rows[0].id;
         await db.query(
           `UPDATE submissions
-           SET service_level = COALESCE($1, service_level),
-               updated_at = NOW()
+           SET service_level = COALESCE($1, service_level)
            WHERE id = $2`,
           [submissionData.service_level, submissionId]
         );
@@ -120,10 +277,10 @@ async function importSubmissionsFromCSV(csvContent, companyId, customerId = null
         // Create new submission
         const newSubmission = await db.query(
           `INSERT INTO submissions (
-            company_id, customer_id, psa_submission_number, service_level
+            company_id, user_id, psa_submission_number, service_level
           ) VALUES ($1, $2, $3, $4)
           RETURNING id`,
-          [companyId, customerId, submissionData.psa_submission_number, submissionData.service_level]
+          [companyId, userId, submissionData.psa_submission_number, submissionData.service_level]
         );
         submissionId = newSubmission.rows[0].id;
         results.submissionsCreated++;
@@ -136,61 +293,57 @@ async function importSubmissionsFromCSV(csvContent, companyId, customerId = null
           if (cardData.psa_cert_number) {
             const existingCard = await db.query(
               `SELECT id FROM cards
-               WHERE company_id = $1 AND psa_cert_number = $2`,
-              [companyId, cardData.psa_cert_number]
+               WHERE psa_cert_number = $1`,
+              [cardData.psa_cert_number]
             );
 
             if (existingCard.rows.length > 0) {
-              // Update existing card
+              // Update existing card with new data
+              const cardImages = cardData.image_url ? [cardData.image_url] : [];
               await db.query(
                 `UPDATE cards
                  SET year = COALESCE($1, year),
-                     brand = COALESCE($2, brand),
-                     card_number = COALESCE($3, card_number),
-                     player_name = COALESCE($4, player_name),
-                     variation = COALESCE($5, variation),
-                     grade = COALESCE($6, grade),
-                     qualifier = COALESCE($7, qualifier),
-                     submission_id = $8,
-                     updated_at = NOW()
+                     player_name = COALESCE($2, player_name),
+                     card_set = COALESCE($3, card_set),
+                     grade = COALESCE($4, grade),
+                     submission_id = $5,
+                     company_id = $6,
+                     customer_id = $7,
+                     card_images = COALESCE($8, card_images)
                  WHERE id = $9`,
                 [
                   cardData.year,
-                  cardData.brand,
-                  cardData.card_number,
-                  cardData.player_name,
-                  cardData.variation,
+                  cardData.player_name || cardData.description || 'Unknown Player',
+                  cardData.brand || 'Unknown',
                   cardData.grade,
-                  cardData.qualifier,
                   submissionId,
+                  companyId,
+                  userId,
+                  cardImages.length > 0 ? JSON.stringify(cardImages) : null,
                   existingCard.rows[0].id
                 ]
               );
+              results.cardsUpdated++;
               continue;
             }
           }
 
-          // Create new card
+          // Create new card - include company_id, customer_id, and PSA card images
+          const cardImages = cardData.image_url ? [cardData.image_url] : [];
           await db.query(
             `INSERT INTO cards (
-              company_id, submission_id, customer_id, description,
-              year, brand, card_number, player_name, variation,
-              psa_cert_number, grade, qualifier, status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+              company_id, submission_id, customer_id, year, player_name, card_set, grade, psa_cert_number, card_images
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
             [
               companyId,
               submissionId,
-              customerId,
-              cardData.description,
+              userId,
               cardData.year,
-              cardData.brand,
-              cardData.card_number,
-              cardData.player_name,
-              cardData.variation,
-              cardData.psa_cert_number,
+              cardData.player_name || cardData.description || 'Unknown Player',
+              cardData.brand || 'Unknown',
               cardData.grade,
-              cardData.qualifier,
-              cardData.grade ? "graded" : "pending"
+              cardData.psa_cert_number,
+              cardImages.length > 0 ? JSON.stringify(cardImages) : null
             ]
           );
           results.cardsCreated++;

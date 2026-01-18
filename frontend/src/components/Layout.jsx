@@ -57,9 +57,15 @@ export default function Layout({ children }) {
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-brand-100">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
+            <img
+              src="/images/logo-icon.svg"
+              alt="SlabDash"
+              className="w-8 h-8"
+              onError={(e) => {
+                // Fallback to PNG if SVG fails
+                e.target.src = '/images/logo-icon.png';
+              }}
+            />
             <span className="text-xl font-bold text-gray-900">SlabDash</span>
           </Link>
           <button
