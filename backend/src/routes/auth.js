@@ -15,7 +15,7 @@ router.post('/login', async (req, res) => {
         }
 
         const result = await db.query(
-            `SELECT u.*, c.name as company_name, c.slug as company_slug, c.psa_api_key IS NOT NULL as has_psa_key
+            `SELECT u.*, c.name as company_name, c.slug as company_slug, c.psa_api_key IS NOT NULL as has_psa_key, c.primary_color
              FROM users u JOIN companies c ON u.company_id = c.id
              WHERE u.email = $1 AND u.is_active = true`,
             [email.toLowerCase()]
@@ -50,7 +50,8 @@ router.post('/login', async (req, res) => {
                 id: user.company_id,
                 name: user.company_name,
                 slug: user.company_slug,
-                hasPsaKey: user.has_psa_key
+                hasPsaKey: user.has_psa_key,
+                primary_color: user.primary_color || '#8842f0'
             }
         });
     } catch (error) {
@@ -134,7 +135,8 @@ router.get('/me', authenticate, (req, res) => {
             id: req.user.company_id,
             name: req.user.company_name,
             slug: req.user.company_slug,
-            hasPsaKey: !!req.user.psa_api_key
+            hasPsaKey: !!req.user.psa_api_key,
+            primary_color: req.user.primary_color || '#8842f0'
         }
     });
 });
