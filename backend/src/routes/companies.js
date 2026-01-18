@@ -49,7 +49,7 @@ router.patch('/settings', authenticate, async (req, res) => {
 });
 
 // Set PSA API key
-router.post('/psa-key', authenticate, requireRole('owner', 'admin'), async (req, res) => {
+router.post('/psa-key', authenticate, async (req, res) => {
     try {
         const { apiKey } = req.body;
         if (!apiKey) return res.status(400).json({ error: 'API key required' });
