@@ -29,9 +29,13 @@ export default function ThemeProvider({ children }) {
   const { company } = useAuth();
 
   useEffect(() => {
-    if (!company?.primary_color) return;
+    if (!company?.primary_color) {
+      console.log('ThemeProvider: No company or primary_color yet', { company });
+      return;
+    }
 
     const primaryColor = company.primary_color;
+    console.log('ThemeProvider: Applying color', primaryColor);
     const rgb = hexToRgb(primaryColor);
 
     // Generate color shades (50-900 scale like Tailwind)
@@ -51,8 +55,12 @@ export default function ThemeProvider({ children }) {
     // Inject CSS variables into root
     const root = document.documentElement;
     Object.entries(shades).forEach(([shade, color]) => {
-      root.style.setProperty(`--brand-${shade}`, `${color.r} ${color.g} ${color.b}`);
+      const cssValue = `${color.r} ${color.g} ${color.b}`;
+      root.style.setProperty(`--brand-${shade}`, cssValue);
+      console.log(`Set --brand-${shade}: ${cssValue}`);
     });
+
+    console.log('ThemeProvider: Colors applied successfully');
   }, [company?.primary_color]);
 
   return children;
