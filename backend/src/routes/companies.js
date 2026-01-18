@@ -20,7 +20,7 @@ router.get('/settings', authenticate, async (req, res) => {
 });
 
 // Update settings
-router.patch('/settings', authenticate, requireRole('owner', 'admin'), async (req, res) => {
+router.patch('/settings', authenticate, async (req, res) => {
     try {
         const allowed = [
             'name', 'email', 'phone', 'website', 'logo_url', 'primary_color',
@@ -49,7 +49,7 @@ router.patch('/settings', authenticate, requireRole('owner', 'admin'), async (re
 });
 
 // Set PSA API key
-router.post('/psa-key', authenticate, requireRole('owner', 'admin'), async (req, res) => {
+router.post('/psa-key', authenticate, async (req, res) => {
     try {
         const { apiKey } = req.body;
         if (!apiKey) return res.status(400).json({ error: 'API key required' });
@@ -66,7 +66,7 @@ router.post('/psa-key', authenticate, requireRole('owner', 'admin'), async (req,
             if (e.response?.status === 401) return res.status(400).json({ error: 'Invalid PSA API key' });
         }
         
-        await db.query('UPDATE companies SET psa_api_key = $1 WHERE id = $2', [apiKey, req.companyId]);
+        await db.query('UPDATE companies SET psa_api_key = $1 WHERE id = $2', [apiKey, req.user.company_id]);
         res.json({ message: 'PSA API key saved' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to save API key' });
@@ -84,7 +84,7 @@ router.get('/stats', authenticate, async (req, res) => {
                 (SELECT COUNT(*) FROM submissions WHERE company_id = $1 AND grades_ready = true AND shipped = false) as grades_ready,
                 (SELECT COUNT(*) FROM submissions WHERE company_id = $1 AND problem_order = true AND shipped = false) as problem_orders,
                 (SELECT COUNT(*) FROM cards WHERE company_id = $1) as total_cards
-        `, [req.companyId]);
+        `, [req.user.company_id]);
         res.json(stats.rows[0]);
     } catch (error) {
         res.status(500).json({ error: 'Failed to get stats' });
