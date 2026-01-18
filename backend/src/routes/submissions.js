@@ -123,31 +123,40 @@ router.post("/", authenticate, async (req, res) => {
 
     // Automatically fetch PSA order data if PSA submission number is provided
     if (psa_submission_number) {
-      const companyResult = await db.query(
-        "SELECT psa_api_key FROM companies WHERE id = $1",
-        [req.user.company_id]
-      );
+      try {
+        const companyResult = await db.query(
+          "SELECT psa_api_key FROM companies WHERE id = $1",
+          [req.user.company_id]
+        );
 
-      const psaApiKey = companyResult.rows[0]?.psa_api_key;
+        const psaApiKey = companyResult.rows[0]?.psa_api_key;
 
-      if (psaApiKey) {
-        console.log(`Fetching PSA order data for ${psa_submission_number}...`);
-        psaOrderData = await fetchPSAOrderData(psa_submission_number, psaApiKey);
+        if (psaApiKey) {
+          console.log(`Fetching PSA order data for ${psa_submission_number}...`);
+          psaOrderData = await fetchPSAOrderData(psa_submission_number, psaApiKey);
 
-        if (psaOrderData) {
-          console.log("PSA order data fetched successfully:", {
-            orderNumber: psaOrderData.OrderNumber,
-            status: psaOrderData.Status,
-            serviceLevel: psaOrderData.ServiceLevel,
-            cardCount: psaOrderData.Cards?.length || 0
-          });
+          if (psaOrderData) {
+            console.log("PSA order data fetched successfully:", {
+              orderNumber: psaOrderData.OrderNumber,
+              status: psaOrderData.Status,
+              serviceLevel: psaOrderData.ServiceLevel,
+              cardCount: psaOrderData.Cards?.length || 0
+            });
+          } else {
+            console.log("PSA API returned no data - continuing without PSA data");
+          }
+        } else {
+          console.log("No PSA API key configured - skipping PSA data fetch");
         }
+      } catch (psaError) {
+        console.error("PSA fetch failed, continuing without PSA data:", psaError.message);
+        // Continue without PSA data - don't fail the whole submission
       }
     }
 
     // Check if PSA order is complete (grades ready)
     const psaStatus = psaOrderData?.Status || null;
-    const gradesReady = psaStatus && (
+    const gradesReady = psaStatus && typeof psaStatus === 'string' && (
       psaStatus.toLowerCase().includes('complete') ||
       psaStatus.toLowerCase().includes('ready') ||
       psaStatus.toLowerCase().includes('graded')
@@ -185,34 +194,39 @@ router.post("/", authenticate, async (req, res) => {
     const submission = result.rows[0];
 
     // If we got card data from PSA, automatically import the cards
-    if (psaOrderData?.Cards && psaOrderData.Cards.length > 0) {
+    if (psaOrderData?.Cards && Array.isArray(psaOrderData.Cards) && psaOrderData.Cards.length > 0) {
       console.log(`Importing ${psaOrderData.Cards.length} cards from PSA order...`);
 
       for (const card of psaOrderData.Cards) {
-        await db.query(
-          `INSERT INTO cards (
-            company_id,
-            submission_id,
-            customer_id,
-            year,
-            player_name,
-            card_set,
-            grade,
-            psa_cert_number,
-            card_images
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-          [
-            req.user.company_id,
-            submission.id,
-            customer_id || null,
-            card.Year || null,
-            card.SubjectName || card.CardName || 'Unknown',
-            card.Brand || card.Set || null,
-            card.Grade || null,
-            card.CertNumber || null,
-            card.ImageURL ? JSON.stringify([card.ImageURL]) : null
-          ]
-        );
+        try {
+          await db.query(
+            `INSERT INTO cards (
+              company_id,
+              submission_id,
+              customer_id,
+              year,
+              player_name,
+              card_set,
+              grade,
+              psa_cert_number,
+              card_images
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [
+              req.user.company_id,
+              submission.id,
+              customer_id || null,
+              card.Year || null,
+              card.SubjectName || card.CardName || 'Unknown',
+              card.Brand || card.Set || null,
+              card.Grade || null,
+              card.CertNumber || null,
+              card.ImageURL ? JSON.stringify([card.ImageURL]) : null
+            ]
+          );
+        } catch (cardError) {
+          console.error(`Failed to import card:`, cardError.message, card);
+          // Continue with other cards even if one fails
+        }
       }
     }
 
@@ -223,9 +237,11 @@ router.post("/", authenticate, async (req, res) => {
     });
   } catch (error) {
     console.error("Create submission error:", error);
+    console.error("Error stack:", error.stack);
     res.status(500).json({
       error: "Failed to create submission",
-      details: error.message
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
