@@ -166,6 +166,7 @@ router.post("/", authenticate, async (req, res) => {
     const result = await db.query(
       `INSERT INTO submissions (
         company_id,
+        user_id,
         customer_id,
         internal_id,
         psa_submission_number,
@@ -175,10 +176,11 @@ router.post("/", authenticate, async (req, res) => {
         psa_status,
         grades_ready,
         last_refreshed_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *`,
       [
         req.user.company_id,
+        req.user.id,
         customer_id || null,
         internal_id || null,
         psa_submission_number || null,
