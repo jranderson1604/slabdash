@@ -441,13 +441,45 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
     console.log('CSV Data length:', csvData?.length);
     console.log('CSV Data preview:', csvData?.substring(0, 200));
 
+    // Helper function to parse CSV line with quoted fields
+    const parseCSVLine = (line) => {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const nextChar = line[i + 1];
+
+        if (char === '"') {
+          if (inQuotes && nextChar === '"') {
+            // Escaped quote
+            current += '"';
+            i++;
+          } else {
+            // Toggle quote state
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          // End of field
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    };
+
     // Parse CSV (PSA format: Cert #, Type, Description, Grade, After Service, Images)
     const lines = csvData.trim().split('\n');
     console.log('Total lines:', lines.length);
     console.log('Line 0 (header):', lines[0]);
     if (lines.length > 1) console.log('Line 1 (first data):', lines[1]);
 
-    const headers = lines[0].split('\t');
+    // Parse header line
+    const headers = parseCSVLine(lines[0]);
     console.log('Headers found:', headers);
 
     // Find column indices
@@ -471,7 +503,7 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
         continue;
       }
 
-      const cols = line.split('\t');
+      const cols = parseCSVLine(line);
       console.log(`Row ${i + 1} columns (${cols.length}):`, cols);
 
       const certNumber = certIndex >= 0 ? cols[certIndex]?.trim() : null;
