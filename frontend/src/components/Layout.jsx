@@ -57,7 +57,7 @@ export default function Layout({ children }) {
       >
         {/* Logo */}
         <div className="flex items-center justify-between h-16 px-4 border-b border-brand-100">
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/dashboard" className="flex items-center gap-2">
             <img
               src="/images/logo-icon.svg"
               alt="SlabDash"
