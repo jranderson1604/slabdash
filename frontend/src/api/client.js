@@ -45,7 +45,9 @@ export const submissions = {
   delete: (id) => api.delete(`/submissions/${id}`),
   refresh: (id) => api.post(`/submissions/${id}/refresh`),
   assignCustomer: (id, customerId) => api.put(`/submissions/${id}`, { customer_id: customerId }),
-  uploadImage: (id, formData) => 
+  addCustomer: (id, data) => api.post(`/submissions/${id}/customers`, data),
+  removeCustomer: (id, customerId) => api.delete(`/submissions/${id}/customers/${customerId}`),
+  uploadImage: (id, formData) =>
     api.post(`/submissions/${id}/images`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })

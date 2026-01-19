@@ -349,6 +349,30 @@ export default function SubmissionDetail() {
     setShowAddCard(false);
   };
 
+  const handleAddLinkedCustomer = async (customerId) => {
+    setAssigningCustomer(true);
+    try {
+      await submissions.addCustomer(id, { customer_id: customerId });
+      await loadSubmission();
+    } catch (error) {
+      console.error('Add customer failed:', error);
+      alert('Failed to add customer to submission');
+    } finally {
+      setAssigningCustomer(false);
+    }
+  };
+
+  const handleRemoveLinkedCustomer = async (customerId) => {
+    if (!confirm('Remove this customer from the submission?')) return;
+    try {
+      await submissions.removeCustomer(id, customerId);
+      await loadSubmission();
+    } catch (error) {
+      console.error('Remove customer failed:', error);
+      alert('Failed to remove customer');
+    }
+  };
+
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -690,39 +714,65 @@ export default function SubmissionDetail() {
             )}
           </div>
 
-          {/* Customer */}
+          {/* Customers (Consignment Tracking) */}
           <div className="card p-6">
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <User className="w-4 h-4" />
-              Customer
-            </h3>
-            {submission.customer_id ? (
-              <div>
-                <p className="font-medium text-gray-900">{submission.customer_name}</p>
-                <Link
-                  to={`/customers/${submission.customer_id}`}
-                  className="text-sm text-brand-600 hover:underline"
-                >
-                  View customer →
-                </Link>
-              </div>
-            ) : (
-              <div>
-                <p className="text-gray-500 text-sm mb-3">No customer assigned</p>
-                <select
-                  onChange={(e) => e.target.value && handleAssignCustomer(e.target.value)}
-                  disabled={assigningCustomer}
-                  className="input"
-                  defaultValue=""
-                >
-                  <option value="">Select customer...</option>
-                  {customerList.map((c) => (
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Customers ({submission.linked_customers?.length || 0})
+              </h3>
+            </div>
+
+            {/* Add customer dropdown */}
+            <div className="mb-4">
+              <select
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleAddLinkedCustomer(e.target.value);
+                    e.target.value = '';
+                  }
+                }}
+                disabled={assigningCustomer}
+                className="input text-sm"
+              >
+                <option value="">+ Add customer...</option>
+                {customerList
+                  .filter(c => !submission.linked_customers?.some(lc => lc.id === c.id))
+                  .map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name} ({c.email})
                     </option>
                   ))}
-                </select>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Track multiple customers in one submission (consignment)
+              </p>
+            </div>
+
+            {/* Linked customers list */}
+            {submission.linked_customers?.length > 0 ? (
+              <div className="space-y-2">
+                {submission.linked_customers.map((customer) => (
+                  <div key={customer.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div className="flex-1">
+                      <p className="font-medium text-sm text-gray-900">{customer.name}</p>
+                      <p className="text-xs text-gray-500">{customer.email}</p>
+                      {customer.card_count > 0 && (
+                        <p className="text-xs text-brand-600 mt-1">{customer.card_count} cards</p>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => handleRemoveLinkedCustomer(customer.id)}
+                      className="p-1 text-red-500 hover:bg-red-50 rounded"
+                      title="Remove customer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
               </div>
+            ) : (
+              <p className="text-sm text-gray-500">No customers linked yet</p>
             )}
           </div>
 

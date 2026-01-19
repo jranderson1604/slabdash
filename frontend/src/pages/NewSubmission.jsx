@@ -49,10 +49,15 @@ export default function NewSubmission() {
 
   const serviceLevels = [
     'Value',
+    'Value Bulk',
     'Regular',
     'Express',
     'Super Express',
     'Walk-Through',
+    'Autograph Authentication',
+    'Vintage',
+    'Vintage Bulk',
+    'TCG Bulk',
     'Reholder',
     'Crossover',
   ];

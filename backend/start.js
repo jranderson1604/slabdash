@@ -23,6 +23,14 @@ async function runMigrationsAndStart() {
     await db.query(migration009);
     console.log('✓ Migration 009: Theme color columns added');
 
+    // Migration 010: Multi-customer support
+    const migration010 = fs.readFileSync(
+      path.join(__dirname, 'migrations/010_add_multi_customer_support.sql'),
+      'utf8'
+    );
+    await db.query(migration010);
+    console.log('✓ Migration 010: Multi-customer support added');
+
     console.log('All migrations completed successfully!\n');
   } catch (error) {
     // Don't fail if columns already exist

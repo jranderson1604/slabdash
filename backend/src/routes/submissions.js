@@ -77,9 +77,27 @@ router.get("/:id", authenticate, async (req, res) => {
       [req.params.id]
     );
 
+    // Get linked customers (for consignment tracking)
+    const linkedCustomersResult = await db.query(
+      `SELECT sc.id as link_id, sc.card_count, sc.notes, c.id, c.name, c.email, c.phone
+       FROM submission_customers sc
+       JOIN customers c ON sc.customer_id = c.id
+       WHERE sc.submission_id = $1
+       ORDER BY c.name`,
+      [req.params.id]
+    );
+
+    // Get submission steps
+    const stepsResult = await db.query(
+      `SELECT * FROM submission_steps WHERE submission_id = $1 ORDER BY step_index`,
+      [req.params.id]
+    );
+
     res.json({
       ...result.rows[0],
-      cards: cardsResult.rows
+      cards: cardsResult.rows,
+      linked_customers: linkedCustomersResult.rows,
+      steps: stepsResult.rows
     });
   } catch (error) {
     console.error("Get submission error:", error);
@@ -316,6 +334,68 @@ router.post("/:id/refresh", authenticate, async (req, res) => {
       error: "Failed to refresh submission",
       details: error.message
     });
+  }
+});
+
+// Add customer to submission (for consignment tracking)
+router.post("/:id/customers", authenticate, async (req, res) => {
+  try {
+    const { customer_id, card_count, notes } = req.body;
+
+    // Verify submission belongs to company
+    const submissionCheck = await db.query(
+      "SELECT id FROM submissions WHERE id = $1 AND company_id = $2",
+      [req.params.id, req.user.company_id]
+    );
+
+    if (submissionCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Submission not found" });
+    }
+
+    // Add customer link
+    const result = await db.query(
+      `INSERT INTO submission_customers (submission_id, customer_id, card_count, notes)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (submission_id, customer_id) DO UPDATE
+       SET card_count = $3, notes = $4
+       RETURNING *`,
+      [req.params.id, customer_id, card_count || 0, notes || null]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error("Add customer error:", error);
+    res.status(500).json({ error: "Failed to add customer to submission" });
+  }
+});
+
+// Remove customer from submission
+router.delete("/:id/customers/:customerId", authenticate, async (req, res) => {
+  try {
+    // Verify submission belongs to company
+    const submissionCheck = await db.query(
+      "SELECT id FROM submissions WHERE id = $1 AND company_id = $2",
+      [req.params.id, req.user.company_id]
+    );
+
+    if (submissionCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Submission not found" });
+    }
+
+    // Remove customer link
+    const result = await db.query(
+      "DELETE FROM submission_customers WHERE submission_id = $1 AND customer_id = $2 RETURNING *",
+      [req.params.id, req.params.customerId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Customer not linked to this submission" });
+    }
+
+    res.json({ message: "Customer removed from submission" });
+  } catch (error) {
+    console.error("Remove customer error:", error);
+    res.status(500).json({ error: "Failed to remove customer from submission" });
   }
 });
 
