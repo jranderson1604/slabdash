@@ -8,7 +8,7 @@ const axios = require("axios");
 async function fetchPSAOrderData(psaSubmissionNumber, psaApiKey) {
   try {
     const response = await axios.get(
-      `https://api.psacard.com/publicapi/order/GetOrder/${psaSubmissionNumber}`,
+      `https://api.psacard.com/publicapi/order/GetSubmissionProgress/${psaSubmissionNumber}`,
       {
         headers: {
           "Authorization": `Bearer ${psaApiKey}`,
