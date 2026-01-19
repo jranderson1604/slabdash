@@ -545,8 +545,8 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
         await db.query(
           `INSERT INTO cards (
             company_id, submission_id, customer_id, description,
-            psa_cert_number, grade, card_images, status
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            psa_cert_number, grade, card_images, status, player_name
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [
             req.user.company_id,
             submission.id,
@@ -555,7 +555,8 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
             certNumber,
             grade,
             imageUrl ? [imageUrl] : null,
-            'graded'
+            'graded',
+            '' // player_name - empty for CSV imports, can be filled in manually
           ]
         );
 
