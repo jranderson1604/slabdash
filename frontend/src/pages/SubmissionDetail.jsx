@@ -65,8 +65,11 @@ function CardRow({ card, onUpdate, onDelete }) {
   const [grade, setGrade] = useState(card.grade || '');
   const [lookingUp, setLookingUp] = useState(false);
   const [showImage, setShowImage] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
   const cardImages = card.card_images ? (Array.isArray(card.card_images) ? card.card_images : JSON.parse(card.card_images)) : [];
+  const hasImages = cardImages.length > 0;
 
   const handleLookup = async () => {
     if (!card.psa_cert_number) return;
@@ -91,26 +94,109 @@ function CardRow({ card, onUpdate, onDelete }) {
     }
   };
 
+  const handleImageUpload = async (files) => {
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      Array.from(files).forEach(file => {
+        formData.append('images', file);
+      });
+
+      const res = await cards.uploadImages(card.id, formData);
+      onUpdate(res.data);
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Failed to upload images');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+
+    const files = e.dataTransfer.files;
+    handleImageUpload(files);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  };
+
   return (
-    <tr>
+    <tr className={dragOver ? 'bg-brand-50' : ''}>
       <td>
         <div className="flex items-center gap-3">
-          {cardImages.length > 0 && (
-            <div className="relative">
+          <div
+            className={`relative w-16 h-20 flex-shrink-0 rounded border-2 ${
+              dragOver
+                ? 'border-brand-500 bg-brand-50'
+                : hasImages
+                ? 'border-gray-200'
+                : 'border-dashed border-yellow-400 bg-yellow-50'
+            }`}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+          >
+            {uploading ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <Loader2 className="w-6 h-6 animate-spin text-brand-500" />
+              </div>
+            ) : hasImages ? (
               <img
                 src={cardImages[0]}
                 alt={card.player_name || card.description}
-                className="w-16 h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75"
+                className="w-full h-full object-cover rounded cursor-pointer hover:opacity-75"
                 onClick={() => setShowImage(!showImage)}
               />
-            </div>
-          )}
-          <div>
+            ) : (
+              <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-yellow-100">
+                <Upload className="w-5 h-5 text-yellow-600 mb-1" />
+                <span className="text-[10px] text-yellow-700 text-center px-1">Drop or click</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => handleImageUpload(e.target.files)}
+                  className="hidden"
+                />
+              </label>
+            )}
+            {hasImages && (
+              <label className="absolute bottom-0 right-0 bg-brand-500 text-white rounded-tl p-1 cursor-pointer hover:bg-brand-600">
+                <Upload className="w-3 h-3" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => handleImageUpload(e.target.files)}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+          <div className="flex-1">
             <p className="font-medium text-gray-900">{card.description || card.player_name || 'Untitled'}</p>
             {card.player_name && (
               <p className="text-xs text-gray-500">
                 {card.year} {card.card_set || card.brand} {card.player_name}
               </p>
+            )}
+            {!hasImages && (
+              <p className="text-xs text-yellow-600 mt-1">⚠️ No image</p>
             )}
           </div>
         </div>
@@ -169,17 +255,31 @@ function CardRow({ card, onUpdate, onDelete }) {
       <td>
         <div className="flex items-center gap-2">
           {card.psa_cert_number && (
-            <button
-              onClick={handleLookup}
-              disabled={lookingUp}
-              className="btn btn-secondary py-1 px-2 text-xs"
-            >
-              {lookingUp ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Lookup'}
-            </button>
+            <>
+              <a
+                href={`https://www.psacard.com/cert/${card.psa_cert_number}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-secondary py-1 px-2 text-xs flex items-center gap-1"
+                title="View on PSA (right-click images to save)"
+              >
+                <ExternalLink className="w-3 h-3" />
+                PSA
+              </a>
+              <button
+                onClick={handleLookup}
+                disabled={lookingUp}
+                className="btn btn-secondary py-1 px-2 text-xs"
+                title="Try to fetch from PSA API"
+              >
+                {lookingUp ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Lookup'}
+              </button>
+            </>
           )}
           <button
             onClick={() => onDelete(card.id)}
             className="p-1 text-red-500 hover:bg-red-50 rounded"
+            title="Delete card"
           >
             <Trash2 className="w-4 h-4" />
           </button>
