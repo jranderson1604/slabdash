@@ -2,28 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const { authenticate, requireRole } = require("../middleware/auth");
-const axios = require("axios");
-
-// Helper function to fetch PSA order data
-async function fetchPSAOrderData(psaSubmissionNumber, psaApiKey) {
-  try {
-    const response = await axios.get(
-      `https://api.psacard.com/publicapi/order/GetSubmissionProgress/${psaSubmissionNumber}`,
-      {
-        headers: {
-          "Authorization": `Bearer ${psaApiKey}`,
-          "User-Agent": "SlabDash/1.0"
-        },
-        timeout: 15000
-      }
-    );
-    console.log("PSA API raw response:", JSON.stringify(response.data, null, 2));
-    return response.data;
-  } catch (error) {
-    console.error("PSA API error:", error.response?.data || error.message);
-    return null;
-  }
-}
+const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa } = require("../services/psaService");
 
 // List submissions
 router.get("/", authenticate, async (req, res) => {
@@ -120,7 +99,7 @@ router.post("/", authenticate, async (req, res) => {
       notes
     } = req.body;
 
-    let psaOrderData = null;
+    let parsedPsaData = null;
 
     // Automatically fetch PSA order data if PSA submission number is provided
     if (psa_submission_number) {
@@ -134,17 +113,18 @@ router.post("/", authenticate, async (req, res) => {
 
         if (psaApiKey) {
           console.log(`Fetching PSA order data for ${psa_submission_number}...`);
-          psaOrderData = await fetchPSAOrderData(psa_submission_number, psaApiKey);
+          const result = await getSubmissionProgress(psaApiKey, psa_submission_number);
 
-          if (psaOrderData) {
-            console.log("PSA order data fetched successfully:", {
-              orderNumber: psaOrderData.OrderNumber,
-              status: psaOrderData.Status,
-              serviceLevel: psaOrderData.ServiceLevel,
-              cardCount: psaOrderData.Cards?.length || 0
+          if (result.success) {
+            parsedPsaData = parseProgressData(result.data);
+            console.log("PSA order data fetched and parsed:", {
+              orderNumber: parsedPsaData.orderNumber,
+              currentStep: parsedPsaData.currentStep,
+              progressPercent: parsedPsaData.progressPercent,
+              gradesReady: parsedPsaData.gradesReady
             });
           } else {
-            console.log("PSA API returned no data - continuing without PSA data");
+            console.log("PSA API returned no data:", result.error);
           }
         } else {
           console.log("No PSA API key configured - skipping PSA data fetch");
@@ -154,14 +134,6 @@ router.post("/", authenticate, async (req, res) => {
         // Continue without PSA data - don't fail the whole submission
       }
     }
-
-    // Check if PSA order is complete (grades ready)
-    const psaStatus = psaOrderData?.Status || null;
-    const gradesReady = psaStatus && typeof psaStatus === 'string' && (
-      psaStatus.toLowerCase().includes('complete') ||
-      psaStatus.toLowerCase().includes('ready') ||
-      psaStatus.toLowerCase().includes('graded')
-    );
 
     // Insert submission with data from PSA API if available
     const result = await db.query(
@@ -175,9 +147,14 @@ router.post("/", authenticate, async (req, res) => {
         date_sent,
         notes,
         psa_status,
+        current_step,
+        progress_percent,
         grades_ready,
+        shipped,
+        problem_order,
+        accounting_hold,
         last_refreshed_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *`,
       [
         req.user.company_id,
@@ -185,58 +162,25 @@ router.post("/", authenticate, async (req, res) => {
         customer_id || null,
         internal_id || null,
         psa_submission_number || null,
-        psaOrderData?.ServiceLevel || service_level || null,
+        service_level || null,
         date_sent || null,
         notes || null,
-        psaStatus,
-        gradesReady || false,
-        psa_submission_number && psaOrderData ? new Date() : null
+        parsedPsaData?.currentStep || null,
+        parsedPsaData?.currentStep || null,
+        parsedPsaData?.progressPercent || 0,
+        parsedPsaData?.gradesReady || false,
+        parsedPsaData?.shipped || false,
+        parsedPsaData?.problemOrder || false,
+        parsedPsaData?.accountingHold || false,
+        parsedPsaData ? new Date() : null
       ]
     );
 
     const submission = result.rows[0];
 
-    // If we got card data from PSA, automatically import the cards
-    if (psaOrderData?.Cards && Array.isArray(psaOrderData.Cards) && psaOrderData.Cards.length > 0) {
-      console.log(`Importing ${psaOrderData.Cards.length} cards from PSA order...`);
-
-      for (const card of psaOrderData.Cards) {
-        try {
-          await db.query(
-            `INSERT INTO cards (
-              company_id,
-              submission_id,
-              customer_id,
-              year,
-              player_name,
-              card_set,
-              grade,
-              psa_cert_number,
-              card_images
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-            [
-              req.user.company_id,
-              submission.id,
-              customer_id || null,
-              card.Year || null,
-              card.SubjectName || card.CardName || 'Unknown',
-              card.Brand || card.Set || null,
-              card.Grade || null,
-              card.CertNumber || null,
-              card.ImageURL ? JSON.stringify([card.ImageURL]) : null
-            ]
-          );
-        } catch (cardError) {
-          console.error(`Failed to import card:`, cardError.message, card);
-          // Continue with other cards even if one fails
-        }
-      }
-    }
-
     res.status(201).json({
       ...submission,
-      psa_data_imported: !!psaOrderData,
-      cards_imported: psaOrderData?.Cards?.length || 0
+      psa_data_imported: !!parsedPsaData
     });
   } catch (error) {
     console.error("Create submission error:", error);
@@ -350,78 +294,21 @@ router.post("/:id/refresh", authenticate, async (req, res) => {
       return res.status(400).json({ error: "PSA API key not configured" });
     }
 
-    // Fetch latest data from PSA
-    const psaOrderData = await fetchPSAOrderData(submission.psa_submission_number, psaApiKey);
+    // Fetch and update submission from PSA
+    const result = await getSubmissionProgress(psaApiKey, submission.psa_submission_number);
 
-    if (!psaOrderData) {
-      return res.status(500).json({ error: "Failed to fetch data from PSA API" });
+    if (!result.success) {
+      return res.status(500).json({ error: result.error || "Failed to fetch data from PSA API" });
     }
 
-    // Check if grades are ready based on PSA status
-    const psaStatus = psaOrderData.Status;
-    const gradesReady = psaStatus && (
-      psaStatus.toLowerCase().includes('complete') ||
-      psaStatus.toLowerCase().includes('ready') ||
-      psaStatus.toLowerCase().includes('graded')
-    );
-
-    // Update submission
-    await db.query(
-      `UPDATE submissions
-       SET service_level = COALESCE($1, service_level),
-           psa_status = $2,
-           grades_ready = $3,
-           last_refreshed_at = NOW()
-       WHERE id = $4`,
-      [psaOrderData.ServiceLevel, psaStatus, gradesReady, submission.id]
-    );
-
-    // Update or import cards
-    if (psaOrderData.Cards && psaOrderData.Cards.length > 0) {
-      for (const card of psaOrderData.Cards) {
-        // Check if card already exists
-        const existingCard = await db.query(
-          "SELECT id FROM cards WHERE submission_id = $1 AND psa_cert_number = $2",
-          [submission.id, card.CertNumber]
-        );
-
-        if (existingCard.rows.length > 0) {
-          // Update existing card
-          await db.query(
-            `UPDATE cards SET grade = $1, card_images = $2 WHERE id = $3`,
-            [
-              card.Grade,
-              card.ImageURL ? JSON.stringify([card.ImageURL]) : null,
-              existingCard.rows[0].id
-            ]
-          );
-        } else {
-          // Insert new card
-          await db.query(
-            `INSERT INTO cards (
-              company_id, submission_id, customer_id, year, player_name,
-              card_set, grade, psa_cert_number, card_images
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-            [
-              req.user.company_id,
-              submission.id,
-              submission.customer_id,
-              card.Year || null,
-              card.SubjectName || card.CardName || 'Unknown',
-              card.Brand || card.Set || null,
-              card.Grade || null,
-              card.CertNumber || null,
-              card.ImageURL ? JSON.stringify([card.ImageURL]) : null
-            ]
-          );
-        }
-      }
-    }
+    // Update submission with latest PSA data
+    const parsed = await updateSubmissionFromPsa(submission.id, result.data);
 
     res.json({
       message: "Submission refreshed from PSA",
-      status: psaOrderData.Status,
-      cards_updated: psaOrderData.Cards?.length || 0
+      currentStep: parsed.currentStep,
+      progressPercent: parsed.progressPercent,
+      gradesReady: parsed.gradesReady
     });
   } catch (error) {
     console.error("Refresh submission error:", error);
