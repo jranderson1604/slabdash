@@ -289,6 +289,193 @@ function CardRow({ card, onUpdate, onDelete }) {
   );
 }
 
+function CustomerAssignmentSheet({ customer, submission, onClose, onUpdate }) {
+  const [selectedCards, setSelectedCards] = useState(new Set());
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    // Pre-select cards that are already assigned to this customer
+    const assignedCardIds = new Set(
+      submission.cards
+        .filter(card => card.customer_owner_id === customer.id)
+        .map(card => card.id)
+    );
+    setSelectedCards(assignedCardIds);
+  }, [customer.id, submission.cards]);
+
+  const toggleCard = (cardId) => {
+    const newSelection = new Set(selectedCards);
+    if (newSelection.has(cardId)) {
+      newSelection.delete(cardId);
+    } else {
+      newSelection.add(cardId);
+    }
+    setSelectedCards(newSelection);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Update each card's customer assignment
+      const updates = submission.cards.map(async (card) => {
+        const shouldBeAssigned = selectedCards.has(card.id);
+        const isAssigned = card.customer_owner_id === customer.id;
+
+        // Only update if there's a change
+        if (shouldBeAssigned !== isAssigned) {
+          await cards.update(card.id, {
+            customer_owner_id: shouldBeAssigned ? customer.id : null
+          });
+        }
+      });
+
+      await Promise.all(updates);
+      await onUpdate();
+      onClose();
+    } catch (error) {
+      console.error('Failed to update card assignments:', error);
+      alert('Failed to update card assignments');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={onClose} />
+
+      {/* Sheet */}
+      <div className="fixed right-0 top-0 h-full w-full max-w-2xl bg-white shadow-2xl z-50 flex flex-col slide-in-right">
+        {/* Header */}
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">{customer.name}</h2>
+              <p className="text-sm text-gray-500">{customer.email}</p>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <p className="text-sm text-gray-600 mt-2">
+            Select which cards belong to this customer
+          </p>
+        </div>
+
+        {/* Card list */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="space-y-3">
+            {submission.cards.map((card) => {
+              const cardImages = card.card_images ?
+                (Array.isArray(card.card_images) ? card.card_images : JSON.parse(card.card_images)) : [];
+              const hasImage = cardImages.length > 0;
+              const isSelected = selectedCards.has(card.id);
+
+              return (
+                <div
+                  key={card.id}
+                  onClick={() => toggleCard(card.id)}
+                  className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    isSelected
+                      ? 'border-brand-500 bg-brand-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {/* Checkbox */}
+                  <div className="flex-shrink-0">
+                    <div className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                      isSelected ? 'bg-brand-500 border-brand-500' : 'border-gray-300'
+                    }`}>
+                      {isSelected && <CheckCircle2 className="w-4 h-4 text-white" />}
+                    </div>
+                  </div>
+
+                  {/* Card image */}
+                  {hasImage && (
+                    <div className="w-12 h-16 flex-shrink-0">
+                      <img
+                        src={cardImages[0]}
+                        alt={card.player_name || card.description}
+                        className="w-full h-full object-cover rounded border border-gray-200"
+                      />
+                    </div>
+                  )}
+
+                  {/* Card details */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 truncate">
+                      {card.description || card.player_name || 'Untitled'}
+                    </p>
+                    {card.player_name && (
+                      <p className="text-sm text-gray-500 truncate">
+                        {card.year} {card.card_set || card.brand}
+                      </p>
+                    )}
+                    {card.psa_cert_number && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        Cert: {card.psa_cert_number}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Grade badge */}
+                  {card.grade && (
+                    <div className="flex-shrink-0">
+                      <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 font-bold text-gray-900">
+                        {card.grade}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {submission.cards.length === 0 && (
+            <div className="text-center py-12">
+              <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No cards in this submission yet</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-gray-600">
+              {selectedCards.size} card{selectedCards.size !== 1 ? 's' : ''} selected
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="btn btn-secondary flex-1"
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              className="btn btn-primary flex-1"
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Assignments'
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function AddCardForm({ submissionId, onAdd, onCancel }) {
   const [description, setDescription] = useState('');
   const [certNumber, setCertNumber] = useState('');
@@ -360,6 +547,7 @@ export default function SubmissionDetail() {
   const [searchQuery, setSearchQuery] = useState('');
   const [importingCSV, setImportingCSV] = useState(false);
   const [csvImportResult, setCsvImportResult] = useState(null);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
 
   const loadSubmission = async () => {
     try {
@@ -899,24 +1087,42 @@ export default function SubmissionDetail() {
             {/* Linked customers list */}
             {submission.linked_customers?.length > 0 ? (
               <div className="space-y-2">
-                {submission.linked_customers.map((customer) => (
-                  <div key={customer.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium text-sm text-gray-900">{customer.name}</p>
-                      <p className="text-xs text-gray-500">{customer.email}</p>
-                      {customer.card_count > 0 && (
-                        <p className="text-xs text-brand-600 mt-1">{customer.card_count} cards</p>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => handleRemoveLinkedCustomer(customer.id)}
-                      className="p-1 text-red-500 hover:bg-red-50 rounded"
-                      title="Remove customer"
+                {submission.linked_customers.map((customer) => {
+                  const assignedCards = submission.cards.filter(c => c.customer_owner_id === customer.id).length;
+
+                  return (
+                    <div
+                      key={customer.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group"
+                      onClick={() => setSelectedCustomer(customer)}
                     >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
+                      <div className="flex-1">
+                        <p className="font-medium text-sm text-gray-900 group-hover:text-brand-600 transition-colors">
+                          {customer.name}
+                        </p>
+                        <p className="text-xs text-gray-500">{customer.email}</p>
+                        <p className="text-xs text-brand-600 mt-1">
+                          {assignedCards} card{assignedCards !== 1 ? 's' : ''} assigned
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 group-hover:text-brand-600 transition-colors">
+                          Click to assign cards
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveLinkedCustomer(customer.id);
+                          }}
+                          className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          title="Remove customer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-sm text-gray-500">No customers linked yet</p>
@@ -934,6 +1140,16 @@ export default function SubmissionDetail() {
           )}
         </div>
       </div>
+
+      {/* Customer Assignment Sheet */}
+      {selectedCustomer && (
+        <CustomerAssignmentSheet
+          customer={selectedCustomer}
+          submission={submission}
+          onClose={() => setSelectedCustomer(null)}
+          onUpdate={loadSubmission}
+        />
+      )}
     </div>
   );
 }

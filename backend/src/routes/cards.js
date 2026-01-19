@@ -87,7 +87,7 @@ router.post('/bulk', authenticate, async (req, res) => {
 // Update card
 router.patch('/:id', authenticate, async (req, res) => {
     try {
-        const allowed = ['description', 'year', 'brand', 'card_number', 'player_name', 'team', 'variation', 'psa_cert_number', 'grade', 'notes'];
+        const allowed = ['description', 'year', 'brand', 'card_number', 'player_name', 'team', 'variation', 'psa_cert_number', 'grade', 'notes', 'customer_owner_id'];
         const updates = [], values = [];
         let i = 1;
         
