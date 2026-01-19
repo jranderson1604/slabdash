@@ -49,6 +49,8 @@ export default function Settings() {
     auto_refresh_interval_hours: 6,
     email_notifications_enabled: true,
     primary_color: '#ef4444',
+    background_color: '#f5f5f5',
+    sidebar_color: '#ffffff',
   });
 
   useEffect(() => {
@@ -69,6 +71,8 @@ export default function Settings() {
         auto_refresh_interval_hours: data.auto_refresh_interval_hours || 6,
         email_notifications_enabled: data.email_notifications_enabled ?? true,
         primary_color: data.primary_color || '#ef4444',
+        background_color: data.background_color || '#f5f5f5',
+        sidebar_color: data.sidebar_color || '#ffffff',
       });
     } catch (error) {
       console.error('Failed to load settings:', error);
@@ -364,7 +368,7 @@ export default function Settings() {
       >
         <div className="space-y-4">
           <div>
-            <label className="label">Primary Color</label>
+            <label className="label">Primary Color (Buttons & Links)</label>
             <div className="flex items-center gap-3">
               <input
                 type="color"
@@ -377,7 +381,45 @@ export default function Settings() {
                 value={settings.primary_color}
                 onChange={(e) => setSettings({ ...settings, primary_color: e.target.value })}
                 className="input w-32"
-                placeholder="#ef4444"
+                placeholder="#8842f0"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Background Color</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={settings.background_color}
+                onChange={(e) => setSettings({ ...settings, background_color: e.target.value })}
+                className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
+              />
+              <input
+                type="text"
+                value={settings.background_color}
+                onChange={(e) => setSettings({ ...settings, background_color: e.target.value })}
+                className="input w-32"
+                placeholder="#f5f5f5"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="label">Sidebar Color</label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={settings.sidebar_color}
+                onChange={(e) => setSettings({ ...settings, sidebar_color: e.target.value })}
+                className="w-12 h-10 rounded border border-gray-300 cursor-pointer"
+              />
+              <input
+                type="text"
+                value={settings.sidebar_color}
+                onChange={(e) => setSettings({ ...settings, sidebar_color: e.target.value })}
+                className="input w-32"
+                placeholder="#ffffff"
               />
             </div>
           </div>

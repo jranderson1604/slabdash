@@ -39,7 +39,7 @@ export default function Layout({ children }) {
   };
 
   return (
-    <div className="min-h-screen bg-brand-50">
+    <div className="min-h-screen" style={{ backgroundColor: `rgb(var(--bg-color))` }}>
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -50,7 +50,8 @@ export default function Layout({ children }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full w-64 bg-brand-50 transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+        style={{ backgroundColor: `rgb(var(--sidebar-color))` }}
+        className={`fixed top-0 left-0 z-50 h-full w-64 transform transition-transform duration-200 ease-in-out lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

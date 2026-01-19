@@ -8,7 +8,8 @@ router.get('/settings', authenticate, async (req, res) => {
     try {
         const result = await db.query(
             `SELECT id, name, slug, email, phone, website, logo_url, psa_api_key,
-             primary_color, auto_refresh_enabled, auto_refresh_interval_hours,
+             primary_color, background_color, sidebar_color,
+             auto_refresh_enabled, auto_refresh_interval_hours,
              email_notifications_enabled, plan, created_at
              FROM companies WHERE id = $1`,
             [req.user.company_id]
@@ -24,6 +25,7 @@ router.patch('/settings', authenticate, async (req, res) => {
     try {
         const allowed = [
             'name', 'email', 'phone', 'website', 'logo_url', 'primary_color',
+            'background_color', 'sidebar_color',
             'psa_api_key', 'auto_refresh_enabled', 'auto_refresh_interval_hours',
             'email_notifications_enabled'
         ];

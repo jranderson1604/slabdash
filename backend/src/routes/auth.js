@@ -15,7 +15,8 @@ router.post('/login', async (req, res) => {
         }
 
         const result = await db.query(
-            `SELECT u.*, c.name as company_name, c.slug as company_slug, c.psa_api_key IS NOT NULL as has_psa_key, c.primary_color
+            `SELECT u.*, c.name as company_name, c.slug as company_slug, c.psa_api_key IS NOT NULL as has_psa_key,
+             c.primary_color, c.background_color, c.sidebar_color
              FROM users u JOIN companies c ON u.company_id = c.id
              WHERE u.email = $1 AND u.is_active = true`,
             [email.toLowerCase()]
@@ -51,7 +52,9 @@ router.post('/login', async (req, res) => {
                 name: user.company_name,
                 slug: user.company_slug,
                 hasPsaKey: user.has_psa_key,
-                primary_color: user.primary_color || '#8842f0'
+                primary_color: user.primary_color || '#8842f0',
+                background_color: user.background_color || '#f5f5f5',
+                sidebar_color: user.sidebar_color || '#ffffff'
             }
         });
     } catch (error) {
@@ -136,7 +139,9 @@ router.get('/me', authenticate, (req, res) => {
             name: req.user.company_name,
             slug: req.user.company_slug,
             hasPsaKey: !!req.user.psa_api_key,
-            primary_color: req.user.primary_color || '#8842f0'
+            primary_color: req.user.primary_color || '#8842f0',
+            background_color: req.user.background_color || '#f5f5f5',
+            sidebar_color: req.user.sidebar_color || '#ffffff'
         }
     });
 });
