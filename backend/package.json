@@ -4,7 +4,7 @@
   "description": "SlabDash - PSA Order Tracking for Card Shops",
   "main": "src/index.js",
   "scripts": {
-    "start": "node src/index.js",
+    "start": "node start.js",
     "dev": "nodemon src/index.js",
     "migrate": "node run-migrations.js"
   },
