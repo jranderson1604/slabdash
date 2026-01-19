@@ -420,4 +420,115 @@ router.delete("/:id/customers/:customerId", authenticate, async (req, res) => {
   }
 });
 
+// Import cards from PSA CSV
+router.post("/:id/import-csv", authenticate, async (req, res) => {
+  try {
+    const { csvData } = req.body;
+
+    // Verify submission belongs to company
+    const submissionResult = await db.query(
+      "SELECT * FROM submissions WHERE id = $1 AND company_id = $2",
+      [req.params.id, req.user.company_id]
+    );
+
+    if (submissionResult.rows.length === 0) {
+      return res.status(404).json({ error: "Submission not found" });
+    }
+
+    const submission = submissionResult.rows[0];
+
+    // Parse CSV (PSA format: Cert #, Type, Description, Grade, After Service, Images)
+    const lines = csvData.trim().split('\n');
+    const headers = lines[0].split('\t');
+
+    // Find column indices
+    const certIndex = headers.findIndex(h => h.toLowerCase().includes('cert'));
+    const typeIndex = headers.findIndex(h => h.toLowerCase().includes('type'));
+    const descIndex = headers.findIndex(h => h.toLowerCase().includes('description'));
+    const gradeIndex = headers.findIndex(h => h.toLowerCase().includes('grade'));
+    const imagesIndex = headers.findIndex(h => h.toLowerCase().includes('images'));
+
+    let imported = 0;
+    let skipped = 0;
+    const errors = [];
+
+    // Process each row (skip header)
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const cols = line.split('\t');
+
+      const certNumber = certIndex >= 0 ? cols[certIndex]?.trim() : null;
+      const description = descIndex >= 0 ? cols[descIndex]?.trim() : null;
+      const gradeRaw = gradeIndex >= 0 ? cols[gradeIndex]?.trim() : null;
+      const imageUrl = imagesIndex >= 0 ? cols[imagesIndex]?.trim() : null;
+
+      if (!certNumber || !description) {
+        skipped++;
+        errors.push(`Row ${i + 1}: Missing cert number or description`);
+        continue;
+      }
+
+      // Extract numeric grade from text like "NEAR MINT-MINT 8" or "GEM MINT 10"
+      let grade = null;
+      if (gradeRaw) {
+        const gradeMatch = gradeRaw.match(/\d+(\.\d+)?/);
+        if (gradeMatch) {
+          grade = gradeMatch[0];
+        }
+      }
+
+      try {
+        // Check if card already exists
+        const existingCard = await db.query(
+          "SELECT id FROM cards WHERE submission_id = $1 AND psa_cert_number = $2",
+          [submission.id, certNumber]
+        );
+
+        if (existingCard.rows.length > 0) {
+          skipped++;
+          continue;
+        }
+
+        // Create card
+        await db.query(
+          `INSERT INTO cards (
+            company_id, submission_id, customer_id, description,
+            psa_cert_number, grade, card_images, status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            req.user.company_id,
+            submission.id,
+            submission.customer_id,
+            description,
+            certNumber,
+            grade,
+            imageUrl ? JSON.stringify([imageUrl]) : null,
+            'graded'
+          ]
+        );
+
+        imported++;
+      } catch (error) {
+        errors.push(`Row ${i + 1}: ${error.message}`);
+      }
+    }
+
+    res.json({
+      success: true,
+      imported,
+      skipped,
+      total: lines.length - 1,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error) {
+    console.error("CSV import error:", error);
+    res.status(500).json({
+      error: "Failed to import CSV",
+      details: error.message
+    });
+  }
+});
+
 module.exports = router;

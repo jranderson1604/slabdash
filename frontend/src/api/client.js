@@ -50,7 +50,8 @@ export const submissions = {
   uploadImage: (id, formData) =>
     api.post(`/submissions/${id}/images`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    }),
+  importCSV: (id, csvData) => api.post(`/submissions/${id}/import-csv`, { csvData })
 };
 
 export const cards = {

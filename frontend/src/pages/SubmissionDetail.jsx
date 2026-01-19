@@ -21,6 +21,7 @@ import {
   Upload,
   Image as ImageIcon,
   Search,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -257,6 +258,8 @@ export default function SubmissionDetail() {
   const [assigningCustomer, setAssigningCustomer] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [importingCSV, setImportingCSV] = useState(false);
+  const [csvImportResult, setCsvImportResult] = useState(null);
 
   const loadSubmission = async () => {
     try {
@@ -390,6 +393,34 @@ export default function SubmissionDetail() {
       alert('Failed to upload image');
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  const handleCSVImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportingCSV(true);
+    setCsvImportResult(null);
+    try {
+      const text = await file.text();
+      const res = await submissions.importCSV(id, text);
+      setCsvImportResult(res.data);
+      await loadSubmission();
+
+      // Show success message
+      const { imported, skipped, errors } = res.data;
+      let message = `Successfully imported ${imported} card(s)`;
+      if (skipped > 0) message += `, skipped ${skipped} duplicate(s)`;
+      if (errors > 0) message += `, ${errors} error(s)`;
+      alert(message);
+    } catch (error) {
+      console.error('CSV import failed:', error);
+      alert(error.response?.data?.error || 'Failed to import CSV');
+    } finally {
+      setImportingCSV(false);
+      // Reset file input
+      e.target.value = '';
     }
   };
 
@@ -539,6 +570,17 @@ export default function SubmissionDetail() {
                       className="input pl-10 w-full sm:w-64"
                     />
                   </div>
+                  <label className="btn btn-secondary gap-2 whitespace-nowrap cursor-pointer">
+                    <FileSpreadsheet className="w-4 h-4" />
+                    {importingCSV ? 'Importing...' : 'Import CSV'}
+                    <input
+                      type="file"
+                      accept=".csv,.tsv,.txt"
+                      onChange={handleCSVImport}
+                      disabled={importingCSV}
+                      className="hidden"
+                    />
+                  </label>
                   <button
                     onClick={() => setShowAddCard(true)}
                     className="btn btn-secondary gap-2 whitespace-nowrap"
