@@ -117,6 +117,22 @@ router.post("/", authenticate, async (req, res) => {
       notes
     } = req.body;
 
+    // Check if submission with this PSA number already exists
+    if (psa_submission_number) {
+      const existingCheck = await db.query(
+        "SELECT id FROM submissions WHERE company_id = $1 AND psa_submission_number = $2",
+        [req.user.company_id, psa_submission_number]
+      );
+
+      if (existingCheck.rows.length > 0) {
+        return res.status(409).json({
+          error: "A submission with this PSA number already exists",
+          existing_submission_id: existingCheck.rows[0].id,
+          message: "This PSA submission number is already being tracked"
+        });
+      }
+    }
+
     let parsedPsaData = null;
 
     // Automatically fetch PSA order data if PSA submission number is provided

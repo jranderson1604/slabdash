@@ -133,19 +133,19 @@ export default function Landing() {
       {/* Navigation */}
       <nav className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex justify-between items-center py-4">
             <Link to="/" className="flex items-center">
               <img
-                src="/images/logo-full.svg"
+                src="/images/logo-full.png"
                 alt="SlabDash"
-                className="h-8"
+                className="h-24 sm:h-32 w-auto"
               />
             </Link>
             <div className="flex items-center gap-4">
               <Link to="/login" className="text-gray-600 hover:text-gray-900 transition-colors">
                 Sign In
               </Link>
-              <Link to="/register" className="btn btn-primary">
+              <Link to="/register" className="px-4 py-2 bg-[#FF8170] hover:bg-[#ff6b59] text-white rounded-lg font-medium transition-colors">
                 Start Free Trial
               </Link>
             </div>
@@ -157,13 +157,21 @@ export default function Landing() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center space-y-8 animate-fade-in">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand-50 text-brand-700 rounded-full text-sm font-medium">
+            {/* Big Hero Logo */}
+            <div className="flex justify-center mb-8">
+              <img
+                src="/images/logo-icon.png"
+                alt="SlabDash"
+                className="h-48 w-48 sm:h-64 sm:w-64 drop-shadow-2xl"
+              />
+            </div>
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFF5F3] text-[#E85947] rounded-full text-sm font-medium">
               <Zap className="w-4 h-4" />
               Professional PSA Submission Tracking
             </div>
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 leading-tight">
               Manage Your
-              <span className="block bg-gradient-to-r from-brand-500 to-brand-600 bg-clip-text text-transparent">
+              <span className="block bg-gradient-to-r from-[#FF8170] to-[#ff6b59] bg-clip-text text-transparent">
                 PSA Submissions
               </span>
               With Ease
@@ -174,14 +182,14 @@ export default function Landing() {
             <div className="flex items-center justify-center gap-4 pt-4">
               <button
                 onClick={() => navigate('/register')}
-                className="btn btn-primary text-lg px-8 py-3 flex items-center gap-2 group"
+                className="bg-[#FF8170] hover:bg-[#ff6b59] text-white text-lg px-8 py-3 rounded-lg font-medium transition-colors flex items-center gap-2 group shadow-lg"
               >
                 Start Free Trial
                 <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
               </button>
               <button
                 onClick={() => navigate('/login')}
-                className="btn btn-secondary text-lg px-8 py-3"
+                className="bg-white text-gray-900 border-2 border-gray-200 hover:bg-gray-50 text-lg px-8 py-3 rounded-lg font-medium transition-colors"
               >
                 Sign In
               </button>
@@ -249,6 +257,13 @@ export default function Landing() {
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
+            <div className="flex justify-center mb-6">
+              <img
+                src="/images/logo-icon.png"
+                alt="SlabDash"
+                className="h-16 w-16 opacity-80"
+              />
+            </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
               Everything You Need to Run Your Grading Business
             </h2>
@@ -261,11 +276,11 @@ export default function Landing() {
             {features.map((feature, index) => (
               <div
                 key={index}
-                className="p-6 rounded-xl border border-gray-200 hover:border-brand-300 hover:shadow-lg transition-all group"
+                className="p-6 rounded-xl border border-gray-200 hover:border-[#FFB3A5] hover:shadow-lg transition-all group"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <div className="w-12 h-12 bg-brand-100 rounded-lg flex items-center justify-center mb-4 group-hover:bg-brand-500 transition-colors">
-                  <feature.icon className="w-6 h-6 text-brand-600 group-hover:text-white transition-colors" />
+                <div className="w-12 h-12 bg-[#FFE8E4] rounded-lg flex items-center justify-center mb-4 group-hover:bg-[#FF8170] transition-colors">
+                  <feature.icon className="w-6 h-6 text-[#ff6b59] group-hover:text-white transition-colors" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">{feature.title}</h3>
                 <p className="text-gray-600">{feature.description}</p>
@@ -279,6 +294,13 @@ export default function Landing() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
+            <div className="flex justify-center mb-6">
+              <img
+                src="/images/logo-icon.png"
+                alt="SlabDash"
+                className="h-16 w-16 opacity-80"
+              />
+            </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
               Simple, Transparent Pricing
             </h2>
@@ -293,13 +315,13 @@ export default function Landing() {
                 key={plan.id}
                 className={`relative rounded-2xl border-2 p-8 ${
                   plan.popular
-                    ? 'border-brand-500 shadow-xl scale-105'
-                    : 'border-gray-200 hover:border-brand-300'
+                    ? 'border-[#FF8170] shadow-xl scale-105'
+                    : 'border-gray-200 hover:border-[#FFB3A5]'
                 } transition-all bg-white`}
               >
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <span className="inline-flex items-center gap-1 px-4 py-1 bg-brand-500 text-white rounded-full text-sm font-medium">
+                    <span className="inline-flex items-center gap-1 px-4 py-1 bg-[#FF8170] text-white rounded-full text-sm font-medium shadow-md">
                       <Star className="w-4 h-4" />
                       Most Popular
                     </span>
@@ -318,7 +340,7 @@ export default function Landing() {
                 <button
                   className={`w-full mb-6 py-3 px-6 rounded-lg font-medium transition-colors ${
                     plan.popular
-                      ? 'bg-brand-500 hover:bg-brand-600 text-white'
+                      ? 'bg-[#FF8170] hover:bg-[#ff6b59] text-white shadow-md'
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-900'
                   }`}
                   onClick={() => navigate('/register')}
@@ -344,6 +366,13 @@ export default function Landing() {
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
+            <div className="flex justify-center mb-6">
+              <img
+                src="/images/logo-icon.png"
+                alt="SlabDash"
+                className="h-16 w-16 opacity-80"
+              />
+            </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
               Trusted by Card Shops Nationwide
             </h2>
@@ -365,7 +394,7 @@ export default function Landing() {
                 </div>
                 <p className="text-gray-700 mb-6 italic">"{testimonial.quote}"</p>
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center text-2xl">
+                  <div className="w-12 h-12 bg-[#FFE8E4] rounded-full flex items-center justify-center text-2xl">
                     {testimonial.image}
                   </div>
                   <div>
@@ -380,24 +409,31 @@ export default function Landing() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-brand-500 to-brand-600">
+      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#FF8170] to-[#ff6b59]">
         <div className="max-w-4xl mx-auto text-center text-white">
+          <div className="flex justify-center mb-8">
+            <img
+              src="/images/logo-icon.png"
+              alt="SlabDash"
+              className="h-20 w-20 opacity-90 drop-shadow-2xl"
+            />
+          </div>
           <h2 className="text-4xl sm:text-5xl font-bold mb-6">
             Ready to Transform Your Grading Business?
           </h2>
-          <p className="text-xl mb-8 text-brand-50">
+          <p className="text-xl mb-8 text-[#FFE8E4]">
             Join hundreds of card shops already using SlabDash
           </p>
           <div className="flex items-center justify-center gap-4">
             <button
               onClick={() => navigate('/register')}
-              className="bg-white text-brand-600 hover:bg-gray-50 px-8 py-4 rounded-lg font-semibold text-lg transition-colors flex items-center gap-2"
+              className="bg-white text-[#FF8170] hover:bg-gray-50 px-8 py-4 rounded-lg font-semibold text-lg transition-colors flex items-center gap-2 shadow-xl"
             >
               Start Free Trial
               <ArrowRight className="w-5 h-5" />
             </button>
           </div>
-          <p className="mt-6 text-brand-100 text-sm">
+          <p className="mt-6 text-[#FFE8E4] text-sm">
             No credit card required • 14-day free trial
           </p>
         </div>
@@ -410,11 +446,11 @@ export default function Landing() {
             <div>
               <Link to="/" className="flex items-center mb-4">
                 <img
-                  src="/images/logo-icon.svg"
+                  src="/images/logo-icon.png"
                   alt="SlabDash"
-                  className="h-8 w-8"
+                  className="h-16 w-16"
                 />
-                <span className="text-xl font-bold text-white ml-2">SlabDash</span>
+                <span className="text-2xl font-bold text-white ml-3">SlabDash</span>
               </Link>
               <p className="text-sm">
                 Professional PSA submission tracking for card shops and collectors.

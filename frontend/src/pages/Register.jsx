@@ -59,19 +59,16 @@ export default function Register() {
   ];
 
   return (
-    <div className="min-h-screen bg-brand-50 flex">
+    <div className="min-h-screen bg-[#FFF5F3] flex">
       {/* Left side - Form */}
       <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24">
-        <div className="mx-auto w-full max-w-sm">
+        <div className="mx-auto w-full max-w-lg">
           {/* Logo */}
-          <div className="mb-8">
+          <div className="mb-12">
             <img
-              src="/images/logo-full.svg"
+              src="/images/logo-full.png"
               alt="SlabDash"
-              className="h-12 w-auto"
-              onError={(e) => {
-                e.target.src = '/images/logo-full.png';
-              }}
+              className="h-64 w-auto max-w-full"
             />
           </div>
 
@@ -169,7 +166,7 @@ export default function Register() {
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary w-full py-2.5"
+              className="w-full py-2.5 bg-[#FF8170] hover:bg-[#ff6b59] text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -181,7 +178,7 @@ export default function Register() {
 
           <p className="mt-6 text-center text-sm text-gray-600">
             Already have an account?{' '}
-            <Link to="/login" className="text-brand-500 hover:text-brand-600 font-medium">
+            <Link to="/login" className="text-[#FF8170] hover:text-[#ff6b59] font-medium">
               Sign in
             </Link>
           </p>
@@ -203,7 +200,7 @@ export default function Register() {
             ))}
           </ul>
 
-          <div className="mt-12 p-6 bg-brand-50 rounded-xl border border-brand-100">
+          <div className="mt-12 p-6 bg-[#FFF5F3] rounded-xl border border-[#FFE8E4]">
             <p className="text-gray-600 text-sm">
               "SlabDash has transformed how we track submissions. Our customers love being able to check their order status anytime."
             </p>

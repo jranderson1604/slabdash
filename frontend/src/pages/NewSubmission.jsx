@@ -41,7 +41,18 @@ export default function NewSubmission() {
       navigate(`/submissions/${res.data.id}`);
     } catch (error) {
       console.error('Failed to create submission:', error);
-      alert(error.response?.data?.error || 'Failed to create submission');
+
+      // Handle duplicate PSA number
+      if (error.response?.status === 409 && error.response?.data?.existing_submission_id) {
+        const existingId = error.response.data.existing_submission_id;
+        const message = error.response.data.message || 'This PSA submission number already exists';
+
+        if (confirm(`${message}\n\nWould you like to view the existing submission?`)) {
+          navigate(`/submissions/${existingId}`);
+        }
+      } else {
+        alert(error.response?.data?.error || 'Failed to create submission');
+      }
     } finally {
       setLoading(false);
     }
