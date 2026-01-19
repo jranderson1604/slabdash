@@ -1,6 +1,18 @@
 <svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="128" height="128" rx="24" fill="#EF4444"/>
-  <path d="M45 85C45 85 35 82 35 70C35 58 45 55 45 55H65C65 55 75 58 75 70C75 82 65 85 65 85H45Z" fill="white"/>
-  <path d="M65 43C65 43 75 46 75 58C75 70 65 73 65 73H45C45 73 35 70 35 58C35 46 45 43 45 43H65Z" fill="white"/>
-  <text x="64" y="80" font-family="Arial, sans-serif" font-size="48" font-weight="bold" fill="white" text-anchor="middle">S</text>
+  <!-- Background card stack effect -->
+  <g opacity="0.4">
+    <rect x="20" y="30" width="88" height="68" rx="8" fill="#FF8170" transform="rotate(-5 64 64)"/>
+  </g>
+  <g opacity="0.6">
+    <rect x="16" y="26" width="88" height="68" rx="8" fill="#FF8170" transform="rotate(-2 64 64)"/>
+  </g>
+
+  <!-- Main card -->
+  <rect x="12" y="22" width="88" height="68" rx="8" fill="#FF8170"/>
+
+  <!-- Inner card border -->
+  <rect x="18" y="28" width="76" height="56" rx="4" fill="none" stroke="white" stroke-width="2"/>
+
+  <!-- Large S letter -->
+  <path d="M 64 42 C 72 42 78 46 78 52 C 78 56 75 59 70 60 C 75 61 79 64 79 69 C 79 75 73 80 64 80 C 55 80 49 75 49 69 L 56 69 C 56 71 59 74 64 74 C 69 74 72 72 72 69 C 72 66 69 64 64 64 L 60 64 L 60 58 L 64 58 C 68 58 71 56 71 53 C 71 50 68 48 64 48 C 59 48 56 50 56 53 L 49 53 C 49 47 55 42 64 42 Z" fill="white"/>
 </svg>
