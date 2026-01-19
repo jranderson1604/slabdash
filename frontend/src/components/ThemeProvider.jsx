@@ -35,7 +35,10 @@ export default function ThemeProvider({ children }) {
     }
 
     const primaryColor = company.primary_color;
-    console.log('ThemeProvider: Applying color', primaryColor);
+    const backgroundColor = company.background_color || '#f5f5f5';
+    const sidebarColor = company.sidebar_color || '#ffffff';
+
+    console.log('ThemeProvider: Applying colors', { primaryColor, backgroundColor, sidebarColor });
     const rgb = hexToRgb(primaryColor);
 
     // Generate color shades (50-900 scale like Tailwind)
@@ -60,8 +63,15 @@ export default function ThemeProvider({ children }) {
       console.log(`Set --brand-${shade}: ${cssValue}`);
     });
 
-    console.log('ThemeProvider: Colors applied successfully');
-  }, [company?.primary_color]);
+    // Apply background and sidebar colors
+    const bgRgb = hexToRgb(backgroundColor);
+    const sidebarRgb = hexToRgb(sidebarColor);
+
+    root.style.setProperty('--bg-color', `${bgRgb.r} ${bgRgb.g} ${bgRgb.b}`);
+    root.style.setProperty('--sidebar-color', `${sidebarRgb.r} ${sidebarRgb.g} ${sidebarRgb.b}`);
+
+    console.log('ThemeProvider: All colors applied successfully');
+  }, [company?.primary_color, company?.background_color, company?.sidebar_color]);
 
   return children;
 }

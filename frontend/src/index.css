@@ -14,11 +14,15 @@
   --brand-700: 232 90 70;
   --brand-800: 199 74 56;
   --brand-900: 160 58 44;
+
+  /* Customizable colors */
+  --bg-color: 245 245 245;  /* Default light gray background */
+  --sidebar-color: 255 255 255;  /* Default white sidebar */
 }
 
 @layer base {
   body {
-    background-color: rgb(var(--brand-50));
+    background-color: rgb(var(--bg-color));
     color: rgb(55 65 81); /* gray-900 */
     font-family: 'Raleway', system-ui, -apple-system, sans-serif;
   }
