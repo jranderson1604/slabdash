@@ -554,7 +554,7 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
             description,
             certNumber,
             grade,
-            imageUrl ? JSON.stringify([imageUrl]) : null,
+            imageUrl ? [imageUrl] : null,
             'graded'
           ]
         );
