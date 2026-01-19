@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const { authenticate, requireRole } = require("../middleware/auth");
-const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa, tryGetOrderDetails } = require("../services/psaService");
+const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa, tryGetOrderDetails, getCertificate } = require("../services/psaService");
 
 // List submissions
 router.get("/", authenticate, async (req, res) => {
@@ -542,11 +542,11 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
         }
 
         // Create card
-        await db.query(
+        const cardResult = await db.query(
           `INSERT INTO cards (
             company_id, submission_id, customer_id, description,
             psa_cert_number, grade, card_images, status, player_name
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
           [
             req.user.company_id,
             submission.id,
@@ -554,11 +554,60 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
             description,
             certNumber,
             grade,
-            imageUrl ? [imageUrl] : null,
+            null, // Start with no images, will fetch from PSA API
             'graded',
             '' // player_name - empty for CSV imports, can be filled in manually
           ]
         );
+
+        const cardId = cardResult.rows[0].id;
+        console.log(`Row ${i + 1}: Card created with ID ${cardId}`);
+
+        // Try to fetch real images from PSA API
+        if (req.user.psa_api_key) {
+          try {
+            console.log(`Row ${i + 1}: Fetching images from PSA API for cert ${certNumber}`);
+            const certResult = await getCertificate(req.user.psa_api_key, certNumber);
+
+            if (certResult.success && certResult.data) {
+              const cert = certResult.data;
+              const images = [];
+
+              // Extract images from PSA cert data (various possible field names)
+              if (cert.FrontImageURL) images.push(cert.FrontImageURL);
+              if (cert.BackImageURL) images.push(cert.BackImageURL);
+              if (cert.FrontImage) images.push(cert.FrontImage);
+              if (cert.BackImage) images.push(cert.BackImage);
+              if (cert.ImageURL) images.push(cert.ImageURL);
+              if (cert.ImageUrl) images.push(cert.ImageUrl);
+              if (cert.Image) images.push(cert.Image);
+              if (cert.Images && Array.isArray(cert.Images)) {
+                images.push(...cert.Images);
+              }
+
+              // Update card with real images if found
+              if (images.length > 0) {
+                await db.query(
+                  'UPDATE cards SET card_images = $1, psa_cert_data = $2 WHERE id = $3',
+                  [images, JSON.stringify(cert), cardId]
+                );
+                console.log(`Row ${i + 1}: Updated with ${images.length} image(s) from PSA`);
+              } else {
+                // Store cert data even if no images found
+                await db.query(
+                  'UPDATE cards SET psa_cert_data = $1 WHERE id = $2',
+                  [JSON.stringify(cert), cardId]
+                );
+                console.log(`Row ${i + 1}: No images in PSA response, stored cert data`);
+              }
+            }
+          } catch (psaError) {
+            console.log(`Row ${i + 1}: PSA API lookup failed -`, psaError.message);
+            // Continue anyway, card is already created
+          }
+        } else {
+          console.log(`Row ${i + 1}: No PSA API key, skipping image fetch`);
+        }
 
         imported++;
         console.log(`Row ${i + 1}: Successfully imported card ${certNumber}`);
