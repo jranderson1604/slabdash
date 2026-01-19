@@ -9,6 +9,7 @@ export default function NewSubmission() {
   const [customerList, setCustomerList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [overrideExisting, setOverrideExisting] = useState(false);
   const [formData, setFormData] = useState({
     customer_id: '',
     internal_id: '',
@@ -36,6 +37,7 @@ export default function NewSubmission() {
       const data = {
         ...formData,
         customer_id: formData.customer_id || null,
+        override_existing: overrideExisting,
       };
       const res = await submissions.create(data);
       navigate(`/submissions/${res.data.id}`);
@@ -128,6 +130,18 @@ export default function NewSubmission() {
             className="input"
             placeholder="e.g., 12345678"
           />
+          <div className="flex items-start gap-3 mt-2">
+            <input
+              type="checkbox"
+              id="override_existing"
+              checked={overrideExisting}
+              onChange={(e) => setOverrideExisting(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
+            />
+            <label htmlFor="override_existing" className="text-sm text-gray-700 cursor-pointer">
+              <span className="font-medium">Replace existing submission</span> - If a submission with this PSA number already exists, automatically delete it and create a new one
+            </label>
+          </div>
           <p className="text-xs text-gray-500 mt-1">
             Required for automatic PSA API updates
           </p>

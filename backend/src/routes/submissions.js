@@ -114,7 +114,8 @@ router.post("/", authenticate, async (req, res) => {
       psa_submission_number,
       service_level,
       date_sent,
-      notes
+      notes,
+      override_existing
     } = req.body;
 
     // Check if submission with this PSA number already exists
@@ -125,11 +126,37 @@ router.post("/", authenticate, async (req, res) => {
       );
 
       if (existingCheck.rows.length > 0) {
-        return res.status(409).json({
-          error: "A submission with this PSA number already exists",
-          existing_submission_id: existingCheck.rows[0].id,
-          message: "This PSA submission number is already being tracked"
-        });
+        if (override_existing) {
+          // Delete the existing submission and all related data
+          const submissionId = existingCheck.rows[0].id;
+          console.log(`Override requested: deleting existing submission ${submissionId} with PSA# ${psa_submission_number}`);
+
+          // Delete cards
+          await db.query(
+            "DELETE FROM cards WHERE submission_id = $1 AND company_id = $2",
+            [submissionId, req.user.company_id]
+          );
+
+          // Delete submission_customers links
+          await db.query(
+            "DELETE FROM submission_customers WHERE submission_id = $1",
+            [submissionId]
+          );
+
+          // Delete submission
+          await db.query(
+            "DELETE FROM submissions WHERE id = $1 AND company_id = $2",
+            [submissionId, req.user.company_id]
+          );
+
+          console.log(`Successfully deleted existing submission, creating new one...`);
+        } else {
+          return res.status(409).json({
+            error: "A submission with this PSA number already exists",
+            existing_submission_id: existingCheck.rows[0].id,
+            message: "This PSA submission number is already being tracked"
+          });
+        }
       }
     }
 
