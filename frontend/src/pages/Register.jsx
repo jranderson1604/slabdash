@@ -68,7 +68,7 @@ export default function Register() {
             <img
               src="/images/logo-full.png"
               alt="SlabDash"
-              className="h-16 w-auto"
+              className="h-32 w-auto"
             />
           </div>
 

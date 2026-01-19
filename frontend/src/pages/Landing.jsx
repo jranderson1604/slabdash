@@ -133,12 +133,12 @@ export default function Landing() {
       {/* Navigation */}
       <nav className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
+          <div className="flex justify-between items-center h-20">
             <Link to="/" className="flex items-center">
               <img
                 src="/images/logo-full.png"
                 alt="SlabDash"
-                className="h-12"
+                className="h-16"
               />
             </Link>
             <div className="flex items-center gap-4">
@@ -157,6 +157,14 @@ export default function Landing() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center space-y-8 animate-fade-in">
+            {/* Big Hero Logo */}
+            <div className="flex justify-center mb-8">
+              <img
+                src="/images/logo-icon.png"
+                alt="SlabDash"
+                className="h-32 w-32 drop-shadow-2xl"
+              />
+            </div>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFF5F3] text-[#E85947] rounded-full text-sm font-medium">
               <Zap className="w-4 h-4" />
               Professional PSA Submission Tracking
@@ -249,6 +257,13 @@ export default function Landing() {
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
+            <div className="flex justify-center mb-6">
+              <img
+                src="/images/logo-icon.png"
+                alt="SlabDash"
+                className="h-16 w-16 opacity-80"
+              />
+            </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
               Everything You Need to Run Your Grading Business
             </h2>
@@ -279,6 +294,13 @@ export default function Landing() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
+            <div className="flex justify-center mb-6">
+              <img
+                src="/images/logo-icon.png"
+                alt="SlabDash"
+                className="h-16 w-16 opacity-80"
+              />
+            </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
               Simple, Transparent Pricing
             </h2>
@@ -344,6 +366,13 @@ export default function Landing() {
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
+            <div className="flex justify-center mb-6">
+              <img
+                src="/images/logo-icon.png"
+                alt="SlabDash"
+                className="h-16 w-16 opacity-80"
+              />
+            </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
               Trusted by Card Shops Nationwide
             </h2>
@@ -382,6 +411,13 @@ export default function Landing() {
       {/* CTA Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#FF8170] to-[#ff6b59]">
         <div className="max-w-4xl mx-auto text-center text-white">
+          <div className="flex justify-center mb-8">
+            <img
+              src="/images/logo-icon.png"
+              alt="SlabDash"
+              className="h-20 w-20 opacity-90 drop-shadow-2xl"
+            />
+          </div>
           <h2 className="text-4xl sm:text-5xl font-bold mb-6">
             Ready to Transform Your Grading Business?
           </h2>
@@ -412,9 +448,9 @@ export default function Landing() {
                 <img
                   src="/images/logo-icon.png"
                   alt="SlabDash"
-                  className="h-10 w-10"
+                  className="h-16 w-16"
                 />
-                <span className="text-xl font-bold text-white ml-2">SlabDash</span>
+                <span className="text-2xl font-bold text-white ml-3">SlabDash</span>
               </Link>
               <p className="text-sm">
                 Professional PSA submission tracking for card shops and collectors.
