@@ -17,6 +17,7 @@ async function fetchPSAOrderData(psaSubmissionNumber, psaApiKey) {
         timeout: 15000
       }
     );
+    console.log("PSA API raw response:", JSON.stringify(response.data, null, 2));
     return response.data;
   } catch (error) {
     console.error("PSA API error:", error.response?.data || error.message);
