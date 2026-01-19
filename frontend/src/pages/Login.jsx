@@ -27,17 +27,14 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-brand-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#FFF5F3] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Logo */}
         <div className="flex justify-center">
           <img
-            src="/images/logo-full.svg"
+            src="/images/logo-full.png"
             alt="SlabDash"
-            className="h-16 w-auto"
-            onError={(e) => {
-              e.target.src = '/images/logo-full.png';
-            }}
+            className="h-20 w-auto"
           />
         </div>
         <h2 className="mt-6 text-center text-xl text-gray-600">
@@ -90,7 +87,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary w-full py-2.5"
+              className="w-full py-2.5 bg-[#FF8170] hover:bg-[#ff6b59] text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -113,7 +110,7 @@ export default function Login() {
             <div className="mt-6">
               <Link
                 to="/register"
-                className="btn btn-secondary w-full"
+                className="block w-full py-2.5 bg-white text-gray-900 border-2 border-gray-200 hover:bg-gray-50 rounded-lg font-medium transition-colors text-center"
               >
                 Create an account
               </Link>
