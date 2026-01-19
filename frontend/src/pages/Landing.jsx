@@ -4,15 +4,13 @@ import {
   Package,
   Users,
   CreditCard,
-  TrendingUp,
   CheckCircle2,
   ArrowRight,
   Star,
   Shield,
   Zap,
   BarChart3,
-  Smartphone,
-  Globe
+  Smartphone
 } from 'lucide-react';
 
 export default function Landing() {
@@ -136,12 +134,13 @@ export default function Landing() {
       <nav className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-brand-500 to-brand-600 rounded-lg flex items-center justify-center">
-                <Package className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-gray-900">SlabDash</span>
-            </div>
+            <Link to="/" className="flex items-center">
+              <img
+                src="/images/logo-full.svg"
+                alt="SlabDash"
+                className="h-8"
+              />
+            </Link>
             <div className="flex items-center gap-4">
               <Link to="/login" className="text-gray-600 hover:text-gray-900 transition-colors">
                 Sign In
@@ -409,12 +408,14 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-4 gap-8">
             <div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-brand-500 rounded-lg flex items-center justify-center">
-                  <Package className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xl font-bold text-white">SlabDash</span>
-              </div>
+              <Link to="/" className="flex items-center mb-4">
+                <img
+                  src="/images/logo-icon.svg"
+                  alt="SlabDash"
+                  className="h-8 w-8"
+                />
+                <span className="text-xl font-bold text-white ml-2">SlabDash</span>
+              </Link>
               <p className="text-sm">
                 Professional PSA submission tracking for card shops and collectors.
               </p>
