@@ -197,7 +197,7 @@ export default function Submissions() {
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshingAll, setRefreshingAll] = useState(false);
-  const [filter, setFilter] = useState('active'); // 'all', 'active', 'shipped', 'problems'
+  const [filter, setFilter] = useState('all'); // 'all', 'active', 'shipped', 'problems'
   const [search, setSearch] = useState('');
 
   const loadSubmissions = async () => {
