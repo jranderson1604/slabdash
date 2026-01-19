@@ -318,6 +318,52 @@ router.delete("/:id", authenticate, async (req, res) => {
   }
 });
 
+// Clean up orphaned submission by PSA number
+router.delete("/cleanup/:psa_number", authenticate, async (req, res) => {
+  try {
+    const { psa_number } = req.params;
+
+    // Find the submission
+    const findResult = await db.query(
+      "SELECT id FROM submissions WHERE psa_submission_number = $1 AND company_id = $2",
+      [psa_number, req.user.company_id]
+    );
+
+    if (findResult.rows.length === 0) {
+      return res.status(404).json({ error: "No submission found with that PSA number" });
+    }
+
+    const submissionId = findResult.rows[0].id;
+
+    // Delete associated cards first
+    await db.query(
+      "DELETE FROM cards WHERE submission_id = $1 AND company_id = $2",
+      [submissionId, req.user.company_id]
+    );
+
+    // Delete submission_customers links
+    await db.query(
+      "DELETE FROM submission_customers WHERE submission_id = $1",
+      [submissionId]
+    );
+
+    // Then delete the submission
+    await db.query(
+      "DELETE FROM submissions WHERE id = $1 AND company_id = $2",
+      [submissionId, req.user.company_id]
+    );
+
+    res.json({
+      message: "Submission deleted successfully",
+      psa_number: psa_number,
+      submission_id: submissionId
+    });
+  } catch (error) {
+    console.error("Cleanup submission error:", error);
+    res.status(500).json({ error: "Failed to clean up submission" });
+  }
+});
+
 // Manually refresh submission from PSA
 router.post("/:id/refresh", authenticate, async (req, res) => {
   try {
