@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const { authenticate, requireRole } = require("../middleware/auth");
-const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa } = require("../services/psaService");
+const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa, tryGetOrderDetails } = require("../services/psaService");
 
 // List submissions
 router.get("/", authenticate, async (req, res) => {
@@ -141,6 +141,27 @@ router.post("/", authenticate, async (req, res) => {
               progressPercent: parsedPsaData.progressPercent,
               gradesReady: parsedPsaData.gradesReady
             });
+
+            // EXPERIMENTAL: Try to find an endpoint that returns card data
+            if (parsedPsaData.orderNumber) {
+              console.log('\n🔍 EXPLORING PSA API FOR CARD DATA...\n');
+              try {
+                const explorationResults = await tryGetOrderDetails(
+                  psaApiKey,
+                  parsedPsaData.orderNumber,
+                  psa_submission_number
+                );
+
+                if (explorationResults.successful) {
+                  console.log('\n✅ SUCCESS! Found working endpoint:', explorationResults.successful.endpoint);
+                  console.log('Response data structure:', Object.keys(explorationResults.successful.data));
+                } else {
+                  console.log('\n❌ No working endpoint found for card data');
+                }
+              } catch (exploreError) {
+                console.error('Endpoint exploration error:', exploreError.message);
+              }
+            }
           } else {
             console.log("PSA API returned no data:", result.error);
           }

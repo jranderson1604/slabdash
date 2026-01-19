@@ -41,6 +41,94 @@ const getCertificate = async (apiKey, certNumber) => {
     }
 };
 
+// Try multiple PSA API endpoints to find card data
+const tryGetOrderDetails = async (apiKey, orderNumber, submissionNumber) => {
+    const client = createPsaClient(apiKey);
+    const results = { attempted: [], successful: null, allResponses: {} };
+
+    // Endpoint 1: Try GetOrder with order number
+    try {
+        console.log(`Trying GetOrder with orderNumber: ${orderNumber}`);
+        const response = await client.get(`/order/GetOrder/${orderNumber}`);
+        results.attempted.push({ endpoint: `/order/GetOrder/${orderNumber}`, status: 'success' });
+        results.allResponses.GetOrder = response.data;
+        console.log('GetOrder response:', JSON.stringify(response.data, null, 2));
+        if (response.data && Object.keys(response.data).length > 0) {
+            results.successful = { endpoint: 'GetOrder', data: response.data };
+        }
+    } catch (error) {
+        results.attempted.push({ endpoint: `/order/GetOrder/${orderNumber}`, status: 'failed', error: error.message });
+        console.log(`GetOrder failed: ${error.message}`);
+    }
+
+    // Endpoint 2: Try GetSubmission with submission number
+    try {
+        console.log(`Trying GetSubmission with submissionNumber: ${submissionNumber}`);
+        const response = await client.get(`/order/GetSubmission/${submissionNumber}`);
+        results.attempted.push({ endpoint: `/order/GetSubmission/${submissionNumber}`, status: 'success' });
+        results.allResponses.GetSubmission = response.data;
+        console.log('GetSubmission response:', JSON.stringify(response.data, null, 2));
+        if (!results.successful && response.data && Object.keys(response.data).length > 0) {
+            results.successful = { endpoint: 'GetSubmission', data: response.data };
+        }
+    } catch (error) {
+        results.attempted.push({ endpoint: `/order/GetSubmission/${submissionNumber}`, status: 'failed', error: error.message });
+        console.log(`GetSubmission failed: ${error.message}`);
+    }
+
+    // Endpoint 3: Try GetOrderDetails
+    try {
+        console.log(`Trying GetOrderDetails with orderNumber: ${orderNumber}`);
+        const response = await client.get(`/order/GetOrderDetails/${orderNumber}`);
+        results.attempted.push({ endpoint: `/order/GetOrderDetails/${orderNumber}`, status: 'success' });
+        results.allResponses.GetOrderDetails = response.data;
+        console.log('GetOrderDetails response:', JSON.stringify(response.data, null, 2));
+        if (!results.successful && response.data && Object.keys(response.data).length > 0) {
+            results.successful = { endpoint: 'GetOrderDetails', data: response.data };
+        }
+    } catch (error) {
+        results.attempted.push({ endpoint: `/order/GetOrderDetails/${orderNumber}`, status: 'failed', error: error.message });
+        console.log(`GetOrderDetails failed: ${error.message}`);
+    }
+
+    // Endpoint 4: Try GetSubmissionDetails
+    try {
+        console.log(`Trying GetSubmissionDetails with submissionNumber: ${submissionNumber}`);
+        const response = await client.get(`/order/GetSubmissionDetails/${submissionNumber}`);
+        results.attempted.push({ endpoint: `/order/GetSubmissionDetails/${submissionNumber}`, status: 'success' });
+        results.allResponses.GetSubmissionDetails = response.data;
+        console.log('GetSubmissionDetails response:', JSON.stringify(response.data, null, 2));
+        if (!results.successful && response.data && Object.keys(response.data).length > 0) {
+            results.successful = { endpoint: 'GetSubmissionDetails', data: response.data };
+        }
+    } catch (error) {
+        results.attempted.push({ endpoint: `/order/GetSubmissionDetails/${submissionNumber}`, status: 'failed', error: error.message });
+        console.log(`GetSubmissionDetails failed: ${error.message}`);
+    }
+
+    // Endpoint 5: Try submissions (plural) endpoint
+    try {
+        console.log(`Trying /submissions/${submissionNumber}`);
+        const response = await client.get(`/submissions/${submissionNumber}`);
+        results.attempted.push({ endpoint: `/submissions/${submissionNumber}`, status: 'success' });
+        results.allResponses.submissions = response.data;
+        console.log('submissions response:', JSON.stringify(response.data, null, 2));
+        if (!results.successful && response.data && Object.keys(response.data).length > 0) {
+            results.successful = { endpoint: 'submissions', data: response.data };
+        }
+    } catch (error) {
+        results.attempted.push({ endpoint: `/submissions/${submissionNumber}`, status: 'failed', error: error.message });
+        console.log(`submissions endpoint failed: ${error.message}`);
+    }
+
+    console.log('\n=== ENDPOINT EXPLORATION SUMMARY ===');
+    console.log('Attempted endpoints:', results.attempted.length);
+    console.log('Successful endpoint:', results.successful?.endpoint || 'NONE');
+    console.log('All attempts:', JSON.stringify(results.attempted, null, 2));
+
+    return results;
+};
+
 const parseProgressData = (data) => {
     const steps = data.orderProgressSteps || [];
     let completedCount = 0;
@@ -125,4 +213,4 @@ const logApiCall = async (companyId, endpoint, method, params, status, response)
     }
 };
 
-module.exports = { getSubmissionProgress, getCertificate, parseProgressData, updateSubmissionFromPsa, refreshAllSubmissions, logApiCall, STEP_NAMES };
+module.exports = { getSubmissionProgress, getCertificate, parseProgressData, updateSubmissionFromPsa, refreshAllSubmissions, logApiCall, tryGetOrderDetails, STEP_NAMES };
