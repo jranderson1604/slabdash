@@ -437,9 +437,18 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
 
     const submission = submissionResult.rows[0];
 
+    console.log('\n=== CSV IMPORT DEBUG ===');
+    console.log('CSV Data length:', csvData?.length);
+    console.log('CSV Data preview:', csvData?.substring(0, 200));
+
     // Parse CSV (PSA format: Cert #, Type, Description, Grade, After Service, Images)
     const lines = csvData.trim().split('\n');
+    console.log('Total lines:', lines.length);
+    console.log('Line 0 (header):', lines[0]);
+    if (lines.length > 1) console.log('Line 1 (first data):', lines[1]);
+
     const headers = lines[0].split('\t');
+    console.log('Headers found:', headers);
 
     // Find column indices
     const certIndex = headers.findIndex(h => h.toLowerCase().includes('cert'));
@@ -448,6 +457,8 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
     const gradeIndex = headers.findIndex(h => h.toLowerCase().includes('grade'));
     const imagesIndex = headers.findIndex(h => h.toLowerCase().includes('images'));
 
+    console.log('Column indices:', { certIndex, typeIndex, descIndex, gradeIndex, imagesIndex });
+
     let imported = 0;
     let skipped = 0;
     const errors = [];
@@ -455,18 +466,25 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
     // Process each row (skip header)
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
-      if (!line) continue;
+      if (!line) {
+        console.log(`Row ${i + 1}: Empty line, skipping`);
+        continue;
+      }
 
       const cols = line.split('\t');
+      console.log(`Row ${i + 1} columns (${cols.length}):`, cols);
 
       const certNumber = certIndex >= 0 ? cols[certIndex]?.trim() : null;
       const description = descIndex >= 0 ? cols[descIndex]?.trim() : null;
       const gradeRaw = gradeIndex >= 0 ? cols[gradeIndex]?.trim() : null;
       const imageUrl = imagesIndex >= 0 ? cols[imagesIndex]?.trim() : null;
 
+      console.log(`Row ${i + 1} parsed:`, { certNumber, description, gradeRaw });
+
       if (!certNumber || !description) {
         skipped++;
         errors.push(`Row ${i + 1}: Missing cert number or description`);
+        console.log(`Row ${i + 1}: Skipped - missing data`);
         continue;
       }
 
@@ -510,10 +528,18 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
         );
 
         imported++;
+        console.log(`Row ${i + 1}: Successfully imported card ${certNumber}`);
       } catch (error) {
         errors.push(`Row ${i + 1}: ${error.message}`);
+        console.log(`Row ${i + 1}: Error -`, error.message);
       }
     }
+
+    console.log('\n=== IMPORT SUMMARY ===');
+    console.log('Imported:', imported);
+    console.log('Skipped:', skipped);
+    console.log('Total rows:', lines.length - 1);
+    console.log('Errors:', errors);
 
     res.json({
       success: true,

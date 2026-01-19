@@ -409,10 +409,15 @@ export default function SubmissionDetail() {
       await loadSubmission();
 
       // Show success message
-      const { imported, skipped, errors } = res.data;
+      const { imported, skipped, errors, total } = res.data;
       let message = `Successfully imported ${imported} card(s)`;
       if (skipped > 0) message += `, skipped ${skipped} duplicate(s)`;
-      if (errors > 0) message += `, ${errors} error(s)`;
+      if (errors && errors.length > 0) {
+        message += `\n\n${errors.length} error(s):\n${errors.join('\n')}`;
+      }
+      if (imported === 0 && skipped === 0 && total === 0) {
+        message = 'No data rows found in CSV file. Check file format.';
+      }
       alert(message);
     } catch (error) {
       console.error('CSV import failed:', error);
