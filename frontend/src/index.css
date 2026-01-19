@@ -18,7 +18,8 @@
 
 @layer base {
   body {
-    @apply bg-brand-50 text-gray-900;
+    background-color: rgb(var(--brand-50));
+    color: rgb(55 65 81); /* gray-900 */
     font-family: 'Raleway', system-ui, -apple-system, sans-serif;
   }
 }
@@ -28,16 +29,32 @@
     @apply px-4 py-2 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
   }
   .btn-primary {
-    @apply bg-brand-500 text-white hover:bg-brand-600 focus:ring-brand-500;
+    background-color: rgb(var(--brand-500));
+    color: white;
+  }
+  .btn-primary:hover {
+    background-color: rgb(var(--brand-600));
+  }
+  .btn-primary:focus {
+    --tw-ring-color: rgb(var(--brand-500));
   }
   .btn-secondary {
-    @apply bg-white text-gray-900 hover:bg-brand-100 border border-gray-200 focus:ring-brand-500;
+    @apply bg-white text-gray-900 border border-gray-200;
+  }
+  .btn-secondary:hover {
+    background-color: rgb(var(--brand-100));
+  }
+  .btn-secondary:focus {
+    --tw-ring-color: rgb(var(--brand-500));
   }
   .btn-danger {
     @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
   }
   .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent;
+    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:border-transparent;
+  }
+  .input:focus {
+    --tw-ring-color: rgb(var(--brand-500));
   }
   .card {
     @apply bg-white rounded-xl shadow-sm border border-gray-200;
@@ -76,12 +93,17 @@
     @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
   }
   .progress-bar {
-    @apply h-2 bg-brand-100 rounded-full overflow-hidden;
+    @apply h-2 rounded-full overflow-hidden;
+    background-color: rgb(var(--brand-100));
   }
   .progress-bar-fill {
     @apply h-full transition-all duration-300;
   }
   .link {
-    @apply text-brand-500 hover:text-brand-600 font-medium;
+    @apply font-medium;
+    color: rgb(var(--brand-500));
+  }
+  .link:hover {
+    color: rgb(var(--brand-600));
   }
 }
