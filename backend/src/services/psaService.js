@@ -1,4 +1,5 @@
 const axios = require('axios');
+const cheerio = require('cheerio');
 const db = require('../db');
 
 const PSA_API_BASE = process.env.PSA_API_BASE || 'https://api.psacard.com/publicapi';
@@ -213,4 +214,63 @@ const logApiCall = async (companyId, endpoint, method, params, status, response)
     }
 };
 
-module.exports = { getSubmissionProgress, getCertificate, parseProgressData, updateSubmissionFromPsa, refreshAllSubmissions, logApiCall, tryGetOrderDetails, STEP_NAMES };
+// Scrape PSA cert page to get card images
+const scrapePsaCertImages = async (certNumber) => {
+    try {
+        const url = `https://www.psacard.com/cert/${certNumber}`;
+        console.log(`Scraping PSA cert page: ${url}`);
+
+        const response = await axios.get(url, {
+            timeout: 10000,
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+        });
+
+        const $ = cheerio.load(response.data);
+        const images = [];
+
+        // Try multiple selectors to find images
+        // PSA displays front and back images
+        $('img[src*="cert"]').each((i, elem) => {
+            const src = $(elem).attr('src');
+            if (src && !src.includes('logo') && !src.includes('icon')) {
+                // Convert relative URLs to absolute
+                const absoluteUrl = src.startsWith('http') ? src : `https://www.psacard.com${src}`;
+                images.push(absoluteUrl);
+            }
+        });
+
+        // Also check for images in specific cert image containers
+        $('.cert-image img, .card-image img, [class*="cert"] img, [class*="card"] img').each((i, elem) => {
+            const src = $(elem).attr('src');
+            if (src && !images.includes(src)) {
+                const absoluteUrl = src.startsWith('http') ? src : `https://www.psacard.com${src}`;
+                if (!absoluteUrl.includes('logo') && !absoluteUrl.includes('icon')) {
+                    images.push(absoluteUrl);
+                }
+            }
+        });
+
+        // Look for background images in style attributes
+        $('[style*="background-image"]').each((i, elem) => {
+            const style = $(elem).attr('style');
+            const match = style.match(/url\(['"]?([^'"]+)['"]?\)/);
+            if (match && match[1]) {
+                const src = match[1];
+                const absoluteUrl = src.startsWith('http') ? src : `https://www.psacard.com${src}`;
+                if (!absoluteUrl.includes('logo') && !absoluteUrl.includes('icon') && !images.includes(absoluteUrl)) {
+                    images.push(absoluteUrl);
+                }
+            }
+        });
+
+        console.log(`Found ${images.length} images on PSA cert page`);
+        return { success: true, images: images.filter((img, index, self) => self.indexOf(img) === index) }; // Remove duplicates
+    } catch (error) {
+        console.error('PSA scraping error:', error.message);
+        return { success: false, error: error.message, images: [] };
+    }
+};
+
+module.exports = { getSubmissionProgress, getCertificate, parseProgressData, updateSubmissionFromPsa, refreshAllSubmissions, logApiCall, tryGetOrderDetails, scrapePsaCertImages, STEP_NAMES };
