@@ -115,4 +115,136 @@ router.post('/:id/send-portal-link', authenticate, async (req, res) => {
     }
 });
 
+// Import customers from CSV (Shopify format)
+router.post('/import-csv', authenticate, async (req, res) => {
+    try {
+        const { csvData } = req.body;
+
+        // Helper function to parse CSV line with quoted fields
+        const parseCSVLine = (line) => {
+            const result = [];
+            let current = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                const nextChar = line[i + 1];
+
+                if (char === '"') {
+                    if (inQuotes && nextChar === '"') {
+                        current += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    result.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            result.push(current.trim());
+            return result;
+        };
+
+        // Parse CSV
+        const lines = csvData.trim().split('\n');
+        const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
+
+        console.log('CSV Import - Headers found:', headers);
+
+        // Find column indices (flexible for different CSV formats)
+        const emailIndex = headers.findIndex(h => h.includes('email'));
+        const nameIndex = headers.findIndex(h => h.includes('name') && !h.includes('company'));
+        const firstNameIndex = headers.findIndex(h => h.includes('first') && h.includes('name'));
+        const lastNameIndex = headers.findIndex(h => h.includes('last') && h.includes('name'));
+        const phoneIndex = headers.findIndex(h => h.includes('phone'));
+        const addressIndex = headers.findIndex(h => h.includes('address') && !h.includes('2'));
+        const cityIndex = headers.findIndex(h => h.includes('city'));
+        const stateIndex = headers.findIndex(h => h.includes('state') || h.includes('province'));
+        const zipIndex = headers.findIndex(h => h.includes('zip') || h.includes('postal'));
+
+        let imported = 0;
+        let skipped = 0;
+        const errors = [];
+
+        // Process each row (skip header)
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            const cols = parseCSVLine(line);
+
+            const email = emailIndex >= 0 ? cols[emailIndex]?.trim().toLowerCase() : null;
+            let name = nameIndex >= 0 ? cols[nameIndex]?.trim() : null;
+
+            // If no name column, combine first + last name
+            if (!name && firstNameIndex >= 0 && lastNameIndex >= 0) {
+                const first = cols[firstNameIndex]?.trim() || '';
+                const last = cols[lastNameIndex]?.trim() || '';
+                name = `${first} ${last}`.trim();
+            }
+
+            const phone = phoneIndex >= 0 ? cols[phoneIndex]?.trim() : null;
+            const address = addressIndex >= 0 ? cols[addressIndex]?.trim() : null;
+            const city = cityIndex >= 0 ? cols[cityIndex]?.trim() : null;
+            const state = stateIndex >= 0 ? cols[stateIndex]?.trim() : null;
+            const zip = zipIndex >= 0 ? cols[zipIndex]?.trim() : null;
+
+            // Skip if no email or name
+            if (!email || !name) {
+                skipped++;
+                errors.push(`Row ${i + 1}: Missing email or name`);
+                continue;
+            }
+
+            try {
+                // Check if customer already exists
+                const existing = await db.query(
+                    'SELECT id FROM customers WHERE company_id = $1 AND email = $2',
+                    [req.companyId, email]
+                );
+
+                if (existing.rows.length > 0) {
+                    skipped++;
+                    continue;
+                }
+
+                // Insert customer
+                await db.query(
+                    `INSERT INTO customers (company_id, email, name, phone, address_line1, city, state, postal_code)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                    [req.companyId, email, name, phone, address, city, state, zip]
+                );
+
+                imported++;
+                console.log(`Row ${i + 1}: Imported customer ${email}`);
+            } catch (error) {
+                errors.push(`Row ${i + 1}: ${error.message}`);
+                console.error(`Row ${i + 1}: Error -`, error.message);
+            }
+        }
+
+        console.log(`\n=== IMPORT SUMMARY ===`);
+        console.log('Imported:', imported);
+        console.log('Skipped:', skipped);
+        console.log('Total rows:', lines.length - 1);
+
+        res.json({
+            success: true,
+            imported,
+            skipped,
+            total: lines.length - 1,
+            errors: errors.length > 0 ? errors : undefined
+        });
+    } catch (error) {
+        console.error('Customer CSV import error:', error);
+        res.status(500).json({
+            error: 'Failed to import CSV',
+            details: error.message
+        });
+    }
+});
+
 module.exports = router;

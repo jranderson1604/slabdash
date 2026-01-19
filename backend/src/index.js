@@ -26,7 +26,20 @@ const PORT = process.env.PORT || 3001;
 // Trust Railway proxy for rate limiting and proper IP detection
 app.set('trust proxy', 1);
 
-app.use(cors());
+// CORS configuration - allow frontend domains
+const corsOptions = {
+  origin: [
+    'https://slabdash.app',
+    'https://www.slabdash.app',
+    'https://slabdash-8n99.vercel.app',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ],
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: "10mb" }));
 app.use(morgan("dev"));
 

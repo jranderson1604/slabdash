@@ -2,27 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const { authenticate, requireRole } = require("../middleware/auth");
-const axios = require("axios");
-
-// Helper function to fetch PSA order data
-async function fetchPSAOrderData(psaSubmissionNumber, psaApiKey) {
-  try {
-    const response = await axios.get(
-      `https://api.psacard.com/publicapi/order/GetSubmissionProgress/${psaSubmissionNumber}`,
-      {
-        headers: {
-          "Authorization": `Bearer ${psaApiKey}`,
-          "User-Agent": "SlabDash/1.0"
-        },
-        timeout: 15000
-      }
-    );
-    return response.data;
-  } catch (error) {
-    console.error("PSA API error:", error.response?.data || error.message);
-    return null;
-  }
-}
+const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa, tryGetOrderDetails, getCertificate, scrapePsaCertImages } = require("../services/psaService");
 
 // List submissions
 router.get("/", authenticate, async (req, res) => {
@@ -97,9 +77,27 @@ router.get("/:id", authenticate, async (req, res) => {
       [req.params.id]
     );
 
+    // Get linked customers (for consignment tracking)
+    const linkedCustomersResult = await db.query(
+      `SELECT sc.id as link_id, sc.card_count, sc.notes, c.id, c.name, c.email, c.phone
+       FROM submission_customers sc
+       JOIN customers c ON sc.customer_id = c.id
+       WHERE sc.submission_id = $1
+       ORDER BY c.name`,
+      [req.params.id]
+    );
+
+    // Get submission steps
+    const stepsResult = await db.query(
+      `SELECT * FROM submission_steps WHERE submission_id = $1 ORDER BY step_index`,
+      [req.params.id]
+    );
+
     res.json({
       ...result.rows[0],
-      cards: cardsResult.rows
+      cards: cardsResult.rows,
+      linked_customers: linkedCustomersResult.rows,
+      steps: stepsResult.rows
     });
   } catch (error) {
     console.error("Get submission error:", error);
@@ -119,7 +117,7 @@ router.post("/", authenticate, async (req, res) => {
       notes
     } = req.body;
 
-    let psaOrderData = null;
+    let parsedPsaData = null;
 
     // Automatically fetch PSA order data if PSA submission number is provided
     if (psa_submission_number) {
@@ -133,17 +131,39 @@ router.post("/", authenticate, async (req, res) => {
 
         if (psaApiKey) {
           console.log(`Fetching PSA order data for ${psa_submission_number}...`);
-          psaOrderData = await fetchPSAOrderData(psa_submission_number, psaApiKey);
+          const result = await getSubmissionProgress(psaApiKey, psa_submission_number);
 
-          if (psaOrderData) {
-            console.log("PSA order data fetched successfully:", {
-              orderNumber: psaOrderData.OrderNumber,
-              status: psaOrderData.Status,
-              serviceLevel: psaOrderData.ServiceLevel,
-              cardCount: psaOrderData.Cards?.length || 0
+          if (result.success) {
+            parsedPsaData = parseProgressData(result.data);
+            console.log("PSA order data fetched and parsed:", {
+              orderNumber: parsedPsaData.orderNumber,
+              currentStep: parsedPsaData.currentStep,
+              progressPercent: parsedPsaData.progressPercent,
+              gradesReady: parsedPsaData.gradesReady
             });
+
+            // EXPERIMENTAL: Try to find an endpoint that returns card data
+            if (parsedPsaData.orderNumber) {
+              console.log('\n🔍 EXPLORING PSA API FOR CARD DATA...\n');
+              try {
+                const explorationResults = await tryGetOrderDetails(
+                  psaApiKey,
+                  parsedPsaData.orderNumber,
+                  psa_submission_number
+                );
+
+                if (explorationResults.successful) {
+                  console.log('\n✅ SUCCESS! Found working endpoint:', explorationResults.successful.endpoint);
+                  console.log('Response data structure:', Object.keys(explorationResults.successful.data));
+                } else {
+                  console.log('\n❌ No working endpoint found for card data');
+                }
+              } catch (exploreError) {
+                console.error('Endpoint exploration error:', exploreError.message);
+              }
+            }
           } else {
-            console.log("PSA API returned no data - continuing without PSA data");
+            console.log("PSA API returned no data:", result.error);
           }
         } else {
           console.log("No PSA API key configured - skipping PSA data fetch");
@@ -154,18 +174,11 @@ router.post("/", authenticate, async (req, res) => {
       }
     }
 
-    // Check if PSA order is complete (grades ready)
-    const psaStatus = psaOrderData?.Status || null;
-    const gradesReady = psaStatus && typeof psaStatus === 'string' && (
-      psaStatus.toLowerCase().includes('complete') ||
-      psaStatus.toLowerCase().includes('ready') ||
-      psaStatus.toLowerCase().includes('graded')
-    );
-
     // Insert submission with data from PSA API if available
     const result = await db.query(
       `INSERT INTO submissions (
         company_id,
+        user_id,
         customer_id,
         internal_id,
         psa_submission_number,
@@ -173,67 +186,40 @@ router.post("/", authenticate, async (req, res) => {
         date_sent,
         notes,
         psa_status,
+        current_step,
+        progress_percent,
         grades_ready,
+        shipped,
+        problem_order,
+        accounting_hold,
         last_refreshed_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
       RETURNING *`,
       [
         req.user.company_id,
+        req.user.id,
         customer_id || null,
         internal_id || null,
         psa_submission_number || null,
-        psaOrderData?.ServiceLevel || service_level || null,
+        service_level || null,
         date_sent || null,
         notes || null,
-        psaStatus,
-        gradesReady || false,
-        psa_submission_number && psaOrderData ? new Date() : null
+        parsedPsaData?.currentStep || null,
+        parsedPsaData?.currentStep || null,
+        parsedPsaData?.progressPercent || 0,
+        parsedPsaData?.gradesReady || false,
+        parsedPsaData?.shipped || false,
+        parsedPsaData?.problemOrder || false,
+        parsedPsaData?.accountingHold || false,
+        parsedPsaData ? new Date() : null
       ]
     );
 
     const submission = result.rows[0];
 
-    // If we got card data from PSA, automatically import the cards
-    if (psaOrderData?.Cards && Array.isArray(psaOrderData.Cards) && psaOrderData.Cards.length > 0) {
-      console.log(`Importing ${psaOrderData.Cards.length} cards from PSA order...`);
-
-      for (const card of psaOrderData.Cards) {
-        try {
-          await db.query(
-            `INSERT INTO cards (
-              company_id,
-              submission_id,
-              customer_id,
-              year,
-              player_name,
-              card_set,
-              grade,
-              psa_cert_number,
-              card_images
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-            [
-              req.user.company_id,
-              submission.id,
-              customer_id || null,
-              card.Year || null,
-              card.SubjectName || card.CardName || 'Unknown',
-              card.Brand || card.Set || null,
-              card.Grade || null,
-              card.CertNumber || null,
-              card.ImageURL ? JSON.stringify([card.ImageURL]) : null
-            ]
-          );
-        } catch (cardError) {
-          console.error(`Failed to import card:`, cardError.message, card);
-          // Continue with other cards even if one fails
-        }
-      }
-    }
-
     res.status(201).json({
       ...submission,
-      psa_data_imported: !!psaOrderData,
-      cards_imported: psaOrderData?.Cards?.length || 0
+      psa_data_imported: !!parsedPsaData
     });
   } catch (error) {
     console.error("Create submission error:", error);
@@ -347,83 +333,319 @@ router.post("/:id/refresh", authenticate, async (req, res) => {
       return res.status(400).json({ error: "PSA API key not configured" });
     }
 
-    // Fetch latest data from PSA
-    const psaOrderData = await fetchPSAOrderData(submission.psa_submission_number, psaApiKey);
+    // Fetch and update submission from PSA
+    const result = await getSubmissionProgress(psaApiKey, submission.psa_submission_number);
 
-    if (!psaOrderData) {
-      return res.status(500).json({ error: "Failed to fetch data from PSA API" });
+    if (!result.success) {
+      return res.status(500).json({ error: result.error || "Failed to fetch data from PSA API" });
     }
 
-    // Check if grades are ready based on PSA status
-    const psaStatus = psaOrderData.Status;
-    const gradesReady = psaStatus && (
-      psaStatus.toLowerCase().includes('complete') ||
-      psaStatus.toLowerCase().includes('ready') ||
-      psaStatus.toLowerCase().includes('graded')
-    );
-
-    // Update submission
-    await db.query(
-      `UPDATE submissions
-       SET service_level = COALESCE($1, service_level),
-           psa_status = $2,
-           grades_ready = $3,
-           last_refreshed_at = NOW()
-       WHERE id = $4`,
-      [psaOrderData.ServiceLevel, psaStatus, gradesReady, submission.id]
-    );
-
-    // Update or import cards
-    if (psaOrderData.Cards && psaOrderData.Cards.length > 0) {
-      for (const card of psaOrderData.Cards) {
-        // Check if card already exists
-        const existingCard = await db.query(
-          "SELECT id FROM cards WHERE submission_id = $1 AND psa_cert_number = $2",
-          [submission.id, card.CertNumber]
-        );
-
-        if (existingCard.rows.length > 0) {
-          // Update existing card
-          await db.query(
-            `UPDATE cards SET grade = $1, card_images = $2 WHERE id = $3`,
-            [
-              card.Grade,
-              card.ImageURL ? JSON.stringify([card.ImageURL]) : null,
-              existingCard.rows[0].id
-            ]
-          );
-        } else {
-          // Insert new card
-          await db.query(
-            `INSERT INTO cards (
-              company_id, submission_id, customer_id, year, player_name,
-              card_set, grade, psa_cert_number, card_images
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-            [
-              req.user.company_id,
-              submission.id,
-              submission.customer_id,
-              card.Year || null,
-              card.SubjectName || card.CardName || 'Unknown',
-              card.Brand || card.Set || null,
-              card.Grade || null,
-              card.CertNumber || null,
-              card.ImageURL ? JSON.stringify([card.ImageURL]) : null
-            ]
-          );
-        }
-      }
-    }
+    // Update submission with latest PSA data
+    const parsed = await updateSubmissionFromPsa(submission.id, result.data);
 
     res.json({
       message: "Submission refreshed from PSA",
-      status: psaOrderData.Status,
-      cards_updated: psaOrderData.Cards?.length || 0
+      currentStep: parsed.currentStep,
+      progressPercent: parsed.progressPercent,
+      gradesReady: parsed.gradesReady
     });
   } catch (error) {
     console.error("Refresh submission error:", error);
     res.status(500).json({
       error: "Failed to refresh submission",
+      details: error.message
+    });
+  }
+});
+
+// Add customer to submission (for consignment tracking)
+router.post("/:id/customers", authenticate, async (req, res) => {
+  try {
+    const { customer_id, card_count, notes } = req.body;
+
+    // Verify submission belongs to company
+    const submissionCheck = await db.query(
+      "SELECT id FROM submissions WHERE id = $1 AND company_id = $2",
+      [req.params.id, req.user.company_id]
+    );
+
+    if (submissionCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Submission not found" });
+    }
+
+    // Add customer link
+    const result = await db.query(
+      `INSERT INTO submission_customers (submission_id, customer_id, card_count, notes)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (submission_id, customer_id) DO UPDATE
+       SET card_count = $3, notes = $4
+       RETURNING *`,
+      [req.params.id, customer_id, card_count || 0, notes || null]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error("Add customer error:", error);
+    res.status(500).json({ error: "Failed to add customer to submission" });
+  }
+});
+
+// Remove customer from submission
+router.delete("/:id/customers/:customerId", authenticate, async (req, res) => {
+  try {
+    // Verify submission belongs to company
+    const submissionCheck = await db.query(
+      "SELECT id FROM submissions WHERE id = $1 AND company_id = $2",
+      [req.params.id, req.user.company_id]
+    );
+
+    if (submissionCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Submission not found" });
+    }
+
+    // Remove customer link
+    const result = await db.query(
+      "DELETE FROM submission_customers WHERE submission_id = $1 AND customer_id = $2 RETURNING *",
+      [req.params.id, req.params.customerId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Customer not linked to this submission" });
+    }
+
+    res.json({ message: "Customer removed from submission" });
+  } catch (error) {
+    console.error("Remove customer error:", error);
+    res.status(500).json({ error: "Failed to remove customer from submission" });
+  }
+});
+
+// Import cards from PSA CSV
+router.post("/:id/import-csv", authenticate, async (req, res) => {
+  try {
+    const { csvData } = req.body;
+
+    // Verify submission belongs to company
+    const submissionResult = await db.query(
+      "SELECT * FROM submissions WHERE id = $1 AND company_id = $2",
+      [req.params.id, req.user.company_id]
+    );
+
+    if (submissionResult.rows.length === 0) {
+      return res.status(404).json({ error: "Submission not found" });
+    }
+
+    const submission = submissionResult.rows[0];
+
+    console.log('\n=== CSV IMPORT DEBUG ===');
+    console.log('CSV Data length:', csvData?.length);
+    console.log('CSV Data preview:', csvData?.substring(0, 200));
+
+    // Helper function to parse CSV line with quoted fields
+    const parseCSVLine = (line) => {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        const nextChar = line[i + 1];
+
+        if (char === '"') {
+          if (inQuotes && nextChar === '"') {
+            // Escaped quote
+            current += '"';
+            i++;
+          } else {
+            // Toggle quote state
+            inQuotes = !inQuotes;
+          }
+        } else if (char === ',' && !inQuotes) {
+          // End of field
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    };
+
+    // Parse CSV (PSA format: Cert #, Type, Description, Grade, After Service, Images)
+    const lines = csvData.trim().split('\n');
+    console.log('Total lines:', lines.length);
+    console.log('Line 0 (header):', lines[0]);
+    if (lines.length > 1) console.log('Line 1 (first data):', lines[1]);
+
+    // Parse header line
+    const headers = parseCSVLine(lines[0]);
+    console.log('Headers found:', headers);
+
+    // Find column indices
+    const certIndex = headers.findIndex(h => h.toLowerCase().includes('cert'));
+    const typeIndex = headers.findIndex(h => h.toLowerCase().includes('type'));
+    const descIndex = headers.findIndex(h => h.toLowerCase().includes('description'));
+    const gradeIndex = headers.findIndex(h => h.toLowerCase().includes('grade'));
+    const imagesIndex = headers.findIndex(h => h.toLowerCase().includes('images'));
+
+    console.log('Column indices:', { certIndex, typeIndex, descIndex, gradeIndex, imagesIndex });
+
+    let imported = 0;
+    let skipped = 0;
+    const errors = [];
+
+    // Process each row (skip header)
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) {
+        console.log(`Row ${i + 1}: Empty line, skipping`);
+        continue;
+      }
+
+      const cols = parseCSVLine(line);
+      console.log(`Row ${i + 1} columns (${cols.length}):`, cols);
+
+      const certNumber = certIndex >= 0 ? cols[certIndex]?.trim() : null;
+      const description = descIndex >= 0 ? cols[descIndex]?.trim() : null;
+      const gradeRaw = gradeIndex >= 0 ? cols[gradeIndex]?.trim() : null;
+      const imageUrl = imagesIndex >= 0 ? cols[imagesIndex]?.trim() : null;
+
+      console.log(`Row ${i + 1} parsed:`, { certNumber, description, gradeRaw });
+
+      if (!certNumber || !description) {
+        skipped++;
+        errors.push(`Row ${i + 1}: Missing cert number or description`);
+        console.log(`Row ${i + 1}: Skipped - missing data`);
+        continue;
+      }
+
+      // Extract numeric grade from text like "NEAR MINT-MINT 8" or "GEM MINT 10"
+      let grade = null;
+      if (gradeRaw) {
+        const gradeMatch = gradeRaw.match(/\d+(\.\d+)?/);
+        if (gradeMatch) {
+          grade = gradeMatch[0];
+        }
+      }
+
+      try {
+        // Check if card already exists
+        const existingCard = await db.query(
+          "SELECT id FROM cards WHERE submission_id = $1 AND psa_cert_number = $2",
+          [submission.id, certNumber]
+        );
+
+        if (existingCard.rows.length > 0) {
+          skipped++;
+          continue;
+        }
+
+        // Create card
+        const cardResult = await db.query(
+          `INSERT INTO cards (
+            company_id, submission_id, customer_id, description,
+            psa_cert_number, grade, card_images, status, player_name
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+          [
+            req.user.company_id,
+            submission.id,
+            submission.customer_id,
+            description,
+            certNumber,
+            grade,
+            null, // Start with no images, will fetch from PSA API
+            'graded',
+            '' // player_name - empty for CSV imports, can be filled in manually
+          ]
+        );
+
+        const cardId = cardResult.rows[0].id;
+        console.log(`Row ${i + 1}: Card created with ID ${cardId}`);
+
+        // Try to scrape images from PSA website
+        try {
+          console.log(`Row ${i + 1}: Scraping images from PSA website for cert ${certNumber}`);
+          const scrapeResult = await scrapePsaCertImages(certNumber);
+
+          if (scrapeResult.success && scrapeResult.images.length > 0) {
+            await db.query(
+              'UPDATE cards SET card_images = $1 WHERE id = $2',
+              [scrapeResult.images, cardId]
+            );
+            console.log(`Row ${i + 1}: Updated with ${scrapeResult.images.length} image(s) from PSA website`);
+          } else {
+            console.log(`Row ${i + 1}: No images found on PSA website`);
+
+            // Fallback: Try PSA API if we have an API key
+            if (req.user.psa_api_key) {
+              console.log(`Row ${i + 1}: Trying PSA API as fallback`);
+              const certResult = await getCertificate(req.user.psa_api_key, certNumber);
+
+              if (certResult.success && certResult.data) {
+                const cert = certResult.data;
+                const images = [];
+
+                // Extract images from PSA cert data (various possible field names)
+                if (cert.FrontImageURL) images.push(cert.FrontImageURL);
+                if (cert.BackImageURL) images.push(cert.BackImageURL);
+                if (cert.FrontImage) images.push(cert.FrontImage);
+                if (cert.BackImage) images.push(cert.BackImage);
+                if (cert.ImageURL) images.push(cert.ImageURL);
+                if (cert.ImageUrl) images.push(cert.ImageUrl);
+                if (cert.Image) images.push(cert.Image);
+                if (cert.Images && Array.isArray(cert.Images)) {
+                  images.push(...cert.Images);
+                }
+
+                // Update card with images and cert data if found
+                if (images.length > 0) {
+                  await db.query(
+                    'UPDATE cards SET card_images = $1, psa_cert_data = $2 WHERE id = $3',
+                    [images, JSON.stringify(cert), cardId]
+                  );
+                  console.log(`Row ${i + 1}: Updated with ${images.length} image(s) from PSA API`);
+                } else {
+                  // Store cert data even if no images found
+                  await db.query(
+                    'UPDATE cards SET psa_cert_data = $1 WHERE id = $2',
+                    [JSON.stringify(cert), cardId]
+                  );
+                  console.log(`Row ${i + 1}: No images in API response, stored cert data`);
+                }
+              }
+            }
+          }
+        } catch (scrapeError) {
+          console.log(`Row ${i + 1}: Image scraping failed -`, scrapeError.message);
+          // Continue anyway, card is already created
+        }
+
+        imported++;
+        console.log(`Row ${i + 1}: Successfully imported card ${certNumber}`);
+      } catch (error) {
+        errors.push(`Row ${i + 1}: ${error.message}`);
+        console.log(`Row ${i + 1}: Error -`, error.message);
+      }
+    }
+
+    console.log('\n=== IMPORT SUMMARY ===');
+    console.log('Imported:', imported);
+    console.log('Skipped:', skipped);
+    console.log('Total rows:', lines.length - 1);
+    console.log('Errors:', errors);
+
+    res.json({
+      success: true,
+      imported,
+      skipped,
+      total: lines.length - 1,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (error) {
+    console.error("CSV import error:", error);
+    res.status(500).json({
+      error: "Failed to import CSV",
       details: error.message
     });
   }

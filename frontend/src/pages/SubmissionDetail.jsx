@@ -21,6 +21,7 @@ import {
   Upload,
   Image as ImageIcon,
   Search,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -64,8 +65,11 @@ function CardRow({ card, onUpdate, onDelete }) {
   const [grade, setGrade] = useState(card.grade || '');
   const [lookingUp, setLookingUp] = useState(false);
   const [showImage, setShowImage] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
 
   const cardImages = card.card_images ? (Array.isArray(card.card_images) ? card.card_images : JSON.parse(card.card_images)) : [];
+  const hasImages = cardImages.length > 0;
 
   const handleLookup = async () => {
     if (!card.psa_cert_number) return;
@@ -90,26 +94,109 @@ function CardRow({ card, onUpdate, onDelete }) {
     }
   };
 
+  const handleImageUpload = async (files) => {
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      Array.from(files).forEach(file => {
+        formData.append('images', file);
+      });
+
+      const res = await cards.uploadImages(card.id, formData);
+      onUpdate(res.data);
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Failed to upload images');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+
+    const files = e.dataTransfer.files;
+    handleImageUpload(files);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  };
+
   return (
-    <tr>
+    <tr className={dragOver ? 'bg-brand-50' : ''}>
       <td>
         <div className="flex items-center gap-3">
-          {cardImages.length > 0 && (
-            <div className="relative">
+          <div
+            className={`relative w-16 h-20 flex-shrink-0 rounded border-2 ${
+              dragOver
+                ? 'border-brand-500 bg-brand-50'
+                : hasImages
+                ? 'border-gray-200'
+                : 'border-dashed border-yellow-400 bg-yellow-50'
+            }`}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+          >
+            {uploading ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <Loader2 className="w-6 h-6 animate-spin text-brand-500" />
+              </div>
+            ) : hasImages ? (
               <img
                 src={cardImages[0]}
                 alt={card.player_name || card.description}
-                className="w-16 h-20 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-75"
+                className="w-full h-full object-cover rounded cursor-pointer hover:opacity-75"
                 onClick={() => setShowImage(!showImage)}
               />
-            </div>
-          )}
-          <div>
+            ) : (
+              <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-yellow-100">
+                <Upload className="w-5 h-5 text-yellow-600 mb-1" />
+                <span className="text-[10px] text-yellow-700 text-center px-1">Drop or click</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => handleImageUpload(e.target.files)}
+                  className="hidden"
+                />
+              </label>
+            )}
+            {hasImages && (
+              <label className="absolute bottom-0 right-0 bg-brand-500 text-white rounded-tl p-1 cursor-pointer hover:bg-brand-600">
+                <Upload className="w-3 h-3" />
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) => handleImageUpload(e.target.files)}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+          <div className="flex-1">
             <p className="font-medium text-gray-900">{card.description || card.player_name || 'Untitled'}</p>
             {card.player_name && (
               <p className="text-xs text-gray-500">
                 {card.year} {card.card_set || card.brand} {card.player_name}
               </p>
+            )}
+            {!hasImages && (
+              <p className="text-xs text-yellow-600 mt-1">⚠️ No image</p>
             )}
           </div>
         </div>
@@ -168,23 +255,224 @@ function CardRow({ card, onUpdate, onDelete }) {
       <td>
         <div className="flex items-center gap-2">
           {card.psa_cert_number && (
-            <button
-              onClick={handleLookup}
-              disabled={lookingUp}
-              className="btn btn-secondary py-1 px-2 text-xs"
-            >
-              {lookingUp ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Lookup'}
-            </button>
+            <>
+              <a
+                href={`https://www.psacard.com/cert/${card.psa_cert_number}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-secondary py-1 px-2 text-xs flex items-center gap-1"
+                title="View on PSA (right-click images to save)"
+              >
+                <ExternalLink className="w-3 h-3" />
+                PSA
+              </a>
+              <button
+                onClick={handleLookup}
+                disabled={lookingUp}
+                className="btn btn-secondary py-1 px-2 text-xs"
+                title="Try to fetch from PSA API"
+              >
+                {lookingUp ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Lookup'}
+              </button>
+            </>
           )}
           <button
             onClick={() => onDelete(card.id)}
             className="p-1 text-red-500 hover:bg-red-50 rounded"
+            title="Delete card"
           >
             <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </td>
     </tr>
+  );
+}
+
+function CustomerAssignmentSheet({ customer, submission, onClose, onUpdate }) {
+  const [selectedCards, setSelectedCards] = useState(new Set());
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    // Pre-select cards that are already assigned to this customer
+    const assignedCardIds = new Set(
+      submission.cards
+        .filter(card => card.customer_owner_id === customer.id)
+        .map(card => card.id)
+    );
+    setSelectedCards(assignedCardIds);
+  }, [customer.id, submission.cards]);
+
+  const toggleCard = (cardId) => {
+    const newSelection = new Set(selectedCards);
+    if (newSelection.has(cardId)) {
+      newSelection.delete(cardId);
+    } else {
+      newSelection.add(cardId);
+    }
+    setSelectedCards(newSelection);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Update each card's customer assignment
+      const updates = submission.cards.map(async (card) => {
+        const shouldBeAssigned = selectedCards.has(card.id);
+        const isAssigned = card.customer_owner_id === customer.id;
+
+        // Only update if there's a change
+        if (shouldBeAssigned !== isAssigned) {
+          await cards.update(card.id, {
+            customer_owner_id: shouldBeAssigned ? customer.id : null
+          });
+        }
+      });
+
+      await Promise.all(updates);
+      await onUpdate();
+      onClose();
+    } catch (error) {
+      console.error('Failed to update card assignments:', error);
+      alert('Failed to update card assignments');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div className="fixed inset-0 bg-black bg-opacity-50 z-40" onClick={onClose} />
+
+      {/* Sheet */}
+      <div className="fixed right-0 top-0 h-full w-full max-w-2xl bg-white shadow-2xl z-50 flex flex-col slide-in-right">
+        {/* Header */}
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">{customer.name}</h2>
+              <p className="text-sm text-gray-500">{customer.email}</p>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <p className="text-sm text-gray-600 mt-2">
+            Select which cards belong to this customer
+          </p>
+        </div>
+
+        {/* Card list */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="space-y-3">
+            {submission.cards.map((card) => {
+              const cardImages = card.card_images ?
+                (Array.isArray(card.card_images) ? card.card_images : JSON.parse(card.card_images)) : [];
+              const hasImage = cardImages.length > 0;
+              const isSelected = selectedCards.has(card.id);
+
+              return (
+                <div
+                  key={card.id}
+                  onClick={() => toggleCard(card.id)}
+                  className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    isSelected
+                      ? 'border-brand-500 bg-brand-50'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {/* Checkbox */}
+                  <div className="flex-shrink-0">
+                    <div className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                      isSelected ? 'bg-brand-500 border-brand-500' : 'border-gray-300'
+                    }`}>
+                      {isSelected && <CheckCircle2 className="w-4 h-4 text-white" />}
+                    </div>
+                  </div>
+
+                  {/* Card image */}
+                  {hasImage && (
+                    <div className="w-12 h-16 flex-shrink-0">
+                      <img
+                        src={cardImages[0]}
+                        alt={card.player_name || card.description}
+                        className="w-full h-full object-cover rounded border border-gray-200"
+                      />
+                    </div>
+                  )}
+
+                  {/* Card details */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-900 truncate">
+                      {card.description || card.player_name || 'Untitled'}
+                    </p>
+                    {card.player_name && (
+                      <p className="text-sm text-gray-500 truncate">
+                        {card.year} {card.card_set || card.brand}
+                      </p>
+                    )}
+                    {card.psa_cert_number && (
+                      <p className="text-xs text-gray-400 mt-1">
+                        Cert: {card.psa_cert_number}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Grade badge */}
+                  {card.grade && (
+                    <div className="flex-shrink-0">
+                      <span className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 font-bold text-gray-900">
+                        {card.grade}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {submission.cards.length === 0 && (
+            <div className="text-center py-12">
+              <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No cards in this submission yet</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 border-t border-gray-200 bg-gray-50">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-gray-600">
+              {selectedCards.size} card{selectedCards.size !== 1 ? 's' : ''} selected
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="btn btn-secondary flex-1"
+              disabled={saving}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              className="btn btn-primary flex-1"
+              disabled={saving}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save Assignments'
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -257,6 +545,9 @@ export default function SubmissionDetail() {
   const [assigningCustomer, setAssigningCustomer] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [importingCSV, setImportingCSV] = useState(false);
+  const [csvImportResult, setCsvImportResult] = useState(null);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
 
   const loadSubmission = async () => {
     try {
@@ -349,6 +640,30 @@ export default function SubmissionDetail() {
     setShowAddCard(false);
   };
 
+  const handleAddLinkedCustomer = async (customerId) => {
+    setAssigningCustomer(true);
+    try {
+      await submissions.addCustomer(id, { customer_id: customerId });
+      await loadSubmission();
+    } catch (error) {
+      console.error('Add customer failed:', error);
+      alert('Failed to add customer to submission');
+    } finally {
+      setAssigningCustomer(false);
+    }
+  };
+
+  const handleRemoveLinkedCustomer = async (customerId) => {
+    if (!confirm('Remove this customer from the submission?')) return;
+    try {
+      await submissions.removeCustomer(id, customerId);
+      await loadSubmission();
+    } catch (error) {
+      console.error('Remove customer failed:', error);
+      alert('Failed to remove customer');
+    }
+  };
+
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -366,6 +681,39 @@ export default function SubmissionDetail() {
       alert('Failed to upload image');
     } finally {
       setUploadingImage(false);
+    }
+  };
+
+  const handleCSVImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportingCSV(true);
+    setCsvImportResult(null);
+    try {
+      const text = await file.text();
+      const res = await submissions.importCSV(id, text);
+      setCsvImportResult(res.data);
+      await loadSubmission();
+
+      // Show success message
+      const { imported, skipped, errors, total } = res.data;
+      let message = `Successfully imported ${imported} card(s)`;
+      if (skipped > 0) message += `, skipped ${skipped} duplicate(s)`;
+      if (errors && errors.length > 0) {
+        message += `\n\n${errors.length} error(s):\n${errors.join('\n')}`;
+      }
+      if (imported === 0 && skipped === 0 && total === 0) {
+        message = 'No data rows found in CSV file. Check file format.';
+      }
+      alert(message);
+    } catch (error) {
+      console.error('CSV import failed:', error);
+      alert(error.response?.data?.error || 'Failed to import CSV');
+    } finally {
+      setImportingCSV(false);
+      // Reset file input
+      e.target.value = '';
     }
   };
 
@@ -515,6 +863,17 @@ export default function SubmissionDetail() {
                       className="input pl-10 w-full sm:w-64"
                     />
                   </div>
+                  <label className="btn btn-secondary gap-2 whitespace-nowrap cursor-pointer">
+                    <FileSpreadsheet className="w-4 h-4" />
+                    {importingCSV ? 'Importing...' : 'Import CSV'}
+                    <input
+                      type="file"
+                      accept=".csv,.tsv,.txt"
+                      onChange={handleCSVImport}
+                      disabled={importingCSV}
+                      className="hidden"
+                    />
+                  </label>
                   <button
                     onClick={() => setShowAddCard(true)}
                     className="btn btn-secondary gap-2 whitespace-nowrap"
@@ -690,39 +1049,83 @@ export default function SubmissionDetail() {
             )}
           </div>
 
-          {/* Customer */}
+          {/* Customers (Consignment Tracking) */}
           <div className="card p-6">
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <User className="w-4 h-4" />
-              Customer
-            </h3>
-            {submission.customer_id ? (
-              <div>
-                <p className="font-medium text-gray-900">{submission.customer_name}</p>
-                <Link
-                  to={`/customers/${submission.customer_id}`}
-                  className="text-sm text-brand-600 hover:underline"
-                >
-                  View customer →
-                </Link>
-              </div>
-            ) : (
-              <div>
-                <p className="text-gray-500 text-sm mb-3">No customer assigned</p>
-                <select
-                  onChange={(e) => e.target.value && handleAssignCustomer(e.target.value)}
-                  disabled={assigningCustomer}
-                  className="input"
-                  defaultValue=""
-                >
-                  <option value="">Select customer...</option>
-                  {customerList.map((c) => (
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                <User className="w-4 h-4" />
+                Customers ({submission.linked_customers?.length || 0})
+              </h3>
+            </div>
+
+            {/* Add customer dropdown */}
+            <div className="mb-4">
+              <select
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleAddLinkedCustomer(e.target.value);
+                    e.target.value = '';
+                  }
+                }}
+                disabled={assigningCustomer}
+                className="input text-sm"
+              >
+                <option value="">+ Add customer...</option>
+                {customerList
+                  .filter(c => !submission.linked_customers?.some(lc => lc.id === c.id))
+                  .map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name} ({c.email})
                     </option>
                   ))}
-                </select>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Track multiple customers in one submission (consignment)
+              </p>
+            </div>
+
+            {/* Linked customers list */}
+            {submission.linked_customers?.length > 0 ? (
+              <div className="space-y-2">
+                {submission.linked_customers.map((customer) => {
+                  const assignedCards = submission.cards.filter(c => c.customer_owner_id === customer.id).length;
+
+                  return (
+                    <div
+                      key={customer.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group"
+                      onClick={() => setSelectedCustomer(customer)}
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-sm text-gray-900 group-hover:text-brand-600 transition-colors">
+                          {customer.name}
+                        </p>
+                        <p className="text-xs text-gray-500">{customer.email}</p>
+                        <p className="text-xs text-brand-600 mt-1">
+                          {assignedCards} card{assignedCards !== 1 ? 's' : ''} assigned
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-400 group-hover:text-brand-600 transition-colors">
+                          Click to assign cards
+                        </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveLinkedCustomer(customer.id);
+                          }}
+                          className="p-1 text-red-500 hover:bg-red-50 rounded"
+                          title="Remove customer"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            ) : (
+              <p className="text-sm text-gray-500">No customers linked yet</p>
             )}
           </div>
 
@@ -737,6 +1140,16 @@ export default function SubmissionDetail() {
           )}
         </div>
       </div>
+
+      {/* Customer Assignment Sheet */}
+      {selectedCustomer && (
+        <CustomerAssignmentSheet
+          customer={selectedCustomer}
+          submission={submission}
+          onClose={() => setSelectedCustomer(null)}
+          onUpdate={loadSubmission}
+        />
+      )}
     </div>
   );
 }

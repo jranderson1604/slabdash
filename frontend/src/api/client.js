@@ -34,7 +34,8 @@ export const customers = {
   create: (data) => api.post('/customers', data),
   update: (id, data) => api.put(`/customers/${id}`, data),
   delete: (id) => api.delete(`/customers/${id}`),
-  generatePortalLink: (id) => api.post(`/customers/${id}/portal-link`)
+  generatePortalLink: (id) => api.post(`/customers/${id}/portal-link`),
+  importCSV: (csvData) => api.post('/customers/import-csv', { csvData })
 };
 
 export const submissions = {
@@ -45,10 +46,13 @@ export const submissions = {
   delete: (id) => api.delete(`/submissions/${id}`),
   refresh: (id) => api.post(`/submissions/${id}/refresh`),
   assignCustomer: (id, customerId) => api.put(`/submissions/${id}`, { customer_id: customerId }),
-  uploadImage: (id, formData) => 
+  addCustomer: (id, data) => api.post(`/submissions/${id}/customers`, data),
+  removeCustomer: (id, customerId) => api.delete(`/submissions/${id}/customers/${customerId}`),
+  uploadImage: (id, formData) =>
     api.post(`/submissions/${id}/images`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
-    })
+    }),
+  importCSV: (id, csvData) => api.post(`/submissions/${id}/import-csv`, { csvData })
 };
 
 export const cards = {
