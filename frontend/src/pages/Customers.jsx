@@ -12,6 +12,7 @@ import {
   Mail,
   Package,
   Link as LinkIcon,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -138,6 +139,7 @@ export default function Customers() {
   const [customerList, setCustomerList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [importingCSV, setImportingCSV] = useState(false);
 
   const loadCustomers = async () => {
     try {
@@ -160,6 +162,34 @@ export default function Customers() {
     setCustomerList(customerList.filter((c) => c.id !== id));
   };
 
+  const handleCSVImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportingCSV(true);
+    try {
+      const text = await file.text();
+      const res = await customers.importCSV(text);
+
+      const { imported, skipped, errors } = res.data;
+      let message = `Successfully imported ${imported} customer(s)`;
+      if (skipped > 0) message += `, skipped ${skipped} duplicate(s)`;
+      if (errors && errors.length > 0) {
+        message += `\n\n${errors.length} error(s):\n${errors.join('\n')}`;
+      }
+      alert(message);
+
+      // Reload customers
+      await loadCustomers();
+    } catch (error) {
+      console.error('CSV import failed:', error);
+      alert(error.response?.data?.error || 'Failed to import CSV');
+    } finally {
+      setImportingCSV(false);
+      e.target.value = '';
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -168,10 +198,23 @@ export default function Customers() {
           <h1 className="text-2xl font-bold text-gray-900">Customers</h1>
           <p className="text-gray-500 mt-1">Manage your card shop customers</p>
         </div>
-        <Link to="/customers/new" className="btn btn-primary gap-2">
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">Add Customer</span>
-        </Link>
+        <div className="flex items-center gap-3">
+          <label className="btn btn-secondary gap-2 cursor-pointer">
+            <FileSpreadsheet className="w-4 h-4" />
+            <span className="hidden sm:inline">{importingCSV ? 'Importing...' : 'Import CSV'}</span>
+            <input
+              type="file"
+              accept=".csv"
+              onChange={handleCSVImport}
+              disabled={importingCSV}
+              className="hidden"
+            />
+          </label>
+          <Link to="/customers/new" className="btn btn-primary gap-2">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Add Customer</span>
+          </Link>
+        </div>
       </div>
 
       {/* Search */}

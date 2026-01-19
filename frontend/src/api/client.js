@@ -34,7 +34,8 @@ export const customers = {
   create: (data) => api.post('/customers', data),
   update: (id, data) => api.put(`/customers/${id}`, data),
   delete: (id) => api.delete(`/customers/${id}`),
-  generatePortalLink: (id) => api.post(`/customers/${id}/portal-link`)
+  generatePortalLink: (id) => api.post(`/customers/${id}/portal-link`),
+  importCSV: (csvData) => api.post('/customers/import-csv', { csvData })
 };
 
 export const submissions = {
