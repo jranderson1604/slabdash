@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Save,
   Trash2,
+  DollarSign,
 } from 'lucide-react';
 
 export default function CardDetail() {
@@ -181,6 +182,15 @@ export default function CardDetail() {
             </>
           ) : (
             <>
+              {card.grade && card.customer_id && (
+                <button
+                  onClick={() => navigate(`/buyback/new?card_id=${card.id}`)}
+                  className="btn btn-primary bg-green-600 hover:bg-green-700"
+                >
+                  <DollarSign className="w-4 h-4" />
+                  Create Buyback Offer
+                </button>
+              )}
               <button onClick={() => setEditing(true)} className="btn btn-secondary">
                 Edit Details
               </button>
