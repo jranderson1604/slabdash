@@ -49,6 +49,22 @@ router.get('/access', async (req, res) => {
             [customer.id]
         );
 
+        // Get customer's buyback offers
+        const buybackResult = await db.query(
+            `SELECT bo.*,
+                c.description as card_description,
+                c.grade as card_grade,
+                c.psa_cert_number,
+                c.player_name,
+                c.year,
+                c.brand
+             FROM buyback_offers bo
+             LEFT JOIN cards c ON bo.card_id = c.id
+             WHERE bo.customer_id = $1
+             ORDER BY bo.created_at DESC`,
+            [customer.id]
+        );
+
         res.json({
             customer: {
                 id: customer.id,
@@ -64,7 +80,8 @@ router.get('/access', async (req, res) => {
             submissions: submissionsResult.rows.map(sub => ({
                 ...sub,
                 cards: sub.cards || []
-            }))
+            })),
+            buybackOffers: buybackResult.rows
         });
     } catch (error) {
         console.error('Portal access error:', error);
@@ -307,6 +324,102 @@ router.get('/documents', authenticateCustomer, async (req, res) => {
         res.json(result.rows);
     } catch (error) {
         res.status(500).json({ error: 'Failed to get documents' });
+    }
+});
+
+// Respond to buyback offer (token-based, for portal access without login)
+router.post('/buyback-offers/:id/respond', async (req, res) => {
+    try {
+        const token = req.query.token || req.body.token;
+        const { response, customer_response } = req.body;
+
+        if (!token) {
+            return res.status(401).json({ error: 'Token is required' });
+        }
+
+        if (!response || !['accepted', 'rejected'].includes(response)) {
+            return res.status(400).json({ error: 'Invalid response. Must be "accepted" or "rejected"' });
+        }
+
+        // Verify portal token and get customer
+        const customerResult = await db.query(
+            `SELECT c.id, c.name, c.email
+             FROM customers c
+             WHERE c.portal_access_token = $1
+             AND c.portal_access_enabled = true
+             AND (c.portal_token_expires IS NULL OR c.portal_token_expires > NOW())`,
+            [token]
+        );
+
+        if (customerResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid or expired token' });
+        }
+
+        const customer = customerResult.rows[0];
+
+        // Verify offer belongs to customer
+        const offerCheck = await db.query(
+            'SELECT id, status, offer_price FROM buyback_offers WHERE id = $1 AND customer_id = $2',
+            [req.params.id, customer.id]
+        );
+
+        if (offerCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Buyback offer not found' });
+        }
+
+        if (offerCheck.rows[0].status !== 'pending') {
+            return res.status(400).json({ error: 'This offer has already been responded to' });
+        }
+
+        const offer = offerCheck.rows[0];
+
+        // Update offer status
+        const result = await db.query(
+            `UPDATE buyback_offers
+            SET status = $1, customer_response = $2, responded_at = NOW()
+            WHERE id = $3 AND customer_id = $4
+            RETURNING *`,
+            [response, customer_response || null, req.params.id, customer.id]
+        );
+
+        // If accepted, create payment intent automatically
+        if (response === 'accepted') {
+            try {
+                const paymentIntent = await stripeService.createPaymentIntent(
+                    offer.offer_price,
+                    {
+                        offer_id: offer.id,
+                        customer_id: customer.id,
+                        customer_name: customer.name,
+                        customer_email: customer.email,
+                        description: `Buyback payment for offer #${offer.id}`
+                    }
+                );
+
+                await db.query(
+                    `UPDATE buyback_offers SET payment_id = $1, payment_method = 'stripe', payment_status = 'processing' WHERE id = $2`,
+                    [paymentIntent.id, req.params.id]
+                );
+
+                console.log(`💳 Auto-created payment intent for accepted offer: ${paymentIntent.id}`);
+
+                return res.json({
+                    ...result.rows[0],
+                    payment_intent: paymentIntent,
+                    stripe_configured: stripeService.isConfigured()
+                });
+            } catch (paymentError) {
+                console.error('Auto-payment creation error:', paymentError);
+                // Continue without payment intent
+            }
+        }
+
+        console.log(`📧 Customer ${response} buyback offer #${req.params.id}`);
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Respond to buyback offer error:', error);
+        res.status(500).json({ error: 'Failed to respond to buyback offer' });
     }
 });
 
