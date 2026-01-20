@@ -39,6 +39,13 @@ const requireRole = (...roles) => (req, res, next) => {
     next();
 };
 
+const requireOwner = (req, res, next) => {
+    if (req.user?.role !== 'owner') {
+        return res.status(403).json({ error: 'Platform owner access required' });
+    }
+    next();
+};
+
 const authenticateCustomer = async (req, res, next) => {
     try {
         const authHeader = req.headers.authorization;
@@ -72,4 +79,4 @@ const authenticateCustomer = async (req, res, next) => {
     }
 };
 
-module.exports = { authenticate, requireRole, authenticateCustomer };
+module.exports = { authenticate, requireRole, requireOwner, authenticateCustomer };

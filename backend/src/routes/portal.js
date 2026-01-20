@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authenticateCustomer } = require('../middleware/auth');
+const stripeService = require('../services/stripe');
 
 // Customer login via magic link
 router.post('/login', async (req, res) => {
@@ -180,6 +181,39 @@ router.patch('/buyback-offers/:id/respond', authenticateCustomer, async (req, re
             RETURNING *`,
             [response, customer_response || null, req.params.id, req.customer.id]
         );
+
+        // If accepted, create payment intent automatically
+        if (response === 'accepted') {
+            try {
+                const paymentIntent = await stripeService.createPaymentIntent(
+                    result.rows[0].offer_price,
+                    {
+                        offer_id: result.rows[0].id,
+                        customer_id: req.customer.id,
+                        customer_name: req.customer.name,
+                        customer_email: req.customer.email,
+                        description: `Buyback payment for offer #${result.rows[0].id}`
+                    }
+                );
+
+                // Update offer with payment intent
+                await db.query(
+                    `UPDATE buyback_offers SET payment_id = $1, payment_method = 'stripe', payment_status = 'processing' WHERE id = $2`,
+                    [paymentIntent.id, req.params.id]
+                );
+
+                console.log(`💳 Auto-created payment intent for accepted offer: ${paymentIntent.id}`);
+
+                return res.json({
+                    ...result.rows[0],
+                    payment_intent: paymentIntent,
+                    stripe_configured: stripeService.isConfigured()
+                });
+            } catch (paymentError) {
+                console.error('Auto-payment creation error:', paymentError);
+                // Continue without payment intent - can be created manually later
+            }
+        }
 
         // TODO: Notify shop owner of customer response
         console.log(`📧 Customer responded to buyback offer: ${response}`);

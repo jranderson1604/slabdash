@@ -134,11 +134,12 @@ export default function Landing() {
       <nav className="border-b border-gray-200 bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
+            {/* Small S logo - subtle brand anchor in top-left */}
             <Link to="/" className="flex items-center">
               <img
-                src="/images/logo-full.png"
+                src="/images/logo-icon.png"
                 alt="SlabDash"
-                className="h-24 sm:h-32 w-auto"
+                className="h-12 w-12"
               />
             </Link>
             <div className="flex items-center gap-4">
@@ -157,12 +158,12 @@ export default function Landing() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center space-y-8 animate-fade-in">
-            {/* Big Hero Logo */}
-            <div className="flex justify-center mb-8">
+            {/* MASSIVE Hero Wordmark - Primary Focal Point */}
+            <div className="flex justify-center mb-12">
               <img
-                src="/images/logo-icon.png"
+                src="/images/logo-full.png"
                 alt="SlabDash"
-                className="h-48 w-48 sm:h-64 sm:w-64 drop-shadow-2xl"
+                className="h-40 sm:h-56 lg:h-72 w-auto max-w-full drop-shadow-2xl"
               />
             </div>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFF5F3] text-[#E85947] rounded-full text-sm font-medium">
@@ -261,7 +262,7 @@ export default function Landing() {
               <img
                 src="/images/logo-icon.png"
                 alt="SlabDash"
-                className="h-16 w-16 opacity-80"
+                className="h-64 w-64 opacity-80"
               />
             </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
@@ -298,7 +299,7 @@ export default function Landing() {
               <img
                 src="/images/logo-icon.png"
                 alt="SlabDash"
-                className="h-16 w-16 opacity-80"
+                className="h-64 w-64 opacity-80"
               />
             </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
@@ -370,7 +371,7 @@ export default function Landing() {
               <img
                 src="/images/logo-icon.png"
                 alt="SlabDash"
-                className="h-16 w-16 opacity-80"
+                className="h-64 w-64 opacity-80"
               />
             </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
@@ -415,7 +416,7 @@ export default function Landing() {
             <img
               src="/images/logo-icon.png"
               alt="SlabDash"
-              className="h-20 w-20 opacity-90 drop-shadow-2xl"
+              className="h-80 w-80 opacity-90 drop-shadow-2xl"
             />
           </div>
           <h2 className="text-4xl sm:text-5xl font-bold mb-6">
@@ -448,7 +449,7 @@ export default function Landing() {
                 <img
                   src="/images/logo-icon.png"
                   alt="SlabDash"
-                  className="h-16 w-16"
+                  className="h-64 w-64"
                 />
                 <span className="text-2xl font-bold text-white ml-3">SlabDash</span>
               </Link>
