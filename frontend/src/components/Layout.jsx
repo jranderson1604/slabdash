@@ -60,21 +60,20 @@ export default function Layout({ children }) {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Logo - 4× scaled */}
-        <div className="flex flex-col items-center px-4 py-6 border-b border-brand-100 relative">
+        {/* Logo */}
+        <div className="flex items-center justify-center px-4 py-6 border-b border-brand-100 relative">
           <button
             onClick={() => setSidebarOpen(false)}
             className="absolute top-4 right-4 lg:hidden text-gray-600 hover:text-gray-900"
           >
             <X className="w-6 h-6" />
           </button>
-          <Link to="/dashboard" className="flex flex-col items-center gap-3">
+          <Link to="/dashboard" className="flex items-center justify-center">
             <img
               src="/images/logo-icon.png"
               alt="SlabDash"
-              className="w-48 h-48"
+              className="w-32 h-32"
             />
-            <span className="text-xl font-bold text-gray-900">SlabDash</span>
           </Link>
         </div>
 
