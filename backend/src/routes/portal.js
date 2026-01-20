@@ -5,6 +5,73 @@ const db = require('../db');
 const { authenticateCustomer } = require('../middleware/auth');
 const stripeService = require('../services/stripe');
 
+// Quick access endpoint for portal links (GET with token query param)
+router.get('/access', async (req, res) => {
+    try {
+        const token = req.query.token;
+
+        if (!token) {
+            return res.status(400).json({ error: 'Token required' });
+        }
+
+        // Find customer by portal access token
+        const customerResult = await db.query(
+            `SELECT c.*, co.name as company_name, co.slug as company_slug, co.primary_color, co.logo_url
+             FROM customers c JOIN companies co ON c.company_id = co.id
+             WHERE c.portal_access_token = $1 AND c.portal_access_enabled = true`,
+            [token]
+        );
+
+        if (customerResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid or expired portal link' });
+        }
+
+        const customer = customerResult.rows[0];
+
+        // Get customer's submissions with cards
+        const submissionsResult = await db.query(
+            `SELECT
+                s.id, s.internal_id, s.psa_submission_number, s.service_level,
+                s.current_step, s.progress_percent, s.grades_ready, s.shipped,
+                s.problem_order, s.date_sent, s.return_tracking,
+                (SELECT COUNT(*) FROM cards WHERE submission_id = s.id) as card_count,
+                (SELECT json_agg(json_build_object(
+                    'id', c.id,
+                    'description', c.description,
+                    'grade', c.grade,
+                    'psa_cert_number', c.psa_cert_number
+                )) FROM cards c WHERE c.submission_id = s.id) as cards
+             FROM submissions s
+             WHERE s.customer_id = $1 OR s.id IN (
+                 SELECT submission_id FROM submission_customers WHERE customer_id = $1
+             )
+             ORDER BY s.created_at DESC`,
+            [customer.id]
+        );
+
+        res.json({
+            customer: {
+                id: customer.id,
+                name: customer.name,
+                email: customer.email
+            },
+            company: {
+                name: customer.company_name,
+                slug: customer.company_slug,
+                primaryColor: customer.primary_color,
+                logo_url: customer.logo_url
+            },
+            submissions: submissionsResult.rows.map(sub => ({
+                ...sub,
+                cards: sub.cards || []
+            }))
+        });
+    } catch (error) {
+        console.error('Portal access error:', error);
+        res.status(500).json({ error: 'Failed to load portal data' });
+    }
+});
+
 // Customer login via magic link
 router.post('/login', async (req, res) => {
     try {
