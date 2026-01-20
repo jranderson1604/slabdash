@@ -10,37 +10,37 @@
   "icons": [
     {
       "src": "/images/logo-icon.png",
-      "sizes": "192x192",
+      "sizes": "576x576",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/images/logo-icon.png",
-      "sizes": "512x512",
+      "sizes": "1536x1536",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/images/logo-icon.png",
-      "sizes": "180x180",
+      "sizes": "540x540",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/images/logo-icon.png",
-      "sizes": "167x167",
+      "sizes": "501x501",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/images/logo-icon.png",
-      "sizes": "152x152",
+      "sizes": "456x456",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/images/logo-icon.png",
-      "sizes": "120x120",
+      "sizes": "360x360",
       "type": "image/png",
       "purpose": "any"
     }
