@@ -1,6 +1,7 @@
 const express = require("express");
 const db = require("../db");
 const { authenticate } = require("../middleware/auth");
+const stripeService = require("../services/stripe");
 
 const router = express.Router();
 
@@ -269,6 +270,118 @@ router.get("/stats/summary", authenticate, async (req, res) => {
   } catch (err) {
     console.error("Get buyback stats error:", err);
     res.status(500).json({ error: "Failed to fetch buyback stats" });
+  }
+});
+
+// Create payment intent for accepted buyback offer
+router.post("/:id/payment", authenticate, async (req, res) => {
+  try {
+    const { company_id } = req.user;
+    const { id } = req.params;
+
+    // Get buyback offer details
+    const offerResult = await db.query(
+      `SELECT bo.*, cu.name as customer_name, cu.email as customer_email,
+        c.description as card_description
+      FROM buyback_offers bo
+      LEFT JOIN customers cu ON bo.customer_id = cu.id
+      LEFT JOIN cards c ON bo.card_id = c.id
+      WHERE bo.id = $1 AND bo.company_id = $2`,
+      [id, company_id]
+    );
+
+    if (offerResult.rows.length === 0) {
+      return res.status(404).json({ error: "Buyback offer not found" });
+    }
+
+    const offer = offerResult.rows[0];
+
+    if (offer.status !== "accepted") {
+      return res.status(400).json({ error: "Only accepted offers can be paid" });
+    }
+
+    // Create Stripe payment intent
+    const paymentIntent = await stripeService.createPaymentIntent(
+      offer.offer_price,
+      {
+        offer_id: offer.id,
+        customer_id: offer.customer_id,
+        customer_name: offer.customer_name,
+        customer_email: offer.customer_email,
+        card_description: offer.card_description,
+        description: `Buyback payment for ${offer.card_description}`
+      }
+    );
+
+    // Update offer with payment intent ID
+    await db.query(
+      `UPDATE buyback_offers SET payment_id = $1, payment_method = 'stripe', payment_status = 'processing' WHERE id = $2`,
+      [paymentIntent.id, id]
+    );
+
+    console.log(`💳 Payment intent created for buyback offer #${id}: ${paymentIntent.id}`);
+
+    res.json({
+      payment_intent: paymentIntent,
+      offer: offer,
+      stripe_configured: stripeService.isConfigured()
+    });
+  } catch (err) {
+    console.error("Create payment intent error:", err);
+    res.status(500).json({ error: "Failed to create payment intent" });
+  }
+});
+
+// Confirm payment for buyback offer
+router.post("/:id/payment/confirm", authenticate, async (req, res) => {
+  try {
+    const { company_id } = req.user;
+    const { id } = req.params;
+    const { payment_intent_id } = req.body;
+
+    const offerCheck = await db.query(
+      "SELECT id, payment_id FROM buyback_offers WHERE id = $1 AND company_id = $2",
+      [id, company_id]
+    );
+
+    if (offerCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Buyback offer not found" });
+    }
+
+    const offer = offerCheck.rows[0];
+
+    // Verify payment intent matches
+    if (offer.payment_id !== payment_intent_id) {
+      return res.status(400).json({ error: "Payment intent mismatch" });
+    }
+
+    // Get payment status from Stripe
+    const paymentIntent = await stripeService.getPaymentIntent(payment_intent_id);
+
+    if (paymentIntent.status === "succeeded") {
+      // Mark offer as paid
+      await db.query(
+        `UPDATE buyback_offers SET status = 'paid', payment_status = 'completed', paid_at = NOW() WHERE id = $1`,
+        [id]
+      );
+
+      console.log(`✅ Payment confirmed for buyback offer #${id}`);
+
+      res.json({
+        success: true,
+        status: "paid",
+        payment_intent: paymentIntent
+      });
+    } else {
+      res.json({
+        success: false,
+        status: paymentIntent.status,
+        payment_intent: paymentIntent
+      });
+    }
+  } catch (err) {
+    console.error("Confirm payment error:", err);
+    res.status(500).json({ error: "Failed to confirm payment" });
   }
 });
 

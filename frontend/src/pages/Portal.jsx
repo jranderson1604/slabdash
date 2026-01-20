@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Package, CheckCircle2, Clock, AlertTriangle, Loader2, CreditCard, Search } from 'lucide-react';
+import { Package, CheckCircle2, Clock, AlertTriangle, Loader2, CreditCard, Search, DollarSign, X, Check } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -110,14 +110,24 @@ export default function Portal() {
   const [data, setData] = useState(null);
   const [selectedSub, setSelectedSub] = useState(null);
   const [search, setSearch] = useState('');
+  const [buybackOffers, setBuybackOffers] = useState([]);
 
   useEffect(() => {
     if (!token) { setError('Invalid portal link'); setLoading(false); return; }
-    fetch(`${API_URL}/portal/access?token=${token}`)
-      .then(res => res.json())
-      .then(d => {
-        if (d.error) { setError(d.error); }
-        else { setData(d); if (d.submissions?.length) setSelectedSub(d.submissions[0]); }
+    Promise.all([
+      fetch(`${API_URL}/portal/access?token=${token}`).then(res => res.json()),
+      fetch(`${API_URL}/portal/buyback-offers`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      }).then(res => res.ok ? res.json() : []).catch(() => [])
+    ])
+      .then(([portalData, offers]) => {
+        if (portalData.error) {
+          setError(portalData.error);
+        } else {
+          setData(portalData);
+          setBuybackOffers(offers || []);
+          if (portalData.submissions?.length) setSelectedSub(portalData.submissions[0]);
+        }
       })
       .catch(() => setError('Failed to load'))
       .finally(() => setLoading(false));
@@ -136,7 +146,7 @@ export default function Portal() {
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center"><span className="text-white font-bold">SD</span></div>
+              <img src="/images/logo-icon.png" alt="SlabDash" className="w-40 h-40" />
               <div>
                 <h1 className="font-bold text-lg">{data.company?.name || 'Card Shop'}</h1>
                 <p className="text-sm text-gray-500">Order Tracking</p>
@@ -151,6 +161,50 @@ export default function Portal() {
       </header>
 
       <main className="max-w-6xl mx-auto px-4 py-6">
+        {/* Buyback Offers - Prominent Section */}
+        {buybackOffers.filter(o => o.status === 'pending').length > 0 && (
+          <div className="mb-6 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-6 text-white shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
+                  <DollarSign className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold">You have {buybackOffers.filter(o => o.status === 'pending').length} buyback offer{buybackOffers.filter(o => o.status === 'pending').length !== 1 ? 's' : ''}!</h2>
+                  <p className="text-green-100">Review and respond to offers from your shop</p>
+                </div>
+              </div>
+            </div>
+            <div className="grid gap-4">
+              {buybackOffers.filter(o => o.status === 'pending').map(offer => (
+                <div key={offer.id} className="bg-white/10 backdrop-blur rounded-lg p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-semibold text-lg">{offer.card_description}</h3>
+                      {offer.card_grade && <p className="text-sm text-green-100">Grade: {offer.card_grade}</p>}
+                      {offer.message && <p className="text-sm text-green-100 mt-2 italic">"{offer.message}"</p>}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-3xl font-bold">${offer.offer_price}</p>
+                      <p className="text-sm text-green-100">Offer Amount</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3 mt-4">
+                    <button className="flex-1 bg-white text-green-600 px-4 py-2 rounded-lg font-semibold hover:bg-green-50 transition-colors flex items-center justify-center gap-2">
+                      <Check className="w-4 h-4" />
+                      Accept Offer
+                    </button>
+                    <button className="flex-1 bg-white/20 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/30 transition-colors flex items-center justify-center gap-2">
+                      <X className="w-4 h-4" />
+                      Decline
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="mb-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />

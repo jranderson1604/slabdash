@@ -14,17 +14,9 @@ import {
   Zap,
   Upload,
   DollarSign,
+  Shield,
+  HelpCircle,
 } from 'lucide-react';
-
-const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Submissions', href: '/submissions', icon: Package },
-  { name: 'Customers', href: '/customers', icon: Users },
-  { name: 'Cards', href: '/cards', icon: CreditCard },
-  { name: 'Import CSV', href: '/import', icon: Upload },
-  { name: 'Buyback Offers', href: '/buyback', icon: DollarSign },
-  { name: 'Settings', href: '/settings', icon: Settings },
-];
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -32,6 +24,19 @@ export default function Layout({ children }) {
   const { user, company, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Build navigation based on user role
+  const navigation = [
+    ...(user?.role === 'owner' ? [{ name: 'Platform Control', href: '/owner', icon: Shield }] : []),
+    { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Submissions', href: '/submissions', icon: Package },
+    { name: 'Customers', href: '/customers', icon: Users },
+    { name: 'Cards', href: '/cards', icon: CreditCard },
+    { name: 'Import CSV', href: '/import', icon: Upload },
+    { name: 'Buyback Offers', href: '/buyback', icon: DollarSign },
+    { name: 'Help', href: '/help', icon: HelpCircle },
+    { name: 'Settings', href: '/settings', icon: Settings },
+  ];
 
   const handleLogout = () => {
     logout();
@@ -55,22 +60,22 @@ export default function Layout({ children }) {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Logo */}
-        <div className="flex items-center justify-between h-16 px-4 border-b border-brand-100">
-          <Link to="/dashboard" className="flex items-center gap-2">
-            <img
-              src="/images/logo-icon.png"
-              alt="SlabDash"
-              className="w-12 h-12"
-            />
-            <span className="text-xl font-bold text-gray-900">SlabDash</span>
-          </Link>
+        {/* Logo - 4× scaled */}
+        <div className="flex flex-col items-center px-4 py-6 border-b border-brand-100 relative">
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden text-gray-600 hover:text-gray-900"
+            className="absolute top-4 right-4 lg:hidden text-gray-600 hover:text-gray-900"
           >
             <X className="w-6 h-6" />
           </button>
+          <Link to="/dashboard" className="flex flex-col items-center gap-3">
+            <img
+              src="/images/logo-icon.png"
+              alt="SlabDash"
+              className="w-48 h-48"
+            />
+            <span className="text-xl font-bold text-gray-900">SlabDash</span>
+          </Link>
         </div>
 
         {/* Company name */}
@@ -131,7 +136,7 @@ export default function Layout({ children }) {
               <h1 className="text-lg font-semibold text-white">
                 {navigation.find(n =>
                   n.href === location.pathname ||
-                  (n.href !== '/' && location.pathname.startsWith(n.href))
+                  (n.href !== '/dashboard' && n.href !== '/' && location.pathname.startsWith(n.href))
                 )?.name || 'Dashboard'}
               </h1>
             </div>

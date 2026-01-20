@@ -17,6 +17,7 @@ const portalRoutes = require("./routes/portal");
 const documentRoutes = require("./routes/documents");
 const buybackRoutes = require("./routes/buyback");
 const importRoutes = require("./routes/import");
+const ownerRoutes = require("./routes/owner");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -93,6 +94,7 @@ app.use("/api/portal", portalRoutes);
 app.use("/api/documents", documentRoutes);
 app.use("/api/buyback", buybackRoutes);
 app.use("/api/import", importRoutes);
+app.use("/api/owner", ownerRoutes);
 
 /* -------------------- 404 HANDLER -------------------- */
 

@@ -19,6 +19,8 @@ import BuybackOffers from './pages/BuybackOffers';
 import NewBuybackOffer from './pages/NewBuybackOffer';
 import Settings from './pages/Settings';
 import Portal from './pages/Portal';
+import OwnerDashboard from './pages/OwnerDashboard';
+import Help from './pages/Help';
 import { Loader2 } from 'lucide-react';
 
 function ProtectedRoute({ children }) {
@@ -62,6 +64,8 @@ function AppRoutes() {
       <Route path="/buyback" element={<ProtectedRoute><BuybackOffers /></ProtectedRoute>} />
       <Route path="/buyback/new" element={<ProtectedRoute><NewBuybackOffer /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+      <Route path="/owner" element={<ProtectedRoute><OwnerDashboard /></ProtectedRoute>} />
+      <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
