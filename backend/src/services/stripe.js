@@ -151,10 +151,154 @@ async function createRefund(paymentIntentId, amount = null) {
   }
 }
 
+/**
+ * Create a Stripe checkout session for subscription
+ * @param {string} priceId - Stripe price ID for the plan
+ * @param {object} options - Company details and success/cancel URLs
+ * @returns {Promise<object>} Checkout session object
+ */
+async function createCheckoutSession(priceId, options = {}) {
+  if (!stripe) {
+    console.warn('⚠️  Stripe not configured. Returning mock checkout session.');
+    return {
+      id: `cs_mock_${Date.now()}`,
+      url: options.success_url || 'http://localhost:3000/settings?subscription=success',
+      mock: true
+    };
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      success_url: options.success_url || 'http://localhost:3000/settings?subscription=success',
+      cancel_url: options.cancel_url || 'http://localhost:3000/settings?subscription=cancelled',
+      customer_email: options.customer_email,
+      client_reference_id: options.company_id,
+      metadata: {
+        company_id: options.company_id,
+        plan: options.plan
+      },
+      subscription_data: {
+        metadata: {
+          company_id: options.company_id,
+          plan: options.plan
+        }
+      }
+    });
+
+    return {
+      id: session.id,
+      url: session.url,
+      customer: session.customer
+    };
+  } catch (error) {
+    console.error('Stripe checkout session creation error:', error);
+    throw new Error('Failed to create checkout session');
+  }
+}
+
+/**
+ * Create customer portal session for subscription management
+ * @param {string} customerId - Stripe customer ID
+ * @param {string} return_url - URL to return to after managing subscription
+ * @returns {Promise<object>} Portal session object
+ */
+async function createPortalSession(customerId, return_url) {
+  if (!stripe) {
+    console.warn('⚠️  Stripe not configured. Returning mock portal session.');
+    return {
+      url: return_url || 'http://localhost:3000/settings',
+      mock: true
+    };
+  }
+
+  try {
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: return_url || 'http://localhost:3000/settings',
+    });
+
+    return {
+      url: session.url
+    };
+  } catch (error) {
+    console.error('Stripe portal session creation error:', error);
+    throw new Error('Failed to create portal session');
+  }
+}
+
+/**
+ * Cancel a subscription
+ * @param {string} subscriptionId - Stripe subscription ID
+ * @returns {Promise<object>} Cancelled subscription object
+ */
+async function cancelSubscription(subscriptionId) {
+  if (!stripe) {
+    console.warn('⚠️  Stripe not configured. Returning mock cancellation.');
+    return {
+      id: subscriptionId,
+      status: 'canceled',
+      mock: true
+    };
+  }
+
+  try {
+    const subscription = await stripe.subscriptions.cancel(subscriptionId);
+    return {
+      id: subscription.id,
+      status: subscription.status,
+      canceled_at: subscription.canceled_at
+    };
+  } catch (error) {
+    console.error('Stripe subscription cancellation error:', error);
+    throw new Error('Failed to cancel subscription');
+  }
+}
+
+/**
+ * Get subscription details
+ * @param {string} subscriptionId - Stripe subscription ID
+ * @returns {Promise<object>} Subscription object
+ */
+async function getSubscription(subscriptionId) {
+  if (!stripe) {
+    return {
+      id: subscriptionId,
+      status: 'active',
+      mock: true
+    };
+  }
+
+  try {
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+    return {
+      id: subscription.id,
+      status: subscription.status,
+      current_period_end: subscription.current_period_end,
+      cancel_at_period_end: subscription.cancel_at_period_end,
+      plan: subscription.items.data[0]?.price?.id
+    };
+  } catch (error) {
+    console.error('Stripe subscription retrieval error:', error);
+    throw new Error('Failed to retrieve subscription');
+  }
+}
+
 module.exports = {
   createPaymentIntent,
   confirmPaymentIntent,
   getPaymentIntent,
   createRefund,
+  createCheckoutSession,
+  createPortalSession,
+  cancelSubscription,
+  getSubscription,
   isConfigured: () => !!stripe
 };

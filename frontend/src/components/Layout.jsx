@@ -72,7 +72,7 @@ export default function Layout({ children }) {
             <img
               src="/images/logo-icon.png"
               alt="SlabDash"
-              className="w-32 h-32"
+              className="w-16 h-16"
             />
           </Link>
         </div>
