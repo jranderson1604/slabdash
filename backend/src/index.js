@@ -29,13 +29,28 @@ app.set('trust proxy', 1);
 
 // CORS configuration - allow frontend domains
 const corsOptions = {
-  origin: [
-    'https://slabdash.app',
-    'https://www.slabdash.app',
-    'https://slabdash-8n99.vercel.app',
-    'http://localhost:5173',
-    'http://localhost:3000'
-  ],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      'https://slabdash.app',
+      'https://www.slabdash.app',
+      'http://localhost:5173',
+      'http://localhost:3000'
+    ];
+
+    // Allow all Vercel preview and production URLs
+    if (
+      allowedOrigins.includes(origin) ||
+      origin.includes('vercel.app') ||
+      origin.includes('slabdash-8n99')
+    ) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200
 };
@@ -79,6 +94,34 @@ app.get("/api/health", async (req, res) => {
 
 app.get("/", (req, res) => {
   res.send("SlabDash API is running v2");
+});
+
+// Serve manifest.json publicly (no auth required)
+app.get("/manifest.json", (req, res) => {
+  res.json({
+    name: "SlabDash - PSA Card Tracking",
+    short_name: "SlabDash",
+    description: "Professional PSA card grading submission tracking for card shops",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#FFF5F3",
+    theme_color: "#FF8170",
+    orientation: "portrait-primary",
+    icons: [
+      {
+        src: "/images/logo-icon.png",
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any"
+      },
+      {
+        src: "/images/logo-icon.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any"
+      }
+    ]
+  });
 });
 
 /* -------------------- API ROUTES -------------------- */
