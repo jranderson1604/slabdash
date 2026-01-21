@@ -10,20 +10,46 @@ const upload = multer({ storage: multer.memoryStorage() });
 // List cards
 router.get('/', authenticate, async (req, res) => {
     try {
-        const { submission_id, customer_id, limit = 50, offset = 0 } = req.query;
-        let query = `SELECT c.*, s.psa_submission_number FROM cards c LEFT JOIN submissions s ON c.submission_id = s.id WHERE c.company_id = $1`;
+        const { submission_id, customer_id, limit = 200, offset = 0 } = req.query;
+        let query = `
+            SELECT c.*,
+                   s.psa_submission_number,
+                   s.internal_id,
+                   cu.name as customer_name,
+                   cu.email as customer_email
+            FROM cards c
+            LEFT JOIN submissions s ON c.submission_id = s.id
+            LEFT JOIN customers cu ON c.customer_id = cu.id
+            WHERE c.company_id = $1`;
         const params = [req.companyId];
         let i = 2;
-        
+
         if (submission_id) { query += ` AND c.submission_id = $${i++}`; params.push(submission_id); }
         if (customer_id) { query += ` AND c.customer_id = $${i++}`; params.push(customer_id); }
-        
+
         query += ` ORDER BY c.created_at DESC LIMIT $${i++} OFFSET $${i}`;
         params.push(parseInt(limit), parseInt(offset));
-        
+
         const result = await db.query(query, params);
-        res.json({ cards: result.rows });
+
+        // Also get grade statistics
+        const statsQuery = `
+            SELECT
+                COUNT(*) as total_cards,
+                COUNT(CASE WHEN grade IS NOT NULL THEN 1 END) as graded_count,
+                COUNT(CASE WHEN grade = '10' THEN 1 END) as gem_mint_count,
+                COUNT(CASE WHEN grade IN ('9', '9.5') THEN 1 END) as mint_count,
+                COUNT(CASE WHEN grade::numeric < 9 AND grade IS NOT NULL THEN 1 END) as other_count
+            FROM cards WHERE company_id = $1
+        `;
+        const statsResult = await db.query(statsQuery, [req.companyId]);
+
+        res.json({
+            cards: result.rows,
+            stats: statsResult.rows[0]
+        });
     } catch (error) {
+        console.error('Failed to list cards:', error);
         res.status(500).json({ error: 'Failed to list cards' });
     }
 });
