@@ -32,7 +32,8 @@ router.get('/:id', authenticate, async (req, res) => {
         const result = await db.query('SELECT * FROM customers WHERE id = $1 AND company_id = $2', [req.params.id, req.companyId]);
         if (result.rows.length === 0) return res.status(404).json({ error: 'Customer not found' });
         
-        const submissions = await db.query('SELECT * FROM submissions WHERE customer_id = $1 ORDER BY created_at DESC LIMIT 10', [req.params.id]);
+        // Get all submissions for this customer (unlimited for customer detail view)
+        const submissions = await db.query('SELECT * FROM submissions WHERE customer_id = $1 ORDER BY created_at DESC', [req.params.id]);
         res.json({ ...result.rows[0], recent_submissions: submissions.rows });
     } catch (error) {
         res.status(500).json({ error: 'Failed to get customer' });
