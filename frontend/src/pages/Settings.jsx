@@ -13,7 +13,11 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
+  CreditCard,
+  ExternalLink,
+  Crown,
 } from 'lucide-react';
+import axios from 'axios';
 
 function SettingsSection({ icon: Icon, title, description, children }) {
   return (
@@ -32,6 +36,8 @@ function SettingsSection({ icon: Icon, title, description, children }) {
   );
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
 export default function Settings() {
   const { company, refreshUser } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -39,6 +45,8 @@ export default function Settings() {
   const [testingPsa, setTestingPsa] = useState(false);
   const [psaStatus, setPsaStatus] = useState(null);
   const [showApiKey, setShowApiKey] = useState(false);
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
+  const [loadingSubscription, setLoadingSubscription] = useState(false);
   const [settings, setSettings] = useState({
     name: '',
     email: '',
@@ -55,6 +63,7 @@ export default function Settings() {
 
   useEffect(() => {
     loadSettings();
+    loadSubscriptionStatus();
   }, []);
 
   const loadSettings = async () => {
@@ -78,6 +87,60 @@ export default function Settings() {
       console.error('Failed to load settings:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadSubscriptionStatus = async () => {
+    try {
+      const token = localStorage.getItem('slabdash_token');
+      const res = await axios.get(`${API_URL}/subscriptions/status`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSubscriptionStatus(res.data);
+    } catch (error) {
+      console.error('Failed to load subscription status:', error);
+    }
+  };
+
+  const handleUpgrade = async (plan) => {
+    setLoadingSubscription(true);
+    try {
+      const token = localStorage.getItem('slabdash_token');
+      const res = await axios.post(`${API_URL}/subscriptions/create-checkout`,
+        { plan },
+        { headers: { Authorization: `Bearer ${token}` }}
+      );
+
+      // Redirect to Stripe Checkout
+      if (res.data.url) {
+        window.location.href = res.data.url;
+      }
+    } catch (error) {
+      console.error('Failed to create checkout session:', error);
+      alert('Failed to start upgrade process');
+    } finally {
+      setLoadingSubscription(false);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    setLoadingSubscription(true);
+    try {
+      const token = localStorage.getItem('slabdash_token');
+      const res = await axios.post(`${API_URL}/subscriptions/create-portal`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` }}
+      );
+
+      // Redirect to Stripe Customer Portal
+      if (res.data.url) {
+        window.location.href = res.data.url;
+      }
+    } catch (error) {
+      console.error('Failed to open customer portal:', error);
+      alert('Failed to open subscription management');
+    } finally {
+      setLoadingSubscription(false);
     }
   };
 
@@ -321,6 +384,97 @@ export default function Settings() {
               Save Shop Info
             </button>
           </div>
+        </div>
+      </SettingsSection>
+
+      {/* Subscription & Billing */}
+      <SettingsSection
+        icon={CreditCard}
+        title="Subscription & Billing"
+        description="Manage your SlabDash subscription plan"
+      >
+        <div className="space-y-4">
+          {/* Current Plan */}
+          <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Crown className="w-5 h-5 text-yellow-500" />
+                <span className="font-semibold text-gray-900">Current Plan</span>
+              </div>
+              <span className="px-3 py-1 bg-brand-100 text-brand-700 rounded-full text-sm font-medium capitalize">
+                {company?.plan || 'Free'}
+              </span>
+            </div>
+            {subscriptionStatus?.subscription && (
+              <p className="text-sm text-gray-600">
+                Renews: {new Date(subscriptionStatus.subscription.current_period_end * 1000).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+
+          {/* Upgrade Options */}
+          {(!company?.plan || company.plan === 'free') && (
+            <div className="grid md:grid-cols-3 gap-4">
+              <div className="border border-gray-200 rounded-lg p-4 hover:border-brand-500 transition-colors">
+                <h4 className="font-semibold text-gray-900 mb-1">Starter</h4>
+                <div className="text-2xl font-bold text-gray-900 mb-2">$29<span className="text-sm font-normal text-gray-500">/mo</span></div>
+                <p className="text-xs text-gray-600 mb-3">Perfect for small shops</p>
+                <button
+                  onClick={() => handleUpgrade('starter')}
+                  disabled={loadingSubscription}
+                  className="w-full btn btn-secondary text-sm py-2"
+                >
+                  {loadingSubscription ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Upgrade'}
+                </button>
+              </div>
+
+              <div className="border-2 border-brand-500 rounded-lg p-4 relative">
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="px-3 py-1 bg-brand-500 text-white rounded-full text-xs font-medium">Most Popular</span>
+                </div>
+                <h4 className="font-semibold text-gray-900 mb-1">Professional</h4>
+                <div className="text-2xl font-bold text-gray-900 mb-2">$79<span className="text-sm font-normal text-gray-500">/mo</span></div>
+                <p className="text-xs text-gray-600 mb-3">For growing businesses</p>
+                <button
+                  onClick={() => handleUpgrade('pro')}
+                  disabled={loadingSubscription}
+                  className="w-full btn btn-primary text-sm py-2"
+                >
+                  {loadingSubscription ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Upgrade'}
+                </button>
+              </div>
+
+              <div className="border border-gray-200 rounded-lg p-4 hover:border-brand-500 transition-colors">
+                <h4 className="font-semibold text-gray-900 mb-1">Enterprise</h4>
+                <div className="text-2xl font-bold text-gray-900 mb-2">$199<span className="text-sm font-normal text-gray-500">/mo</span></div>
+                <p className="text-xs text-gray-600 mb-3">For large operations</p>
+                <button
+                  onClick={() => handleUpgrade('enterprise')}
+                  disabled={loadingSubscription}
+                  className="w-full btn btn-secondary text-sm py-2"
+                >
+                  {loadingSubscription ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Upgrade'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Manage Subscription (if active) */}
+          {subscriptionStatus?.has_active_subscription && (
+            <div className="pt-4 border-t border-gray-200">
+              <button
+                onClick={handleManageSubscription}
+                disabled={loadingSubscription}
+                className="btn btn-secondary gap-2"
+              >
+                {loadingSubscription ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+                Manage Subscription
+              </button>
+              <p className="text-xs text-gray-500 mt-2">
+                Update payment method, view invoices, or cancel subscription
+              </p>
+            </div>
+          )}
         </div>
       </SettingsSection>
 
