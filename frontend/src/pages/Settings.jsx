@@ -16,6 +16,8 @@ import {
   CreditCard,
   ExternalLink,
   Crown,
+  DollarSign,
+  Users,
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -56,6 +58,11 @@ export default function Settings() {
     auto_refresh_enabled: true,
     auto_refresh_interval_hours: 6,
     email_notifications_enabled: true,
+    sms_notifications_enabled: false,
+    push_notifications_enabled: false,
+    buyback_response_hours: 24,
+    csv_notification_threshold: 75,
+    customer_limit: null,
     primary_color: '#ef4444',
     background_color: '#f5f5f5',
     sidebar_color: '#ffffff',
@@ -79,6 +86,11 @@ export default function Settings() {
         auto_refresh_enabled: data.auto_refresh_enabled ?? true,
         auto_refresh_interval_hours: data.auto_refresh_interval_hours || 6,
         email_notifications_enabled: data.email_notifications_enabled ?? true,
+        sms_notifications_enabled: data.sms_notifications_enabled ?? false,
+        push_notifications_enabled: data.push_notifications_enabled ?? false,
+        buyback_response_hours: data.buyback_response_hours || 24,
+        csv_notification_threshold: data.csv_notification_threshold || 75,
+        customer_limit: data.customer_limit || null,
         primary_color: data.primary_color || '#ef4444',
         background_color: data.background_color || '#f5f5f5',
         sidebar_color: data.sidebar_color || '#ffffff',
@@ -482,14 +494,15 @@ export default function Settings() {
       <SettingsSection
         icon={Bell}
         title="Notifications"
-        description="Configure how you receive updates"
+        description="Configure how you and your customers receive updates"
       >
-        <div className="space-y-4">
+        <div className="space-y-6">
+          {/* Email Notifications */}
           <div className="flex items-center justify-between">
             <div>
               <p className="font-medium text-gray-900">Email notifications</p>
               <p className="text-sm text-gray-500">
-                Receive email alerts for status changes and problems
+                Receive email alerts for submission updates, grades ready, and problems
               </p>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -505,6 +518,70 @@ export default function Settings() {
             </label>
           </div>
 
+          {/* SMS Notifications */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-gray-900">SMS notifications</p>
+              <p className="text-sm text-gray-500">
+                Send text message alerts to customers for buyback offers and urgent updates
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.sms_notifications_enabled}
+                onChange={(e) =>
+                  setSettings({ ...settings, sms_notifications_enabled: e.target.checked })
+                }
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+            </label>
+          </div>
+
+          {/* Push Notifications */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-gray-900">Push notifications</p>
+              <p className="text-sm text-gray-500">
+                Send browser push notifications for real-time updates
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.push_notifications_enabled}
+                onChange={(e) =>
+                  setSettings({ ...settings, push_notifications_enabled: e.target.checked })
+                }
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+            </label>
+          </div>
+
+          {/* CSV Notification Threshold */}
+          <div className="pt-4 border-t border-gray-200">
+            <label className="label">CSV Ready Notification Threshold</label>
+            <select
+              value={settings.csv_notification_threshold}
+              onChange={(e) =>
+                setSettings({ ...settings, csv_notification_threshold: parseInt(e.target.value) })
+              }
+              className="input w-full sm:w-auto"
+            >
+              <option value={50}>50% progress (early alert)</option>
+              <option value={60}>60% progress</option>
+              <option value={70}>70% progress</option>
+              <option value={75}>75% progress (recommended)</option>
+              <option value={80}>80% progress</option>
+              <option value={90}>90% progress (late alert)</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Get notified when submission progress reaches this percentage. CSV files are typically available around 75-80% progress.
+            </p>
+          </div>
+
           <div className="pt-4">
             <button onClick={() => handleSave('notifications')} disabled={saving} className="btn btn-primary gap-2">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -513,6 +590,77 @@ export default function Settings() {
           </div>
         </div>
       </SettingsSection>
+
+      {/* Buyback Settings */}
+      <SettingsSection
+        icon={DollarSign}
+        title="Buyback Offers"
+        description="Configure buyback offer behavior and response times"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="label">Customer Response Time</label>
+            <select
+              value={settings.buyback_response_hours}
+              onChange={(e) =>
+                setSettings({ ...settings, buyback_response_hours: parseInt(e.target.value) })
+              }
+              className="input w-full sm:w-auto"
+            >
+              <option value={24}>24 hours (1 day)</option>
+              <option value={48}>48 hours (2 days)</option>
+              <option value={72}>72 hours (3 days)</option>
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              How long customers have to respond to buyback offers before they expire
+            </p>
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm text-blue-800">
+              <strong>How Buyback Works:</strong> When you make a buyback offer on a card, the customer receives a notification via email, SMS, or push (based on your settings above). They have the specified time to accept or decline before the offer expires.
+            </p>
+          </div>
+
+          <div className="pt-4">
+            <button onClick={() => handleSave('buyback')} disabled={saving} className="btn btn-primary gap-2">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Save Buyback Settings
+            </button>
+          </div>
+        </div>
+      </SettingsSection>
+
+      {/* Customer Limits */}
+      {company?.plan && company.plan !== 'free' && (
+        <SettingsSection
+          icon={Users}
+          title="Customer Limits"
+          description="Manage customer account limits for your subscription tier"
+        >
+          <div className="space-y-4">
+            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-medium text-gray-900">Current Limit</p>
+                  <p className="text-sm text-gray-500">
+                    {settings.customer_limit ? `${settings.customer_limit} customers` : 'Unlimited customers'}
+                  </p>
+                </div>
+                {company?.plan === 'enterprise' && (
+                  <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                    Unlimited
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-500">
+              Customer limits help you manage your subscription costs. Enterprise and Badger Breaks accounts have unlimited customers.
+            </p>
+          </div>
+        </SettingsSection>
+      )}
 
       {/* Branding */}
       <SettingsSection

@@ -17,6 +17,9 @@ import {
   ExternalLink,
   Copy,
   Check,
+  DollarSign,
+  Clock,
+  TrendingUp,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -31,6 +34,7 @@ export default function CustomerDetail() {
   const [generatingLink, setGeneratingLink] = useState(false);
   const [portalLink, setPortalLink] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [showAllSubmissions, setShowAllSubmissions] = useState(false);
 
   const loadCustomer = async () => {
     try {
@@ -166,29 +170,95 @@ export default function CustomerDetail() {
           </div>
 
           <div className="card">
-            <div className="p-6 border-b border-gray-200"><h2 className="text-lg font-semibold text-gray-900">Recent Submissions ({customer.total_submissions || 0})</h2></div>
+            <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {showAllSubmissions ? 'All' : 'Recent'} Submissions ({customer.total_submissions || 0})
+              </h2>
+              {customer.recent_submissions && customer.recent_submissions.length >= 10 && (
+                <button
+                  onClick={() => setShowAllSubmissions(!showAllSubmissions)}
+                  className="text-sm text-brand-600 hover:text-brand-700 font-medium"
+                >
+                  {showAllSubmissions ? 'Show Recent' : 'Show All'}
+                </button>
+              )}
+            </div>
             {customer.recent_submissions?.length > 0 ? (
               <div className="divide-y divide-gray-200">
-                {customer.recent_submissions.map((sub) => (
-                  <Link key={sub.id} to={`/submissions/${sub.id}`} className="flex items-center justify-between p-4 hover:bg-gray-50">
-                    <div><p className="font-medium text-gray-900">{sub.psa_submission_number || sub.internal_id || 'No ID'}</p><p className="text-sm text-gray-500">{sub.service_level || 'Unknown service'}</p></div>
-                    <div className="text-right"><span className={`badge ${sub.shipped ? 'badge-green' : 'badge-yellow'}`}>{sub.shipped ? 'Shipped' : sub.current_step || 'Pending'}</span><p className="text-xs text-gray-400 mt-1">{format(new Date(sub.created_at), 'MMM d, yyyy')}</p></div>
+                {(showAllSubmissions ? customer.recent_submissions : customer.recent_submissions.slice(0, 10)).map((sub) => (
+                  <Link key={sub.id} to={`/submissions/${sub.id}`} className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors">
+                    <div>
+                      <p className="font-medium text-gray-900">{sub.psa_submission_number || sub.internal_id || 'No ID'}</p>
+                      <div className="flex items-center gap-3 mt-1">
+                        <p className="text-sm text-gray-500">{sub.service_level || 'Unknown service'}</p>
+                        {sub.card_count > 0 && (
+                          <span className="text-xs text-gray-400">• {sub.card_count} cards</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`badge ${sub.shipped ? 'badge-green' : sub.problem_order ? 'badge-red' : sub.grades_ready ? 'badge-blue' : 'badge-yellow'}`}>
+                        {sub.shipped ? 'Shipped' : sub.problem_order ? 'Problem' : sub.grades_ready ? 'Grades Ready' : sub.current_step || 'Pending'}
+                      </span>
+                      <p className="text-xs text-gray-400 mt-1">{format(new Date(sub.created_at), 'MMM d, yyyy')}</p>
+                    </div>
                   </Link>
                 ))}
               </div>
             ) : (
-              <div className="p-8 text-center"><Package className="w-10 h-10 text-gray-300 mx-auto mb-3" /><p className="text-gray-500">No submissions yet</p></div>
+              <div className="p-8 text-center"><Package className="w-10 h-10 text-gray-300 mx-auto mb-3" /><p className="text-gray-500">No submissions yet</p><Link to="/submissions/new" className="btn btn-primary mt-3">Create First Submission</Link></div>
             )}
+          </div>
+
+          {/* Transaction History - Buyback Offers */}
+          <div className="card">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-green-600" />
+                Transaction History
+              </h2>
+            </div>
+            <div className="p-6">
+              <div className="text-center py-8">
+                <DollarSign className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 mb-3">No buyback transactions yet</p>
+                <p className="text-xs text-gray-400">Buyback offers and transactions will appear here</p>
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="space-y-6">
           <div className="card p-6">
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">Statistics</h3>
+            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">Customer Stats</h3>
             <dl className="space-y-4">
-              <div className="flex items-center justify-between"><dt className="text-gray-500">Total Submissions</dt><dd className="text-lg font-semibold text-gray-900">{customer.total_submissions || 0}</dd></div>
-              <div className="flex items-center justify-between"><dt className="text-gray-500">Total Cards</dt><dd className="text-lg font-semibold text-gray-900">{customer.total_cards || 0}</dd></div>
-              <div className="flex items-center justify-between"><dt className="text-gray-500">Customer Since</dt><dd className="text-sm font-medium text-gray-900">{format(new Date(customer.created_at), 'MMM d, yyyy')}</dd></div>
+              <div className="flex items-center justify-between">
+                <dt className="text-gray-500 flex items-center gap-2">
+                  <Package className="w-4 h-4" />
+                  Total Submissions
+                </dt>
+                <dd className="text-lg font-semibold text-gray-900">{customer.total_submissions || 0}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-gray-500 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4" />
+                  Total Cards
+                </dt>
+                <dd className="text-lg font-semibold text-gray-900">{customer.total_cards || 0}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-gray-500 flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  Customer Since
+                </dt>
+                <dd className="text-sm font-medium text-gray-900">{format(new Date(customer.created_at), 'MMM d, yyyy')}</dd>
+              </div>
+              <div className="pt-3 border-t border-gray-100">
+                <dt className="text-gray-500 text-xs mb-2">Active Orders</dt>
+                <dd className="text-sm font-medium text-brand-600">
+                  {customer.recent_submissions?.filter(s => !s.shipped).length || 0} in progress
+                </dd>
+              </div>
             </dl>
           </div>
 
