@@ -157,7 +157,7 @@ export default function Landing() {
             {/* S logo - brand anchor in top-left */}
             <Link to="/" className="flex items-center">
               <img
-                src="/images/logo-icon.svg"
+                src="/images/logo-icon.png.svg"
                 alt="SlabDash"
                 className="h-20 w-20 sm:h-24 sm:w-24"
               />
@@ -199,7 +199,7 @@ export default function Landing() {
             {/* MASSIVE Hero Wordmark SVG - Stretches across almost full width */}
             <div className="flex justify-center mb-12 px-4">
               <img
-                src="/images/logo-horizontal.svg"
+                src="/images/logo-full.png.svg"
                 alt="SlabDash - PSA Card Tracking"
                 className="w-full max-w-6xl h-auto drop-shadow-2xl"
                 style={{ minHeight: '80px' }}
