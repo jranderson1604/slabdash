@@ -9,9 +9,9 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/images/logo-icon.png",
-      "sizes": "192x192",
-      "type": "image/png",
+      "src": "/images/logo-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any"
     },
     {
@@ -22,27 +22,27 @@
     },
     {
       "src": "/images/logo-icon.png",
-      "sizes": "180x180",
+      "sizes": "384x384",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/images/logo-icon.png",
-      "sizes": "167x167",
+      "sizes": "256x256",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/images/logo-icon.png",
-      "sizes": "152x152",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/images/logo-icon.png",
-      "sizes": "120x120",
+      "sizes": "128x128",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "maskable"
     }
   ]
 }

@@ -10,7 +10,12 @@ import {
   Shield,
   Zap,
   BarChart3,
-  Smartphone
+  Smartphone,
+  Bell,
+  FileText,
+  DollarSign,
+  Lock,
+  Upload
 } from 'lucide-react';
 
 export default function Landing() {
@@ -34,19 +39,34 @@ export default function Landing() {
       description: 'Insights into your grading business with detailed reports'
     },
     {
-      icon: CreditCard,
+      icon: DollarSign,
       title: 'Buyback Offers',
-      description: 'Create and manage buyback offers for graded cards'
+      description: 'Create and manage buyback offers for graded cards with Stripe integration'
+    },
+    {
+      icon: Bell,
+      title: 'Email Notifications',
+      description: 'Automatic email alerts for grade updates, offers, and shipments'
+    },
+    {
+      icon: Upload,
+      title: 'CSV Import/Export',
+      description: 'Bulk import customers and cards, export reports with one click'
+    },
+    {
+      icon: FileText,
+      title: 'Document Management',
+      description: 'Upload invoices, receipts, and documents for each submission'
+    },
+    {
+      icon: Lock,
+      title: 'Multi-User Access',
+      description: 'Add team members with role-based permissions and access control'
     },
     {
       icon: Smartphone,
-      title: 'Mobile Friendly',
-      description: 'Access your dashboard anywhere on any device'
-    },
-    {
-      icon: Shield,
-      title: 'Secure & Reliable',
-      description: 'Enterprise-grade security for your business data'
+      title: 'Mobile Optimized',
+      description: 'Full-featured mobile experience - manage your business on the go'
     }
   ];
 
@@ -142,11 +162,29 @@ export default function Landing() {
                 className="h-20 w-20 sm:h-24 sm:w-24"
               />
             </Link>
-            <div className="flex items-center gap-4">
-              <Link to="/login" className="text-gray-600 hover:text-gray-900 transition-colors">
-                Sign In
+
+            {/* Customer Quick Access Tabs */}
+            <div className="hidden md:flex items-center gap-6">
+              <a href="#features" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                Features
+              </a>
+              <a href="#pricing" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                Pricing
+              </a>
+              <Link to="/portal" className="text-gray-600 hover:text-[#FF8170] font-medium transition-colors flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Track My Cards
               </Link>
-              <Link to="/register" className="px-4 py-2 bg-[#FF8170] hover:bg-[#ff6b59] text-white rounded-lg font-medium transition-colors">
+              <a href="#contact" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                Contact
+              </a>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Link to="/login" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                Admin Sign In
+              </Link>
+              <Link to="/register" className="px-4 py-2 bg-[#FF8170] hover:bg-[#ff6b59] text-white rounded-lg font-medium transition-colors shadow-md">
                 Start Free Trial
               </Link>
             </div>
@@ -155,7 +193,7 @@ export default function Landing() {
       </nav>
 
       {/* Hero Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
+      <section className="py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center space-y-8 animate-fade-in">
             {/* MASSIVE Hero Wordmark - Primary Focal Point */}
@@ -255,14 +293,14 @@ export default function Landing() {
       </section>
 
       {/* Features Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+      <section id="features" className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <div className="flex justify-center mb-6">
               <img
                 src="/images/logo-icon.png"
                 alt="SlabDash"
-                className="h-16 w-16 opacity-80"
+                className="h-32 w-32 opacity-90 drop-shadow-lg"
               />
             </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
@@ -292,14 +330,14 @@ export default function Landing() {
       </section>
 
       {/* Pricing Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
+      <section id="pricing" className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <div className="flex justify-center mb-6">
               <img
                 src="/images/logo-icon.png"
                 alt="SlabDash"
-                className="h-16 w-16 opacity-80"
+                className="h-32 w-32 opacity-90 drop-shadow-lg"
               />
             </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
@@ -364,14 +402,14 @@ export default function Landing() {
       </section>
 
       {/* Testimonials */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white">
+      <section className="py-16 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
+          <div className="text-center mb-12">
             <div className="flex justify-center mb-6">
               <img
                 src="/images/logo-icon.png"
                 alt="SlabDash"
-                className="h-16 w-16 opacity-80"
+                className="h-32 w-32 opacity-90 drop-shadow-lg"
               />
             </div>
             <h2 className="text-4xl font-bold text-gray-900 mb-4">
@@ -410,13 +448,13 @@ export default function Landing() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#FF8170] to-[#ff6b59]">
+      <section id="contact" className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-[#FF8170] to-[#ff6b59]">
         <div className="max-w-4xl mx-auto text-center text-white">
           <div className="flex justify-center mb-8">
             <img
               src="/images/logo-icon.png"
               alt="SlabDash"
-              className="h-20 w-20 opacity-90 drop-shadow-2xl"
+              className="h-40 w-40 opacity-95 drop-shadow-2xl"
             />
           </div>
           <h2 className="text-4xl sm:text-5xl font-bold mb-6">
@@ -449,7 +487,7 @@ export default function Landing() {
                 <img
                   src="/images/logo-icon.png"
                   alt="SlabDash"
-                  className="h-12 w-12"
+                  className="h-16 w-16"
                 />
                 <span className="text-2xl font-bold text-white ml-3">SlabDash</span>
               </Link>

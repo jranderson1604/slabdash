@@ -114,24 +114,40 @@ export default function Portal() {
 
   useEffect(() => {
     if (!token) { setError('Invalid portal link'); setLoading(false); return; }
-    Promise.all([
-      fetch(`${API_URL}/portal/access?token=${token}`).then(res => res.json()),
-      fetch(`${API_URL}/portal/buyback-offers`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      }).then(res => res.ok ? res.json() : []).catch(() => [])
-    ])
-      .then(([portalData, offers]) => {
+    fetch(`${API_URL}/portal/access?token=${token}`)
+      .then(res => res.json())
+      .then(portalData => {
         if (portalData.error) {
           setError(portalData.error);
         } else {
           setData(portalData);
-          setBuybackOffers(offers || []);
+          setBuybackOffers(portalData.buybackOffers || []);
           if (portalData.submissions?.length) setSelectedSub(portalData.submissions[0]);
         }
       })
       .catch(() => setError('Failed to load'))
       .finally(() => setLoading(false));
   }, [token]);
+
+  const handleOfferResponse = async (offerId, response) => {
+    try {
+      const res = await fetch(`${API_URL}/portal/buyback-offers/${offerId}/respond?token=${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ response })
+      });
+
+      if (res.ok) {
+        // Refresh offers
+        setBuybackOffers(prev => prev.map(o => o.id === offerId ? { ...o, status: response } : o));
+      } else {
+        alert('Failed to respond to offer');
+      }
+    } catch (error) {
+      console.error('Offer response error:', error);
+      alert('Failed to respond to offer');
+    }
+  };
 
   if (loading) return <div className="min-h-screen bg-gray-100 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-red-500" /></div>;
   if (error) return <div className="min-h-screen bg-gray-100 flex items-center justify-center"><div className="text-center"><AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" /><h1 className="text-xl font-bold mb-2">Access Error</h1><p className="text-gray-600">{error}</p></div></div>;
@@ -146,7 +162,7 @@ export default function Portal() {
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src="/images/logo-icon.png" alt="SlabDash" className="w-40 h-40" />
+              <img src="/images/logo-icon.png" alt="SlabDash" className="w-16 h-16" />
               <div>
                 <h1 className="font-bold text-lg">{data.company?.name || 'Card Shop'}</h1>
                 <p className="text-sm text-gray-500">Order Tracking</p>
@@ -190,11 +206,17 @@ export default function Portal() {
                     </div>
                   </div>
                   <div className="flex gap-3 mt-4">
-                    <button className="flex-1 bg-white text-green-600 px-4 py-2 rounded-lg font-semibold hover:bg-green-50 transition-colors flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => handleOfferResponse(offer.id, 'accepted')}
+                      className="flex-1 bg-white text-green-600 px-4 py-2 rounded-lg font-semibold hover:bg-green-50 transition-colors flex items-center justify-center gap-2"
+                    >
                       <Check className="w-4 h-4" />
                       Accept Offer
                     </button>
-                    <button className="flex-1 bg-white/20 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/30 transition-colors flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => handleOfferResponse(offer.id, 'rejected')}
+                      className="flex-1 bg-white/20 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/30 transition-colors flex items-center justify-center gap-2"
+                    >
                       <X className="w-4 h-4" />
                       Decline
                     </button>
