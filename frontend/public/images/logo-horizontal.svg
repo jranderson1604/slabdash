@@ -1,0 +1,14 @@
+<svg width="400" height="100" viewBox="0 0 400 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Card icon -->
+  <g transform="rotate(-8 40 50)">
+    <rect x="10" y="15" width="60" height="70" rx="6" fill="#FFF4E6" stroke="#FFF4E6" stroke-width="2.5"/>
+    <rect x="12" y="17" width="56" height="66" rx="5" fill="#FF9B88" stroke="#FFF4E6" stroke-width="1.5"/>
+    <path d="M25 30 Q32 30 36 34 Q40 38 40 42 Q40 46 36 50 L32 54 Q28 58 28 62 Q28 66 32 68 Q36 70 45 70"
+          stroke="#FFF4E6" stroke-width="6" stroke-linecap="round" fill="none"/>
+  </g>
+
+  <!-- SLABDASH text -->
+  <text x="90" y="65" font-family="system-ui, -apple-system, sans-serif" font-size="42" font-weight="700" fill="#FFF4E6" letter-spacing="-1">
+    SLABDASH
+  </text>
+</svg>

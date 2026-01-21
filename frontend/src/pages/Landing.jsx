@@ -157,7 +157,7 @@ export default function Landing() {
             {/* S logo - brand anchor in top-left */}
             <Link to="/" className="flex items-center">
               <img
-                src="/images/logo-icon.png"
+                src="/images/logo-icon.svg"
                 alt="SlabDash"
                 className="h-20 w-20 sm:h-24 sm:w-24"
               />
@@ -196,12 +196,13 @@ export default function Landing() {
       <section className="py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center space-y-8 animate-fade-in">
-            {/* MASSIVE Hero Wordmark - Primary Focal Point */}
-            <div className="flex justify-center mb-12">
+            {/* MASSIVE Hero Wordmark SVG - Stretches across almost full width */}
+            <div className="flex justify-center mb-12 px-4">
               <img
-                src="/images/logo-full.png"
-                alt="SlabDash"
-                className="h-40 sm:h-56 lg:h-72 w-auto max-w-full drop-shadow-2xl"
+                src="/images/logo-horizontal.svg"
+                alt="SlabDash - PSA Card Tracking"
+                className="w-full max-w-6xl h-auto drop-shadow-2xl"
+                style={{ minHeight: '80px' }}
               />
             </div>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFF5F3] text-[#E85947] rounded-full text-sm font-medium">
