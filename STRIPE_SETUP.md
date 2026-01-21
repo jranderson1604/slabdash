@@ -1,129 +1,91 @@
-# Stripe Integration Setup
+# Stripe Subscription Billing Setup Guide
 
-Your SlabDash platform is **production-ready** for Stripe payments. Follow these steps to enable buyback payments.
+## Overview
 
-## 🔑 Step 1: Get Your Stripe API Key
+SlabDash uses **Standard Stripe Billing** (not Connect) to charge card shops monthly subscription fees. This is a simple SaaS subscription model where SlabDash receives the funds directly.
 
-1. **Sign up or log in** to Stripe:
-   - Go to https://stripe.com
-   - Create an account or sign in
-
-2. **Get your Secret API Key**:
-   - In Stripe Dashboard, click **Developers** (top right)
-   - Click **API keys** from the left sidebar
-   - Copy your **Secret key** (starts with `sk_live_` for production or `sk_test_` for testing)
-
-## ⚙️ Step 2: Add to Railway Environment
-
-1. **Open Railway Project**:
-   - Go to: https://railway.com/project/23b6ca53-eb96-4302-9206-db0fc82b07af/service/7872e156-d674-4ee0-83fa-4d7776985132
-
-2. **Add Environment Variable**:
-   - Click the **Variables** tab
-   - Click **+ New Variable**
-   - Variable name: `STRIPE_SECRET_KEY`
-   - Variable value: Your Stripe secret key (`sk_live_...` or `sk_test_...`)
-   - Click **Add**
-
-3. **Railway will automatically redeploy** with Stripe enabled
-
-## ✅ Step 3: Verify It Works
-
-### Test the Integration
-
-1. **Create a buyback offer**:
-   - Go to any graded card that has a customer assigned
-   - Click **"Create Buyback Offer"** button
-   - Enter offer amount and optional message
-   - Click Create
-
-2. **Customer accepts offer**:
-   - Customer sees offer in their portal
-   - When they click "Accept", Stripe payment intent is automatically created
-
-3. **Process payment**:
-   - Go to **Buyback Offers** dashboard
-   - Click on accepted offer
-   - Click **"Process Payment"** to complete via Stripe
-
-## 🔄 How It Works
-
-```
-Admin Creates Offer → Customer Accepts → Stripe Payment Intent Created → Payment Processed
-```
-
-### What Happens Automatically
-
-✅ **When customer accepts offer**:
-- Stripe payment intent is created instantly
-- Payment amount matches offer price
-- Customer info attached to payment
-- Offer marked as "processing"
-
-✅ **When payment completes**:
-- Offer status updated to "paid"
-- `paid_at` timestamp recorded
-- Payment ID stored for reference
-
-## 💡 Graceful Fallback
-
-If Stripe isn't configured:
-- ✅ Buyback offers still work
-- ✅ Accept/decline still functional
-- ⚠️ Payment processing uses mock mode (for testing)
-- ℹ️ Console logs show "Stripe not configured"
-
-## 🎯 Production vs Test Mode
-
-### Test Mode (Recommended First)
-```
-STRIPE_SECRET_KEY=sk_test_...
-```
-- Use test cards: `4242 4242 4242 4242`
-- No real money charged
-- Perfect for testing flow
-
-### Production Mode
-```
-STRIPE_SECRET_KEY=sk_live_...
-```
-- Real payments processed
-- Real money transferred
-- Use when ready to launch
-
-## 📊 View Payments in Stripe Dashboard
-
-After payments process:
-1. Go to https://dashboard.stripe.com
-2. Click **Payments** in left sidebar
-3. See all your buyback payments with customer details
-
-## 🆘 Troubleshooting
-
-### "Stripe not configured" in logs
-**Solution**: Add `STRIPE_SECRET_KEY` to Railway environment variables
-
-### Payment intent creation fails
-**Solution**: Verify your Stripe key is valid and hasn't expired
-
-### Customer can't accept offers
-**Solution**: Check that customer portal link is valid and buyback offers are loading
-
-## 🔗 Useful Links
-
-- Stripe Dashboard: https://dashboard.stripe.com
-- Stripe API Keys: https://dashboard.stripe.com/apikeys
-- Railway Project: https://railway.com/project/23b6ca53-eb96-4302-9206-db0fc82b07af
-- Test Cards: https://stripe.com/docs/testing
+Buyback payments are handled **outside the app** via Venmo, PayPal, Zelle, etc. as preferred by most shops.
 
 ---
 
-## 🎉 You're All Set!
+## Step 1: Get Your Stripe API Keys
 
-Once you add the `STRIPE_SECRET_KEY` to Railway:
-1. Railway redeploys automatically
-2. Buyback payments work instantly
-3. Customers can accept offers and pay
-4. You see payments in Stripe dashboard
+1. **Create/Login to Stripe Account**: https://dashboard.stripe.com
+2. **Get API Keys**:
+   - Go to: **Developers → API keys**
+   - Copy your **Secret key** (starts with `sk_test_` for testing or `sk_live_` for production)
+   - Add to your `.env` file:
+     ```bash
+     STRIPE_SECRET_KEY=sk_test_your_secret_key_here
+     ```
 
-**No code changes needed** - just add the environment variable! 🚀
+---
+
+## Step 2: Create Subscription Products in Stripe
+
+1. Go to: **Products → Create product**
+
+2. **Create 3 pricing tiers** (suggested pricing):
+
+   ### Starter Plan
+   - **Name**: SlabDash Starter
+   - **Description**: Perfect for small shops tracking basic submissions
+   - **Price**: $29/month
+   - **Recurring**: Monthly
+   - **Features**: Up to 50 submissions/month, basic tracking
+   - **Copy the Price ID**: `price_1ABC123...`
+
+   ### Pro Plan
+   - **Name**: SlabDash Pro
+   - **Description**: For growing shops with higher volume
+   - **Price**: $79/month
+   - **Recurring**: Monthly
+   - **Features**: Up to 500 submissions/month, buyback features, customer portal
+   - **Copy the Price ID**: `price_1XYZ789...`
+
+   ### Enterprise Plan
+   - **Name**: SlabDash Enterprise
+   - **Description**: Unlimited tracking for high-volume operations
+   - **Price**: $199/month
+   - **Recurring**: Monthly
+   - **Features**: Unlimited submissions, priority support, custom branding
+   - **Copy the Price ID**: `price_1ENT456...`
+
+3. **Add Price IDs to Environment**:
+   ```bash
+   STRIPE_PRICE_STARTER=price_1ABC123...
+   STRIPE_PRICE_PRO=price_1XYZ789...
+   STRIPE_PRICE_ENTERPRISE=price_1ENT456...
+   ```
+
+---
+
+## Step 3: Set Up Webhook for Subscription Events
+
+Webhooks allow Stripe to notify your app when subscriptions are created, updated, or cancelled.
+
+1. Go to: **Developers → Webhooks → Add endpoint**
+
+2. **Endpoint URL**: `https://yourdomain.com/api/subscriptions/webhook`
+
+3. **Events to listen for**:
+   - `checkout.session.completed`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+   - `invoice.payment_succeeded`
+   - `invoice.payment_failed`
+
+4. **Get Webhook Secret** and add to `.env`:
+   ```bash
+   STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here
+   ```
+
+---
+
+## Summary
+
+✅ **Subscription billing**: For monthly SaaS fees
+✅ **Buyback payments**: Handled outside app via Venmo/PayPal/Zelle/Cash
+✅ **Already implemented**: Checkout, billing portal, webhooks, plan management
+
+**Next**: Create products in Stripe Dashboard, add API keys to .env, test!
