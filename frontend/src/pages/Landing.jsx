@@ -193,16 +193,16 @@ export default function Landing() {
       </nav>
 
       {/* Hero Section */}
-      <section className="py-12 px-4 sm:px-6 lg:px-8">
+      <section className="py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center space-y-8 animate-fade-in">
-            {/* MASSIVE Hero Wordmark - Primary Focal Point */}
-            <div className="flex justify-center mb-12 px-4">
+          <div className="text-center space-y-4 animate-fade-in">
+            {/* Hero Wordmark - Title */}
+            <div className="flex justify-center mb-4 px-4">
               <img
                 src="/images/logo-full.png.svg"
                 alt="SlabDash"
-                className="w-full max-w-6xl h-auto drop-shadow-2xl"
-                style={{ minHeight: '120px' }}
+                className="w-full max-w-2xl h-auto drop-shadow-lg"
+                style={{ minHeight: '60px', maxHeight: '100px' }}
               />
             </div>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFF5F3] text-[#E85947] rounded-full text-sm font-medium">
