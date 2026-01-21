@@ -63,12 +63,12 @@ export default function Register() {
       {/* Left side - Form */}
       <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24">
         <div className="mx-auto w-full max-w-lg">
-          {/* Logo */}
-          <div className="mb-12">
+          {/* SlabDash Logo */}
+          <div className="mb-8">
             <img
-              src="/images/logo-full.png"
+              src="/images/logo-full.png.svg"
               alt="SlabDash"
-              className="h-64 w-auto max-w-full"
+              className="h-20 w-auto max-w-full"
             />
           </div>
 
