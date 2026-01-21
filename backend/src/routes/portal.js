@@ -266,41 +266,9 @@ router.patch('/buyback-offers/:id/respond', authenticateCustomer, async (req, re
             [response, customer_response || null, req.params.id, req.customer.id]
         );
 
-        // If accepted, create payment intent automatically
-        if (response === 'accepted') {
-            try {
-                const paymentIntent = await stripeService.createPaymentIntent(
-                    result.rows[0].offer_price,
-                    {
-                        offer_id: result.rows[0].id,
-                        customer_id: req.customer.id,
-                        customer_name: req.customer.name,
-                        customer_email: req.customer.email,
-                        description: `Buyback payment for offer #${result.rows[0].id}`
-                    }
-                );
-
-                // Update offer with payment intent
-                await db.query(
-                    `UPDATE buyback_offers SET payment_id = $1, payment_method = 'stripe', payment_status = 'processing' WHERE id = $2`,
-                    [paymentIntent.id, req.params.id]
-                );
-
-                console.log(`💳 Auto-created payment intent for accepted offer: ${paymentIntent.id}`);
-
-                return res.json({
-                    ...result.rows[0],
-                    payment_intent: paymentIntent,
-                    stripe_configured: stripeService.isConfigured()
-                });
-            } catch (paymentError) {
-                console.error('Auto-payment creation error:', paymentError);
-                // Continue without payment intent - can be created manually later
-            }
-        }
-
-        // TODO: Notify shop owner of customer response
-        console.log(`📧 Customer responded to buyback offer: ${response}`);
+        // Notify shop owner of customer response
+        console.log(`📧 Customer ${response} buyback offer #${req.params.id}`);
+        // TODO: Send notification to shop owner
 
         res.json(result.rows[0]);
     } catch (error) {
@@ -382,38 +350,7 @@ router.post('/buyback-offers/:id/respond', async (req, res) => {
             [response, customer_response || null, req.params.id, customer.id]
         );
 
-        // If accepted, create payment intent automatically
-        if (response === 'accepted') {
-            try {
-                const paymentIntent = await stripeService.createPaymentIntent(
-                    offer.offer_price,
-                    {
-                        offer_id: offer.id,
-                        customer_id: customer.id,
-                        customer_name: customer.name,
-                        customer_email: customer.email,
-                        description: `Buyback payment for offer #${offer.id}`
-                    }
-                );
-
-                await db.query(
-                    `UPDATE buyback_offers SET payment_id = $1, payment_method = 'stripe', payment_status = 'processing' WHERE id = $2`,
-                    [paymentIntent.id, req.params.id]
-                );
-
-                console.log(`💳 Auto-created payment intent for accepted offer: ${paymentIntent.id}`);
-
-                return res.json({
-                    ...result.rows[0],
-                    payment_intent: paymentIntent,
-                    stripe_configured: stripeService.isConfigured()
-                });
-            } catch (paymentError) {
-                console.error('Auto-payment creation error:', paymentError);
-                // Continue without payment intent
-            }
-        }
-
+        // Notify shop owner of customer response
         console.log(`📧 Customer ${response} buyback offer #${req.params.id}`);
 
         res.json(result.rows[0]);
