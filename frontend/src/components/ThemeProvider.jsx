@@ -25,6 +25,28 @@ function adjustBrightness(r, g, b, percent) {
   };
 }
 
+/**
+ * Calculate relative luminance of a color
+ * Used to determine if text should be light or dark for contrast
+ */
+function getLuminance(r, g, b) {
+  const [rs, gs, bs] = [r, g, b].map(c => {
+    c = c / 255;
+    return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
+}
+
+/**
+ * Determines if a color is light or dark
+ * Returns 'light' or 'dark' for appropriate text color
+ */
+function getContrastingTextColor(r, g, b) {
+  const luminance = getLuminance(r, g, b);
+  // If background is dark (low luminance), use light text
+  return luminance > 0.5 ? 'dark' : 'light';
+}
+
 export default function ThemeProvider({ children }) {
   const { company } = useAuth();
 
@@ -70,7 +92,21 @@ export default function ThemeProvider({ children }) {
     root.style.setProperty('--bg-color', `${bgRgb.r} ${bgRgb.g} ${bgRgb.b}`);
     root.style.setProperty('--sidebar-color', `${sidebarRgb.r} ${sidebarRgb.g} ${sidebarRgb.b}`);
 
-    console.log('ThemeProvider: All colors applied successfully');
+    // Auto-calculate contrasting text colors for primary, background, and sidebar
+    const primaryTextContrast = getContrastingTextColor(rgb.r, rgb.g, rgb.b);
+    const bgTextContrast = getContrastingTextColor(bgRgb.r, bgRgb.g, bgRgb.b);
+    const sidebarTextContrast = getContrastingTextColor(sidebarRgb.r, sidebarRgb.g, sidebarRgb.b);
+
+    // Set text colors (255 255 255 for white, 0 0 0 for black)
+    root.style.setProperty('--brand-text', primaryTextContrast === 'light' ? '255 255 255' : '0 0 0');
+    root.style.setProperty('--bg-text', bgTextContrast === 'light' ? '255 255 255' : '0 0 0');
+    root.style.setProperty('--sidebar-text', sidebarTextContrast === 'light' ? '255 255 255' : '17 24 39'); // gray-900 for light sidebar
+
+    console.log('ThemeProvider: All colors applied successfully', {
+      primaryTextContrast,
+      bgTextContrast,
+      sidebarTextContrast
+    });
   }, [company?.primary_color, company?.background_color, company?.sidebar_color]);
 
   return children;

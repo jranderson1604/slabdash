@@ -18,6 +18,11 @@
   /* Customizable colors */
   --bg-color: 255 245 243;  /* Off-white tan background */
   --sidebar-color: 255 255 255;  /* Default white sidebar */
+
+  /* Auto-calculated contrasting text colors */
+  --brand-text: 255 255 255;  /* Text color on brand backgrounds */
+  --bg-text: 0 0 0;  /* Text color on page background */
+  --sidebar-text: 17 24 39;  /* Text color on sidebar background */
 }
 
 @layer base {
@@ -34,10 +39,11 @@
   }
   .btn-primary {
     background-color: rgb(var(--brand-500));
-    color: white;
+    color: rgb(var(--brand-text));
   }
   .btn-primary:hover {
     background-color: rgb(var(--brand-600));
+    color: rgb(var(--brand-text));
   }
   .btn-primary:focus {
     --tw-ring-color: rgb(var(--brand-500));
