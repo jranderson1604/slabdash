@@ -9,7 +9,7 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/images/logo-icon.svg",
+      "src": "/images/logo-icon.png.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

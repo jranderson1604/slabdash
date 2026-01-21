@@ -157,7 +157,7 @@ export default function Landing() {
             {/* S logo - brand anchor in top-left */}
             <Link to="/" className="flex items-center">
               <img
-                src="/images/logo-icon.png"
+                src="/images/logo-icon.png.svg"
                 alt="SlabDash"
                 className="h-20 w-20 sm:h-24 sm:w-24"
               />
@@ -197,11 +197,12 @@ export default function Landing() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center space-y-8 animate-fade-in">
             {/* MASSIVE Hero Wordmark - Primary Focal Point */}
-            <div className="flex justify-center mb-12">
+            <div className="flex justify-center mb-12 px-4">
               <img
-                src="/images/logo-full.png"
+                src="/images/logo-full.png.svg"
                 alt="SlabDash"
-                className="h-40 sm:h-56 lg:h-72 w-auto max-w-full drop-shadow-2xl"
+                className="w-full max-w-6xl h-auto drop-shadow-2xl"
+                style={{ minHeight: '120px' }}
               />
             </div>
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#FFF5F3] text-[#E85947] rounded-full text-sm font-medium">
@@ -298,7 +299,7 @@ export default function Landing() {
           <div className="text-center mb-12">
             <div className="flex justify-center mb-6">
               <img
-                src="/images/logo-icon.png"
+                src="/images/logo-icon.png.svg"
                 alt="SlabDash"
                 className="h-32 w-32 opacity-90 drop-shadow-lg"
               />
@@ -335,7 +336,7 @@ export default function Landing() {
           <div className="text-center mb-12">
             <div className="flex justify-center mb-6">
               <img
-                src="/images/logo-icon.png"
+                src="/images/logo-icon.png.svg"
                 alt="SlabDash"
                 className="h-32 w-32 opacity-90 drop-shadow-lg"
               />
@@ -407,7 +408,7 @@ export default function Landing() {
           <div className="text-center mb-12">
             <div className="flex justify-center mb-6">
               <img
-                src="/images/logo-icon.png"
+                src="/images/logo-icon.png.svg"
                 alt="SlabDash"
                 className="h-32 w-32 opacity-90 drop-shadow-lg"
               />
@@ -485,7 +486,7 @@ export default function Landing() {
             <div>
               <Link to="/" className="flex items-center mb-4">
                 <img
-                  src="/images/logo-icon.png"
+                  src="/images/logo-icon.png.svg"
                   alt="SlabDash"
                   className="h-16 w-16"
                 />
