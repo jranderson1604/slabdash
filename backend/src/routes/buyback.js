@@ -2,6 +2,7 @@ const express = require("express");
 const db = require("../db");
 const { authenticate } = require("../middleware/auth");
 const stripeService = require("../services/stripe");
+const notificationService = require("../services/notificationService");
 
 const router = express.Router();
 
@@ -64,8 +65,45 @@ router.post("/", authenticate, async (req, res) => {
       ]
     );
 
-    // TODO: Send notification to customer via email/SMS
-    console.log(`📧 Buyback offer created for ${card.customer_email}: $${offer_price} for ${card.description}`);
+    // Generate portal link for customer to respond
+    const customer = await db.query(
+      'SELECT portal_access_token FROM customers WHERE id = $1',
+      [card.customer_id]
+    );
+    const portalUrl = customer.rows[0]?.portal_access_token
+      ? `${process.env.FRONTEND_URL}/portal?token=${customer.rows[0].portal_access_token}`
+      : `${process.env.FRONTEND_URL}/portal`;
+
+    // Get notification settings from company
+    const companySettings = await db.query(
+      'SELECT email_notifications_enabled, sms_notifications_enabled, push_notifications_enabled, buyback_response_hours FROM companies WHERE id = $1',
+      [company_id]
+    );
+    const settings = companySettings.rows[0] || {};
+
+    // Determine which channels to use
+    const channels = [];
+    if (settings.email_notifications_enabled !== false) channels.push('email'); // Default to enabled
+    if (settings.sms_notifications_enabled) channels.push('sms');
+    if (settings.push_notifications_enabled) channels.push('push');
+
+    // Send notification to customer
+    await notificationService.sendNotification({
+      customerId: card.customer_id,
+      type: 'buybackOffer',
+      data: {
+        cardDescription: card.description,
+        cardGrade: card.grade,
+        psaCertNumber: card.psa_cert_number,
+        offerPrice: parseFloat(offer_price).toFixed(2),
+        message: message || null,
+        portalUrl,
+        expiresInHours: settings.buyback_response_hours || 24
+      },
+      channels
+    });
+
+    console.log(`📧 Buyback offer created and notification sent to ${card.customer_email}: $${offer_price} for ${card.description}`);
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
