@@ -22,6 +22,7 @@ import {
   Image as ImageIcon,
   Search,
   FileSpreadsheet,
+  DollarSign,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -275,6 +276,16 @@ function CardRow({ card, onUpdate, onDelete }) {
                 {lookingUp ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Lookup'}
               </button>
             </>
+          )}
+          {card.grade && (
+            <Link
+              to={`/buyback/new?card_id=${card.id}`}
+              className="btn btn-primary py-1 px-2 text-xs flex items-center gap-1 bg-green-600 hover:bg-green-700"
+              title="Make buyback offer"
+            >
+              <DollarSign className="w-3 h-3" />
+              Buyback
+            </Link>
           )}
           <button
             onClick={() => onDelete(card.id)}
