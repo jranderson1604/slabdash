@@ -158,19 +158,16 @@ export default function Portal() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img src="/images/logo-icon.png" alt="SlabDash" className="w-16 h-16" />
-              <div>
-                <h1 className="font-bold text-lg">{data.company?.name || 'Card Shop'}</h1>
-                <p className="text-sm text-gray-500">Order Tracking</p>
-              </div>
+              <img src="/images/logo-full.png.svg" alt="SlabDash" className="h-12 w-auto" />
             </div>
             <div className="text-right">
               <p className="font-medium">{data.customer?.name}</p>
               <p className="text-sm text-gray-500">{data.customer?.email}</p>
+              <p className="text-xs text-gray-400 mt-1">{data.company?.name || 'Card Shop'}</p>
             </div>
           </div>
         </div>

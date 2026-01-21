@@ -2,6 +2,7 @@ const express = require("express");
 const db = require("../db");
 const { authenticate } = require("../middleware/auth");
 const stripeService = require("../services/stripe");
+const notificationService = require("../services/notificationService");
 
 const router = express.Router();
 
@@ -64,8 +65,45 @@ router.post("/", authenticate, async (req, res) => {
       ]
     );
 
-    // TODO: Send notification to customer via email/SMS
-    console.log(`📧 Buyback offer created for ${card.customer_email}: $${offer_price} for ${card.description}`);
+    // Generate portal link for customer to respond
+    const customer = await db.query(
+      'SELECT portal_access_token FROM customers WHERE id = $1',
+      [card.customer_id]
+    );
+    const portalUrl = customer.rows[0]?.portal_access_token
+      ? `${process.env.FRONTEND_URL}/portal?token=${customer.rows[0].portal_access_token}`
+      : `${process.env.FRONTEND_URL}/portal`;
+
+    // Get notification settings from company
+    const companySettings = await db.query(
+      'SELECT email_notifications_enabled, sms_notifications_enabled, push_notifications_enabled, buyback_response_hours FROM companies WHERE id = $1',
+      [company_id]
+    );
+    const settings = companySettings.rows[0] || {};
+
+    // Determine which channels to use
+    const channels = [];
+    if (settings.email_notifications_enabled !== false) channels.push('email'); // Default to enabled
+    if (settings.sms_notifications_enabled) channels.push('sms');
+    if (settings.push_notifications_enabled) channels.push('push');
+
+    // Send notification to customer
+    await notificationService.sendNotification({
+      customerId: card.customer_id,
+      type: 'buybackOffer',
+      data: {
+        cardDescription: card.description,
+        cardGrade: card.grade,
+        psaCertNumber: card.psa_cert_number,
+        offerPrice: parseFloat(offer_price).toFixed(2),
+        message: message || null,
+        portalUrl,
+        expiresInHours: settings.buyback_response_hours || 24
+      },
+      channels
+    });
+
+    console.log(`📧 Buyback offer created and notification sent to ${card.customer_email}: $${offer_price} for ${card.description}`);
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -174,20 +212,25 @@ router.get("/:id", authenticate, async (req, res) => {
   }
 });
 
-// Update buyback offer status (shop owner)
-router.patch("/:id/status", authenticate, async (req, res) => {
+// Mark offer as paid (simplified for Venmo/PayPal/Cash payments)
+router.patch("/:id/mark-paid", authenticate, async (req, res) => {
   try {
     const { company_id } = req.user;
     const { id } = req.params;
-    const { status, payment_method, payment_id } = req.body;
+    const { payment_method, payment_reference } = req.body;
 
-    const validStatuses = ["pending", "accepted", "rejected", "paid", "cancelled"];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({ error: "Invalid status" });
+    // Validate payment method
+    const validMethods = ['venmo', 'paypal', 'zelle', 'cash', 'check', 'bank_transfer', 'other'];
+    if (payment_method && !validMethods.includes(payment_method)) {
+      return res.status(400).json({
+        error: 'Invalid payment method',
+        validMethods
+      });
     }
 
+    // Verify offer belongs to shop and is accepted
     const offerCheck = await db.query(
-      "SELECT id FROM buyback_offers WHERE id = $1 AND company_id = $2",
+      "SELECT id, status FROM buyback_offers WHERE id = $1 AND company_id = $2",
       [id, company_id]
     );
 
@@ -195,32 +238,32 @@ router.patch("/:id/status", authenticate, async (req, res) => {
       return res.status(404).json({ error: "Buyback offer not found" });
     }
 
-    let updateQuery = `UPDATE buyback_offers SET status = $1`;
-    const params = [status, id, company_id];
-    let paramCount = 3;
-
-    if (status === "paid") {
-      paramCount++;
-      updateQuery += `, paid_at = NOW(), payment_status = 'completed'`;
-      if (payment_method) {
-        paramCount++;
-        updateQuery += `, payment_method = $${paramCount}`;
-        params.splice(3, 0, payment_method);
-      }
-      if (payment_id) {
-        paramCount++;
-        updateQuery += `, payment_id = $${paramCount}`;
-        params.push(payment_id);
-      }
+    if (offerCheck.rows[0].status !== 'accepted') {
+      return res.status(400).json({
+        error: "Only accepted offers can be marked as paid",
+        current_status: offerCheck.rows[0].status
+      });
     }
 
-    updateQuery += ` WHERE id = $2 AND company_id = $3 RETURNING *`;
+    // Mark as paid
+    const result = await db.query(
+      `UPDATE buyback_offers
+       SET status = 'paid',
+           paid_at = NOW(),
+           payment_status = 'completed',
+           payment_method = $1,
+           payment_id = $2
+       WHERE id = $3 AND company_id = $4
+       RETURNING *`,
+      [payment_method || 'venmo', payment_reference || null, id, company_id]
+    );
 
-    const result = await db.query(updateQuery, params);
+    console.log(`💰 Buyback offer #${id} marked as paid via ${payment_method || 'venmo'}`);
+
     res.json(result.rows[0]);
   } catch (err) {
-    console.error("Update buyback offer status error:", err);
-    res.status(500).json({ error: "Failed to update buyback offer status" });
+    console.error("Mark buyback offer paid error:", err);
+    res.status(500).json({ error: "Failed to mark offer as paid" });
   }
 });
 
