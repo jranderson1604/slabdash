@@ -12,9 +12,11 @@ import {
   ArrowRight,
   TrendingUp,
   Loader2,
+  DollarSign,
+  Bell,
 } from 'lucide-react';
 
-function StatCard({ icon: Icon, label, value, subtext, color = 'brand' }) {
+function StatCard({ icon: Icon, label, value, subtext, color = 'brand', link }) {
   const colors = {
     brand: 'bg-brand-50 text-brand-600',
     green: 'bg-green-50 text-green-600',
@@ -22,20 +24,28 @@ function StatCard({ icon: Icon, label, value, subtext, color = 'brand' }) {
     blue: 'bg-blue-50 text-blue-600',
   };
 
-  return (
-    <div className="card p-6">
-      <div className="flex items-center gap-4">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colors[color]}`}>
-          <Icon className="w-6 h-6" />
-        </div>
-        <div>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
-          <p className="text-sm text-gray-500">{label}</p>
-          {subtext && <p className="text-xs text-gray-400 mt-0.5">{subtext}</p>}
-        </div>
+  const content = (
+    <div className="flex items-center gap-4">
+      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colors[color]}`}>
+        <Icon className="w-6 h-6" />
+      </div>
+      <div>
+        <p className="text-2xl font-bold text-gray-900">{value}</p>
+        <p className="text-sm text-gray-500">{label}</p>
+        {subtext && <p className="text-xs text-gray-400 mt-0.5">{subtext}</p>}
       </div>
     </div>
   );
+
+  if (link) {
+    return (
+      <Link to={link} className="card p-6 hover:border-brand-500 hover:shadow-lg transition-all cursor-pointer">
+        {content}
+      </Link>
+    );
+  }
+
+  return <div className="card p-6">{content}</div>;
 }
 
 function ProgressBar({ percent, showLabel = true }) {
@@ -116,8 +126,8 @@ export default function Dashboard() {
         totalCustomers: custs.length,
       });
 
-      // Get recent submissions (not shipped)
-      setRecentSubs(subs.filter(s => !s.shipped).slice(0, 5));
+      // Get recent submissions (not shipped) - limit to 3 for compact dashboard
+      setRecentSubs(subs.filter(s => !s.shipped).slice(0, 3));
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
@@ -187,42 +197,111 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Stats Grid */}
+      {/* Stats Grid - Clickable cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={Package}
           label="Active Submissions"
           value={stats?.inProgress || 0}
-          subtext={`${stats?.totalSubmissions || 0} total`}
+          subtext={`${stats?.totalSubmissions || 0} total • Click to view`}
           color="brand"
+          link="/submissions"
         />
         <StatCard
           icon={Clock}
           label="Grades Ready"
           value={stats?.gradesReady || 0}
-          subtext="Awaiting pickup"
+          subtext="Awaiting pickup • Click to view"
           color="blue"
+          link="/submissions"
         />
         <StatCard
           icon={AlertTriangle}
           label="Problems"
           value={stats?.problems || 0}
-          subtext="Need attention"
+          subtext="Need attention • Click to view"
           color="yellow"
+          link="/submissions"
         />
         <StatCard
           icon={Users}
           label="Customers"
           value={stats?.totalCustomers || 0}
+          subtext="Click to view all"
           color="green"
+          link="/customers"
         />
       </div>
 
-      {/* Recent Submissions */}
+      {/* Two-column layout for Notifications and Buyback */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Notifications */}
+        <div className="card">
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <Bell className="w-5 h-5 text-brand-500" />
+                Recent Activity
+              </h2>
+            </div>
+          </div>
+          <div className="p-4 space-y-3">
+            {stats?.gradesReady > 0 && (
+              <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
+                <CheckCircle2 className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-blue-900">Grades Ready</p>
+                  <p className="text-xs text-blue-700">{stats.gradesReady} submission{stats.gradesReady !== 1 ? 's' : ''} ready for pickup</p>
+                </div>
+              </div>
+            )}
+            {stats?.problems > 0 && (
+              <div className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg">
+                <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-yellow-900">Attention Needed</p>
+                  <p className="text-xs text-yellow-700">{stats.problems} submission{stats.problems !== 1 ? 's' : ''} flagged with issues</p>
+                </div>
+              </div>
+            )}
+            {(!stats?.gradesReady && !stats?.problems) && (
+              <p className="text-sm text-gray-500 text-center py-4">No new notifications</p>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Buyback Offers */}
+        <div className="card">
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-green-600" />
+                Buyback Offers
+              </h2>
+              <Link
+                to="/buyback"
+                className="text-sm text-brand-500 hover:text-brand-600 font-medium flex items-center gap-1 transition-colors"
+              >
+                View all
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+          <div className="p-4">
+            <p className="text-sm text-gray-500 text-center py-4">No active buyback offers</p>
+            <Link to="/buyback/new" className="btn btn-secondary w-full text-sm">
+              <DollarSign className="w-4 h-4" />
+              Create Buyback Offer
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Recent Submissions - Compact view */}
       <div className="card">
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Active Submissions</h2>
+            <h2 className="text-base font-semibold text-gray-900">Recent Submissions</h2>
             <Link
               to="/submissions"
               className="text-sm text-brand-500 hover:text-brand-600 font-medium flex items-center gap-1 transition-colors"
