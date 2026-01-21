@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { submissions, customers } from '../api/client';
+import { submissions, customers, psa } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import {
   Package,
@@ -139,10 +139,11 @@ export default function Dashboard() {
     if (!company?.hasPsaKey) return;
     setRefreshing(true);
     try {
-      await submissions.refreshAll();
+      await psa.refreshAll();
       await loadData();
     } catch (error) {
       console.error('Refresh failed:', error);
+      alert('Failed to refresh submissions. Please try again.');
     } finally {
       setRefreshing(false);
     }
