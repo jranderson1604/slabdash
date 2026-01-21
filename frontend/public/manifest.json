@@ -9,40 +9,40 @@
   "orientation": "portrait-primary",
   "icons": [
     {
+      "src": "/images/logo-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
       "src": "/images/logo-icon.png",
-      "sizes": "576x576",
+      "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/images/logo-icon.png",
-      "sizes": "1536x1536",
+      "sizes": "384x384",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/images/logo-icon.png",
-      "sizes": "540x540",
+      "sizes": "256x256",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/images/logo-icon.png",
-      "sizes": "501x501",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
       "src": "/images/logo-icon.png",
-      "sizes": "456x456",
+      "sizes": "128x128",
       "type": "image/png",
-      "purpose": "any"
-    },
-    {
-      "src": "/images/logo-icon.png",
-      "sizes": "360x360",
-      "type": "image/png",
-      "purpose": "any"
+      "purpose": "maskable"
     }
   ]
 }
