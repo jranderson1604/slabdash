@@ -70,9 +70,9 @@ export default function Layout({ children }) {
           </button>
           <Link to="/dashboard" className="flex items-center justify-center">
             <img
-              src="/images/logo-icon.png"
+              src="/images/logo-icon.png.svg"
               alt="SlabDash"
-              className="w-16 h-16"
+              className="w-20 h-20"
             />
           </Link>
         </div>

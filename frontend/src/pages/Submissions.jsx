@@ -15,6 +15,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  HelpCircle,
+  Info,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -199,6 +201,7 @@ export default function Submissions() {
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'active', 'shipped', 'problems'
   const [search, setSearch] = useState('');
+  const [showHelp, setShowHelp] = useState(false);
 
   const loadSubmissions = async () => {
     try {
@@ -237,15 +240,22 @@ export default function Submissions() {
     loadSubmissions();
   }, [filter]);
 
-  // Filter by search
+  // Enhanced filter by search - includes order #, sub #, customer name, and card names
   const filteredSubs = subs.filter((s) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
       s.psa_submission_number?.toLowerCase().includes(q) ||
+      s.psa_order_number?.toLowerCase().includes(q) ||
       s.internal_id?.toLowerCase().includes(q) ||
       s.customer_name?.toLowerCase().includes(q) ||
-      s.customer_email?.toLowerCase().includes(q)
+      s.customer_email?.toLowerCase().includes(q) ||
+      // Search through card names if CSV data is loaded
+      s.cards?.some(card =>
+        card.card_name?.toLowerCase().includes(q) ||
+        card.year?.toString().includes(q) ||
+        card.brand?.toLowerCase().includes(q)
+      )
     );
   });
 
@@ -258,9 +268,18 @@ export default function Submissions() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Submissions</h1>
-          <p className="text-gray-500 mt-1">Track and manage PSA orders</p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Submissions</h1>
+            <p className="text-gray-500 mt-1">Track and manage PSA orders</p>
+          </div>
+          <button
+            onClick={() => setShowHelp(!showHelp)}
+            className="p-2 rounded-lg hover:bg-gray-100 text-brand-500"
+            title="Show help"
+          >
+            <HelpCircle className="w-5 h-5" />
+          </button>
         </div>
         <div className="flex items-center gap-3">
           {company?.hasPsaKey && (
@@ -280,6 +299,33 @@ export default function Submissions() {
         </div>
       </div>
 
+      {/* Help Section */}
+      {showHelp && (
+        <div className="card bg-blue-50 border-blue-200">
+          <div className="p-4">
+            <div className="flex items-start gap-3">
+              <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-blue-900 mb-2">How to Use Submissions</h3>
+                <ul className="text-sm text-blue-800 space-y-1.5 list-disc list-inside">
+                  <li><strong>Search:</strong> Find submissions by PSA order #, submission #, customer name, or even specific card names (when CSV data is loaded)</li>
+                  <li><strong>Filter:</strong> View all submissions, only active ones, shipped orders, or those with problems</li>
+                  <li><strong>Refresh:</strong> Click "Refresh All" to update all submission statuses from PSA (requires PSA API key)</li>
+                  <li><strong>Track Progress:</strong> View real-time progress bars showing where each submission is in the PSA process</li>
+                  <li><strong>View Details:</strong> Click any submission row to see full details, cards, and customer information</li>
+                </ul>
+              </div>
+              <button
+                onClick={() => setShowHelp(false)}
+                className="text-blue-600 hover:text-blue-800"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="card p-4">
         <div className="flex flex-col sm:flex-row gap-4">
@@ -288,7 +334,7 @@ export default function Submissions() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by submission #, customer..."
+              placeholder="Search by order #, sub #, customer name, or card name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input pl-10"

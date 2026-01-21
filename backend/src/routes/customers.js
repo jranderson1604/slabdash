@@ -156,9 +156,9 @@ router.post('/import-csv', authenticate, async (req, res) => {
 
         // Find column indices (flexible for different CSV formats)
         const emailIndex = headers.findIndex(h => h.includes('email'));
-        const nameIndex = headers.findIndex(h => h.includes('name') && !h.includes('company'));
         const firstNameIndex = headers.findIndex(h => h.includes('first') && h.includes('name'));
         const lastNameIndex = headers.findIndex(h => h.includes('last') && h.includes('name'));
+        const nameIndex = headers.findIndex(h => h.includes('name') && !h.includes('company') && !h.includes('first') && !h.includes('last'));
         const phoneIndex = headers.findIndex(h => h.includes('phone'));
         const addressIndex = headers.findIndex(h => h.includes('address') && !h.includes('2'));
         const cityIndex = headers.findIndex(h => h.includes('city'));
@@ -177,13 +177,18 @@ router.post('/import-csv', authenticate, async (req, res) => {
             const cols = parseCSVLine(line);
 
             const email = emailIndex >= 0 ? cols[emailIndex]?.trim().toLowerCase() : null;
-            let name = nameIndex >= 0 ? cols[nameIndex]?.trim() : null;
+            let name = null;
 
-            // If no name column, combine first + last name
-            if (!name && firstNameIndex >= 0 && lastNameIndex >= 0) {
+            // Prioritize first + last name columns (common in Shopify)
+            if (firstNameIndex >= 0 && lastNameIndex >= 0) {
                 const first = cols[firstNameIndex]?.trim() || '';
                 const last = cols[lastNameIndex]?.trim() || '';
                 name = `${first} ${last}`.trim();
+            }
+
+            // Fall back to single name column if first+last not available
+            if (!name && nameIndex >= 0) {
+                name = cols[nameIndex]?.trim();
             }
 
             const phone = phoneIndex >= 0 ? cols[phoneIndex]?.trim() : null;
