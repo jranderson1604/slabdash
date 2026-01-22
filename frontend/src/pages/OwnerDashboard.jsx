@@ -60,7 +60,7 @@ export default function OwnerDashboard() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('slabdash_token');
       const headers = { Authorization: `Bearer ${token}` };
 
       const [statsRes, companiesRes, customersRes, activityRes] = await Promise.all([
