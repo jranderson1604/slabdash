@@ -204,4 +204,13 @@ router.get('/set-owner', async (req, res) => {
     }
 });
 
+// Debug endpoint - check if latest code is deployed
+router.get('/version', (req, res) => {
+    res.json({
+        version: '2.1.0-owner-fix',
+        jwtIncludesRole: true,
+        timestamp: new Date().toISOString()
+    });
+});
+
 module.exports = router;
