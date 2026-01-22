@@ -65,18 +65,18 @@ export default function Layout({ children }) {
         }`}
       >
         {/* Logo */}
-        <div className="flex items-center justify-center px-4 py-6 border-b border-brand-100 relative">
+        <div className="flex items-center justify-center px-2 py-4 border-b border-brand-100 relative">
           <button
             onClick={() => setSidebarOpen(false)}
-            className="absolute top-4 right-4 lg:hidden text-gray-600 hover:text-gray-900"
+            className="absolute top-4 right-4 lg:hidden text-gray-600 hover:text-gray-900 z-10"
           >
             <X className="w-6 h-6" />
           </button>
-          <Link to="/dashboard" className="flex items-center justify-center">
+          <Link to="/dashboard" className="flex items-center justify-center w-full">
             <img
-              src="/images/logo-icon.png.svg"
+              src="/images/logo-full.png.svg"
               alt="SlabDash"
-              className="w-32 h-32"
+              className="h-48 w-full object-contain"
             />
           </Link>
         </div>
