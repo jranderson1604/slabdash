@@ -14,6 +14,7 @@ import {
   Zap,
   Upload,
   DollarSign,
+  Shield,
 } from 'lucide-react';
 
 const navigation = [
@@ -24,6 +25,10 @@ const navigation = [
   { name: 'Import CSV', href: '/import', icon: Upload },
   { name: 'Buyback Offers', href: '/buyback', icon: DollarSign },
   { name: 'Settings', href: '/settings', icon: Settings },
+];
+
+const ownerNavigation = [
+  { name: 'Platform Control', href: '/owner', icon: Shield },
 ];
 
 export default function Layout({ children }) {
@@ -81,6 +86,33 @@ export default function Layout({ children }) {
 
         {/* Navigation */}
         <nav className="flex-1 px-2 py-4 space-y-1">
+          {/* Owner-only navigation */}
+          {user?.role === 'owner' && ownerNavigation.map((item) => {
+            const isActive = location.pathname === item.href ||
+              (item.href !== '/' && location.pathname.startsWith(item.href));
+            return (
+              <Link
+                key={item.name}
+                to={item.href}
+                onClick={() => setSidebarOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-purple-600 text-white'
+                    : 'text-purple-700 hover:text-purple-900 hover:bg-purple-50 border border-purple-200'
+                }`}
+              >
+                <item.icon className="w-5 h-5" />
+                {item.name}
+              </Link>
+            );
+          })}
+
+          {/* Owner separator */}
+          {user?.role === 'owner' && (
+            <div className="border-t border-gray-200 my-2" />
+          )}
+
+          {/* Regular navigation */}
           {navigation.map((item) => {
             const isActive = location.pathname === item.href ||
               (item.href !== '/' && location.pathname.startsWith(item.href));
