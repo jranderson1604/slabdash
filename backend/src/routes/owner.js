@@ -86,7 +86,6 @@ router.get('/activity', authenticate, requireOwner, async (req, res) => {
                 s.id,
                 s.psa_submission_number,
                 s.internal_id,
-                s.status,
                 s.created_at,
                 c.name as customer_name,
                 co.name as company_name,
