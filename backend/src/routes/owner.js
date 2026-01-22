@@ -82,19 +82,19 @@ router.get('/activity', authenticate, requireOwner, async (req, res) => {
 
         const result = await db.query(`
             SELECT
+                'submission' as activity_type,
                 s.id,
-                s.tracking_number,
+                s.psa_submission_number,
+                s.internal_id,
                 s.status,
                 s.created_at,
-                s.updated_at,
                 c.name as customer_name,
-                c.email as customer_email,
                 co.name as company_name,
                 co.slug as company_slug
             FROM submissions s
-            JOIN customers c ON s.customer_id = c.id
+            LEFT JOIN customers c ON s.customer_id = c.id
             JOIN companies co ON s.company_id = co.id
-            ORDER BY s.updated_at DESC
+            ORDER BY s.created_at DESC
             LIMIT $1
         `, [limit]);
 
