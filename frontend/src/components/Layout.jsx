@@ -25,9 +25,13 @@ export default function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Build navigation based on user role
+  // Owner-only navigation (shown at top with purple styling)
+  const ownerNavigation = [
+    { name: 'Platform Control', href: '/owner', icon: Shield },
+  ];
+
+  // Build regular navigation based on user role
   const navigation = [
-    ...(user?.role === 'owner' ? [{ name: 'Platform Control', href: '/owner', icon: Shield }] : []),
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Submissions', href: '/submissions', icon: Package },
     { name: 'Customers', href: '/customers', icon: Users },
@@ -85,9 +89,36 @@ export default function Layout({ children }) {
 
         {/* Navigation */}
         <nav className="flex-1 px-2 py-4 space-y-1">
-          {navigation.map((item) => {
+          {/* Owner-only navigation */}
+          {user?.role === 'owner' && ownerNavigation.map((item) => {
             const isActive = location.pathname === item.href ||
               (item.href !== '/' && location.pathname.startsWith(item.href));
+            return (
+              <Link
+                key={item.name}
+                to={item.href}
+                onClick={() => setSidebarOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-purple-600 text-white'
+                    : 'text-purple-700 hover:text-purple-900 hover:bg-purple-50 border border-purple-200'
+                }`}
+              >
+                <item.icon className="w-5 h-5" />
+                {item.name}
+              </Link>
+            );
+          })}
+
+          {/* Owner separator */}
+          {user?.role === 'owner' && (
+            <div className="border-t border-gray-200 my-2" />
+          )}
+
+          {/* Regular navigation */}
+          {navigation.map((item) => {
+            const isActive = location.pathname === item.href ||
+              (item.href !== '/dashboard' && item.href !== '/' && location.pathname.startsWith(item.href));
             return (
               <Link
                 key={item.name}
@@ -136,6 +167,9 @@ export default function Layout({ children }) {
                 {navigation.find(n =>
                   n.href === location.pathname ||
                   (n.href !== '/dashboard' && n.href !== '/' && location.pathname.startsWith(n.href))
+                )?.name || ownerNavigation.find(n =>
+                  n.href === location.pathname ||
+                  location.pathname.startsWith(n.href)
                 )?.name || 'Dashboard'}
               </h1>
             </div>
