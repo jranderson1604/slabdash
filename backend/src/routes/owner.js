@@ -1,12 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-
-// TEMPORARY: Owner routes work without auth for debugging
-// TODO: Re-enable auth after JWT issues are resolved
+const { authenticate, requireOwner } = require('../middleware/auth');
 
 // Get all companies (shops)
-router.get('/companies', async (req, res) => {
+router.get('/companies', authenticate, requireOwner, async (req, res) => {
     try {
         const result = await db.query(`
             SELECT
@@ -32,7 +30,7 @@ router.get('/companies', async (req, res) => {
 });
 
 // Get platform statistics
-router.get('/stats', async (req, res) => {
+router.get('/stats', authenticate, requireOwner, async (req, res) => {
     try {
         const stats = await db.query(`
             SELECT
@@ -51,7 +49,7 @@ router.get('/stats', async (req, res) => {
 });
 
 // Get all customers across platform
-router.get('/customers', async (req, res) => {
+router.get('/customers', authenticate, requireOwner, async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 50;
         const offset = parseInt(req.query.offset) || 0;
@@ -78,7 +76,7 @@ router.get('/customers', async (req, res) => {
 });
 
 // Get recent activity across platform
-router.get('/activity', async (req, res) => {
+router.get('/activity', authenticate, requireOwner, async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 20;
 
@@ -108,7 +106,7 @@ router.get('/activity', async (req, res) => {
 });
 
 // Update company subscription plan
-router.patch('/companies/:id/plan', async (req, res) => {
+router.patch('/companies/:id/plan', authenticate, requireOwner, async (req, res) => {
     try {
         const { id } = req.params;
         const { plan, status } = req.body;

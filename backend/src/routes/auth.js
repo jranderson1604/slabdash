@@ -99,7 +99,7 @@ router.post('/register', async (req, res) => {
 
         // Generate token
         const token = jwt.sign(
-            { userId: user.id, companyId: company.id },
+            { userId: user.id, companyId: company.id, role: user.role },
             process.env.JWT_SECRET,
             { expiresIn: '7d' }
         );
