@@ -34,11 +34,16 @@ router.get('/stats', authenticate, requireOwner, async (req, res) => {
     try {
         const stats = await db.query(`
             SELECT
-                (SELECT COUNT(*) FROM companies) as total_companies,
-                (SELECT COUNT(*) FROM customers) as total_customers,
+                (SELECT COUNT(*) FROM companies) as total_shops,
+                (SELECT COUNT(*) FROM companies WHERE plan = 'pro') as pro_shops,
+                (SELECT COUNT(*) FROM companies WHERE plan = 'enterprise') as enterprise_shops,
+                (SELECT COUNT(*) FROM companies WHERE plan = 'starter') as starter_shops,
+                (SELECT COUNT(*) FROM companies WHERE plan = 'free') as free_shops,
+                (SELECT COUNT(*) FROM users WHERE is_active = true) as total_users,
                 (SELECT COUNT(*) FROM submissions) as total_submissions,
                 (SELECT COUNT(*) FROM cards) as total_cards,
-                (SELECT COUNT(*) FROM users WHERE is_active = true) as total_users
+                (SELECT COUNT(*) FROM companies WHERE created_at >= NOW() - INTERVAL '30 days') as new_shops_30d,
+                (SELECT COUNT(*) FROM submissions WHERE created_at >= NOW() - INTERVAL '7 days') as submissions_7d
         `);
 
         res.json(stats.rows[0]);
@@ -48,52 +53,82 @@ router.get('/stats', authenticate, requireOwner, async (req, res) => {
     }
 });
 
-// Get all customers across platform
-router.get('/customers', authenticate, requireOwner, async (req, res) => {
+// Send newsletter to all shops
+router.post('/newsletter', authenticate, requireOwner, async (req, res) => {
     try {
-        const limit = parseInt(req.query.limit) || 50;
-        const offset = parseInt(req.query.offset) || 0;
+        const { subject, message, targetPlan } = req.body;
 
-        const result = await db.query(`
-            SELECT
-                c.*,
-                co.name as company_name,
-                co.slug as company_slug,
-                COUNT(DISTINCT s.id) as submission_count
-            FROM customers c
-            JOIN companies co ON c.company_id = co.id
-            LEFT JOIN submissions s ON c.id = s.customer_id
-            GROUP BY c.id, co.id
-            ORDER BY c.created_at DESC
-            LIMIT $1 OFFSET $2
-        `, [limit, offset]);
+        if (!subject || !message) {
+            return res.status(400).json({ error: 'Subject and message required' });
+        }
 
-        res.json(result.rows);
+        // Get all companies (optionally filtered by plan)
+        let query = `
+            SELECT DISTINCT u.email, u.name, c.name as company_name, c.plan
+            FROM companies c
+            JOIN users u ON c.id = u.company_id
+            WHERE u.is_active = true AND u.role IN ('admin', 'owner')
+        `;
+        const params = [];
+
+        if (targetPlan && targetPlan !== 'all') {
+            query += ` AND c.plan = $1`;
+            params.push(targetPlan);
+        }
+
+        const result = await db.query(query, params);
+
+        // TODO: Integrate with email service (SendGrid, AWS SES, etc.)
+        // For now, just return the recipients list
+        res.json({
+            success: true,
+            recipientCount: result.rows.length,
+            recipients: result.rows,
+            message: 'Newsletter functionality ready - integrate with email service to send'
+        });
     } catch (error) {
-        console.error('Owner customers error:', error);
-        res.status(500).json({ error: 'Failed to fetch customers' });
+        console.error('Newsletter error:', error);
+        res.status(500).json({ error: 'Failed to prepare newsletter' });
     }
 });
 
-// Get recent activity across platform
+// Get recent shop activity
 router.get('/activity', authenticate, requireOwner, async (req, res) => {
     try {
         const limit = parseInt(req.query.limit) || 20;
 
         const result = await db.query(`
-            SELECT
-                'submission' as activity_type,
-                s.id,
-                s.psa_submission_number,
-                s.internal_id,
-                s.created_at,
-                c.name as customer_name,
-                co.name as company_name,
-                co.slug as company_slug
-            FROM submissions s
-            LEFT JOIN customers c ON s.customer_id = c.id
-            JOIN companies co ON s.company_id = co.id
-            ORDER BY s.created_at DESC
+            (
+                SELECT
+                    'new_shop' as activity_type,
+                    c.id,
+                    c.name as shop_name,
+                    c.plan,
+                    c.email,
+                    c.created_at,
+                    NULL as detail
+                FROM companies c
+                ORDER BY c.created_at DESC
+                LIMIT 5
+            )
+            UNION ALL
+            (
+                SELECT
+                    'submission_activity' as activity_type,
+                    co.id,
+                    co.name as shop_name,
+                    co.plan,
+                    co.email,
+                    s.created_at,
+                    COUNT(*)::text || ' submissions' as detail
+                FROM submissions s
+                JOIN companies co ON s.company_id = co.id
+                WHERE s.created_at >= NOW() - INTERVAL '7 days'
+                GROUP BY co.id, co.name, co.plan, co.email, s.created_at
+                ORDER BY s.created_at DESC
+                LIMIT 10
+            )
+            ORDER BY created_at DESC
             LIMIT $1
         `, [limit]);
 
