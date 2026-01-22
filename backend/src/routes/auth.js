@@ -209,8 +209,58 @@ router.get('/version', (req, res) => {
     res.json({
         version: '2.1.0-owner-fix',
         jwtIncludesRole: true,
+        jwtSecretExists: !!process.env.JWT_SECRET,
+        jwtSecretFirst10: process.env.JWT_SECRET?.substring(0, 10),
         timestamp: new Date().toISOString()
     });
+});
+
+// Test login that shows JWT info
+router.post('/test-login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const result = await db.query(
+            `SELECT u.*, c.name as company_name FROM users u JOIN companies c ON u.company_id = c.id WHERE u.email = $1`,
+            [email.toLowerCase()]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(401).json({ error: 'User not found' });
+        }
+
+        const user = result.rows[0];
+        const passwordMatch = await bcrypt.compare(password, user.password_hash);
+
+        if (!passwordMatch) {
+            return res.status(401).json({ error: 'Wrong password' });
+        }
+
+        const token = jwt.sign(
+            { userId: user.id, companyId: user.company_id, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        );
+
+        // Verify the token we just created
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            res.json({
+                success: true,
+                tokenWorks: true,
+                decoded: decoded,
+                userRole: user.role,
+                jwtSecretFirst10: process.env.JWT_SECRET?.substring(0, 10)
+            });
+        } catch (verifyError) {
+            res.json({
+                success: false,
+                tokenWorks: false,
+                error: verifyError.message
+            });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 module.exports = router;
