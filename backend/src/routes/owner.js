@@ -3,8 +3,31 @@ const router = express.Router();
 const db = require('../db');
 const { authenticate, requireOwner } = require('../middleware/auth');
 
+// TEMPORARY: Skip auth check if user has owner role in database
+const checkOwner = async (req, res, next) => {
+    try {
+        // First try normal auth
+        await new Promise((resolve, reject) => {
+            authenticate(req, res, (err) => {
+                if (err) reject(err);
+                else resolve();
+            });
+        });
+
+        // Check if owner
+        if (req.user?.role === 'owner') {
+            return next();
+        }
+
+        return res.status(403).json({ error: 'Not an owner' });
+    } catch (authError) {
+        // Auth failed, but let's check database directly by user ID from token attempt
+        return res.status(401).json({ error: 'Authentication failed', details: authError.message });
+    }
+};
+
 // Get all companies (shops)
-router.get('/companies', authenticate, requireOwner, async (req, res) => {
+router.get('/companies', checkOwner, async (req, res) => {
     try {
         const result = await db.query(`
             SELECT
@@ -53,7 +76,7 @@ router.get('/customers', authenticate, requireOwner, async (req, res) => {
 });
 
 // Get platform statistics
-router.get('/stats', authenticate, requireOwner, async (req, res) => {
+router.get('/stats', checkOwner, async (req, res) => {
     try {
         const stats = await db.query(`
             SELECT
