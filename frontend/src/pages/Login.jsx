@@ -34,7 +34,7 @@ export default function Login() {
           <img
             src="/images/logo-full.png.svg"
             alt="SlabDash"
-            className="h-20 w-auto max-w-full"
+            className="h-32 w-auto max-w-full"
           />
         </div>
         <h2 className="mt-4 text-center text-xl text-gray-600">
