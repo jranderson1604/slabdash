@@ -142,6 +142,12 @@ router.get('/me', authenticate, (req, res) => {
             primary_color: req.user.primary_color || '#8842f0',
             background_color: req.user.background_color || '#f5f5f5',
             sidebar_color: req.user.sidebar_color || '#ffffff'
+        },
+        // Debug info
+        debug: {
+            userRole: req.user.role,
+            isOwner: req.user.role === 'owner',
+            userObject: req.user
         }
     });
 });
