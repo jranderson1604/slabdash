@@ -146,4 +146,56 @@ router.get('/me', authenticate, (req, res) => {
     });
 });
 
+// ONE-TIME ENDPOINT: Set your own account to 'owner' role
+// Visit: https://yoursite.com/api/auth/set-owner?email=your@email.com&secret=YOUR_SECRET
+// Then DELETE this endpoint for security!
+router.get('/set-owner', async (req, res) => {
+    try {
+        const { email, secret } = req.query;
+
+        // Security: Require a secret key from environment
+        const OWNER_SECRET = process.env.OWNER_SETUP_SECRET || 'change-me-in-production';
+
+        if (!email || !secret) {
+            return res.status(400).json({ error: 'Missing email or secret parameter' });
+        }
+
+        if (secret !== OWNER_SECRET) {
+            return res.status(403).json({ error: 'Invalid secret key' });
+        }
+
+        // Set the user's role to 'owner'
+        const result = await db.query(
+            'UPDATE users SET role = $1 WHERE email = $2 RETURNING id, name, email, role',
+            ['owner', email.toLowerCase()]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: `No user found with email: ${email}` });
+        }
+
+        const user = result.rows[0];
+
+        res.json({
+            success: true,
+            message: `✅ Successfully set ${user.name} (${user.email}) to OWNER role!`,
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role
+            },
+            next_steps: [
+                '1. Log out of SlabDash',
+                '2. Log back in with your account',
+                '3. You will see "Platform Control" at the top of your sidebar',
+                '4. DELETE this /set-owner endpoint from auth.js for security!'
+            ]
+        });
+    } catch (error) {
+        console.error('Set owner error:', error);
+        res.status(500).json({ error: 'Failed to set owner role' });
+    }
+});
+
 module.exports = router;
