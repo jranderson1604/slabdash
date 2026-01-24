@@ -252,21 +252,19 @@ export default function Customers() {
   };
 
   const handleDeleteAll = async () => {
-    const count = customerList.length;
-    if (!confirm(`⚠️ WARNING: Delete ALL ${count} customers?\n\nThis will permanently delete every customer in your database. This cannot be undone.\n\nType YES in the next prompt to confirm.`)) return;
+    if (!confirm(`⚠️ WARNING: Delete ALL customers?\n\nThis will permanently delete EVERY customer in your database, regardless of how many there are. This cannot be undone.\n\nType YES in the next prompt to confirm.`)) return;
 
-    const confirmation = prompt('Type YES to confirm deletion of all customers:');
+    const confirmation = prompt('Type YES to confirm deletion of ALL customers:');
     if (confirmation !== 'YES') {
       alert('Deletion cancelled');
       return;
     }
 
     try {
-      const allIds = customerList.map(c => c.id);
-      await customers.bulkDelete(allIds);
+      const res = await customers.deleteAll();
       setCustomerList([]);
       setSelectedCustomers(new Set());
-      alert(`Successfully deleted all ${count} customers`);
+      alert(`Successfully deleted all ${res.data.deletedCount} customers`);
     } catch (error) {
       console.error('Delete all failed:', error);
       alert('Failed to delete all customers');

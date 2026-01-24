@@ -7,18 +7,18 @@ const { v4: uuidv4 } = require('uuid');
 // List customers
 router.get('/', authenticate, async (req, res) => {
     try {
-        const { search, limit = 50, offset = 0 } = req.query;
+        const { search, limit = 100000, offset = 0 } = req.query;
         let query = `SELECT * FROM customers WHERE company_id = $1`;
         const params = [req.companyId];
-        
+
         if (search) {
             query += ` AND (name ILIKE $2 OR email ILIKE $2)`;
             params.push(`%${search}%`);
         }
-        
+
         query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
         params.push(parseInt(limit), parseInt(offset));
-        
+
         const result = await db.query(query, params);
         res.json({ customers: result.rows });
     } catch (error) {
@@ -277,6 +277,25 @@ router.post('/bulk-delete', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Bulk delete error:', error);
         res.status(500).json({ error: 'Failed to delete customers' });
+    }
+});
+
+// Delete all customers for company
+router.post('/delete-all', authenticate, async (req, res) => {
+    try {
+        const result = await db.query(
+            'DELETE FROM customers WHERE company_id = $1 RETURNING id',
+            [req.companyId]
+        );
+
+        res.json({
+            success: true,
+            deletedCount: result.rows.length,
+            message: `Deleted all ${result.rows.length} customer(s)`
+        });
+    } catch (error) {
+        console.error('Delete all error:', error);
+        res.status(500).json({ error: 'Failed to delete all customers' });
     }
 });
 
