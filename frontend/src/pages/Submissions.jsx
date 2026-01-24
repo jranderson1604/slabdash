@@ -17,6 +17,10 @@ import {
   Clock,
   HelpCircle,
   Info,
+  Users,
+  User,
+  X,
+  ExternalLink,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -77,6 +81,7 @@ function StatusBadge({ submission }) {
 function SubmissionRow({ submission, onRefresh, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [showCustomersModal, setShowCustomersModal] = useState(false);
   const navigate = useNavigate();
 
   const handleRefresh = async (e) => {
@@ -105,31 +110,37 @@ function SubmissionRow({ submission, onRefresh, onDelete }) {
     }
   };
 
+  const customerCount = submission.linked_customers?.length || 0;
+
   return (
-    <tr
-      className="cursor-pointer"
-      onClick={() => navigate(`/submissions/${submission.id}`)}
-    >
-      <td>
-        <div>
-          <p className="font-medium text-gray-900">
-            {submission.psa_submission_number || submission.internal_id || 'No ID'}
-          </p>
-          {submission.psa_order_number && (
-            <p className="text-xs text-gray-500">Order: {submission.psa_order_number}</p>
-          )}
-        </div>
-      </td>
-      <td>
-        {submission.customer_name ? (
+    <>
+      <tr
+        className="cursor-pointer"
+        onClick={() => navigate(`/submissions/${submission.id}`)}
+      >
+        <td>
           <div>
-            <p className="text-gray-900">{submission.customer_name}</p>
-            <p className="text-xs text-gray-500">{submission.customer_email}</p>
+            <p className="font-medium text-gray-900">
+              {submission.psa_submission_number || submission.internal_id || 'No ID'}
+            </p>
+            {submission.psa_order_number && (
+              <p className="text-xs text-gray-500">Order: {submission.psa_order_number}</p>
+            )}
           </div>
-        ) : (
-          <span className="text-gray-400">Unassigned</span>
-        )}
-      </td>
+        </td>
+        <td onClick={(e) => e.stopPropagation()}>
+          {customerCount > 0 ? (
+            <button
+              onClick={() => setShowCustomersModal(true)}
+              className="flex items-center gap-2 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-lg transition-colors"
+            >
+              <Users className="w-4 h-4" />
+              <span className="font-medium">{customerCount} customer{customerCount !== 1 ? 's' : ''}</span>
+            </button>
+          ) : (
+            <span className="text-gray-400">No customers</span>
+          )}
+        </td>
       <td>
         <span className="text-gray-600">{submission.service_level || '—'}</span>
       </td>
@@ -191,6 +202,70 @@ function SubmissionRow({ submission, onRefresh, onDelete }) {
         </div>
       </td>
     </tr>
+
+      {/* Customers Modal */}
+      {showCustomersModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <Users className="w-5 h-5 text-brand-600" />
+                    Customers in Submission
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {submission.psa_submission_number || submission.internal_id}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowCustomersModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-3">
+                {submission.linked_customers.map((customer) => (
+                  <Link
+                    key={customer.id}
+                    to={`/customers/${customer.id}`}
+                    onClick={() => setShowCustomersModal(false)}
+                    className="block border border-gray-200 rounded-lg p-4 hover:border-brand-300 hover:bg-brand-50 transition-all"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-gray-400" />
+                          <p className="font-medium text-gray-900">{customer.name}</p>
+                          <ExternalLink className="w-3 h-3 text-gray-400" />
+                        </div>
+                        <p className="text-sm text-gray-500 mt-1 ml-6">{customer.email}</p>
+                        {customer.phone && (
+                          <p className="text-sm text-gray-500 ml-6">{customer.phone}</p>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowCustomersModal(false)}
+                className="btn btn-secondary w-full"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
