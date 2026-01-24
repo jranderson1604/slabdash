@@ -158,7 +158,7 @@ export default function Customers() {
 
   const loadCustomers = async () => {
     try {
-      const params = search ? { search } : {};
+      const params = search ? { search, limit: 10000 } : { limit: 10000 };
       const res = await customers.list(params);
       setCustomerList(res.data.customers || []);
     } catch (error) {
@@ -251,6 +251,28 @@ export default function Customers() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    const count = customerList.length;
+    if (!confirm(`⚠️ WARNING: Delete ALL ${count} customers?\n\nThis will permanently delete every customer in your database. This cannot be undone.\n\nType YES in the next prompt to confirm.`)) return;
+
+    const confirmation = prompt('Type YES to confirm deletion of all customers:');
+    if (confirmation !== 'YES') {
+      alert('Deletion cancelled');
+      return;
+    }
+
+    try {
+      const allIds = customerList.map(c => c.id);
+      await customers.bulkDelete(allIds);
+      setCustomerList([]);
+      setSelectedCustomers(new Set());
+      alert(`Successfully deleted all ${count} customers`);
+    } catch (error) {
+      console.error('Delete all failed:', error);
+      alert('Failed to delete all customers');
+    }
+  };
+
   const handleCSVImport = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -291,6 +313,15 @@ export default function Customers() {
           <p className="text-gray-500 mt-1">Manage your card shop customers</p>
         </div>
         <div className="flex items-center gap-3">
+          {customerList.length > 0 && (
+            <button
+              onClick={handleDeleteAll}
+              className="btn bg-red-600 text-white hover:bg-red-700 gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Delete All</span>
+            </button>
+          )}
           <label className="btn btn-secondary gap-2 cursor-pointer">
             <FileSpreadsheet className="w-4 h-4" />
             <span className="hidden sm:inline">{importingCSV ? 'Importing...' : 'Import CSV'}</span>
