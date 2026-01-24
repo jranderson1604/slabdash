@@ -23,6 +23,8 @@ import {
   Search,
   FileSpreadsheet,
   DollarSign,
+  Download,
+  Users,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -560,6 +562,7 @@ export default function SubmissionDetail() {
   const [csvImportResult, setCsvImportResult] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerToAdd, setCustomerToAdd] = useState('');
+  const [showCustomerListModal, setShowCustomerListModal] = useState(false);
 
   const loadSubmission = async () => {
     try {
@@ -674,6 +677,42 @@ export default function SubmissionDetail() {
       console.error('Remove customer failed:', error);
       alert('Failed to remove customer');
     }
+  };
+
+  const handleExportCustomersCSV = () => {
+    if (!submission.linked_customers || submission.linked_customers.length === 0) {
+      alert('No customers to export');
+      return;
+    }
+
+    const csvData = submission.linked_customers.map((customer) => {
+      const assignedCards = submission.cards.filter(c => c.customer_owner_id === customer.id).length;
+      return {
+        Name: customer.name,
+        Email: customer.email,
+        Phone: customer.phone || '',
+        'Cards Assigned': assignedCards,
+      };
+    });
+
+    // Convert to CSV
+    const headers = Object.keys(csvData[0]);
+    const csvRows = [
+      headers.join(','),
+      ...csvData.map(row => headers.map(header => `"${row[header] || ''}"`).join(','))
+    ];
+    const csvString = csvRows.join('\n');
+
+    // Download
+    const blob = new Blob([csvString], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${submission.psa_submission_number || submission.internal_id || 'submission'}-customers.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
   };
 
   const handleImageUpload = async (e) => {
@@ -1068,6 +1107,25 @@ export default function SubmissionDetail() {
                 <User className="w-4 h-4" />
                 Customers ({submission.linked_customers?.length || 0})
               </h3>
+              {submission.linked_customers?.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleExportCustomersCSV}
+                    className="btn btn-secondary text-xs gap-1"
+                    title="Export customer list as CSV"
+                  >
+                    <Download className="w-3 h-3" />
+                    CSV
+                  </button>
+                  <button
+                    onClick={() => setShowCustomerListModal(true)}
+                    className="btn btn-primary text-xs gap-1"
+                  >
+                    <Users className="w-3 h-3" />
+                    View All
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Add customer dropdown */}
@@ -1079,7 +1137,7 @@ export default function SubmissionDetail() {
                   disabled={assigningCustomer}
                   className="input text-sm flex-1"
                 >
-                  <option value="">Select customer...</option>
+                  <option value="">Select customer to add...</option>
                   {customerList
                     .filter(c => !submission.linked_customers?.some(lc => lc.id === c.id))
                     .map((c) => (
@@ -1098,7 +1156,7 @@ export default function SubmissionDetail() {
                   disabled={!customerToAdd || assigningCustomer}
                   className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {assigningCustomer ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Customer'}
+                  {assigningCustomer ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                 </button>
               </div>
               <p className="text-xs text-gray-500 mt-1">
@@ -1106,45 +1164,32 @@ export default function SubmissionDetail() {
               </p>
             </div>
 
-            {/* Linked customers list */}
+            {/* Preview of customers */}
             {submission.linked_customers?.length > 0 ? (
               <div className="space-y-2">
-                {submission.linked_customers.map((customer) => {
-                  const assignedCards = submission.cards.filter(c => c.customer_owner_id === customer.id).length;
-
-                  return (
-                    <div
+                <p className="text-xs text-gray-500 mb-2">
+                  {submission.linked_customers.length} customer{submission.linked_customers.length !== 1 ? 's' : ''} in this submission
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {submission.linked_customers.slice(0, 3).map((customer) => (
+                    <Link
                       key={customer.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer group"
-                      onClick={() => setSelectedCustomer(customer)}
+                      to={`/customers/${customer.id}`}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 rounded-lg text-sm transition-colors"
                     >
-                      <div className="flex-1">
-                        <p className="font-medium text-sm text-gray-900 group-hover:text-brand-600 transition-colors">
-                          {customer.name}
-                        </p>
-                        <p className="text-xs text-gray-500">{customer.email}</p>
-                        <p className="text-xs text-brand-600 mt-1">
-                          {assignedCards} card{assignedCards !== 1 ? 's' : ''} assigned
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400 group-hover:text-brand-600 transition-colors">
-                          Click to assign cards
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleRemoveLinkedCustomer(customer.id);
-                          }}
-                          className="p-1 text-red-500 hover:bg-red-50 rounded"
-                          title="Remove customer"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+                      <User className="w-3 h-3 text-gray-400" />
+                      <span className="text-gray-900">{customer.name}</span>
+                    </Link>
+                  ))}
+                  {submission.linked_customers.length > 3 && (
+                    <button
+                      onClick={() => setShowCustomerListModal(true)}
+                      className="inline-flex items-center px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-600 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      +{submission.linked_customers.length - 3} more
+                    </button>
+                  )}
+                </div>
               </div>
             ) : (
               <p className="text-sm text-gray-500">No customers linked yet</p>
@@ -1171,6 +1216,114 @@ export default function SubmissionDetail() {
           onClose={() => setSelectedCustomer(null)}
           onUpdate={loadSubmission}
         />
+      )}
+
+      {/* Customer List Modal */}
+      {showCustomerListModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                    <Users className="w-6 h-6 text-brand-600" />
+                    Customers in Submission
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {submission.linked_customers.length} customer{submission.linked_customers.length !== 1 ? 's' : ''} linked
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowCustomerListModal(false)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="space-y-3">
+                {submission.linked_customers.map((customer) => {
+                  const assignedCards = submission.cards.filter(c => c.customer_owner_id === customer.id).length;
+
+                  return (
+                    <div
+                      key={customer.id}
+                      className="border border-gray-200 rounded-lg p-4 hover:border-brand-300 hover:bg-brand-50 transition-all"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <Link
+                              to={`/customers/${customer.id}`}
+                              className="font-medium text-gray-900 hover:text-brand-600 flex items-center gap-2"
+                              onClick={() => setShowCustomerListModal(false)}
+                            >
+                              {customer.name}
+                              <ExternalLink className="w-3 h-3" />
+                            </Link>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-1">{customer.email}</p>
+                          {customer.phone && (
+                            <p className="text-sm text-gray-500">{customer.phone}</p>
+                          )}
+                          <div className="flex items-center gap-4 mt-2">
+                            <span className="text-xs text-brand-600 font-medium">
+                              {assignedCards} card{assignedCards !== 1 ? 's' : ''} assigned
+                            </span>
+                            <button
+                              onClick={() => {
+                                setSelectedCustomer(customer);
+                                setShowCustomerListModal(false);
+                              }}
+                              className="text-xs text-brand-600 hover:text-brand-700 font-medium"
+                            >
+                              Assign cards →
+                            </button>
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`Remove ${customer.name} from this submission?`)) {
+                              handleRemoveLinkedCustomer(customer.id);
+                              if (submission.linked_customers.length === 1) {
+                                setShowCustomerListModal(false);
+                              }
+                            }
+                          }}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Remove customer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between gap-4">
+                <button
+                  onClick={handleExportCustomersCSV}
+                  className="btn btn-secondary gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Export CSV
+                </button>
+                <button
+                  onClick={() => setShowCustomerListModal(false)}
+                  className="btn btn-primary"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
