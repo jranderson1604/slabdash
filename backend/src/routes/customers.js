@@ -45,11 +45,32 @@ router.get('/:id', authenticate, async (req, res) => {
     try {
         const result = await db.query('SELECT * FROM customers WHERE id = $1 AND company_id = $2', [req.params.id, req.companyId]);
         if (result.rows.length === 0) return res.status(404).json({ error: 'Customer not found' });
-        
-        // Get all submissions for this customer (unlimited for customer detail view)
-        const submissions = await db.query('SELECT * FROM submissions WHERE customer_id = $1 ORDER BY created_at DESC', [req.params.id]);
-        res.json({ ...result.rows[0], recent_submissions: submissions.rows });
+
+        const customer = result.rows[0];
+
+        // Get all submissions for this customer via submission_customers join table
+        const submissionsQuery = `
+            SELECT s.*, COUNT(c.id) as card_count
+            FROM submissions s
+            INNER JOIN submission_customers sc ON s.id = sc.submission_id
+            LEFT JOIN cards c ON s.id = c.submission_id
+            WHERE sc.customer_id = $1 AND s.company_id = $2
+            GROUP BY s.id
+            ORDER BY s.created_at DESC
+        `;
+        const submissions = await db.query(submissionsQuery, [req.params.id, req.companyId]);
+
+        // Count total cards across all submissions
+        const totalCards = submissions.rows.reduce((sum, sub) => sum + parseInt(sub.card_count || 0), 0);
+
+        res.json({
+            ...customer,
+            recent_submissions: submissions.rows,
+            total_submissions: submissions.rows.length,
+            total_cards: totalCards
+        });
     } catch (error) {
+        console.error('Get customer error:', error);
         res.status(500).json({ error: 'Failed to get customer' });
     }
 });
