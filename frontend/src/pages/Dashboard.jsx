@@ -290,7 +290,7 @@ export default function Dashboard() {
           </div>
           <div className="p-4">
             <p className="text-sm text-gray-500 text-center py-4">No active buyback offers</p>
-            <Link to="/buyback/new" className="btn btn-secondary w-full text-sm">
+            <Link to="/buyback/new" className="btn btn-secondary w-full text-sm flex items-center justify-center gap-2">
               <DollarSign className="w-4 h-4" />
               Create Buyback Offer
             </Link>

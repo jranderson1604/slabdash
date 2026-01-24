@@ -559,6 +559,7 @@ export default function SubmissionDetail() {
   const [importingCSV, setImportingCSV] = useState(false);
   const [csvImportResult, setCsvImportResult] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customerToAdd, setCustomerToAdd] = useState('');
 
   const loadSubmission = async () => {
     try {
@@ -1071,25 +1072,35 @@ export default function SubmissionDetail() {
 
             {/* Add customer dropdown */}
             <div className="mb-4">
-              <select
-                onChange={(e) => {
-                  if (e.target.value) {
-                    handleAddLinkedCustomer(e.target.value);
-                    e.target.value = '';
-                  }
-                }}
-                disabled={assigningCustomer}
-                className="input text-sm"
-              >
-                <option value="">+ Add customer...</option>
-                {customerList
-                  .filter(c => !submission.linked_customers?.some(lc => lc.id === c.id))
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.email})
-                    </option>
-                  ))}
-              </select>
+              <div className="flex gap-2">
+                <select
+                  value={customerToAdd}
+                  onChange={(e) => setCustomerToAdd(e.target.value)}
+                  disabled={assigningCustomer}
+                  className="input text-sm flex-1"
+                >
+                  <option value="">Select customer...</option>
+                  {customerList
+                    .filter(c => !submission.linked_customers?.some(lc => lc.id === c.id))
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.email})
+                      </option>
+                    ))}
+                </select>
+                <button
+                  onClick={() => {
+                    if (customerToAdd) {
+                      handleAddLinkedCustomer(customerToAdd);
+                      setCustomerToAdd('');
+                    }
+                  }}
+                  disabled={!customerToAdd || assigningCustomer}
+                  className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {assigningCustomer ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Customer'}
+                </button>
+              </div>
               <p className="text-xs text-gray-500 mt-1">
                 Track multiple customers in one submission (consignment)
               </p>
