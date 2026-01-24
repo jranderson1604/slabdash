@@ -155,12 +155,19 @@ export default function Customers() {
   const [submissionsList, setSubmissionsList] = useState([]);
   const [selectedSubmission, setSelectedSubmission] = useState('');
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCustomers, setTotalCustomers] = useState(0);
+  const pageSize = 50;
 
   const loadCustomers = async () => {
     try {
-      const params = search ? { search, limit: 10000 } : { limit: 10000 };
+      const offset = (currentPage - 1) * pageSize;
+      const params = search
+        ? { search, limit: pageSize, offset }
+        : { limit: pageSize, offset };
       const res = await customers.list(params);
       setCustomerList(res.data.customers || []);
+      setTotalCustomers(res.data.total || 0);
     } catch (error) {
       console.error('Failed to load customers:', error);
     } finally {
@@ -169,9 +176,14 @@ export default function Customers() {
   };
 
   useEffect(() => {
+    setLoading(true);
+    setCurrentPage(1); // Reset to page 1 when search changes
+  }, [search]);
+
+  useEffect(() => {
     const timer = setTimeout(loadCustomers, search ? 300 : 0);
     return () => clearTimeout(timer);
-  }, [search]);
+  }, [search, currentPage]);
 
   const handleDelete = (id) => {
     setCustomerList(customerList.filter((c) => c.id !== id));
@@ -345,7 +357,7 @@ export default function Customers() {
             <div className="flex items-center gap-4">
               <CheckSquare className="w-5 h-5 text-blue-600" />
               <span className="font-medium text-gray-900">
-                {selectedCustomers.size} customer{selectedCustomers.size !== 1 ? 's' : ''} selected
+                {selectedCustomers.size} customer{selectedCustomers.size !== 1 ? 's' : ''} selected across all searches
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -368,7 +380,7 @@ export default function Customers() {
                 className="btn btn-secondary gap-2"
               >
                 <X className="w-4 h-4" />
-                Clear
+                Clear All
               </button>
             </div>
           </div>
@@ -450,9 +462,39 @@ export default function Customers() {
         )}
       </div>
 
+      {/* Pagination */}
+      {totalCustomers > pageSize && (
+        <div className="card p-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-500">
+              Showing {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, totalCustomers)} of {totalCustomers} customers
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-600">
+                Page {currentPage} of {Math.ceil(totalCustomers / pageSize)}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => p + 1)}
+                disabled={currentPage >= Math.ceil(totalCustomers / pageSize)}
+                className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {customerList.length > 0 && (
         <p className="text-sm text-gray-500 text-center">
-          {customerList.length} customer{customerList.length !== 1 ? 's' : ''}
+          {totalCustomers} total customer{totalCustomers !== 1 ? 's' : ''}
         </p>
       )}
 
