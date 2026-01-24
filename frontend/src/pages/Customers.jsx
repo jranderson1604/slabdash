@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { customers } from '../api/client';
+import { customers, submissions } from '../api/client';
 import {
   Plus,
   Search,
@@ -13,10 +13,12 @@ import {
   Package,
   Link as LinkIcon,
   FileSpreadsheet,
+  X,
+  CheckSquare,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-function CustomerRow({ customer, onDelete, onSendPortalLink }) {
+function CustomerRow({ customer, onDelete, onSendPortalLink, selected, onSelect }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [sendingLink, setSendingLink] = useState(false);
   const navigate = useNavigate();
@@ -49,11 +51,19 @@ function CustomerRow({ customer, onDelete, onSendPortalLink }) {
   };
 
   return (
-    <tr
-      className="cursor-pointer"
-      onClick={() => navigate(`/customers/${customer.id}`)}
-    >
-      <td>
+    <tr className={selected ? 'bg-blue-50' : ''}>
+      <td onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          checked={selected}
+          onChange={(e) => onSelect(customer.id, e.target.checked)}
+          className="w-4 h-4 text-brand-600 rounded border-gray-300 focus:ring-brand-500"
+        />
+      </td>
+      <td
+        className="cursor-pointer"
+        onClick={() => navigate(`/customers/${customer.id}`)}
+      >
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
             <span className="text-sm font-medium text-gray-600">
@@ -140,10 +150,15 @@ export default function Customers() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [importingCSV, setImportingCSV] = useState(false);
+  const [selectedCustomers, setSelectedCustomers] = useState(new Set());
+  const [showAddToSubmissionModal, setShowAddToSubmissionModal] = useState(false);
+  const [submissionsList, setSubmissionsList] = useState([]);
+  const [selectedSubmission, setSelectedSubmission] = useState('');
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
 
   const loadCustomers = async () => {
     try {
-      const params = search ? { search } : {};
+      const params = search ? { search, limit: 10000 } : { limit: 10000 };
       const res = await customers.list(params);
       setCustomerList(res.data.customers || []);
     } catch (error) {
@@ -160,6 +175,102 @@ export default function Customers() {
 
   const handleDelete = (id) => {
     setCustomerList(customerList.filter((c) => c.id !== id));
+    setSelectedCustomers(prev => {
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  };
+
+  const handleSelectCustomer = (id, checked) => {
+    setSelectedCustomers(prev => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectAll = (checked) => {
+    if (checked) {
+      setSelectedCustomers(new Set(customerList.map(c => c.id)));
+    } else {
+      setSelectedCustomers(new Set());
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const count = selectedCustomers.size;
+    if (!confirm(`Delete ${count} customer(s)? This cannot be undone.`)) return;
+
+    try {
+      await customers.bulkDelete(Array.from(selectedCustomers));
+      setCustomerList(customerList.filter(c => !selectedCustomers.has(c.id)));
+      setSelectedCustomers(new Set());
+      alert(`Successfully deleted ${count} customer(s)`);
+    } catch (error) {
+      console.error('Bulk delete failed:', error);
+      alert('Failed to delete customers');
+    }
+  };
+
+  const handleOpenAddToSubmission = async () => {
+    setShowAddToSubmissionModal(true);
+    setLoadingSubmissions(true);
+    try {
+      const res = await submissions.list({ limit: 100 });
+      setSubmissionsList(res.data.submissions || []);
+    } catch (error) {
+      console.error('Failed to load submissions:', error);
+    } finally {
+      setLoadingSubmissions(false);
+    }
+  };
+
+  const handleBulkAddToSubmission = async () => {
+    if (!selectedSubmission) {
+      alert('Please select a submission');
+      return;
+    }
+
+    try {
+      const res = await customers.bulkAddToSubmission(
+        Array.from(selectedCustomers),
+        selectedSubmission
+      );
+      alert(res.data.message);
+      setShowAddToSubmissionModal(false);
+      setSelectedCustomers(new Set());
+      setSelectedSubmission('');
+    } catch (error) {
+      console.error('Bulk add to submission failed:', error);
+      alert('Failed to add customers to submission');
+    }
+  };
+
+  const handleDeleteAll = async () => {
+    const count = customerList.length;
+    if (!confirm(`⚠️ WARNING: Delete ALL ${count} customers?\n\nThis will permanently delete every customer in your database. This cannot be undone.\n\nType YES in the next prompt to confirm.`)) return;
+
+    const confirmation = prompt('Type YES to confirm deletion of all customers:');
+    if (confirmation !== 'YES') {
+      alert('Deletion cancelled');
+      return;
+    }
+
+    try {
+      const allIds = customerList.map(c => c.id);
+      await customers.bulkDelete(allIds);
+      setCustomerList([]);
+      setSelectedCustomers(new Set());
+      alert(`Successfully deleted all ${count} customers`);
+    } catch (error) {
+      console.error('Delete all failed:', error);
+      alert('Failed to delete all customers');
+    }
   };
 
   const handleCSVImport = async (e) => {
@@ -190,6 +301,9 @@ export default function Customers() {
     }
   };
 
+  const allSelected = customerList.length > 0 && selectedCustomers.size === customerList.length;
+  const someSelected = selectedCustomers.size > 0;
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -199,6 +313,15 @@ export default function Customers() {
           <p className="text-gray-500 mt-1">Manage your card shop customers</p>
         </div>
         <div className="flex items-center gap-3">
+          {customerList.length > 0 && (
+            <button
+              onClick={handleDeleteAll}
+              className="btn bg-red-600 text-white hover:bg-red-700 gap-2"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Delete All</span>
+            </button>
+          )}
           <label className="btn btn-secondary gap-2 cursor-pointer">
             <FileSpreadsheet className="w-4 h-4" />
             <span className="hidden sm:inline">{importingCSV ? 'Importing...' : 'Import CSV'}</span>
@@ -216,6 +339,43 @@ export default function Customers() {
           </Link>
         </div>
       </div>
+
+      {/* Bulk Actions Toolbar */}
+      {someSelected && (
+        <div className="card p-4 bg-blue-50 border-blue-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <CheckSquare className="w-5 h-5 text-blue-600" />
+              <span className="font-medium text-gray-900">
+                {selectedCustomers.size} customer{selectedCustomers.size !== 1 ? 's' : ''} selected
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleOpenAddToSubmission}
+                className="btn btn-primary gap-2"
+              >
+                <Package className="w-4 h-4" />
+                Add to Submission
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                className="btn bg-red-600 text-white hover:bg-red-700 gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </button>
+              <button
+                onClick={() => setSelectedCustomers(new Set())}
+                className="btn btn-secondary gap-2"
+              >
+                <X className="w-4 h-4" />
+                Clear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search */}
       <div className="card p-4">
@@ -259,6 +419,14 @@ export default function Customers() {
             <table>
               <thead>
                 <tr>
+                  <th className="w-10">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={(e) => handleSelectAll(e.target.checked)}
+                      className="w-4 h-4 text-brand-600 rounded border-gray-300 focus:ring-brand-500"
+                    />
+                  </th>
                   <th>Customer</th>
                   <th>Phone</th>
                   <th>Submissions</th>
@@ -274,6 +442,8 @@ export default function Customers() {
                     key={customer.id}
                     customer={customer}
                     onDelete={handleDelete}
+                    selected={selectedCustomers.has(customer.id)}
+                    onSelect={handleSelectCustomer}
                   />
                 ))}
               </tbody>
@@ -286,6 +456,71 @@ export default function Customers() {
         <p className="text-sm text-gray-500 text-center">
           {customerList.length} customer{customerList.length !== 1 ? 's' : ''}
         </p>
+      )}
+
+      {/* Add to Submission Modal */}
+      {showAddToSubmissionModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Package className="w-6 h-6 text-brand-600" />
+                Add Customers to Submission
+              </h3>
+              <button
+                onClick={() => setShowAddToSubmissionModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-gray-600 mb-4">
+                Adding {selectedCustomers.size} customer{selectedCustomers.size !== 1 ? 's' : ''} to a submission
+              </p>
+
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Select Submission
+              </label>
+              {loadingSubmissions ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-brand-500" />
+                </div>
+              ) : (
+                <select
+                  value={selectedSubmission}
+                  onChange={(e) => setSelectedSubmission(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                >
+                  <option value="">Choose a submission...</option>
+                  {submissionsList.map((sub) => (
+                    <option key={sub.id} value={sub.id}>
+                      {sub.psa_submission_number || sub.internal_id} - {sub.customer_name || 'No customer'}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={handleBulkAddToSubmission}
+                disabled={!selectedSubmission}
+                className="flex-1 bg-brand-600 text-white px-6 py-3 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <Package className="w-4 h-4" />
+                Add to Submission
+              </button>
+              <button
+                onClick={() => setShowAddToSubmissionModal(false)}
+                className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -35,7 +35,9 @@ export const customers = {
   update: (id, data) => api.put(`/customers/${id}`, data),
   delete: (id) => api.delete(`/customers/${id}`),
   sendPortalLink: (id) => api.post(`/customers/${id}/send-portal-link`),
-  importCSV: (csvData) => api.post('/customers/import-csv', { csvData })
+  importCSV: (csvData) => api.post('/customers/import-csv', { csvData }),
+  bulkDelete: (customerIds) => api.post('/customers/bulk-delete', { customerIds }),
+  bulkAddToSubmission: (customerIds, submissionId) => api.post('/customers/bulk-add-to-submission', { customerIds, submissionId })
 };
 
 export const submissions = {

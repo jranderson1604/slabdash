@@ -253,4 +253,106 @@ router.post('/import-csv', authenticate, async (req, res) => {
     }
 });
 
+// Bulk delete customers
+router.post('/bulk-delete', authenticate, async (req, res) => {
+    try {
+        const { customerIds } = req.body;
+
+        if (!Array.isArray(customerIds) || customerIds.length === 0) {
+            return res.status(400).json({ error: 'Customer IDs required' });
+        }
+
+        // Delete only customers belonging to this company
+        const placeholders = customerIds.map((_, i) => `$${i + 2}`).join(', ');
+        const result = await db.query(
+            `DELETE FROM customers WHERE company_id = $1 AND id IN (${placeholders}) RETURNING id`,
+            [req.companyId, ...customerIds]
+        );
+
+        res.json({
+            success: true,
+            deletedCount: result.rows.length,
+            message: `Deleted ${result.rows.length} customer(s)`
+        });
+    } catch (error) {
+        console.error('Bulk delete error:', error);
+        res.status(500).json({ error: 'Failed to delete customers' });
+    }
+});
+
+// Bulk add customers to submission
+router.post('/bulk-add-to-submission', authenticate, async (req, res) => {
+    try {
+        const { customerIds, submissionId } = req.body;
+
+        if (!Array.isArray(customerIds) || customerIds.length === 0) {
+            return res.status(400).json({ error: 'Customer IDs required' });
+        }
+
+        if (!submissionId) {
+            return res.status(400).json({ error: 'Submission ID required' });
+        }
+
+        // Verify submission belongs to this company
+        const submissionCheck = await db.query(
+            'SELECT id FROM submissions WHERE id = $1 AND company_id = $2',
+            [submissionId, req.companyId]
+        );
+
+        if (submissionCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Submission not found' });
+        }
+
+        let added = 0;
+        let skipped = 0;
+
+        for (const customerId of customerIds) {
+            try {
+                // Verify customer belongs to this company
+                const customerCheck = await db.query(
+                    'SELECT id FROM customers WHERE id = $1 AND company_id = $2',
+                    [customerId, req.companyId]
+                );
+
+                if (customerCheck.rows.length === 0) {
+                    skipped++;
+                    continue;
+                }
+
+                // Check if already linked
+                const existingLink = await db.query(
+                    'SELECT id FROM submission_customers WHERE submission_id = $1 AND customer_id = $2',
+                    [submissionId, customerId]
+                );
+
+                if (existingLink.rows.length > 0) {
+                    skipped++;
+                    continue;
+                }
+
+                // Add link
+                await db.query(
+                    'INSERT INTO submission_customers (submission_id, customer_id) VALUES ($1, $2)',
+                    [submissionId, customerId]
+                );
+
+                added++;
+            } catch (error) {
+                console.error(`Failed to link customer ${customerId}:`, error);
+                skipped++;
+            }
+        }
+
+        res.json({
+            success: true,
+            added,
+            skipped,
+            message: `Added ${added} customer(s) to submission${skipped > 0 ? `, skipped ${skipped}` : ''}`
+        });
+    } catch (error) {
+        console.error('Bulk add to submission error:', error);
+        res.status(500).json({ error: 'Failed to add customers to submission' });
+    }
+});
+
 module.exports = router;
