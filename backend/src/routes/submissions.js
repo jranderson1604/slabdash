@@ -39,13 +39,31 @@ router.get("/", authenticate, async (req, res) => {
 
     const result = await db.query(query, params);
 
+    // Get linked customers for each submission
+    const submissionsWithCustomers = await Promise.all(
+      result.rows.map(async (submission) => {
+        const linkedCustomersResult = await db.query(
+          `SELECT c.id, c.name, c.email, c.phone
+           FROM submission_customers sc
+           JOIN customers c ON sc.customer_id = c.id
+           WHERE sc.submission_id = $1
+           ORDER BY c.name`,
+          [submission.id]
+        );
+        return {
+          ...submission,
+          linked_customers: linkedCustomersResult.rows
+        };
+      })
+    );
+
     const countResult = await db.query(
       `SELECT COUNT(*) FROM submissions WHERE company_id = $1`,
       [req.user.company_id]
     );
 
     res.json({
-      submissions: result.rows,
+      submissions: submissionsWithCustomers,
       total: parseInt(countResult.rows[0].count),
       limit: parseInt(limit),
       offset: parseInt(offset)
