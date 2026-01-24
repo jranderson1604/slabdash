@@ -178,18 +178,12 @@ export default function Customers() {
   useEffect(() => {
     setLoading(true);
     setCurrentPage(1); // Reset to page 1 when search changes
-    setSelectedCustomers(new Set()); // Clear selections
   }, [search]);
 
   useEffect(() => {
     const timer = setTimeout(loadCustomers, search ? 300 : 0);
     return () => clearTimeout(timer);
   }, [search, currentPage]);
-
-  useEffect(() => {
-    // Clear selections when changing pages
-    setSelectedCustomers(new Set());
-  }, [currentPage]);
 
   const handleDelete = (id) => {
     setCustomerList(customerList.filter((c) => c.id !== id));
@@ -363,7 +357,7 @@ export default function Customers() {
             <div className="flex items-center gap-4">
               <CheckSquare className="w-5 h-5 text-blue-600" />
               <span className="font-medium text-gray-900">
-                {selectedCustomers.size} customer{selectedCustomers.size !== 1 ? 's' : ''} selected
+                {selectedCustomers.size} customer{selectedCustomers.size !== 1 ? 's' : ''} selected across all searches
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -386,7 +380,7 @@ export default function Customers() {
                 className="btn btn-secondary gap-2"
               >
                 <X className="w-4 h-4" />
-                Clear
+                Clear All
               </button>
             </div>
           </div>
