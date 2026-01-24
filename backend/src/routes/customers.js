@@ -8,6 +8,20 @@ const { v4: uuidv4 } = require('uuid');
 router.get('/', authenticate, async (req, res) => {
     try {
         const { search, limit = 100000, offset = 0 } = req.query;
+
+        // Count query
+        let countQuery = `SELECT COUNT(*) FROM customers WHERE company_id = $1`;
+        const countParams = [req.companyId];
+
+        if (search) {
+            countQuery += ` AND (name ILIKE $2 OR email ILIKE $2)`;
+            countParams.push(`%${search}%`);
+        }
+
+        const countResult = await db.query(countQuery, countParams);
+        const total = parseInt(countResult.rows[0].count);
+
+        // Data query
         let query = `SELECT * FROM customers WHERE company_id = $1`;
         const params = [req.companyId];
 
@@ -20,7 +34,7 @@ router.get('/', authenticate, async (req, res) => {
         params.push(parseInt(limit), parseInt(offset));
 
         const result = await db.query(query, params);
-        res.json({ customers: result.rows });
+        res.json({ customers: result.rows, total });
     } catch (error) {
         res.status(500).json({ error: 'Failed to list customers' });
     }
