@@ -593,13 +593,26 @@ export default function SubmissionDetail() {
   }, [id]);
 
   const handleRefresh = async () => {
-    if (!company?.hasPsaKey) return;
+    if (!company?.hasPsaKey) {
+      alert('PSA API key not configured. Please add your PSA API key in Company Settings to refresh submissions.');
+      return;
+    }
+
     setRefreshing(true);
     try {
-      await submissions.refresh(id);
+      const response = await submissions.refresh(id);
       await loadSubmission();
+
+      // Show success message with updated info
+      const message = response.data?.message || 'Submission refreshed successfully';
+      const details = response.data?.currentStep
+        ? `\n\nStatus: ${response.data.currentStep}\nProgress: ${response.data.progressPercent}%`
+        : '';
+      alert(message + details);
     } catch (error) {
       console.error('Refresh failed:', error);
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to refresh from PSA';
+      alert(`Refresh failed: ${errorMsg}\n\nPlease check:\n- PSA submission number is correct\n- PSA API key is valid\n- Order exists in PSA system`);
     } finally {
       setRefreshing(false);
     }
