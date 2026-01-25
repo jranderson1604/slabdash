@@ -295,13 +295,21 @@ export default function Submissions() {
   };
 
   const handleRefreshAll = async () => {
-    if (!company?.hasPsaKey) return;
+    if (!company?.hasPsaKey) {
+      alert('PSA API key not configured. Please add your PSA API key in Company Settings to refresh submissions.');
+      return;
+    }
+
     setRefreshingAll(true);
     try {
-      await submissions.refreshAll();
+      const response = await submissions.refreshAll();
       await loadSubmissions();
+      const count = response.data?.updated || 0;
+      alert(`Successfully refreshed ${count} submission(s) from PSA`);
     } catch (error) {
       console.error('Refresh all failed:', error);
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to refresh submissions';
+      alert(`Refresh failed: ${errorMsg}\n\nPlease check your PSA API key in Company Settings.`);
     } finally {
       setRefreshingAll(false);
     }

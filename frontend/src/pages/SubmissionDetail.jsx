@@ -593,13 +593,26 @@ export default function SubmissionDetail() {
   }, [id]);
 
   const handleRefresh = async () => {
-    if (!company?.hasPsaKey) return;
+    if (!company?.hasPsaKey) {
+      alert('PSA API key not configured. Please add your PSA API key in Company Settings to refresh submissions.');
+      return;
+    }
+
     setRefreshing(true);
     try {
-      await submissions.refresh(id);
+      const response = await submissions.refresh(id);
       await loadSubmission();
+
+      // Show success message with updated info
+      const message = response.data?.message || 'Submission refreshed successfully';
+      const details = response.data?.currentStep
+        ? `\n\nStatus: ${response.data.currentStep}\nProgress: ${response.data.progressPercent}%`
+        : '';
+      alert(message + details);
     } catch (error) {
       console.error('Refresh failed:', error);
+      const errorMsg = error.response?.data?.error || error.message || 'Failed to refresh from PSA';
+      alert(`Refresh failed: ${errorMsg}\n\nPlease check:\n- PSA submission number is correct\n- PSA API key is valid\n- Order exists in PSA system`);
     } finally {
       setRefreshing(false);
     }
@@ -1128,8 +1141,11 @@ export default function SubmissionDetail() {
               )}
             </div>
 
-            {/* Add customer dropdown */}
-            <div className="mb-4">
+            {/* Add customer section */}
+            <div className="mb-4 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Add Customer to This Submission
+              </label>
               <div className="flex gap-2">
                 <select
                   value={customerToAdd}
@@ -1137,7 +1153,7 @@ export default function SubmissionDetail() {
                   disabled={assigningCustomer}
                   className="input text-sm flex-1"
                 >
-                  <option value="">Select customer to add...</option>
+                  <option value="">-- Select a customer --</option>
                   {customerList
                     .filter(c => !submission.linked_customers?.some(lc => lc.id === c.id))
                     .map((c) => (
@@ -1154,13 +1170,23 @@ export default function SubmissionDetail() {
                     }
                   }}
                   disabled={!customerToAdd || assigningCustomer}
-                  className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed gap-2 whitespace-nowrap"
                 >
-                  {assigningCustomer ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                  {assigningCustomer ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      Add Customer
+                    </>
+                  )}
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-1">
-                Track multiple customers in one submission (consignment)
+              <p className="text-xs text-gray-500 mt-2">
+                💡 Select a customer from the dropdown, then click "Add Customer" to link them to this submission
               </p>
             </div>
 
