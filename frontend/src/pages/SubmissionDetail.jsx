@@ -1142,51 +1142,53 @@ export default function SubmissionDetail() {
             </div>
 
             {/* Add customer section */}
-            <div className="mb-4 p-4 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Add Customer to This Submission
-              </label>
-              <div className="flex gap-2">
-                <select
-                  value={customerToAdd}
-                  onChange={(e) => setCustomerToAdd(e.target.value)}
-                  disabled={assigningCustomer}
-                  className="input text-sm flex-1"
-                >
-                  <option value="">-- Select a customer --</option>
-                  {customerList
-                    .filter(c => !submission.linked_customers?.some(lc => lc.id === c.id))
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} ({c.email})
-                      </option>
-                    ))}
-                </select>
-                <button
-                  onClick={() => {
-                    if (customerToAdd) {
-                      handleAddLinkedCustomer(customerToAdd);
-                      setCustomerToAdd('');
-                    }
-                  }}
-                  disabled={!customerToAdd || assigningCustomer}
-                  className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed gap-2 whitespace-nowrap"
-                >
-                  {assigningCustomer ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Adding...
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4" />
-                      Add Customer
-                    </>
-                  )}
-                </button>
+            <div className="mb-4 p-5 bg-brand-50 rounded-lg border-2 border-brand-200">
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-base font-semibold text-gray-900">
+                  Add Customer to This Submission
+                </label>
               </div>
-              <p className="text-xs text-gray-500 mt-2">
-                💡 Select a customer from the dropdown, then click "Add Customer" to link them to this submission
+              <select
+                value={customerToAdd}
+                onChange={(e) => setCustomerToAdd(e.target.value)}
+                disabled={assigningCustomer}
+                className="input mb-3 w-full"
+              >
+                <option value="">-- Select a customer from the list --</option>
+                {customerList
+                  .filter(c => !submission.linked_customers?.some(lc => lc.id === c.id))
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.email})
+                    </option>
+                  ))}
+              </select>
+              <button
+                onClick={() => {
+                  if (customerToAdd) {
+                    handleAddLinkedCustomer(customerToAdd);
+                    setCustomerToAdd('');
+                  } else {
+                    alert('Please select a customer from the dropdown first');
+                  }
+                }}
+                disabled={assigningCustomer}
+                className="btn btn-primary w-full text-base py-3 disabled:opacity-50 disabled:cursor-not-allowed gap-2"
+              >
+                {assigningCustomer ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Adding Customer...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-5 h-5" />
+                    Add Customer to Submission
+                  </>
+                )}
+              </button>
+              <p className="text-xs text-brand-700 mt-2 font-medium">
+                💡 Step 1: Select a customer above → Step 2: Click the button to add them
               </p>
             </div>
 
