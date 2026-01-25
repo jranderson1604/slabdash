@@ -266,7 +266,7 @@ router.post("/", authenticate, async (req, res) => {
         date_sent || null,
         notes || null,
         parsedPsaData?.currentStep || null,
-        parsedPsaData?.currentStep || null,
+        parsedPsaData?.currentStep || 'Not Yet Sent',
         parsedPsaData?.progressPercent || 0,
         parsedPsaData?.gradesReady || false,
         parsedPsaData?.shipped || false,
