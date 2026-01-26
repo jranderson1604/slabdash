@@ -1,0 +1,352 @@
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { companies, emailTemplates } from '../api/client';
+import { Mail, Send, CheckCircle, AlertCircle, Loader2, Save, Info, FileText } from 'lucide-react';
+
+export default function EmailSettings() {
+  const [settings, setSettings] = useState({
+    email_notifications_enabled: false,
+    smtp_host: '',
+    smtp_port: 587,
+    smtp_secure: false,
+    smtp_user: '',
+    smtp_password: '',
+    from_email: '',
+    from_name: '',
+    company_logo_url: ''
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
+
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  const loadSettings = async () => {
+    try {
+      const res = await companies.get();
+      setSettings({
+        email_notifications_enabled: res.data.email_notifications_enabled || false,
+        smtp_host: res.data.smtp_host || '',
+        smtp_port: res.data.smtp_port || 587,
+        smtp_secure: res.data.smtp_secure || false,
+        smtp_user: res.data.smtp_user || '',
+        smtp_password: '', // Don't show password
+        from_email: res.data.from_email || '',
+        from_name: res.data.from_name || '',
+        company_logo_url: res.data.company_logo_url || ''
+      });
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      // Only send password if it was changed
+      const dataToSave = { ...settings };
+      if (!settings.smtp_password) {
+        delete dataToSave.smtp_password;
+      }
+
+      await companies.update(dataToSave);
+      alert('Email settings saved successfully!');
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      alert('Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTestEmail = async () => {
+    if (!testEmail) {
+      alert('Please enter a test email address');
+      return;
+    }
+
+    setTesting(true);
+    setTestResult(null);
+
+    try {
+      await emailTemplates.testConfig(testEmail);
+      setTestResult({ success: true, message: 'Test email sent successfully! Check your inbox.' });
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: error.response?.data?.error || 'Failed to send test email'
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const emailProviderPresets = {
+    gmail: {
+      smtp_host: 'smtp.gmail.com',
+      smtp_port: 587,
+      smtp_secure: false
+    },
+    outlook: {
+      smtp_host: 'smtp.office365.com',
+      smtp_port: 587,
+      smtp_secure: false
+    },
+    sendgrid: {
+      smtp_host: 'smtp.sendgrid.net',
+      smtp_port: 587,
+      smtp_secure: false
+    },
+    mailgun: {
+      smtp_host: 'smtp.mailgun.org',
+      smtp_port: 587,
+      smtp_secure: false
+    }
+  };
+
+  const applyPreset = (provider) => {
+    setSettings({
+      ...settings,
+      ...emailProviderPresets[provider]
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Email Notifications</h1>
+          <p className="text-gray-500 mt-1">Configure SMTP settings and automatic email notifications</p>
+        </div>
+        <Link to="/email-templates" className="btn btn-secondary gap-2">
+          <FileText className="w-4 h-4" />
+          Manage Templates
+        </Link>
+      </div>
+
+      {/* Info Banner */}
+      <div className="card bg-blue-50 border-blue-200 p-4">
+        <div className="flex gap-3">
+          <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+          <div className="text-sm text-blue-900">
+            <p className="font-semibold mb-1">How Email Notifications Work</p>
+            <ul className="list-disc list-inside space-y-1 text-blue-800">
+              <li>Customers receive automatic updates when their submission progresses through PSA steps</li>
+              <li>Configure your own SMTP server (Gmail, SendGrid, Mailgun, etc.)</li>
+              <li>Customize email templates for each PSA step</li>
+              <li>All linked customers in a submission will receive notifications</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      {/* Enable/Disable Toggle */}
+      <div className="card p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+              <Mail className="w-5 h-5" />
+              Email Notifications
+            </h3>
+            <p className="text-sm text-gray-500 mt-1">
+              Send automatic updates to customers when submissions progress
+            </p>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={settings.email_notifications_enabled}
+              onChange={(e) => setSettings({ ...settings, email_notifications_enabled: e.target.checked })}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-300 rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+          </label>
+        </div>
+      </div>
+
+      {/* Quick Presets */}
+      <div className="card p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Setup</h3>
+        <p className="text-sm text-gray-500 mb-4">Click to auto-fill settings for popular email providers</p>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {Object.keys(emailProviderPresets).map((provider) => (
+            <button
+              key={provider}
+              onClick={() => applyPreset(provider)}
+              className="btn btn-secondary text-sm capitalize"
+            >
+              {provider}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* SMTP Configuration */}
+      <div className="card p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">SMTP Configuration</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="label">SMTP Host *</label>
+            <input
+              type="text"
+              value={settings.smtp_host}
+              onChange={(e) => setSettings({ ...settings, smtp_host: e.target.value })}
+              placeholder="smtp.gmail.com"
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="label">SMTP Port *</label>
+            <input
+              type="number"
+              value={settings.smtp_port}
+              onChange={(e) => setSettings({ ...settings, smtp_port: parseInt(e.target.value) })}
+              placeholder="587"
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="label">SMTP Username *</label>
+            <input
+              type="text"
+              value={settings.smtp_user}
+              onChange={(e) => setSettings({ ...settings, smtp_user: e.target.value })}
+              placeholder="your-email@gmail.com"
+              className="input"
+            />
+          </div>
+          <div>
+            <label className="label">SMTP Password *</label>
+            <input
+              type="password"
+              value={settings.smtp_password}
+              onChange={(e) => setSettings({ ...settings, smtp_password: e.target.value })}
+              placeholder="Enter new password to change"
+              className="input"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.smtp_secure}
+                onChange={(e) => setSettings({ ...settings, smtp_secure: e.target.checked })}
+                className="w-4 h-4 text-brand-600 rounded"
+              />
+              <span className="text-sm text-gray-700">Use SSL/TLS (port 465)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      {/* From Settings */}
+      <div className="card p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Email From Settings</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="label">From Email *</label>
+            <input
+              type="email"
+              value={settings.from_email}
+              onChange={(e) => setSettings({ ...settings, from_email: e.target.value })}
+              placeholder="notifications@yourshop.com"
+              className="input"
+            />
+            <p className="text-xs text-gray-500 mt-1">Customers will see emails from this address</p>
+          </div>
+          <div>
+            <label className="label">From Name *</label>
+            <input
+              type="text"
+              value={settings.from_name}
+              onChange={(e) => setSettings({ ...settings, from_name: e.target.value })}
+              placeholder="Your Shop Name"
+              className="input"
+            />
+            <p className="text-xs text-gray-500 mt-1">Display name in customer's inbox</p>
+          </div>
+          <div className="md:col-span-2">
+            <label className="label">Company Logo URL (Optional)</label>
+            <input
+              type="url"
+              value={settings.company_logo_url}
+              onChange={(e) => setSettings({ ...settings, company_logo_url: e.target.value })}
+              placeholder="https://yourshop.com/logo.png"
+              className="input"
+            />
+            <p className="text-xs text-gray-500 mt-1">Used in email templates with {'{{company_logo_url}}'}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Test Email */}
+      <div className="card p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Test Configuration</h3>
+        <p className="text-sm text-gray-500 mb-4">Send a test email to verify your settings</p>
+        <div className="flex gap-3">
+          <input
+            type="email"
+            value={testEmail}
+            onChange={(e) => setTestEmail(e.target.value)}
+            placeholder="test@example.com"
+            className="input flex-1"
+          />
+          <button
+            onClick={handleTestEmail}
+            disabled={testing}
+            className="btn btn-secondary gap-2"
+          >
+            {testing ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            Send Test Email
+          </button>
+        </div>
+        {testResult && (
+          <div className={`mt-4 p-4 rounded-lg flex items-start gap-3 ${testResult.success ? 'bg-green-50' : 'bg-red-50'}`}>
+            {testResult.success ? (
+              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            )}
+            <p className={`text-sm ${testResult.success ? 'text-green-800' : 'text-red-800'}`}>
+              {testResult.message}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Save Button */}
+      <div className="flex justify-end gap-3">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="btn btn-primary gap-2"
+        >
+          {saving ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Save className="w-4 h-4" />
+          )}
+          Save Email Settings
+        </button>
+      </div>
+    </div>
+  );
+}

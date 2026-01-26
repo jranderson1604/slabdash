@@ -10,7 +10,9 @@ router.get('/settings', authenticate, async (req, res) => {
             `SELECT id, name, slug, email, phone, website, logo_url, psa_api_key,
              primary_color, background_color, sidebar_color,
              auto_refresh_enabled, auto_refresh_interval_hours,
-             email_notifications_enabled, plan, created_at
+             email_notifications_enabled, smtp_host, smtp_port, smtp_secure,
+             smtp_user, from_email, from_name, company_logo_url,
+             plan, created_at
              FROM companies WHERE id = $1`,
             [req.user.company_id]
         );
@@ -27,7 +29,8 @@ router.patch('/settings', authenticate, async (req, res) => {
             'name', 'email', 'phone', 'website', 'logo_url', 'primary_color',
             'background_color', 'sidebar_color',
             'psa_api_key', 'auto_refresh_enabled', 'auto_refresh_interval_hours',
-            'email_notifications_enabled'
+            'email_notifications_enabled', 'smtp_host', 'smtp_port', 'smtp_secure',
+            'smtp_user', 'smtp_password', 'from_email', 'from_name', 'company_logo_url'
         ];
         const updates = [], values = [];
         let i = 1;

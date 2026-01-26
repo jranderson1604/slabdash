@@ -19,6 +19,7 @@ const buybackRoutes = require("./routes/buyback");
 const importRoutes = require("./routes/import");
 const ownerRoutes = require("./routes/owner");
 const subscriptionRoutes = require("./routes/subscriptions");
+const emailTemplatesRoutes = require("./routes/email-templates");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -140,6 +141,7 @@ app.use("/api/buyback", buybackRoutes);
 app.use("/api/import", importRoutes);
 app.use("/api/owner", ownerRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
+app.use("/api/email-templates", emailTemplatesRoutes);
 
 /* -------------------- 404 HANDLER -------------------- */
 

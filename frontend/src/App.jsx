@@ -18,6 +18,8 @@ import ImportCSV from './pages/ImportCSV';
 import BuybackOffers from './pages/BuybackOffers';
 import NewBuybackOffer from './pages/NewBuybackOffer';
 import Settings from './pages/Settings';
+import EmailSettings from './pages/EmailSettings';
+import EmailTemplates from './pages/EmailTemplates';
 import Portal from './pages/Portal';
 import OwnerDashboard from './pages/OwnerDashboard';
 import Help from './pages/Help';
@@ -64,6 +66,8 @@ function AppRoutes() {
       <Route path="/buyback" element={<ProtectedRoute><BuybackOffers /></ProtectedRoute>} />
       <Route path="/buyback/new" element={<ProtectedRoute><NewBuybackOffer /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+      <Route path="/email-settings" element={<ProtectedRoute><EmailSettings /></ProtectedRoute>} />
+      <Route path="/email-templates" element={<ProtectedRoute><EmailTemplates /></ProtectedRoute>} />
       <Route path="/owner" element={<ProtectedRoute><OwnerDashboard /></ProtectedRoute>} />
       <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />

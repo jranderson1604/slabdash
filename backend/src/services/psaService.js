@@ -158,7 +158,14 @@ const parseProgressData = (data) => {
 
 const updateSubmissionFromPsa = async (submissionId, psaData) => {
     const parsed = parseProgressData(psaData);
-    
+
+    // Get current step before update to detect changes
+    const currentResult = await db.query(
+        'SELECT current_step FROM submissions WHERE id = $1',
+        [submissionId]
+    );
+    const previousStep = currentResult.rows[0]?.current_step;
+
     await db.query(`
         UPDATE submissions SET
             psa_order_number = $1, current_step = $2, progress_percent = $3,
@@ -167,16 +174,27 @@ const updateSubmissionFromPsa = async (submissionId, psaData) => {
         WHERE id = $9
     `, [parsed.orderNumber, parsed.currentStep, parsed.progressPercent, parsed.gradesReady,
         parsed.shipped, parsed.problemOrder, parsed.accountingHold, JSON.stringify(psaData), submissionId]);
-    
+
     await db.query('DELETE FROM submission_steps WHERE submission_id = $1', [submissionId]);
-    
+
     for (const step of parsed.steps) {
         await db.query(
             `INSERT INTO submission_steps (submission_id, step_index, step_name, completed) VALUES ($1, $2, $3, $4)`,
             [submissionId, step.index, step.name, step.completed]
         );
     }
-    
+
+    // Send email notification if step changed
+    if (previousStep !== parsed.currentStep && parsed.currentStep) {
+        try {
+            const { sendSubmissionUpdateEmail } = require('./emailService');
+            await sendSubmissionUpdateEmail(submissionId, parsed.currentStep, parsed.progressPercent);
+        } catch (emailError) {
+            console.error('Failed to send email notification:', emailError);
+            // Don't fail the update if email fails
+        }
+    }
+
     return parsed;
 };
 
