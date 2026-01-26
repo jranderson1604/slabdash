@@ -1,8 +1,8 @@
-# Add Email Notification System for PSA Step Updates
+# Add Hybrid Email Notification System for PSA Step Updates
 
 ## Summary
 
-Implemented a complete email notification system that automatically sends customizable emails to customers when their PSA submissions progress through different steps.
+Implemented a complete email notification system with hybrid delivery options: users can use SlabDash's default email service (zero configuration) or configure their own custom SMTP (branded emails). The system automatically sends customizable emails to customers when their PSA submissions progress through different steps.
 
 ### Backend Changes
 - **Email Service** (`backend/src/services/emailService.js`)
@@ -29,6 +29,11 @@ Implemented a complete email notification system that automatically sends custom
 
 - **Companies API Updates** (`backend/src/routes/companies.js`)
   - Added SMTP configuration fields to settings endpoints
+  - Added `use_custom_smtp` field to track email delivery mode
+
+- **Startup Script Updates** (`backend/start.js`)
+  - Added migrations 011 and 012 to automatic startup migration sequence
+  - Ensures email tables and columns are created on deployment
 
 ### Frontend Changes
 - **Email Settings Page** (`frontend/src/pages/EmailSettings.jsx`)
@@ -52,6 +57,13 @@ Implemented a complete email notification system that automatically sends custom
   - Updated API client with emailTemplates methods (`frontend/src/api/client.js`)
 
 ### Features
+
+✅ **Hybrid Email Delivery**
+- **SlabDash Email (Default):** Zero-configuration email delivery using SlabDash's SMTP server
+- **Custom SMTP (Advanced):** Branded emails from user's own domain (Gmail, SendGrid, Mailgun, etc.)
+- Easy toggle between modes in Email Settings
+- Environment variables for default SlabDash email credentials
+
 ✅ **Automatic Email Notifications**
 - Emails sent automatically when PSA step changes (Arrived → Grading → Shipped, etc.)
 - All linked customers receive notifications
@@ -88,6 +100,27 @@ Implemented a complete email notification system that automatically sends custom
 - QA Check 1
 - QA Check 2
 - Shipped
+
+## Setup Required
+
+### Environment Variables (Railway)
+Add these environment variables to the backend service for SlabDash default email:
+
+```bash
+DEFAULT_SMTP_HOST=smtp.sendgrid.net
+DEFAULT_SMTP_PORT=587
+DEFAULT_SMTP_SECURE=false
+DEFAULT_SMTP_USER=apikey
+DEFAULT_SMTP_PASSWORD=<your-sendgrid-api-key>
+DEFAULT_FROM_EMAIL=slabdashllc@slabdash.app
+DEFAULT_FROM_NAME=SlabDash
+```
+
+### SendGrid Setup
+1. Create SendGrid account (free tier: 100 emails/day)
+2. Create API key with "Mail Send" permission
+3. Verify sender email address or domain
+4. Add API key to Railway environment variables
 
 ## Test Plan
 - [ ] Navigate to Email settings page from sidebar

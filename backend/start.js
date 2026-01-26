@@ -31,6 +31,22 @@ async function runMigrationsAndStart() {
     await db.query(migration010);
     console.log('✓ Migration 010: Multi-customer support added');
 
+    // Migration 011: Email notifications
+    const migration011 = fs.readFileSync(
+      path.join(__dirname, 'migrations/011_add_email_notifications.sql'),
+      'utf8'
+    );
+    await db.query(migration011);
+    console.log('✓ Migration 011: Email notifications added');
+
+    // Migration 012: Email mode option
+    const migration012 = fs.readFileSync(
+      path.join(__dirname, 'migrations/012_add_email_mode_option.sql'),
+      'utf8'
+    );
+    await db.query(migration012);
+    console.log('✓ Migration 012: Email mode option added');
+
     console.log('All migrations completed successfully!\n');
   } catch (error) {
     // Don't fail if columns already exist

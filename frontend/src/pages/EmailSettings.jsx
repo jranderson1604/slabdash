@@ -6,6 +6,7 @@ import { Mail, Send, CheckCircle, AlertCircle, Loader2, Save, Info, FileText } f
 export default function EmailSettings() {
   const [settings, setSettings] = useState({
     email_notifications_enabled: false,
+    use_custom_smtp: false,
     smtp_host: '',
     smtp_port: 587,
     smtp_secure: false,
@@ -30,6 +31,7 @@ export default function EmailSettings() {
       const res = await companies.get();
       setSettings({
         email_notifications_enabled: res.data.email_notifications_enabled || false,
+        use_custom_smtp: res.data.use_custom_smtp || false,
         smtp_host: res.data.smtp_host || '',
         smtp_port: res.data.smtp_port || 587,
         smtp_secure: res.data.smtp_secure || false,
@@ -146,7 +148,8 @@ export default function EmailSettings() {
             <p className="font-semibold mb-1">How Email Notifications Work</p>
             <ul className="list-disc list-inside space-y-1 text-blue-800">
               <li>Customers receive automatic updates when their submission progresses through PSA steps</li>
-              <li>Configure your own SMTP server (Gmail, SendGrid, Mailgun, etc.)</li>
+              <li><strong>Easy Mode:</strong> Use SlabDash email (works immediately, no setup required)</li>
+              <li><strong>Pro Mode:</strong> Use your own branded email (Gmail, SendGrid, Mailgun, etc.)</li>
               <li>Customize email templates for each PSA step</li>
               <li>All linked customers in a submission will receive notifications</li>
             </ul>
@@ -178,7 +181,60 @@ export default function EmailSettings() {
         </div>
       </div>
 
-      {/* Quick Presets */}
+      {/* Email Mode Selection */}
+      <div className="card p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Email Service Mode</h3>
+        <p className="text-sm text-gray-500 mb-4">Choose how emails are sent to your customers</p>
+
+        <div className="space-y-3">
+          {/* SlabDash Email Option */}
+          <label className={`relative flex items-start p-4 cursor-pointer rounded-lg border-2 transition-colors ${
+            !settings.use_custom_smtp ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-gray-300'
+          }`}>
+            <input
+              type="radio"
+              name="email_mode"
+              checked={!settings.use_custom_smtp}
+              onChange={() => setSettings({ ...settings, use_custom_smtp: false })}
+              className="mt-1 w-4 h-4 text-brand-600"
+            />
+            <div className="ml-3 flex-1">
+              <div className="font-semibold text-gray-900">SlabDash Email (Recommended)</div>
+              <p className="text-sm text-gray-600 mt-1">
+                ✅ Works immediately - no setup required<br />
+                ✅ Reliable delivery through SlabDash servers<br />
+                ✅ Perfect for getting started quickly<br />
+                📧 Emails sent from: notifications@slabdash.com
+              </p>
+            </div>
+          </label>
+
+          {/* Custom SMTP Option */}
+          <label className={`relative flex items-start p-4 cursor-pointer rounded-lg border-2 transition-colors ${
+            settings.use_custom_smtp ? 'border-brand-500 bg-brand-50' : 'border-gray-200 hover:border-gray-300'
+          }`}>
+            <input
+              type="radio"
+              name="email_mode"
+              checked={settings.use_custom_smtp}
+              onChange={() => setSettings({ ...settings, use_custom_smtp: true })}
+              className="mt-1 w-4 h-4 text-brand-600"
+            />
+            <div className="ml-3 flex-1">
+              <div className="font-semibold text-gray-900">Custom SMTP (Advanced)</div>
+              <p className="text-sm text-gray-600 mt-1">
+                ✅ Professional branded emails from your domain<br />
+                ✅ Full control over email delivery<br />
+                ⚙️ Requires SMTP configuration (Gmail, SendGrid, etc.)<br />
+                📧 Emails sent from: your-email@yourdomain.com
+              </p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      {/* Quick Presets - Only show if Custom SMTP is selected */}
+      {settings.use_custom_smtp && (
       <div className="card p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Setup</h3>
         <p className="text-sm text-gray-500 mb-4">Click to auto-fill settings for popular email providers</p>
@@ -194,8 +250,10 @@ export default function EmailSettings() {
           ))}
         </div>
       </div>
+      )}
 
-      {/* SMTP Configuration */}
+      {/* SMTP Configuration - Only show if Custom SMTP is selected */}
+      {settings.use_custom_smtp && (
       <div className="card p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">SMTP Configuration</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -252,11 +310,13 @@ export default function EmailSettings() {
           </div>
         </div>
       </div>
+      )}
 
       {/* From Settings */}
       <div className="card p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Email From Settings</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Email Branding</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {settings.use_custom_smtp && (
           <div>
             <label className="label">From Email *</label>
             <input
@@ -268,8 +328,9 @@ export default function EmailSettings() {
             />
             <p className="text-xs text-gray-500 mt-1">Customers will see emails from this address</p>
           </div>
-          <div>
-            <label className="label">From Name *</label>
+          )}
+          <div className={settings.use_custom_smtp ? '' : 'md:col-span-2'}>
+            <label className="label">From Name {settings.use_custom_smtp ? '*' : '(Optional)'}</label>
             <input
               type="text"
               value={settings.from_name}
@@ -277,7 +338,11 @@ export default function EmailSettings() {
               placeholder="Your Shop Name"
               className="input"
             />
-            <p className="text-xs text-gray-500 mt-1">Display name in customer's inbox</p>
+            <p className="text-xs text-gray-500 mt-1">
+              {settings.use_custom_smtp
+                ? 'Display name in customer\'s inbox'
+                : 'Customize the sender name (defaults to "SlabDash Notifications")'}
+            </p>
           </div>
           <div className="md:col-span-2">
             <label className="label">Company Logo URL (Optional)</label>

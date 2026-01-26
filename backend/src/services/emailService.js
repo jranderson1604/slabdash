@@ -19,7 +19,8 @@ const renderTemplate = (template, variables) => {
 const getCompanyEmailConfig = async (companyId) => {
     const result = await db.query(
         `SELECT smtp_host, smtp_port, smtp_secure, smtp_user, smtp_password,
-                from_email, from_name, email_notifications_enabled, company_logo_url
+                from_email, from_name, email_notifications_enabled, company_logo_url,
+                use_custom_smtp
          FROM companies WHERE id = $1`,
         [companyId]
     );
@@ -32,22 +33,56 @@ const getCompanyEmailConfig = async (companyId) => {
 };
 
 /**
+ * Get default SlabDash email configuration
+ */
+const getDefaultEmailConfig = () => {
+    return {
+        smtp_host: process.env.DEFAULT_SMTP_HOST || 'smtp.sendgrid.net',
+        smtp_port: parseInt(process.env.DEFAULT_SMTP_PORT) || 587,
+        smtp_secure: process.env.DEFAULT_SMTP_SECURE === 'true',
+        smtp_user: process.env.DEFAULT_SMTP_USER || 'apikey',
+        smtp_password: process.env.DEFAULT_SMTP_PASSWORD || '',
+        from_email: process.env.DEFAULT_FROM_EMAIL || 'notifications@slabdash.com',
+        from_name: process.env.DEFAULT_FROM_NAME || 'SlabDash Notifications'
+    };
+};
+
+/**
  * Create email transporter for a company
  */
 const createTransporter = (config) => {
-    if (!config.smtp_host || !config.smtp_user || !config.smtp_password) {
-        throw new Error('Email configuration incomplete');
+    let smtpConfig;
+
+    // Use default SlabDash email if custom SMTP is not enabled
+    if (!config.use_custom_smtp) {
+        const defaultConfig = getDefaultEmailConfig();
+        smtpConfig = {
+            host: defaultConfig.smtp_host,
+            port: defaultConfig.smtp_port,
+            secure: defaultConfig.smtp_secure,
+            auth: {
+                user: defaultConfig.smtp_user,
+                pass: defaultConfig.smtp_password
+            }
+        };
+    } else {
+        // Use custom SMTP settings
+        if (!config.smtp_host || !config.smtp_user || !config.smtp_password) {
+            throw new Error('Custom SMTP configuration incomplete');
+        }
+
+        smtpConfig = {
+            host: config.smtp_host,
+            port: config.smtp_port || 587,
+            secure: config.smtp_secure || false,
+            auth: {
+                user: config.smtp_user,
+                pass: config.smtp_password
+            }
+        };
     }
 
-    return nodemailer.createTransport({
-        host: config.smtp_host,
-        port: config.smtp_port || 587,
-        secure: config.smtp_secure || false,
-        auth: {
-            user: config.smtp_user,
-            pass: config.smtp_password
-        }
-    });
+    return nodemailer.createTransport(smtpConfig);
 };
 
 /**
@@ -136,8 +171,17 @@ const sendSubmissionUpdateEmail = async (submissionId, stepName, progressPercent
                     ? renderTemplate(template.body_text, variables)
                     : null;
 
+                // Determine from address based on email mode
+                let fromAddress;
+                if (!config.use_custom_smtp) {
+                    const defaultConfig = getDefaultEmailConfig();
+                    fromAddress = `"${config.from_name || defaultConfig.from_name}" <${defaultConfig.from_email}>`;
+                } else {
+                    fromAddress = `"${config.from_name || 'SlabDash'}" <${config.from_email}>`;
+                }
+
                 await transporter.sendMail({
-                    from: `"${config.from_name || 'SlabDash'}" <${config.from_email}>`,
+                    from: fromAddress,
                     to: customer.email,
                     subject: subject,
                     html: bodyHtml,
@@ -182,12 +226,24 @@ const testEmailConfig = async (companyId, testEmail) => {
         const config = await getCompanyEmailConfig(companyId);
         const transporter = createTransporter(config);
 
+        // Determine from address based on email mode
+        let fromAddress;
+        let emailMode;
+        if (!config.use_custom_smtp) {
+            const defaultConfig = getDefaultEmailConfig();
+            fromAddress = `"${config.from_name || defaultConfig.from_name}" <${defaultConfig.from_email}>`;
+            emailMode = 'SlabDash Default Email';
+        } else {
+            fromAddress = `"${config.from_name || 'SlabDash'}" <${config.from_email}>`;
+            emailMode = 'Custom SMTP';
+        }
+
         await transporter.sendMail({
-            from: `"${config.from_name || 'SlabDash'}" <${config.from_email}>`,
+            from: fromAddress,
             to: testEmail,
             subject: 'SlabDash Email Test',
-            html: '<h2>Email Configuration Test</h2><p>If you received this email, your email settings are configured correctly!</p>',
-            text: 'Email Configuration Test - If you received this email, your email settings are configured correctly!'
+            html: `<h2>Email Configuration Test</h2><p>If you received this email, your email settings are configured correctly!</p><p><strong>Email Mode:</strong> ${emailMode}</p><p><strong>From:</strong> ${fromAddress}</p>`,
+            text: `Email Configuration Test - If you received this email, your email settings are configured correctly! Email Mode: ${emailMode}, From: ${fromAddress}`
         });
 
         return { success: true, message: 'Test email sent successfully' };
