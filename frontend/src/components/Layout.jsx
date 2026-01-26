@@ -16,6 +16,7 @@ import {
   DollarSign,
   Shield,
   HelpCircle,
+  Mail,
 } from 'lucide-react';
 
 export default function Layout({ children }) {
@@ -38,6 +39,7 @@ export default function Layout({ children }) {
     { name: 'Cards', href: '/cards', icon: CreditCard },
     { name: 'Import CSV', href: '/import', icon: Upload },
     { name: 'Buyback Offers', href: '/buyback', icon: DollarSign },
+    { name: 'Email', href: '/email-settings', icon: Mail },
     { name: 'Help', href: '/help', icon: HelpCircle },
     { name: 'Settings', href: '/settings', icon: Settings },
   ];

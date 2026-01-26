@@ -101,4 +101,15 @@ export const cardImport = {
   downloadTemplate: () => api.get('/card-import/csv-template', { responseType: 'blob' })
 };
 
+export const emailTemplates = {
+  list: () => api.get('/email-templates'),
+  get: (id) => api.get(`/email-templates/${id}`),
+  create: (data) => api.post('/email-templates', data),
+  update: (id, data) => api.put(`/email-templates/${id}`, data),
+  delete: (id) => api.delete(`/email-templates/${id}`),
+  preview: (id) => api.post(`/email-templates/${id}/preview`),
+  testConfig: (testEmail) => api.post('/email-templates/test-config', { test_email: testEmail }),
+  logs: (params) => api.get('/email-templates/logs', { params })
+};
+
 export default api;
