@@ -1,13 +1,12 @@
 const sgMail = require('@sendgrid/mail');
 const db = require('../db');
 
-// Initialize SendGrid if API key is available
+// Initialize SendGrid if API key is available (DEPRECATED - using emailService.js instead)
 if (process.env.SENDGRID_API_KEY) {
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-    console.log('✅ SendGrid email service initialized');
-} else {
-    console.warn('⚠️  SENDGRID_API_KEY not set - email notifications disabled');
+    console.log('✅ SendGrid email service initialized (legacy)');
 }
+// Note: Email notifications now use emailService.js with nodemailer
 
 /**
  * Send email notification
