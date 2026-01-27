@@ -274,6 +274,7 @@ export default function EmailTemplates() {
   const [loading, setLoading] = useState(true);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [showEditor, setShowEditor] = useState(false);
+  const [creatingDefaults, setCreatingDefaults] = useState(false);
 
   useEffect(() => {
     loadTemplates();
@@ -298,6 +299,36 @@ export default function EmailTemplates() {
   const handleNew = () => {
     setEditingTemplate(null);
     setShowEditor(true);
+  };
+
+  const handleCreateDefaults = async () => {
+    if (!confirm('Create default email templates for all PSA steps? (This will not overwrite existing templates)')) return;
+
+    setCreatingDefaults(true);
+    try {
+      const token = localStorage.getItem('slabdash_token');
+      const response = await fetch('https://slabdash.app/api/email-setup/create-default-templates', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`Success! Created ${data.templates_created} new templates.`);
+        await loadTemplates();
+      } else {
+        alert('Failed to create templates: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Create defaults failed:', error);
+      alert('Failed to create default templates: ' + error.message);
+    } finally {
+      setCreatingDefaults(false);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -332,10 +363,26 @@ export default function EmailTemplates() {
           <h1 className="text-2xl font-bold text-gray-900">Email Templates</h1>
           <p className="text-gray-500 mt-1">Customize email notifications for each PSA step</p>
         </div>
-        <button onClick={handleNew} className="btn btn-primary gap-2">
-          <Plus className="w-4 h-4" />
-          New Template
-        </button>
+        <div className="flex gap-2">
+          {missingSteps.length > 0 && (
+            <button
+              onClick={handleCreateDefaults}
+              disabled={creatingDefaults}
+              className="btn btn-secondary gap-2"
+            >
+              {creatingDefaults ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CheckCircle className="w-4 h-4" />
+              )}
+              Create Default Templates
+            </button>
+          )}
+          <button onClick={handleNew} className="btn btn-primary gap-2">
+            <Plus className="w-4 h-4" />
+            New Template
+          </button>
+        </div>
       </div>
 
       {/* Template Grid */}
