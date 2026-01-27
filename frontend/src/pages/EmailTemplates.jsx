@@ -306,26 +306,17 @@ export default function EmailTemplates() {
 
     setCreatingDefaults(true);
     try {
-      const token = localStorage.getItem('slabdash_token');
-      const response = await fetch('https://slabdash.app/api/email-setup/create-default-templates', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const response = await emailTemplates.createDefaults();
 
-      const data = await response.json();
-
-      if (data.success) {
-        alert(`Success! Created ${data.templates_created} new templates.`);
+      if (response.data.success) {
+        alert(`Success! Created ${response.data.templates_created} new templates.`);
         await loadTemplates();
       } else {
-        alert('Failed to create templates: ' + (data.error || 'Unknown error'));
+        alert('Failed to create templates: ' + (response.data.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Create defaults failed:', error);
-      alert('Failed to create default templates: ' + error.message);
+      alert('Failed to create default templates: ' + (error.response?.data?.error || error.message));
     } finally {
       setCreatingDefaults(false);
     }
