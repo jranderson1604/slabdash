@@ -56,10 +56,20 @@ const createTransporter = (config) => {
     // Use default SlabDash email if custom SMTP is not enabled
     if (!config.use_custom_smtp) {
         const defaultConfig = getDefaultEmailConfig();
+        console.log('📧 Using SlabDash default email:', {
+            host: defaultConfig.smtp_host,
+            port: defaultConfig.smtp_port,
+            secure: defaultConfig.smtp_secure,
+            user: defaultConfig.smtp_user,
+            hasPassword: !!defaultConfig.smtp_password
+        });
         smtpConfig = {
             host: defaultConfig.smtp_host,
             port: defaultConfig.smtp_port,
             secure: defaultConfig.smtp_secure,
+            connectionTimeout: 10000, // 10 second timeout
+            greetingTimeout: 10000,
+            socketTimeout: 10000,
             auth: {
                 user: defaultConfig.smtp_user,
                 pass: defaultConfig.smtp_password
@@ -71,10 +81,20 @@ const createTransporter = (config) => {
             throw new Error('Custom SMTP configuration incomplete');
         }
 
+        console.log('📧 Using custom SMTP:', {
+            host: config.smtp_host,
+            port: config.smtp_port,
+            secure: config.smtp_secure,
+            user: config.smtp_user
+        });
+
         smtpConfig = {
             host: config.smtp_host,
             port: config.smtp_port || 587,
             secure: config.smtp_secure || false,
+            connectionTimeout: 10000, // 10 second timeout
+            greetingTimeout: 10000,
+            socketTimeout: 10000,
             auth: {
                 user: config.smtp_user,
                 pass: config.smtp_password
@@ -223,6 +243,7 @@ const sendSubmissionUpdateEmail = async (submissionId, stepName, progressPercent
  */
 const testEmailConfig = async (companyId, testEmail) => {
     try {
+        console.log('🧪 Testing email config for company:', companyId, 'to:', testEmail);
         const config = await getCompanyEmailConfig(companyId);
         const transporter = createTransporter(config);
 
@@ -238,6 +259,8 @@ const testEmailConfig = async (companyId, testEmail) => {
             emailMode = 'Custom SMTP';
         }
 
+        console.log('📤 Attempting to send test email from:', fromAddress);
+
         await transporter.sendMail({
             from: fromAddress,
             to: testEmail,
@@ -246,8 +269,12 @@ const testEmailConfig = async (companyId, testEmail) => {
             text: `Email Configuration Test - If you received this email, your email settings are configured correctly! Email Mode: ${emailMode}, From: ${fromAddress}`
         });
 
+        console.log('✅ Test email sent successfully to:', testEmail);
         return { success: true, message: 'Test email sent successfully' };
     } catch (error) {
+        console.error('❌ Test email failed:', error.message);
+        console.error('Error code:', error.code);
+        console.error('Error details:', error);
         return { success: false, error: error.message };
     }
 };
