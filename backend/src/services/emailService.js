@@ -1,5 +1,8 @@
 const nodemailer = require('nodemailer');
 const db = require('../db');
+const formData = require('form-data');
+const Mailgun = require('mailgun.js');
+const mailgun = new Mailgun(formData);
 
 /**
  * Render email template with variables
@@ -33,17 +36,14 @@ const getCompanyEmailConfig = async (companyId) => {
 };
 
 /**
- * Get default SlabDash email configuration
+ * Get default SlabDash email configuration (Mailgun HTTP API)
  */
 const getDefaultEmailConfig = () => {
     return {
-        smtp_host: process.env.DEFAULT_SMTP_HOST || 'smtp.sendgrid.net',
-        smtp_port: parseInt(process.env.DEFAULT_SMTP_PORT) || 587,
-        smtp_secure: process.env.DEFAULT_SMTP_SECURE === 'true',
-        smtp_user: process.env.DEFAULT_SMTP_USER || 'apikey',
-        smtp_password: process.env.DEFAULT_SMTP_PASSWORD || '',
-        from_email: process.env.DEFAULT_FROM_EMAIL || 'notifications@slabdash.com',
-        from_name: process.env.DEFAULT_FROM_NAME || 'SlabDash Notifications'
+        mailgun_api_key: process.env.DEFAULT_MAILGUN_API_KEY || process.env.DEFAULT_SMTP_PASSWORD || '',
+        mailgun_domain: process.env.DEFAULT_MAILGUN_DOMAIN || 'slabdash.app',
+        from_email: process.env.DEFAULT_FROM_EMAIL || 'slabdashllc@slabdash.app',
+        from_name: process.env.DEFAULT_FROM_NAME || 'SlabDash'
     };
 };
 
@@ -168,9 +168,6 @@ const sendSubmissionUpdateEmail = async (submissionId, stepName, progressPercent
             return { success: false, error: 'No customer emails' };
         }
 
-        // Create transporter
-        const transporter = createTransporter(config);
-
         // Send email to each customer
         const results = [];
         for (const customer of customers) {
@@ -191,22 +188,39 @@ const sendSubmissionUpdateEmail = async (submissionId, stepName, progressPercent
                     ? renderTemplate(template.body_text, variables)
                     : null;
 
-                // Determine from address based on email mode
+                // Determine from address and send method based on email mode
                 let fromAddress;
-                if (!config.use_custom_smtp) {
-                    const defaultConfig = getDefaultEmailConfig();
-                    fromAddress = `"${config.from_name || defaultConfig.from_name}" <${defaultConfig.from_email}>`;
-                } else {
-                    fromAddress = `"${config.from_name || 'SlabDash'}" <${config.from_email}>`;
-                }
 
-                await transporter.sendMail({
-                    from: fromAddress,
-                    to: customer.email,
-                    subject: subject,
-                    html: bodyHtml,
-                    text: bodyText
-                });
+                if (!config.use_custom_smtp) {
+                    // Use Mailgun HTTP API
+                    const defaultConfig = getDefaultEmailConfig();
+                    fromAddress = `${config.from_name || defaultConfig.from_name} <${defaultConfig.from_email}>`;
+
+                    const mg = mailgun.client({
+                        username: 'api',
+                        key: defaultConfig.mailgun_api_key
+                    });
+
+                    await mg.messages.create(defaultConfig.mailgun_domain, {
+                        from: fromAddress,
+                        to: [customer.email],
+                        subject: subject,
+                        text: bodyText,
+                        html: bodyHtml
+                    });
+                } else {
+                    // Use custom SMTP
+                    fromAddress = `${config.from_name || 'SlabDash'} <${config.from_email}>`;
+                    const transporter = createTransporter(config);
+
+                    await transporter.sendMail({
+                        from: fromAddress,
+                        to: customer.email,
+                        subject: subject,
+                        html: bodyHtml,
+                        text: bodyText
+                    });
+                }
 
                 // Log successful send
                 await db.query(
@@ -245,29 +259,49 @@ const testEmailConfig = async (companyId, testEmail) => {
     try {
         console.log('🧪 Testing email config for company:', companyId, 'to:', testEmail);
         const config = await getCompanyEmailConfig(companyId);
-        const transporter = createTransporter(config);
 
-        // Determine from address based on email mode
+        // Determine from address and email mode
         let fromAddress;
         let emailMode;
+
         if (!config.use_custom_smtp) {
+            // Use Mailgun HTTP API for default SlabDash email
             const defaultConfig = getDefaultEmailConfig();
-            fromAddress = `"${config.from_name || defaultConfig.from_name}" <${defaultConfig.from_email}>`;
-            emailMode = 'SlabDash Default Email';
+            fromAddress = `${config.from_name || defaultConfig.from_name} <${defaultConfig.from_email}>`;
+            emailMode = 'SlabDash Default Email (Mailgun HTTP API)';
+
+            console.log('📤 Sending via Mailgun HTTP API from:', fromAddress);
+            console.log('Using Mailgun domain:', defaultConfig.mailgun_domain);
+
+            const mg = mailgun.client({
+                username: 'api',
+                key: defaultConfig.mailgun_api_key
+            });
+
+            await mg.messages.create(defaultConfig.mailgun_domain, {
+                from: fromAddress,
+                to: [testEmail],
+                subject: 'SlabDash Email Test',
+                text: `Email Configuration Test - If you received this email, your email settings are configured correctly! Email Mode: ${emailMode}, From: ${fromAddress}`,
+                html: `<h2>Email Configuration Test</h2><p>If you received this email, your email settings are configured correctly!</p><p><strong>Email Mode:</strong> ${emailMode}</p><p><strong>From:</strong> ${fromAddress}</p>`
+            });
+
         } else {
-            fromAddress = `"${config.from_name || 'SlabDash'}" <${config.from_email}>`;
+            // Use custom SMTP via nodemailer
+            fromAddress = `${config.from_name || 'SlabDash'} <${config.from_email}>`;
             emailMode = 'Custom SMTP';
+
+            console.log('📤 Sending via custom SMTP from:', fromAddress);
+
+            const transporter = createTransporter(config);
+            await transporter.sendMail({
+                from: fromAddress,
+                to: testEmail,
+                subject: 'SlabDash Email Test',
+                html: `<h2>Email Configuration Test</h2><p>If you received this email, your email settings are configured correctly!</p><p><strong>Email Mode:</strong> ${emailMode}</p><p><strong>From:</strong> ${fromAddress}</p>`,
+                text: `Email Configuration Test - If you received this email, your email settings are configured correctly! Email Mode: ${emailMode}, From: ${fromAddress}`
+            });
         }
-
-        console.log('📤 Attempting to send test email from:', fromAddress);
-
-        await transporter.sendMail({
-            from: fromAddress,
-            to: testEmail,
-            subject: 'SlabDash Email Test',
-            html: `<h2>Email Configuration Test</h2><p>If you received this email, your email settings are configured correctly!</p><p><strong>Email Mode:</strong> ${emailMode}</p><p><strong>From:</strong> ${fromAddress}</p>`,
-            text: `Email Configuration Test - If you received this email, your email settings are configured correctly! Email Mode: ${emailMode}, From: ${fromAddress}`
-        });
 
         console.log('✅ Test email sent successfully to:', testEmail);
         return { success: true, message: 'Test email sent successfully' };
