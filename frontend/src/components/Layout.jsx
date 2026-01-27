@@ -8,6 +8,7 @@ import {
   Users,
   CreditCard,
   DollarSign,
+  Mail,
   Settings,
   LogOut,
   Menu,
@@ -21,6 +22,7 @@ const navigation = [
   { name: 'Customers', href: '/customers', icon: Users },
   { name: 'Cards', href: '/cards', icon: CreditCard },
   { name: 'Buyback', href: '/buyback', icon: DollarSign },
+  { name: 'Email', href: '/email', icon: Mail },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
@@ -52,23 +54,21 @@ export default function Layout({ children }) {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        {/* Logo */}
-        <div className="flex items-center justify-between h-32 px-6 border-b border-gray-200">
-          <Link to="/" className="flex items-center">
-            <img src={logoIcon} alt="SlabDash" className="h-32 w-32" style={{ imageRendering: 'crisp-edges' }} />
+        {/* Logo and Company - Combined header aligned with main header */}
+        <div className="flex items-center justify-between h-16 px-4 border-b border-gray-200">
+          <Link to="/" className="flex items-center gap-3">
+            <img src={logoIcon} alt="SlabDash" className="h-10 w-10" style={{ imageRendering: 'crisp-edges' }} />
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-gray-900 leading-tight">SlabDash</span>
+              <span className="text-xs text-gray-500 leading-tight truncate max-w-[140px]">{company?.name || 'Loading...'}</span>
+            </div>
           </Link>
           <button
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden text-gray-400 hover:text-gray-600"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
-        </div>
-
-        {/* Company name */}
-        <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-          <p className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Shop</p>
-          <p className="text-sm font-medium text-gray-900 truncate mt-0.5">{company?.name || 'Loading...'}</p>
         </div>
 
         {/* Navigation */}

@@ -13,7 +13,11 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
+  RotateCcw,
 } from 'lucide-react';
+
+// Default SlabDash brand color (salmon)
+const SLABDASH_DEFAULT_COLOR = '#FF8170';
 
 function SettingsSection({ icon: Icon, title, description, children }) {
   return (
@@ -373,9 +377,25 @@ export default function Settings() {
                 value={settings.primary_color}
                 onChange={(e) => setSettings({ ...settings, primary_color: e.target.value })}
                 className="input w-32"
-                placeholder="#ef4444"
+                placeholder="#FF8170"
               />
+              <button
+                type="button"
+                onClick={() => setSettings({ ...settings, primary_color: SLABDASH_DEFAULT_COLOR })}
+                className="btn btn-secondary gap-2"
+                title="Reset to SlabDash default"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span className="hidden sm:inline">Default</span>
+              </button>
             </div>
+            <p className="text-xs text-gray-500 mt-2">
+              SlabDash default: <span className="font-mono">{SLABDASH_DEFAULT_COLOR}</span>
+              <span
+                className="inline-block w-3 h-3 rounded ml-1 align-middle"
+                style={{ backgroundColor: SLABDASH_DEFAULT_COLOR }}
+              />
+            </p>
           </div>
 
           <div className="pt-4">

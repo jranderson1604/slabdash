@@ -16,6 +16,7 @@ import CardImport from './pages/CardImport';
 import BuybackOffers from './pages/BuybackOffers';
 import NewBuybackOffer from './pages/NewBuybackOffer';
 import Settings from './pages/Settings';
+import EmailTemplates from './pages/EmailTemplates';
 import Portal from './pages/Portal';
 import { Loader2 } from 'lucide-react';
 
@@ -51,6 +52,7 @@ function AppRoutes() {
       <Route path="/cards/:id" element={<ProtectedRoute><CardDetail /></ProtectedRoute>} />
       <Route path="/buyback" element={<ProtectedRoute><BuybackOffers /></ProtectedRoute>} />
       <Route path="/buyback/new" element={<ProtectedRoute><NewBuybackOffer /></ProtectedRoute>} />
+      <Route path="/email" element={<ProtectedRoute><EmailTemplates /></ProtectedRoute>} />
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
