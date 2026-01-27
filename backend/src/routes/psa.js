@@ -81,35 +81,24 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
     let updated = 0;
     let errors = 0;
 
+    const { getSubmissionProgress, updateSubmissionFromPsa } = require('../services/psaService');
+
     // Refresh each submission (with rate limiting)
     for (const submission of submissions.rows) {
       try {
-        // Call PSA API to get submission status
-        const response = await axios.get(
-          `https://api.psacard.com/publicapi/order/GetOrder/${submission.psa_submission_number}`,
-          {
-            headers: {
-              "Authorization": `Bearer ${psaApiKey}`,
-              "User-Agent": "SlabDash/1.0"
-            },
-            timeout: 10000
-          }
-        );
+        // Get submission progress from PSA API
+        const result = await getSubmissionProgress(psaApiKey, submission.psa_submission_number);
 
-        if (response.data) {
-          // Update submission with latest data from PSA
-          await db.query(
-            `UPDATE submissions
-             SET service_level = COALESCE($1, service_level),
-                 last_refreshed_at = NOW()
-             WHERE id = $2`,
-            [response.data.ServiceLevel, submission.id]
-          );
+        if (result.success && result.data) {
+          // Update submission with latest data (this also triggers email notifications)
+          await updateSubmissionFromPsa(submission.id, result.data);
           updated++;
+        } else {
+          errors++;
         }
 
-        // Rate limit: wait 1 second between requests
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Rate limit: wait 500ms between requests
+        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (err) {
         console.error(`Failed to refresh submission ${submission.psa_submission_number}:`, err.message);
         errors++;

@@ -47,6 +47,14 @@ async function runMigrationsAndStart() {
     await db.query(migration012);
     console.log('✓ Migration 012: Email mode option added');
 
+    // Migration 013: Default email templates
+    const migration013 = fs.readFileSync(
+      path.join(__dirname, 'migrations/013_add_default_email_templates.sql'),
+      'utf8'
+    );
+    await db.query(migration013);
+    console.log('✓ Migration 013: Default email templates for all PSA steps added');
+
     console.log('All migrations completed successfully!\n');
   } catch (error) {
     // Don't fail if columns already exist

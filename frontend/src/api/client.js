@@ -48,6 +48,7 @@ export const submissions = {
   update: (id, data) => api.put(`/submissions/${id}`, data),
   delete: (id) => api.delete(`/submissions/${id}`),
   refresh: (id) => api.post(`/submissions/${id}/refresh`),
+  refreshAll: () => api.post('/psa/refresh-all'),
   assignCustomer: (id, customerId) => api.put(`/submissions/${id}`, { customer_id: customerId }),
   addCustomer: (id, data) => api.post(`/submissions/${id}/customers`, data),
   removeCustomer: (id, customerId) => api.delete(`/submissions/${id}/customers/${customerId}`),
