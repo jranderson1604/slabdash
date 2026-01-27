@@ -356,6 +356,10 @@ export default function EmailTemplates() {
     );
   }
 
+  // Calculate missing steps
+  const existingSteps = templates.map(t => t.step_name);
+  const missingSteps = PSA_STEPS.filter(step => !existingSteps.includes(step));
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
