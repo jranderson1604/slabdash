@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { submissions, emailTemplates } from '../api/client';
+import { submissions, emailTemplates, psaImport } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import {
   Plus,
@@ -23,6 +23,7 @@ import {
   ExternalLink,
   Mail,
   Send,
+  Upload,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -320,6 +321,8 @@ export default function Submissions() {
   const [serviceLevelFilter, setServiceLevelFilter] = useState('all'); // 'all', or specific service level
   const [search, setSearch] = useState('');
   const [showHelp, setShowHelp] = useState(false);
+  const [showCsvImport, setShowCsvImport] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const loadSubmissions = async () => {
     try {
@@ -374,6 +377,26 @@ export default function Submissions() {
       alert(error.response?.data?.error || 'Failed to send bulk emails');
     } finally {
       setSendingBulk(false);
+    }
+  };
+
+  const handleCsvImport = async (file) => {
+    setImporting(true);
+    try {
+      const csvData = await file.text();
+      const response = await psaImport.importCsv(csvData);
+
+      const { created, updated, skipped } = response.data;
+      alert(`PSA CSV Import Complete!\n\nCreated: ${created}\nUpdated: ${updated}\nSkipped: ${skipped}`);
+
+      // Reload submissions to show new/updated data
+      await loadSubmissions();
+      setShowCsvImport(false);
+    } catch (error) {
+      console.error('CSV import failed:', error);
+      alert(error.response?.data?.error || 'Failed to import PSA CSV');
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -435,6 +458,13 @@ export default function Submissions() {
           </button>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowCsvImport(true)}
+            className="btn btn-secondary gap-2"
+          >
+            <Upload className="w-4 h-4" />
+            <span className="hidden sm:inline">Import PSA CSV</span>
+          </button>
           <button
             onClick={handleBulkEmail}
             disabled={sendingBulk}
@@ -614,6 +644,117 @@ export default function Submissions() {
         <p className="text-sm text-gray-500 text-center">
           Showing {displaySubs.length} submission{displaySubs.length !== 1 ? 's' : ''}
         </p>
+      )}
+
+      {/* PSA CSV Import Modal */}
+      {showCsvImport && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                    <Upload className="w-5 h-5 text-brand-600" />
+                    Import PSA Bulk Export CSV
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Upload your PSA bulk export CSV to create or update multiple submissions
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowCsvImport(false)}
+                  disabled={importing}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 text-sm text-blue-800">
+                      <p className="font-medium mb-2">How to get your PSA CSV:</p>
+                      <ol className="list-decimal list-inside space-y-1 ml-2">
+                        <li>Log in to your PSA account</li>
+                        <li>Navigate to your submissions dashboard</li>
+                        <li>Click the export/download button to get the bulk CSV</li>
+                        <li>Upload the CSV file here to import all submissions</li>
+                      </ol>
+                      <p className="mt-2">
+                        <strong>Expected columns:</strong> Order #, Submission #, Status, Items, Service, Track Package, Arrived, Completed
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-brand-400 transition-colors">
+                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-700 font-medium mb-2">Choose PSA CSV file</p>
+                  <p className="text-sm text-gray-500 mb-4">CSV files only</p>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleCsvImport(file);
+                      }
+                    }}
+                    disabled={importing}
+                    className="hidden"
+                    id="csv-upload"
+                  />
+                  <label
+                    htmlFor="csv-upload"
+                    className={`btn btn-primary inline-flex items-center gap-2 cursor-pointer ${
+                      importing ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                  >
+                    {importing ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4" />
+                        Select CSV File
+                      </>
+                    )}
+                  </label>
+                </div>
+
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 text-sm text-yellow-800">
+                      <p className="font-medium mb-1">Note:</p>
+                      <ul className="list-disc list-inside space-y-1">
+                        <li>Existing submissions will be updated based on PSA Submission Number</li>
+                        <li>New submissions will be created automatically</li>
+                        <li>Rows without a Submission # will be skipped</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => setShowCsvImport(false)}
+                disabled={importing}
+                className="btn btn-secondary w-full disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
