@@ -297,9 +297,10 @@ router.post("/", authenticate, async (req, res) => {
 router.put("/:id", authenticate, async (req, res) => {
   try {
     const allowed = [
-      'customer_id', 'internal_id', 'psa_submission_number', 'service_level',
-      'date_sent', 'date_received', 'notes', 'grades_ready', 'shipped',
-      'problem_order', 'problem_description', 'psa_status'
+      'customer_id', 'internal_id', 'psa_submission_number', 'psa_order_number',
+      'service_level', 'date_sent', 'date_received', 'notes', 'grades_ready',
+      'shipped', 'problem_order', 'problem_description', 'psa_status',
+      'declared_value', 'card_count', 'outbound_tracking', 'return_tracking'
     ];
 
     const updates = [];

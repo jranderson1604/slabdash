@@ -317,6 +317,7 @@ export default function Submissions() {
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [sendingBulk, setSendingBulk] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'active', 'shipped', 'problems'
+  const [serviceLevelFilter, setServiceLevelFilter] = useState('all'); // 'all', or specific service level
   const [search, setSearch] = useState('');
   const [showHelp, setShowHelp] = useState(false);
 
@@ -404,9 +405,17 @@ export default function Submissions() {
   });
 
   // Additional filter for problems
-  const displaySubs = filter === 'problems' 
+  let displaySubs = filter === 'problems'
     ? filteredSubs.filter(s => s.problem_order)
     : filteredSubs;
+
+  // Filter by service level
+  if (serviceLevelFilter !== 'all') {
+    displaySubs = displaySubs.filter(s => s.service_level === serviceLevelFilter);
+  }
+
+  // Get unique service levels for tabs
+  const serviceLevels = ['all', ...new Set(subs.map(s => s.service_level).filter(Boolean))];
 
   return (
     <div className="space-y-6">
@@ -509,6 +518,43 @@ export default function Submissions() {
           </div>
         </div>
       </div>
+
+      {/* Service Level Tabs */}
+      {serviceLevels.length > 1 && (
+        <div className="card">
+          <div className="border-b border-gray-200">
+            <div className="flex overflow-x-auto">
+              {serviceLevels.map((level) => {
+                const count = level === 'all'
+                  ? subs.length
+                  : subs.filter(s => s.service_level === level).length;
+                const displayName = level === 'all' ? 'All Service Levels' : level;
+
+                return (
+                  <button
+                    key={level}
+                    onClick={() => setServiceLevelFilter(level)}
+                    className={`px-6 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                      serviceLevelFilter === level
+                        ? 'border-brand-500 text-brand-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {displayName}
+                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
+                      serviceLevelFilter === level
+                        ? 'bg-brand-100 text-brand-700'
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="card">
