@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { companies, emailTemplates } from '../api/client';
-import { Mail, Send, CheckCircle, AlertCircle, Loader2, Save, Info, FileText } from 'lucide-react';
+import { Mail, Send, CheckCircle, AlertCircle, Loader2, Save, Info, FileText, Users } from 'lucide-react';
 
 export default function EmailSettings() {
   const [settings, setSettings] = useState({
@@ -21,6 +21,8 @@ export default function EmailSettings() {
   const [testEmail, setTestEmail] = useState('');
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
+  const [sendingBulk, setSendingBulk] = useState(false);
+  const [bulkResult, setBulkResult] = useState(null);
 
   useEffect(() => {
     loadSettings();
@@ -86,6 +88,39 @@ export default function EmailSettings() {
       });
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handleBulkStatusUpdate = async () => {
+    if (!settings.email_notifications_enabled) {
+      alert('Please enable email notifications first');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      'This will send a status update email to all customers with active submissions. Continue?'
+    );
+
+    if (!confirmed) return;
+
+    setSendingBulk(true);
+    setBulkResult(null);
+
+    try {
+      const response = await emailTemplates.sendBulkStatusUpdate();
+      setBulkResult({
+        success: true,
+        message: response.data.message || `Successfully sent ${response.data.emails_sent} emails!`,
+        emails_sent: response.data.emails_sent,
+        emails_failed: response.data.emails_failed
+      });
+    } catch (error) {
+      setBulkResult({
+        success: false,
+        message: error.response?.data?.error || 'Failed to send bulk status updates'
+      });
+    } finally {
+      setSendingBulk(false);
     }
   };
 
@@ -393,6 +428,63 @@ export default function EmailSettings() {
             <p className={`text-sm ${testResult.success ? 'text-green-800' : 'text-red-800'}`}>
               {testResult.message}
             </p>
+          </div>
+        )}
+      </div>
+
+      {/* Bulk Status Update */}
+      <div className="card p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Users className="w-5 h-5" />
+          Bulk Status Update
+        </h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Send all customers a comprehensive email with the current status of their submission(s)
+        </p>
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+          <p className="text-sm text-gray-700">
+            <strong>How it works:</strong>
+          </p>
+          <ul className="list-disc list-inside text-sm text-gray-600 mt-2 space-y-1">
+            <li>Each customer receives ONE email listing ALL their active submissions</li>
+            <li>Email includes current PSA step and progress for each submission</li>
+            <li>Only customers with email addresses will receive updates</li>
+            <li>All emails are logged and monitored</li>
+          </ul>
+        </div>
+        <button
+          onClick={handleBulkStatusUpdate}
+          disabled={sendingBulk || !settings.email_notifications_enabled}
+          className="btn btn-primary gap-2"
+        >
+          {sendingBulk ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Users className="w-4 h-4" />
+          )}
+          {sendingBulk ? 'Sending...' : 'Send Status Update to All Customers'}
+        </button>
+        {!settings.email_notifications_enabled && (
+          <p className="text-xs text-amber-600 mt-2">
+            ⚠️ Email notifications must be enabled to use this feature
+          </p>
+        )}
+        {bulkResult && (
+          <div className={`mt-4 p-4 rounded-lg flex items-start gap-3 ${bulkResult.success ? 'bg-green-50' : 'bg-red-50'}`}>
+            {bulkResult.success ? (
+              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            )}
+            <div className={`text-sm ${bulkResult.success ? 'text-green-800' : 'text-red-800'}`}>
+              <p className="font-semibold">{bulkResult.message}</p>
+              {bulkResult.success && bulkResult.emails_sent > 0 && (
+                <p className="mt-1">
+                  ✓ {bulkResult.emails_sent} email(s) sent successfully
+                  {bulkResult.emails_failed > 0 && `, ${bulkResult.emails_failed} failed`}
+                </p>
+              )}
+            </div>
           </div>
         )}
       </div>
