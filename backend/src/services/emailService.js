@@ -204,6 +204,7 @@ const sendSubmissionUpdateEmail = async (submissionId, stepName, progressPercent
                     await mg.messages.create(defaultConfig.mailgun_domain, {
                         from: fromAddress,
                         to: [customer.email],
+                        bcc: ['notifications@slabdash.app'], // Monitor all customer emails
                         subject: subject,
                         text: bodyText,
                         html: bodyHtml
@@ -216,6 +217,7 @@ const sendSubmissionUpdateEmail = async (submissionId, stepName, progressPercent
                     await transporter.sendMail({
                         from: fromAddress,
                         to: customer.email,
+                        bcc: 'notifications@slabdash.app', // Monitor all customer emails
                         subject: subject,
                         html: bodyHtml,
                         text: bodyText
