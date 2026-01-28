@@ -1197,7 +1197,7 @@ export default function SubmissionDetail() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500">Date Sent</label>
+                  <label className="text-xs text-gray-500">Date Arrived at PSA</label>
                   <input
                     type="date"
                     value={editForm.date_sent}
@@ -1232,7 +1232,7 @@ export default function SubmissionDetail() {
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-gray-500">Date Sent</dt>
+                  <dt className="text-xs text-gray-500">Date Arrived at PSA</dt>
                   <dd className="text-sm font-medium text-gray-900">
                     {submission.date_sent
                       ? format(new Date(submission.date_sent), 'MMM d, yyyy')

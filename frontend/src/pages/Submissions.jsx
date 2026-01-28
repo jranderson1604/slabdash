@@ -544,7 +544,7 @@ export default function Submissions() {
                   <th>Progress</th>
                   <th>Status</th>
                   <th>Cards</th>
-                  <th>Date Sent</th>
+                  <th>Date Arrived at PSA</th>
                   <th className="w-10"></th>
                 </tr>
               </thead>
