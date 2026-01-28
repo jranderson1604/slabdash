@@ -95,6 +95,192 @@ router.post('/create-default-templates', authenticate, requireRole('owner', 'adm
     }
 });
 
+// Send status update for a single submission
+router.post('/send-submission-update/:submissionId', authenticate, requireRole('owner', 'admin'), async (req, res) => {
+    try {
+        const companyId = req.user.company_id;
+        const submissionId = req.params.submissionId;
+
+        // Get submission details
+        const submissionResult = await db.query(
+            `SELECT s.*, s.psa_status, s.progress_percent
+             FROM submissions s
+             WHERE s.id = $1 AND s.company_id = $2`,
+            [submissionId, companyId]
+        );
+
+        if (submissionResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Submission not found' });
+        }
+
+        const submission = submissionResult.rows[0];
+
+        // Get customers for this submission
+        const customersResult = await db.query(
+            `SELECT DISTINCT c.id, c.name, c.email
+             FROM customers c
+             INNER JOIN submission_customers sc ON c.id = sc.customer_id
+             WHERE sc.submission_id = $1 AND c.email IS NOT NULL
+             ORDER BY c.name`,
+            [submissionId]
+        );
+
+        const customers = customersResult.rows;
+
+        if (customers.length === 0) {
+            return res.json({
+                success: true,
+                message: 'No customers with email addresses found for this submission',
+                emails_sent: 0
+            });
+        }
+
+        // Get company configuration
+        const companyResult = await db.query(
+            `SELECT from_email, from_name, email_notifications_enabled, use_custom_smtp,
+                    smtp_host, smtp_port, smtp_secure, smtp_user, smtp_password, company_logo_url
+             FROM companies WHERE id = $1`,
+            [companyId]
+        );
+
+        if (companyResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Company not found' });
+        }
+
+        const config = companyResult.rows[0];
+
+        if (!config.email_notifications_enabled) {
+            return res.status(400).json({ error: 'Email notifications are not enabled' });
+        }
+
+        // Get default email config if needed
+        const getDefaultEmailConfig = () => {
+            return {
+                mailgun_api_key: process.env.DEFAULT_MAILGUN_API_KEY || process.env.DEFAULT_SMTP_PASSWORD || '',
+                mailgun_domain: process.env.DEFAULT_MAILGUN_DOMAIN || 'slabdash.app',
+                from_email: process.env.DEFAULT_FROM_EMAIL || 'slabdashllc@slabdash.app',
+                from_name: process.env.DEFAULT_FROM_NAME || 'SlabDash'
+            };
+        };
+
+        let emailsSent = 0;
+        let emailsFailed = 0;
+        const errors = [];
+
+        // Send email to each customer (NO BCC to notifications@)
+        for (const customer of customers) {
+            try {
+                const subNumber = submission.psa_submission_number || submission.internal_id || 'N/A';
+                const status = submission.psa_status || 'Pending';
+                const progress = submission.progress_percent || 0;
+
+                const subject = `Update on Your PSA Submission ${subNumber}`;
+
+                const bodyHtml = `
+                    <html>
+                    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                        ${config.company_logo_url ? `<img src="${config.company_logo_url}" alt="Company Logo" style="max-width: 200px; margin-bottom: 20px;">` : ''}
+                        <h2 style="color: rgb(255, 107, 86);">Submission Status Update</h2>
+                        <p>Hi ${customer.name},</p>
+                        <p>Here's the current status of your PSA submission:</p>
+                        <div style="margin: 20px 0; padding: 15px; background: #f9fafb; border-left: 3px solid rgb(255, 107, 86); border-radius: 4px;">
+                            <strong>Submission:</strong> ${subNumber}<br>
+                            <strong>Current Step:</strong> ${status}<br>
+                            <strong>Progress:</strong> ${progress}%<br>
+                            ${submission.service_level ? `<strong>Service Level:</strong> ${submission.service_level}` : ''}
+                        </div>
+                        <p>We'll continue to keep you updated as your cards progress through the grading process!</p>
+                        <p style="margin-top: 20px;">Best regards,<br><strong>${config.from_name || 'SlabDash'}</strong></p>
+                    </body>
+                    </html>
+                `;
+
+                const bodyText = `Hi ${customer.name},\n\nHere's the current status of your PSA submission:\n\nSubmission: ${subNumber}\nCurrent Step: ${status}\nProgress: ${progress}%\n${submission.service_level ? `Service Level: ${submission.service_level}\n` : ''}\nWe'll continue to keep you updated as your cards progress through the grading process!\n\nBest regards,\n${config.from_name || 'SlabDash'}`;
+
+                // Send email using appropriate method (NO BCC)
+                if (!config.use_custom_smtp) {
+                    const defaultConfig = getDefaultEmailConfig();
+                    const fromAddress = `${config.from_name || defaultConfig.from_name} <${defaultConfig.from_email}>`;
+
+                    const mg = mailgun.client({
+                        username: 'api',
+                        key: defaultConfig.mailgun_api_key
+                    });
+
+                    await mg.messages.create(defaultConfig.mailgun_domain, {
+                        from: fromAddress,
+                        to: [customer.email],
+                        subject: subject,
+                        text: bodyText,
+                        html: bodyHtml
+                    });
+                } else {
+                    const nodemailer = require('nodemailer');
+                    const fromAddress = `${config.from_name || 'SlabDash'} <${config.from_email}>`;
+
+                    const transporter = nodemailer.createTransport({
+                        host: config.smtp_host,
+                        port: config.smtp_port || 587,
+                        secure: config.smtp_secure || false,
+                        connectionTimeout: 10000,
+                        greetingTimeout: 10000,
+                        socketTimeout: 10000,
+                        auth: {
+                            user: config.smtp_user,
+                            pass: config.smtp_password
+                        }
+                    });
+
+                    await transporter.sendMail({
+                        from: fromAddress,
+                        to: customer.email,
+                        subject: subject,
+                        html: bodyHtml,
+                        text: bodyText
+                    });
+                }
+
+                // Log successful send
+                await db.query(
+                    `INSERT INTO email_logs (company_id, submission_id, customer_id, recipient_email, subject, step_name, status)
+                     VALUES ($1, $2, $3, $4, $5, 'manual_update', 'sent')`,
+                    [companyId, submissionId, customer.id, customer.email, subject]
+                );
+
+                emailsSent++;
+                console.log(`✓ Submission update email sent to ${customer.email}`);
+
+            } catch (error) {
+                console.error(`✗ Failed to send submission email to ${customer.email}:`, error.message);
+                emailsFailed++;
+                errors.push({ customer: customer.email, error: error.message });
+
+                // Log failed send
+                await db.query(
+                    `INSERT INTO email_logs (company_id, submission_id, customer_id, recipient_email, subject, step_name, status, error_message)
+                     VALUES ($1, $2, $3, $4, 'Submission Update', 'manual_update', 'failed', $5)`,
+                    [companyId, submissionId, customer.id, customer.email, error.message]
+                );
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `Submission update sent: ${emailsSent} sent, ${emailsFailed} failed`,
+            emails_sent: emailsSent,
+            emails_failed: emailsFailed,
+            errors: errors.length > 0 ? errors : undefined
+        });
+
+    } catch (error) {
+        console.error('Send submission update error:', error);
+        res.status(500).json({
+            error: 'Failed to send submission update',
+            details: error.message
+        });
+    }
+});
+
 // Send bulk status update to all customers
 router.post('/send-bulk-status-update', authenticate, requireRole('owner', 'admin'), async (req, res) => {
     try {
@@ -227,7 +413,6 @@ router.post('/send-bulk-status-update', authenticate, requireRole('owner', 'admi
                     await mg.messages.create(defaultConfig.mailgun_domain, {
                         from: fromAddress,
                         to: [customer.email],
-                        bcc: ['notifications@slabdash.app'],
                         subject: subject,
                         text: bodyText,
                         html: bodyHtml
@@ -253,7 +438,6 @@ router.post('/send-bulk-status-update', authenticate, requireRole('owner', 'admi
                     await transporter.sendMail({
                         from: fromAddress,
                         to: customer.email,
-                        bcc: 'notifications@slabdash.app',
                         subject: subject,
                         html: bodyHtml,
                         text: bodyText
@@ -282,6 +466,61 @@ router.post('/send-bulk-status-update', authenticate, requireRole('owner', 'admi
                     [companyId, customer.id, customer.email, error.message]
                 );
             }
+        }
+
+        // Send summary email to notifications@slabdash.app
+        try {
+            const defaultConfig = getDefaultEmailConfig();
+            const fromAddress = `${config.from_name || defaultConfig.from_name} <${defaultConfig.from_email}>`;
+
+            const summarySubject = `Bulk Email Summary: ${emailsSent} sent, ${emailsFailed} failed`;
+
+            let errorsList = '';
+            if (errors.length > 0) {
+                errorsList = '<h3>Failed Sends:</h3><ul>';
+                errors.forEach(err => {
+                    errorsList += `<li><strong>${err.customer}:</strong> ${err.error}</li>`;
+                });
+                errorsList += '</ul>';
+            }
+
+            const summaryHtml = `
+                <html>
+                <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                    <h2 style="color: rgb(255, 107, 86);">Bulk Status Email Summary</h2>
+                    <p>A bulk status update was just sent to customers.</p>
+                    <div style="margin: 20px 0; padding: 15px; background: #f9fafb; border-left: 3px solid rgb(255, 107, 86); border-radius: 4px;">
+                        <strong>Total Customers:</strong> ${customers.length}<br>
+                        <strong>Emails Sent:</strong> ${emailsSent}<br>
+                        <strong>Emails Failed:</strong> ${emailsFailed}
+                    </div>
+                    ${errorsList}
+                    <p style="margin-top: 20px; color: #666; font-size: 12px;">
+                        This is an automated summary from SlabDash bulk email system.
+                    </p>
+                </body>
+                </html>
+            `;
+
+            const summaryText = `Bulk Status Email Summary\n\nTotal Customers: ${customers.length}\nEmails Sent: ${emailsSent}\nEmails Failed: ${emailsFailed}\n\n${errors.length > 0 ? 'Errors:\n' + errors.map(e => `${e.customer}: ${e.error}`).join('\n') : 'No errors'}`;
+
+            const mg = mailgun.client({
+                username: 'api',
+                key: defaultConfig.mailgun_api_key
+            });
+
+            await mg.messages.create(defaultConfig.mailgun_domain, {
+                from: fromAddress,
+                to: ['notifications@slabdash.app'],
+                subject: summarySubject,
+                text: summaryText,
+                html: summaryHtml
+            });
+
+            console.log('✓ Bulk email summary sent to notifications@slabdash.app');
+        } catch (summaryError) {
+            console.error('✗ Failed to send summary email:', summaryError.message);
+            // Don't fail the whole request if summary fails
         }
 
         res.json({
