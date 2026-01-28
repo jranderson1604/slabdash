@@ -1,3 +1,4 @@
+require('dotenv').config();
 const db = require('./src/db');
 const fs = require('fs');
 const path = require('path');
@@ -21,6 +22,14 @@ async function runMigrations() {
     );
     await db.query(migration009);
     console.log('✓ Migration 009: Theme color columns added');
+
+    // Migration 015: Card count column
+    const migration015 = fs.readFileSync(
+      path.join(__dirname, 'migrations/015_add_card_count_column.sql'),
+      'utf8'
+    );
+    await db.query(migration015);
+    console.log('✓ Migration 015: Card count column added');
 
     console.log('All migrations completed successfully!');
     process.exit(0);
