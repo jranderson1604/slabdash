@@ -116,4 +116,8 @@ export const emailTemplates = {
   sendSubmissionUpdate: (submissionId) => api.post(`/email-setup/send-submission-update/${submissionId}`)
 };
 
+export const psaImport = {
+  importCsv: (csvData) => api.post('/psa-import/import-psa-csv', { csvData })
+};
+
 export default api;
