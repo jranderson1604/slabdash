@@ -63,6 +63,14 @@ async function runMigrationsAndStart() {
     await db.query(migration014);
     console.log('✓ Migration 014: Push notification subscriptions added');
 
+    // Migration 015: Card count column
+    const migration015 = fs.readFileSync(
+      path.join(__dirname, 'migrations/015_add_card_count_column.sql'),
+      'utf8'
+    );
+    await db.query(migration015);
+    console.log('✓ Migration 015: Card count column added');
+
     console.log('All migrations completed successfully!\n');
   } catch (error) {
     // Don't fail if columns already exist
