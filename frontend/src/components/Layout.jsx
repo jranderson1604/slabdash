@@ -67,7 +67,7 @@ export default function Layout({ children }) {
         }`}
       >
         {/* Logo */}
-        <div className="flex items-center justify-center px-2 py-4 border-b border-brand-100 relative">
+        <div className="flex items-center justify-center px-2 h-16 border-b border-brand-100 relative">
           <button
             onClick={() => setSidebarOpen(false)}
             className="absolute top-4 right-4 lg:hidden text-gray-600 hover:text-gray-900 z-10"

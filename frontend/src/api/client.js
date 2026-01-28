@@ -110,7 +110,8 @@ export const emailTemplates = {
   delete: (id) => api.delete(`/email-templates/${id}`),
   preview: (id) => api.post(`/email-templates/${id}/preview`),
   testConfig: (testEmail) => api.post('/email-templates/test-config', { test_email: testEmail }),
-  logs: (params) => api.get('/email-templates/logs', { params })
+  logs: (params) => api.get('/email-templates/logs', { params }),
+  createDefaults: () => api.post('/email-setup/create-default-templates')
 };
 
 export default api;
