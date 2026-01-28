@@ -3,6 +3,7 @@ const db = require('../db');
 const formData = require('form-data');
 const Mailgun = require('mailgun.js');
 const mailgun = new Mailgun(formData);
+let sendPushToCompany; // Lazy load to avoid circular dependency
 
 /**
  * Render email template with variables
@@ -245,6 +246,33 @@ const sendSubmissionUpdateEmail = async (submissionId, stepName, progressPercent
 
                 results.push({ customer: customer.email, success: false, error: error.message });
             }
+        }
+
+        // Send push notification to company staff about the update
+        try {
+            if (!sendPushToCompany) {
+                // Lazy load to avoid circular dependency
+                sendPushToCompany = require('../routes/push').sendPushToCompany;
+            }
+
+            const pushPayload = {
+                title: `Submission Updated: ${stepName}`,
+                body: `Submission ${submission.psa_submission_number || submission.internal_id} moved to ${stepName} (${progressPercent}%)`,
+                icon: '/images/logo-icon-alt.png.svg',
+                badge: '/images/logo-icon-alt.png.svg',
+                data: {
+                    url: `/submissions/${submissionId}`,
+                    submissionId,
+                    stepName
+                },
+                tag: `submission-${submissionId}`
+            };
+
+            await sendPushToCompany(submission.company_id, pushPayload);
+            console.log(`✓ Push notification sent for submission ${submissionId}`);
+        } catch (pushError) {
+            console.error('Failed to send push notification:', pushError.message);
+            // Don't fail the email send if push fails
         }
 
         return { success: true, results };
