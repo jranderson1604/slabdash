@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { submissions, cards, customers } from '../api/client';
+import { submissions, cards, customers, emailTemplates } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import {
   ArrowLeft,
@@ -25,6 +25,7 @@ import {
   DollarSign,
   Download,
   Users,
+  Send,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -563,6 +564,7 @@ export default function SubmissionDetail() {
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerToAdd, setCustomerToAdd] = useState('');
   const [showCustomerListModal, setShowCustomerListModal] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   const loadSubmission = async () => {
     try {
@@ -625,6 +627,29 @@ export default function SubmissionDetail() {
       navigate('/submissions');
     } catch (error) {
       console.error('Delete failed:', error);
+    }
+  };
+
+  const handleSendUpdate = async () => {
+    const customerCount = submission?.linked_customers?.length || 0;
+    if (customerCount === 0) {
+      alert('No customers linked to this submission');
+      return;
+    }
+
+    if (!confirm(`Send status update email to ${customerCount} customer(s)?`)) {
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      const response = await emailTemplates.sendSubmissionUpdate(id);
+      alert(response.data.message || `Email sent to ${response.data.emails_sent} customer(s)!`);
+    } catch (error) {
+      console.error('Send email failed:', error);
+      alert(error.response?.data?.error || 'Failed to send status update');
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -821,6 +846,18 @@ export default function SubmissionDetail() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleSendUpdate}
+            disabled={sendingEmail}
+            className="btn btn-secondary gap-2"
+          >
+            {sendingEmail ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+            Send Update
+          </button>
           {company?.hasPsaKey && submission.psa_submission_number && (
             <button
               onClick={handleRefresh}

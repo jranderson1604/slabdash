@@ -112,7 +112,8 @@ export const emailTemplates = {
   testConfig: (testEmail) => api.post('/email-templates/test-config', { test_email: testEmail }),
   logs: (params) => api.get('/email-templates/logs', { params }),
   createDefaults: () => api.post('/email-setup/create-default-templates'),
-  sendBulkStatusUpdate: () => api.post('/email-setup/send-bulk-status-update')
+  sendBulkStatusUpdate: () => api.post('/email-setup/send-bulk-status-update'),
+  sendSubmissionUpdate: (submissionId) => api.post(`/email-setup/send-submission-update/${submissionId}`)
 };
 
 export default api;

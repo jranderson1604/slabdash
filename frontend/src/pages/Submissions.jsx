@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { submissions } from '../api/client';
+import { submissions, emailTemplates } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import {
   Plus,
@@ -21,6 +21,8 @@ import {
   User,
   X,
   ExternalLink,
+  Mail,
+  Send,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -82,6 +84,7 @@ function SubmissionRow({ submission, onRefresh, onDelete }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showCustomersModal, setShowCustomersModal] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const navigate = useNavigate();
 
   const handleRefresh = async (e) => {
@@ -95,6 +98,32 @@ function SubmissionRow({ submission, onRefresh, onDelete }) {
       console.error('Refresh failed:', error);
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleSendUpdate = async (e) => {
+    e.stopPropagation();
+    setMenuOpen(false);
+
+    const customerCount = submission.linked_customers?.length || 0;
+    if (customerCount === 0) {
+      alert('No customers linked to this submission');
+      return;
+    }
+
+    if (!confirm(`Send status update email to ${customerCount} customer(s) for this submission?`)) {
+      return;
+    }
+
+    setSendingEmail(true);
+    try {
+      const response = await emailTemplates.sendSubmissionUpdate(submission.id);
+      alert(response.data.message || `Email sent to ${response.data.emails_sent} customer(s)!`);
+    } catch (error) {
+      console.error('Send email failed:', error);
+      alert(error.response?.data?.error || 'Failed to send status update');
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -190,6 +219,18 @@ function SubmissionRow({ submission, onRefresh, onDelete }) {
                   Refresh from PSA
                 </button>
                 <button
+                  onClick={handleSendUpdate}
+                  disabled={sendingEmail}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {sendingEmail ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  Send Status Update
+                </button>
+                <button
                   onClick={handleDelete}
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
                 >
@@ -274,6 +315,7 @@ export default function Submissions() {
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshingAll, setRefreshingAll] = useState(false);
+  const [sendingBulk, setSendingBulk] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'active', 'shipped', 'problems'
   const [search, setSearch] = useState('');
   const [showHelp, setShowHelp] = useState(false);
@@ -312,6 +354,25 @@ export default function Submissions() {
       alert(`Refresh failed: ${errorMsg}\n\nPlease check your PSA API key in Company Settings.`);
     } finally {
       setRefreshingAll(false);
+    }
+  };
+
+  const handleBulkEmail = async () => {
+    if (!confirm('Send status update emails to ALL customers with active submissions?')) {
+      return;
+    }
+
+    setSendingBulk(true);
+    try {
+      const response = await emailTemplates.sendBulkStatusUpdate();
+      const emailsSent = response.data.emails_sent || 0;
+      const emailsFailed = response.data.emails_failed || 0;
+      alert(`Bulk email complete!\n\nSent: ${emailsSent}\nFailed: ${emailsFailed}`);
+    } catch (error) {
+      console.error('Bulk email failed:', error);
+      alert(error.response?.data?.error || 'Failed to send bulk emails');
+    } finally {
+      setSendingBulk(false);
     }
   };
 
@@ -365,6 +426,14 @@ export default function Submissions() {
           </button>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleBulkEmail}
+            disabled={sendingBulk}
+            className="btn btn-secondary gap-2"
+          >
+            <Mail className={`w-4 h-4 ${sendingBulk ? 'animate-pulse' : ''}`} />
+            <span className="hidden sm:inline">{sendingBulk ? 'Sending...' : 'Email All'}</span>
+          </button>
           {company?.hasPsaKey && (
             <button
               onClick={handleRefreshAll}
