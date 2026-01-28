@@ -21,6 +21,7 @@ const ownerRoutes = require("./routes/owner");
 const subscriptionRoutes = require("./routes/subscriptions");
 const emailTemplatesRoutes = require("./routes/email-templates");
 const emailTemplateSetupRoutes = require("./routes/email-template-setup");
+const pushRoutes = require("./routes/push");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -144,6 +145,7 @@ app.use("/api/owner", ownerRoutes);
 app.use("/api/subscriptions", subscriptionRoutes);
 app.use("/api/email-templates", emailTemplatesRoutes);
 app.use("/api/email-setup", emailTemplateSetupRoutes);
+app.use("/api/push", pushRoutes);
 
 /* -------------------- 404 HANDLER -------------------- */
 

@@ -55,6 +55,14 @@ async function runMigrationsAndStart() {
     await db.query(migration013);
     console.log('✓ Migration 013: Default email templates for all PSA steps added');
 
+    // Migration 014: Push notifications
+    const migration014 = fs.readFileSync(
+      path.join(__dirname, 'migrations/014_add_push_notifications.sql'),
+      'utf8'
+    );
+    await db.query(migration014);
+    console.log('✓ Migration 014: Push notification subscriptions added');
+
     console.log('All migrations completed successfully!\n');
   } catch (error) {
     // Don't fail if columns already exist

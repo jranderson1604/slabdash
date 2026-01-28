@@ -1,7 +1,16 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { companies, emailTemplates } from '../api/client';
-import { Mail, Send, CheckCircle, AlertCircle, Loader2, Save, Info, FileText, Users } from 'lucide-react';
+import api from '../api/client';
+import { Mail, Send, CheckCircle, AlertCircle, Loader2, Save, Info, FileText, Users, Bell, BellOff } from 'lucide-react';
+import {
+  isPushNotificationSupported,
+  getNotificationPermission,
+  subscribeToPushNotifications,
+  unsubscribeFromPushNotifications,
+  isSubscribedToPushNotifications,
+  sendTestNotification
+} from '../utils/pushNotifications';
 
 export default function EmailSettings() {
   const [settings, setSettings] = useState({
@@ -23,10 +32,29 @@ export default function EmailSettings() {
   const [testResult, setTestResult] = useState(null);
   const [sendingBulk, setSendingBulk] = useState(false);
   const [bulkResult, setBulkResult] = useState(null);
+  const [pushSupported, setPushSupported] = useState(false);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushPermission, setPushPermission] = useState('default');
+  const [pushLoading, setPushLoading] = useState(false);
+  const [pushResult, setPushResult] = useState(null);
 
   useEffect(() => {
     loadSettings();
+    checkPushNotificationStatus();
   }, []);
+
+  const checkPushNotificationStatus = async () => {
+    const supported = isPushNotificationSupported();
+    setPushSupported(supported);
+
+    if (supported) {
+      const permission = getNotificationPermission();
+      setPushPermission(permission);
+
+      const subscribed = await isSubscribedToPushNotifications();
+      setPushSubscribed(subscribed);
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -121,6 +149,69 @@ export default function EmailSettings() {
       });
     } finally {
       setSendingBulk(false);
+    }
+  };
+
+  const handleEnablePushNotifications = async () => {
+    setPushLoading(true);
+    setPushResult(null);
+
+    try {
+      await subscribeToPushNotifications(api);
+      setPushSubscribed(true);
+      setPushPermission('granted');
+      setPushResult({
+        success: true,
+        message: 'Push notifications enabled! You will receive updates when submissions progress.'
+      });
+    } catch (error) {
+      setPushResult({
+        success: false,
+        message: error.message || 'Failed to enable push notifications'
+      });
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
+  const handleDisablePushNotifications = async () => {
+    setPushLoading(true);
+    setPushResult(null);
+
+    try {
+      await unsubscribeFromPushNotifications(api);
+      setPushSubscribed(false);
+      setPushResult({
+        success: true,
+        message: 'Push notifications disabled'
+      });
+    } catch (error) {
+      setPushResult({
+        success: false,
+        message: error.message || 'Failed to disable push notifications'
+      });
+    } finally {
+      setPushLoading(false);
+    }
+  };
+
+  const handleTestPushNotification = async () => {
+    setPushLoading(true);
+    setPushResult(null);
+
+    try {
+      const response = await api.post('/push/test');
+      setPushResult({
+        success: true,
+        message: response.data.message || 'Test notification sent!'
+      });
+    } catch (error) {
+      setPushResult({
+        success: false,
+        message: error.response?.data?.error || 'Failed to send test notification'
+      });
+    } finally {
+      setPushLoading(false);
     }
   };
 
@@ -486,6 +577,104 @@ export default function EmailSettings() {
               )}
             </div>
           </div>
+        )}
+      </div>
+
+      {/* Push Notifications */}
+      <div className="card p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <Bell className="w-5 h-5" />
+          Push Notifications (PWA)
+        </h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Get instant notifications when submissions are updated, even when the app is closed
+        </p>
+
+        {!pushSupported ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+            <p className="text-sm text-amber-800">
+              Push notifications are not supported in your browser. Try Chrome, Edge, Firefox, or Safari 16.4+
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-gray-700">
+                <strong>Status:</strong>{' '}
+                {pushSubscribed ? (
+                  <span className="text-green-600 font-semibold">✓ Enabled</span>
+                ) : (
+                  <span className="text-gray-600">Not enabled</span>
+                )}
+              </p>
+              <p className="text-sm text-gray-600 mt-2">
+                <strong>How it works:</strong>
+              </p>
+              <ul className="list-disc list-inside text-sm text-gray-600 mt-1 space-y-1">
+                <li>Receive notifications when submissions progress to new steps</li>
+                <li>Works even when the app is closed (on Android, desktop)</li>
+                <li>Limited support on iOS (requires app to be added to Home Screen)</li>
+                <li>No native app needed - works as a Progressive Web App (PWA)</li>
+              </ul>
+            </div>
+
+            <div className="flex gap-3">
+              {!pushSubscribed ? (
+                <button
+                  onClick={handleEnablePushNotifications}
+                  disabled={pushLoading}
+                  className="btn btn-primary gap-2"
+                >
+                  {pushLoading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Bell className="w-4 h-4" />
+                  )}
+                  Enable Push Notifications
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={handleTestPushNotification}
+                    disabled={pushLoading}
+                    className="btn btn-secondary gap-2"
+                  >
+                    {pushLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                    Send Test Notification
+                  </button>
+                  <button
+                    onClick={handleDisablePushNotifications}
+                    disabled={pushLoading}
+                    className="btn btn-secondary gap-2"
+                  >
+                    {pushLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <BellOff className="w-4 h-4" />
+                    )}
+                    Disable
+                  </button>
+                </>
+              )}
+            </div>
+
+            {pushResult && (
+              <div className={`mt-4 p-4 rounded-lg flex items-start gap-3 ${pushResult.success ? 'bg-green-50' : 'bg-red-50'}`}>
+                {pushResult.success ? (
+                  <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                )}
+                <p className={`text-sm ${pushResult.success ? 'text-green-800' : 'text-red-800'}`}>
+                  {pushResult.message}
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
 
