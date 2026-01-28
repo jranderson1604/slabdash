@@ -565,6 +565,9 @@ export default function SubmissionDetail() {
   const [customerToAdd, setCustomerToAdd] = useState('');
   const [showCustomerListModal, setShowCustomerListModal] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const [saving, setSaving] = useState(false);
 
   const loadSubmission = async () => {
     try {
@@ -650,6 +653,40 @@ export default function SubmissionDetail() {
       alert(error.response?.data?.error || 'Failed to send status update');
     } finally {
       setSendingEmail(false);
+    }
+  };
+
+  const handleEdit = () => {
+    setEditForm({
+      psa_submission_number: submission.psa_submission_number || '',
+      psa_order_number: submission.psa_order_number || '',
+      internal_id: submission.internal_id || '',
+      service_level: submission.service_level || '',
+      date_sent: submission.date_sent || '',
+      declared_value: submission.declared_value || '',
+      outbound_tracking: submission.outbound_tracking || '',
+      return_tracking: submission.return_tracking || ''
+    });
+    setEditing(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditing(false);
+    setEditForm({});
+  };
+
+  const handleSaveEdit = async () => {
+    setSaving(true);
+    try {
+      await submissions.update(id, editForm);
+      await loadSubmission();
+      setEditing(false);
+      setEditForm({});
+    } catch (error) {
+      console.error('Save failed:', error);
+      alert('Failed to save changes');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -836,42 +873,113 @@ export default function SubmissionDetail() {
           <Link to="/submissions" className="p-2 hover:bg-gray-100 rounded-lg">
             <ArrowLeft className="w-5 h-5 text-gray-500" />
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {submission.psa_submission_number || submission.internal_id || 'Submission'}
-            </h1>
-            {submission.psa_order_number && (
-              <p className="text-gray-500">Order #{submission.psa_order_number}</p>
+          <div className="flex-1">
+            {editing ? (
+              <div className="space-y-2">
+                <div>
+                  <label className="text-xs text-gray-500">PSA Submission #</label>
+                  <input
+                    type="text"
+                    value={editForm.psa_submission_number}
+                    onChange={(e) => setEditForm({ ...editForm, psa_submission_number: e.target.value })}
+                    className="input text-xl font-bold"
+                    placeholder="PSA Submission Number"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">PSA Order #</label>
+                  <input
+                    type="text"
+                    value={editForm.psa_order_number}
+                    onChange={(e) => setEditForm({ ...editForm, psa_order_number: e.target.value })}
+                    className="input"
+                    placeholder="PSA Order Number"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Internal ID</label>
+                  <input
+                    type="text"
+                    value={editForm.internal_id}
+                    onChange={(e) => setEditForm({ ...editForm, internal_id: e.target.value })}
+                    className="input"
+                    placeholder="Internal ID"
+                  />
+                </div>
+              </div>
+            ) : (
+              <>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {submission.psa_submission_number || submission.internal_id || 'Submission'}
+                </h1>
+                {submission.psa_order_number && (
+                  <p className="text-gray-500">Order #{submission.psa_order_number}</p>
+                )}
+              </>
             )}
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={handleSendUpdate}
-            disabled={sendingEmail}
-            className="btn btn-secondary gap-2"
-          >
-            {sendingEmail ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-            Send Update
-          </button>
-          {company?.hasPsaKey && submission.psa_submission_number && (
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="btn btn-secondary gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
+          {editing ? (
+            <>
+              <button
+                onClick={handleSaveEdit}
+                disabled={saving}
+                className="btn btn-primary gap-2"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Save Changes
+              </button>
+              <button
+                onClick={handleCancelEdit}
+                disabled={saving}
+                className="btn btn-secondary gap-2"
+              >
+                <X className="w-4 h-4" />
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={handleEdit}
+                className="btn btn-secondary gap-2"
+              >
+                <Edit2 className="w-4 h-4" />
+                Edit
+              </button>
+              <button
+                onClick={handleSendUpdate}
+                disabled={sendingEmail}
+                className="btn btn-secondary gap-2"
+              >
+                {sendingEmail ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                Send Update
+              </button>
+              {company?.hasPsaKey && submission.psa_submission_number && (
+                <button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="btn btn-secondary gap-2"
+                >
+                  <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+              )}
+              <button onClick={handleDelete} className="btn btn-danger gap-2">
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </button>
+            </>
           )}
-          <button onClick={handleDelete} className="btn btn-danger gap-2">
-            <Trash2 className="w-4 h-4" />
-            Delete
-          </button>
         </div>
       </div>
 
@@ -964,9 +1072,9 @@ export default function SubmissionDetail() {
                       className="input pl-10 w-full sm:w-64"
                     />
                   </div>
-                  <label className="btn btn-secondary gap-2 whitespace-nowrap cursor-pointer">
+                  <label className="btn btn-secondary gap-2 whitespace-nowrap cursor-pointer flex items-center">
                     <FileSpreadsheet className="w-4 h-4" />
-                    {importingCSV ? 'Importing...' : 'Import CSV'}
+                    <span>{importingCSV ? 'Importing...' : 'Import CSV'}</span>
                     <input
                       type="file"
                       accept=".csv,.tsv,.txt"
@@ -1064,30 +1172,65 @@ export default function SubmissionDetail() {
             <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4">
               Details
             </h3>
-            <dl className="space-y-3">
-              <div>
-                <dt className="text-xs text-gray-500">Service Level</dt>
-                <dd className="text-sm font-medium text-gray-900">
-                  {submission.service_level || '—'}
-                </dd>
+            {editing ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-gray-500">Service Level</label>
+                  <input
+                    type="text"
+                    value={editForm.service_level}
+                    onChange={(e) => setEditForm({ ...editForm, service_level: e.target.value })}
+                    className="input"
+                    placeholder="e.g., Regular, Express"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Date Sent</label>
+                  <input
+                    type="date"
+                    value={editForm.date_sent}
+                    onChange={(e) => setEditForm({ ...editForm, date_sent: e.target.value })}
+                    className="input"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Declared Value ($)</label>
+                  <input
+                    type="number"
+                    value={editForm.declared_value}
+                    onChange={(e) => setEditForm({ ...editForm, declared_value: e.target.value })}
+                    className="input"
+                    placeholder="0.00"
+                    step="0.01"
+                  />
+                </div>
               </div>
-              <div>
-                <dt className="text-xs text-gray-500">Date Sent</dt>
-                <dd className="text-sm font-medium text-gray-900">
-                  {submission.date_sent
-                    ? format(new Date(submission.date_sent), 'MMM d, yyyy')
-                    : '—'}
-                </dd>
-              </div>
-              <div>
-                <dt className="text-xs text-gray-500">Declared Value</dt>
-                <dd className="text-sm font-medium text-gray-900">
-                  {submission.declared_value
-                    ? `$${parseFloat(submission.declared_value).toLocaleString()}`
-                    : '—'}
-                </dd>
-              </div>
-            </dl>
+            ) : (
+              <dl className="space-y-3">
+                <div>
+                  <dt className="text-xs text-gray-500">Service Level</dt>
+                  <dd className="text-sm font-medium text-gray-900">
+                    {submission.service_level || '—'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-gray-500">Date Sent</dt>
+                  <dd className="text-sm font-medium text-gray-900">
+                    {submission.date_sent
+                      ? format(new Date(submission.date_sent), 'MMM d, yyyy')
+                      : '—'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-gray-500">Declared Value</dt>
+                  <dd className="text-sm font-medium text-gray-900">
+                    {submission.declared_value
+                      ? `$${parseFloat(submission.declared_value).toLocaleString()}`
+                      : '—'}
+                  </dd>
+                </div>
+              </dl>
+            )}
           </div>
 
           {/* Tracking */}
@@ -1096,20 +1239,45 @@ export default function SubmissionDetail() {
               <Truck className="w-4 h-4" />
               Tracking
             </h3>
-            <dl className="space-y-3">
-              <div>
-                <dt className="text-xs text-gray-500">Outbound</dt>
-                <dd className="text-sm font-medium text-gray-900">
-                  {submission.outbound_tracking || '—'}
-                </dd>
+            {editing ? (
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-gray-500">Outbound Tracking</label>
+                  <input
+                    type="text"
+                    value={editForm.outbound_tracking}
+                    onChange={(e) => setEditForm({ ...editForm, outbound_tracking: e.target.value })}
+                    className="input"
+                    placeholder="Tracking number"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-gray-500">Return Tracking</label>
+                  <input
+                    type="text"
+                    value={editForm.return_tracking}
+                    onChange={(e) => setEditForm({ ...editForm, return_tracking: e.target.value })}
+                    className="input"
+                    placeholder="Tracking number"
+                  />
+                </div>
               </div>
-              <div>
-                <dt className="text-xs text-gray-500">Return</dt>
-                <dd className="text-sm font-medium text-gray-900">
-                  {submission.return_tracking || '—'}
-                </dd>
-              </div>
-            </dl>
+            ) : (
+              <dl className="space-y-3">
+                <div>
+                  <dt className="text-xs text-gray-500">Outbound</dt>
+                  <dd className="text-sm font-medium text-gray-900">
+                    {submission.outbound_tracking || '—'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-gray-500">Return</dt>
+                  <dd className="text-sm font-medium text-gray-900">
+                    {submission.return_tracking || '—'}
+                  </dd>
+                </div>
+              </dl>
+            )}
           </div>
 
           {/* Form Images */}
@@ -1120,9 +1288,9 @@ export default function SubmissionDetail() {
             </h3>
 
             {/* Upload button */}
-            <label className="btn btn-secondary gap-2 w-full cursor-pointer mb-4">
+            <label className="btn btn-secondary gap-2 w-full cursor-pointer mb-4 flex items-center justify-center">
               <Upload className="w-4 h-4" />
-              {uploadingImage ? 'Uploading...' : 'Upload Image'}
+              <span>{uploadingImage ? 'Uploading...' : 'Upload Image'}</span>
               <input
                 type="file"
                 accept="image/*"
