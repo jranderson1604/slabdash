@@ -664,6 +664,7 @@ export default function SubmissionDetail() {
       service_level: submission.service_level || '',
       date_sent: submission.date_sent || '',
       declared_value: submission.declared_value || '',
+      card_count: submission.card_count || 0,
       outbound_tracking: submission.outbound_tracking || '',
       return_tracking: submission.return_tracking || ''
     });
@@ -1185,6 +1186,17 @@ export default function SubmissionDetail() {
                   />
                 </div>
                 <div>
+                  <label className="text-xs text-gray-500">Card Count</label>
+                  <input
+                    type="number"
+                    value={editForm.card_count}
+                    onChange={(e) => setEditForm({ ...editForm, card_count: parseInt(e.target.value) || 0 })}
+                    className="input"
+                    placeholder="0"
+                    min="0"
+                  />
+                </div>
+                <div>
                   <label className="text-xs text-gray-500">Date Sent</label>
                   <input
                     type="date"
@@ -1211,6 +1223,12 @@ export default function SubmissionDetail() {
                   <dt className="text-xs text-gray-500">Service Level</dt>
                   <dd className="text-sm font-medium text-gray-900">
                     {submission.service_level || '—'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-gray-500">Card Count</dt>
+                  <dd className="text-sm font-medium text-gray-900">
+                    {submission.card_count || 0}
                   </dd>
                 </div>
                 <div>
