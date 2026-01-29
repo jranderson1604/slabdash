@@ -526,14 +526,16 @@ export default function Submissions() {
 
   useEffect(() => {
     loadSubmissions();
-  }, [filter]);
+  }, [filter, activeTab]);
 
   // Filter by active/completed tab first
   const tabFilteredSubs = subs.filter((s) => {
+    const isShipped = Boolean(s.shipped);
+
     if (activeTab === 'completed') {
-      return s.shipped; // Only show shipped submissions in completed tab
+      return isShipped; // Only show shipped submissions in completed tab
     } else {
-      return !s.shipped; // Show all non-shipped submissions in active tab
+      return !isShipped; // Show all non-shipped submissions in active tab
     }
   });
 
@@ -567,8 +569,8 @@ export default function Submissions() {
   }
 
   // Calculate counts for tabs
-  const activeCount = subs.filter(s => !s.shipped).length;
-  const completedCount = subs.filter(s => s.shipped).length;
+  const activeCount = subs.filter(s => !Boolean(s.shipped)).length;
+  const completedCount = subs.filter(s => Boolean(s.shipped)).length;
 
   // Get unique service levels for tabs
   const serviceLevels = ['all', ...new Set(subs.map(s => s.service_level).filter(Boolean))];

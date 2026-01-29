@@ -69,9 +69,11 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                     }
                 }
 
-                // Determine if shipped based on status
-                const shipped = status.toLowerCase() === 'completed';
+                // Determine shipping and problem status
+                // Only mark as shipped if there's a tracking number OR status explicitly says shipped
+                const shipped = Boolean(trackingNumber) || status.toLowerCase().includes('shipped');
                 const problemOrder = status.toLowerCase().includes('problem');
+                const gradesReady = status.toLowerCase() === 'completed';
 
                 // Check if submission already exists
                 const existingResult = await db.query(
@@ -93,8 +95,9 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                             date_sent = $6,
                             shipped = $7,
                             problem_order = $8,
+                            grades_ready = $9,
                             last_api_update = CURRENT_TIMESTAMP
-                         WHERE id = $9 AND company_id = $10`,
+                         WHERE id = $10 AND company_id = $11`,
                         [
                             orderNumber || null,
                             status || null,
@@ -104,6 +107,7 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                             dateArrived,
                             shipped,
                             problemOrder,
+                            gradesReady,
                             submissionId,
                             companyId
                         ]
@@ -125,9 +129,10 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                             date_sent,
                             shipped,
                             problem_order,
+                            grades_ready,
                             internal_id,
                             last_api_update
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)`,
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)`,
                         [
                             companyId,
                             submissionNumber,
@@ -139,6 +144,7 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                             dateArrived,
                             shipped,
                             problemOrder,
+                            gradesReady,
                             submissionNumber // Use submission number as internal ID
                         ]
                     );
