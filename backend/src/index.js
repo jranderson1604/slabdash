@@ -181,6 +181,22 @@ async function startServer() {
     await db.query("SELECT 1");
     console.log("✓ Database connected");
 
+    // Run essential migrations automatically
+    try {
+      console.log("Running automatic migrations...");
+
+      // Add card_count column if it doesn't exist
+      await db.query(`
+        ALTER TABLE submissions
+        ADD COLUMN IF NOT EXISTS card_count INTEGER DEFAULT 0;
+      `);
+      console.log("✓ Migration: card_count column ensured");
+
+    } catch (migrationError) {
+      // Don't fail startup if migration has issues, just log it
+      console.warn("⚠ Migration warning:", migrationError.message);
+    }
+
     app.listen(PORT, () => {
       console.log(`
 ╔══════════════════════════════════════════════════╗
