@@ -526,14 +526,14 @@ export default function Submissions() {
 
   useEffect(() => {
     loadSubmissions();
-  }, [filter]);
+  }, [filter, activeTab]);
 
   // Filter by active/completed tab first
   const tabFilteredSubs = subs.filter((s) => {
     if (activeTab === 'completed') {
-      return s.shipped; // Only show shipped submissions in completed tab
+      return s.shipped === true || s.shipped === 1 || s.shipped === '1'; // Only show shipped submissions in completed tab
     } else {
-      return !s.shipped; // Show all non-shipped submissions in active tab
+      return !s.shipped || s.shipped === false || s.shipped === 0 || s.shipped === '0'; // Show all non-shipped submissions in active tab
     }
   });
 
