@@ -95,7 +95,7 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
     const { getSubmissionProgress, updateSubmissionFromPsa } = require('../services/psaService');
 
     // Helper function to retry with exponential backoff on rate limit
-    const getSubmissionWithRetry = async (apiKey, submissionNumber, maxRetries = 3) => {
+    const getSubmissionWithRetry = async (apiKey, submissionNumber, maxRetries = 4) => {
       let lastError;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
@@ -105,9 +105,13 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
           lastError = err;
           // Check if it's a rate limit error (429)
           if (err.response?.status === 429 && attempt < maxRetries) {
-            const backoffDelay = Math.pow(2, attempt) * 2000; // 2s, 4s, 8s
-            console.log(`Rate limited on ${submissionNumber}, retrying in ${backoffDelay}ms (attempt ${attempt + 1}/${maxRetries})`);
-            await new Promise(resolve => setTimeout(resolve, backoffDelay));
+            // Aggressive backoff: 5s, 10s, 20s, 40s
+            const backoffDelay = Math.pow(2, attempt) * 5000;
+            // Add random jitter to prevent synchronized retries
+            const jitter = Math.random() * 2000;
+            const totalDelay = backoffDelay + jitter;
+            console.log(`Rate limited on ${submissionNumber}, retrying in ${Math.round(totalDelay/1000)}s (attempt ${attempt + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, totalDelay));
             continue;
           }
           throw err;
@@ -153,8 +157,10 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
           })}\n\n`);
         }
 
-        // Rate limit: wait 2 seconds between requests to avoid 429 errors
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Rate limit: wait 5 seconds between requests + random jitter to avoid 429 errors
+        const baseDelay = 5000;
+        const jitter = Math.random() * 2000; // 0-2s random jitter
+        await new Promise(resolve => setTimeout(resolve, baseDelay + jitter));
       } catch (err) {
         console.error(`Failed to refresh submission ${submission.psa_submission_number}:`, err.message);
         errors++;
@@ -171,8 +177,8 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
           error: err.message
         })}\n\n`);
 
-        // Still wait on errors to avoid hammering the API
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // After error, wait even longer (10s) before next request
+        await new Promise(resolve => setTimeout(resolve, 10000));
       }
     }
 

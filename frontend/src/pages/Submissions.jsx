@@ -405,6 +405,10 @@ export default function Submissions() {
       return;
     }
 
+    if (!confirm('This will refresh all active submissions from PSA.\n\n⏱️ This process takes 5-7 seconds per submission to avoid rate limits.\n\nSome submissions may fail due to PSA rate limiting - this is normal.\n\nContinue?')) {
+      return;
+    }
+
     setRefreshingAll(true);
     setRefreshProgress({ total: 0, current: 0, updated: 0, errors: 0 });
 
@@ -462,7 +466,12 @@ export default function Submissions() {
                   errors: data.errors
                 });
                 await loadSubmissions();
-                alert(`✓ ${data.message}`);
+
+                let message = `✓ Refresh Complete!\n\nUpdated: ${data.updated}\nFailed: ${data.errors}`;
+                if (data.errors > 0) {
+                  message += '\n\nℹ️ Some submissions failed due to PSA rate limiting.\nYou can try refreshing individual submissions later.';
+                }
+                alert(message);
               } else if (data.type === 'error') {
                 throw new Error(data.details || 'Failed to refresh submissions');
               }
