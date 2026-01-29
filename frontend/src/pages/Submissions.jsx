@@ -391,20 +391,7 @@ export default function Submissions() {
       }
 
       const res = await submissions.list(params);
-      const loadedSubs = res.data.submissions || [];
-
-      // Debug: Log shipping status
-      console.log('Submissions loaded:', loadedSubs.length);
-      console.log('Shipped statuses:', loadedSubs.map(s => ({
-        id: s.id,
-        psa_num: s.psa_submission_number,
-        shipped: s.shipped,
-        type: typeof s.shipped,
-        grades_ready: s.grades_ready,
-        problem: s.problem_order
-      })));
-
-      setSubs(loadedSubs);
+      setSubs(res.data.submissions || []);
     } catch (error) {
       console.error('Failed to load submissions:', error);
     } finally {

@@ -94,12 +94,34 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
 
     const { getSubmissionProgress, updateSubmissionFromPsa } = require('../services/psaService');
 
-    // Refresh each submission (with rate limiting)
+    // Helper function to retry with exponential backoff on rate limit
+    const getSubmissionWithRetry = async (apiKey, submissionNumber, maxRetries = 3) => {
+      let lastError;
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          const result = await getSubmissionProgress(apiKey, submissionNumber);
+          return result;
+        } catch (err) {
+          lastError = err;
+          // Check if it's a rate limit error (429)
+          if (err.response?.status === 429 && attempt < maxRetries) {
+            const backoffDelay = Math.pow(2, attempt) * 2000; // 2s, 4s, 8s
+            console.log(`Rate limited on ${submissionNumber}, retrying in ${backoffDelay}ms (attempt ${attempt + 1}/${maxRetries})`);
+            await new Promise(resolve => setTimeout(resolve, backoffDelay));
+            continue;
+          }
+          throw err;
+        }
+      }
+      throw lastError;
+    };
+
+    // Refresh each submission with rate limiting and retries
     for (let i = 0; i < submissions.rows.length; i++) {
       const submission = submissions.rows[i];
       try {
-        // Get submission progress from PSA API
-        const result = await getSubmissionProgress(psaApiKey, submission.psa_submission_number);
+        // Get submission progress from PSA API with retry logic
+        const result = await getSubmissionWithRetry(psaApiKey, submission.psa_submission_number);
 
         if (result.success && result.data) {
           // Update submission with latest data (this also triggers email notifications)
@@ -131,8 +153,8 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
           })}\n\n`);
         }
 
-        // Rate limit: wait 500ms between requests
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Rate limit: wait 2 seconds between requests to avoid 429 errors
+        await new Promise(resolve => setTimeout(resolve, 2000));
       } catch (err) {
         console.error(`Failed to refresh submission ${submission.psa_submission_number}:`, err.message);
         errors++;
@@ -148,6 +170,9 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
           status: 'error',
           error: err.message
         })}\n\n`);
+
+        // Still wait on errors to avoid hammering the API
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
 
