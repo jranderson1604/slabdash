@@ -182,6 +182,76 @@ router.get('/stats', authenticateCustomer, async (req, res) => {
     }
 });
 
+// Get all customer's cards across all submissions
+router.get('/cards', authenticateCustomer, async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT c.*,
+                s.psa_submission_number,
+                s.internal_id,
+                s.grades_ready,
+                s.shipped
+             FROM cards c
+             LEFT JOIN submissions s ON c.submission_id = s.id
+             WHERE c.customer_owner_id = $1 OR s.customer_id = $1
+             ORDER BY c.created_at DESC`,
+            [req.customer.id]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get cards' });
+    }
+});
+
+// Get customer's pickups (submissions ready for pickup or completed)
+router.get('/pickups', authenticateCustomer, async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT s.*,
+                sc.delivery_method,
+                sc.shipping_address,
+                sc.customer_cost,
+                (SELECT COUNT(*) FROM cards WHERE submission_id = s.id AND customer_owner_id = $1) as my_card_count
+             FROM submissions s
+             LEFT JOIN submission_customers sc ON s.id = sc.submission_id AND sc.customer_id = $1
+             WHERE (s.customer_id = $1 OR sc.customer_id = $1)
+               AND s.grades_ready = true
+             ORDER BY s.picked_up ASC, s.created_at DESC`,
+            [req.customer.id]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get pickups' });
+    }
+});
+
+// Get customer's invoices
+router.get('/invoices', authenticateCustomer, async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT
+                s.id,
+                s.psa_submission_number,
+                s.internal_id,
+                s.invoice_number,
+                s.invoice_sent_at,
+                s.total_cost as submission_total,
+                sc.customer_cost,
+                sc.invoice_sent,
+                (SELECT COUNT(*) FROM cards WHERE submission_id = s.id AND customer_owner_id = $1) as card_count
+             FROM submissions s
+             LEFT JOIN submission_customers sc ON s.id = sc.submission_id AND sc.customer_id = $1
+             WHERE (s.customer_id = $1 OR sc.customer_id = $1)
+               AND s.invoice_sent = true
+             ORDER BY s.invoice_sent_at DESC`,
+            [req.customer.id]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to get invoices' });
+    }
+});
+
 // Get customer's buyback offers
 router.get('/buyback-offers', authenticateCustomer, async (req, res) => {
     try {
