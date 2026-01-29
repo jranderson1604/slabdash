@@ -815,4 +815,27 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
   }
 });
 
+// Admin endpoint to fix corrupted shipped statuses
+router.post("/fix-shipped-status", authenticate, requireRole("owner", "admin"), async (req, res) => {
+  try {
+    // Reset shipped=true for submissions without tracking numbers
+    const result = await db.query(`
+      UPDATE submissions
+      SET shipped = false
+      WHERE company_id = $1
+      AND shipped = true
+      AND (return_tracking IS NULL OR return_tracking = '' OR return_tracking = 'null')
+    `, [req.user.company_id]);
+
+    res.json({
+      success: true,
+      message: `Fixed ${result.rowCount} submissions that were incorrectly marked as shipped`,
+      fixed: result.rowCount
+    });
+  } catch (error) {
+    console.error("Fix shipped status error:", error);
+    res.status(500).json({ error: "Failed to fix shipped statuses" });
+  }
+});
+
 module.exports = router;
