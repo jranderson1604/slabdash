@@ -85,7 +85,7 @@ app.get("/api/health", async (req, res) => {
       service: "SlabDash API",
       database: "connected",
       timestamp: new Date().toISOString(),
-      message: "✅ v2.0 - Document upload, CSV import, and buyback system ready!"
+      message: "✅ v2.1 - PSA CSV import, bulk emails, and card_count migration ready!"
     });
   } catch (err) {
     res.status(503).json({
