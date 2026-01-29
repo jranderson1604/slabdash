@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Run Database Migration - SlabDash</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1c1c21 0%, #2d2d35 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: #2d2d35;
+            border-radius: 12px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            background: linear-gradient(135deg, #FF8170 0%, #FF6B9D 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-size: 28px;
+            margin-bottom: 24px;
+        }
+        .info {
+            background: rgba(255, 129, 112, 0.1);
+            border-left: 4px solid #FF8170;
+            padding: 16px;
+            margin-bottom: 24px;
+            border-radius: 4px;
+            line-height: 1.6;
+        }
+        .button {
+            background: linear-gradient(135deg, #FF8170 0%, #FF6B9D 100%);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 129, 112, 0.4);
+        }
+        .button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 24px;
+            padding: 16px;
+            border-radius: 8px;
+            display: none;
+        }
+        .result.success {
+            background: rgba(34, 197, 94, 0.1);
+            border-left: 4px solid #22c55e;
+            color: #22c55e;
+            display: block;
+        }
+        .result.error {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 4px solid #ef4444;
+            color: #ef4444;
+            display: block;
+        }
+        .loader {
+            display: none;
+            margin-top: 16px;
+            text-align: center;
+        }
+        .loader.active {
+            display: block;
+        }
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #FF8170;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Database Migration</h1>
+
+        <div class="info">
+            <strong>Migration Required:</strong> Your database is missing the <code>card_count</code> column.
+            Click the button below to add it. You must be logged in as an admin or owner.
+        </div>
+
+        <button class="button" id="migrateBtn" onclick="runMigration()">
+            Run Migration Now
+        </button>
+
+        <div class="loader" id="loader">
+            <div class="spinner"></div>
+            <p style="margin-top: 12px;">Running migration...</p>
+        </div>
+
+        <div class="result" id="result"></div>
+    </div>
+
+    <script>
+        async function runMigration() {
+            const btn = document.getElementById('migrateBtn');
+            const loader = document.getElementById('loader');
+            const result = document.getElementById('result');
+
+            // Reset UI
+            btn.disabled = true;
+            loader.classList.add('active');
+            result.style.display = 'none';
+            result.className = 'result';
+
+            try {
+                // Get auth token from localStorage
+                const token = localStorage.getItem('token');
+
+                if (!token) {
+                    throw new Error('No authentication token found. Please log in first at /login');
+                }
+
+                const response = await fetch('/api/migration/add-card-count', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                const data = await response.json();
+
+                loader.classList.remove('active');
+
+                if (response.ok && data.success) {
+                    result.className = 'result success';
+                    result.innerHTML = `
+                        <strong>✓ Success!</strong><br>
+                        ${data.message}<br><br>
+                        You can now upload CSV files without errors.
+                    `;
+                } else {
+                    result.className = 'result error';
+                    result.innerHTML = `
+                        <strong>✗ Error</strong><br>
+                        ${data.error || data.message || 'Migration failed'}<br>
+                        ${data.details ? `<br>${data.details}` : ''}
+                    `;
+                }
+
+            } catch (error) {
+                loader.classList.remove('active');
+                result.className = 'result error';
+                result.innerHTML = `
+                    <strong>✗ Error</strong><br>
+                    ${error.message}<br><br>
+                    Make sure you're logged in with an admin or owner account.
+                `;
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

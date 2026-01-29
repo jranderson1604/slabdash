@@ -32,6 +32,10 @@ const PORT = process.env.PORT || 3001;
 
 /* -------------------- GLOBAL MIDDLEWARE -------------------- */
 
+// Serve static files from public directory
+const path = require('path');
+app.use(express.static(path.join(__dirname, '../public')));
+
 // Trust Railway proxy for rate limiting and proper IP detection
 app.set('trust proxy', 1);
 
