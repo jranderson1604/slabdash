@@ -331,7 +331,50 @@ router.put("/:id", authenticate, async (req, res) => {
       return res.status(404).json({ error: "Submission not found" });
     }
 
-    res.json(result.rows[0]);
+    const updatedSubmission = result.rows[0];
+
+    // If grades_ready is being set to true and no pickup code exists, generate one
+    if (req.body.grades_ready === true && !updatedSubmission.pickup_code) {
+      const generatePickupCode = () => {
+        const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+        const numbers = '0123456789';
+        let code = '';
+        for (let i = 0; i < 3; i++) {
+          code += letters.charAt(Math.floor(Math.random() * letters.length));
+        }
+        code += '-';
+        for (let i = 0; i < 3; i++) {
+          code += numbers.charAt(Math.floor(Math.random() * numbers.length));
+        }
+        return code;
+      };
+
+      let pickupCode;
+      let attempts = 0;
+      let isUnique = false;
+
+      while (!isUnique && attempts < 10) {
+        pickupCode = generatePickupCode();
+        const existing = await db.query(
+          'SELECT id FROM submissions WHERE pickup_code = $1',
+          [pickupCode]
+        );
+        if (existing.rows.length === 0) {
+          isUnique = true;
+        }
+        attempts++;
+      }
+
+      if (isUnique) {
+        await db.query(
+          'UPDATE submissions SET pickup_code = $1 WHERE id = $2',
+          [pickupCode, req.params.id]
+        );
+        updatedSubmission.pickup_code = pickupCode;
+      }
+    }
+
+    res.json(updatedSubmission);
   } catch (error) {
     console.error("Update submission error:", error);
     res.status(500).json({ error: "Failed to update submission" });

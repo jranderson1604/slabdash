@@ -120,4 +120,11 @@ export const psaImport = {
   importCsv: (csvData) => api.post('/psa-import/import-psa-csv', { csvData })
 };
 
+export const pickup = {
+  generateCode: (submissionId) => api.post(`/pickup/generate-code/${submissionId}`),
+  verifyPickup: (submissionId, data) => api.post(`/pickup/verify-pickup/${submissionId}`, data),
+  getHistory: (submissionId) => api.get(`/pickup/history/${submissionId}`),
+  lookupByCode: (pickupCode) => api.get(`/pickup/lookup/${pickupCode}`)
+};
+
 export default api;
