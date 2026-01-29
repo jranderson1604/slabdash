@@ -206,6 +206,21 @@ async function startServer() {
       `);
       console.log("✓ Migration: user_id constraint removed if exists");
 
+      // CRITICAL FIX: Reset shipped status for submissions without tracking numbers
+      // This fixes corrupted data from buggy CSV imports
+      const resetResult = await db.query(`
+        UPDATE submissions
+        SET shipped = false
+        WHERE shipped = true
+        AND (return_tracking IS NULL OR return_tracking = '' OR return_tracking = 'null');
+      `);
+
+      if (resetResult.rowCount > 0) {
+        console.log(`✓ Migration: Fixed ${resetResult.rowCount} incorrectly shipped submissions`);
+      } else {
+        console.log("✓ Migration: No corrupted shipped statuses found");
+      }
+
     } catch (migrationError) {
       // Don't fail startup if migration has issues, just log it
       console.warn("⚠ Migration warning:", migrationError.message);

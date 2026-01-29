@@ -56,7 +56,8 @@ export const submissions = {
     api.post(`/submissions/${id}/images`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     }),
-  importCSV: (id, csvData) => api.post(`/submissions/${id}/import-csv`, { csvData })
+  importCSV: (id, csvData) => api.post(`/submissions/${id}/import-csv`, { csvData }),
+  fixShippedStatus: () => api.post('/submissions/fix-shipped-status')
 };
 
 export const cards = {

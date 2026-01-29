@@ -524,6 +524,21 @@ export default function Submissions() {
     setSubs(subs.filter((s) => s.id !== id));
   };
 
+  const handleFixShippedStatus = async () => {
+    if (!confirm('This will reset incorrectly marked shipped submissions. Continue?')) {
+      return;
+    }
+
+    try {
+      const response = await submissions.fixShippedStatus();
+      alert(`✓ Fixed ${response.data.fixed} submissions!\n\nYour active submissions should now appear correctly.`);
+      await loadSubmissions();
+    } catch (error) {
+      console.error('Fix shipped status failed:', error);
+      alert('Failed to fix shipped statuses. Check console for details.');
+    }
+  };
+
   useEffect(() => {
     loadSubmissions();
   }, [filter, activeTab]);
@@ -616,6 +631,16 @@ export default function Submissions() {
             >
               <RefreshCw className={`w-4 h-4 ${refreshingAll ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">{refreshingAll ? 'Refreshing...' : 'Refresh All'}</span>
+            </button>
+          )}
+          {activeCount === 0 && completedCount > 0 && (
+            <button
+              onClick={handleFixShippedStatus}
+              className="btn gap-2 bg-yellow-500 hover:bg-yellow-600 text-white border-0"
+              title="Fix submissions incorrectly marked as shipped"
+            >
+              <AlertCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">Fix Data</span>
             </button>
           )}
           <Link to="/submissions/new" className="btn btn-primary gap-2">
