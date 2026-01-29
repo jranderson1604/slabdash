@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { submissions, cards, customers, emailTemplates } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import PickupCard from '../components/PickupCard';
 import {
   ArrowLeft,
   RefreshCw,
@@ -1044,6 +1045,9 @@ export default function SubmissionDetail() {
               </p>
             )}
           </div>
+
+          {/* Pickup System */}
+          <PickupCard submission={submission} onPickupComplete={loadSubmission} />
 
           {/* Cards */}
           <div className="card">

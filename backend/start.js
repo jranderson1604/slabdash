@@ -71,6 +71,14 @@ async function runMigrationsAndStart() {
     await db.query(migration015);
     console.log('✓ Migration 015: Card count column added');
 
+    // Migration 016: Pickup system
+    const migration016 = fs.readFileSync(
+      path.join(__dirname, 'migrations/016_add_pickup_system.sql'),
+      'utf8'
+    );
+    await db.query(migration016);
+    console.log('✓ Migration 016: Pickup system with codes and audit trail added');
+
     console.log('All migrations completed successfully!\n');
   } catch (error) {
     // Don't fail if columns already exist
