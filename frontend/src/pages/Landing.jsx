@@ -196,15 +196,6 @@ export default function Landing() {
       <section className="pt-16 pb-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white via-brand-50/30 to-white">
         <div className="max-w-7xl mx-auto">
           <div className="text-center space-y-6 fade-in">
-            {/* Hero Wordmark - Title */}
-            <div className="flex justify-center mb-4 px-4">
-              <img
-                src="/images/logo-full.png.svg"
-                alt="SlabDash"
-                className="w-full max-w-2xl h-auto drop-shadow-lg"
-                style={{ minHeight: '60px', maxHeight: '100px' }}
-              />
-            </div>
             <div className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand-50 to-brand-100 text-brand-700 rounded-full text-sm font-semibold border border-brand-200 shadow-sm">
               <Zap className="w-4 h-4" />
               Professional PSA Submission Tracking
@@ -355,7 +346,7 @@ export default function Landing() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+          <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto pt-8">
             {pricing.map((plan) => (
               <div
                 key={plan.id}
@@ -366,7 +357,7 @@ export default function Landing() {
                 }`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-5 left-1/2 -translate-x-1/2">
+                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-auto whitespace-nowrap">
                     <span className="inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-full text-sm font-bold shadow-lg">
                       <Star className="w-4 h-4 fill-current" />
                       Most Popular
@@ -458,38 +449,28 @@ export default function Landing() {
       </section>
 
       {/* CTA Section */}
-      <section id="contact" className="section-wix-lg bg-gradient-to-br from-brand-600 via-brand-500 to-brand-600 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"></div>
-        <div className="absolute top-0 left-0 w-96 h-96 bg-white opacity-5 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
-        <div className="absolute bottom-0 right-0 w-96 h-96 bg-white opacity-5 rounded-full translate-x-1/2 translate-y-1/2"></div>
+      <section id="contact" className="section-wix-lg bg-gray-900 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-900"></div>
+        <div className="absolute top-0 left-0 w-96 h-96 bg-brand-500 opacity-10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"></div>
+        <div className="absolute bottom-0 right-0 w-96 h-96 bg-brand-500 opacity-10 rounded-full blur-3xl translate-x-1/2 translate-y-1/2"></div>
 
-        <div className="max-w-4xl mx-auto text-center text-white relative z-10">
-          <div className="flex justify-center mb-12 scale-in">
-            <div className="relative">
-              <div className="absolute inset-0 bg-white opacity-20 blur-3xl rounded-full"></div>
-              <img
-                src="/images/logo-icon.png.svg"
-                alt="SlabDash"
-                className="h-48 w-48 relative drop-shadow-2xl"
-              />
-            </div>
-          </div>
-          <h2 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold mb-8 leading-tight drop-shadow-lg">
+        <div className="max-w-4xl mx-auto text-center relative z-10">
+          <h2 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold mb-8 leading-tight text-white">
             Ready to Transform Your<br />Grading Business?
           </h2>
-          <p className="text-2xl mb-12 text-brand-50 font-medium">
+          <p className="text-2xl mb-12 text-gray-300 font-medium">
             Join hundreds of card shops already using SlabDash
           </p>
           <div className="flex items-center justify-center gap-5">
             <button
               onClick={() => navigate('/register')}
-              className="bg-white text-brand-600 hover:bg-brand-50 px-12 py-5 rounded-xl font-black text-xl transition-all flex items-center gap-3 shadow-wix-lg hover:shadow-2xl transform hover:-translate-y-1 hover:scale-105"
+              className="bg-gradient-to-r from-[#FF8170] to-[#ff6b59] hover:from-[#ff6b59] hover:to-[#FF8170] text-white px-12 py-5 rounded-xl font-black text-xl transition-all flex items-center gap-3 shadow-2xl hover:shadow-[0_20px_50px_rgba(255,129,112,0.5)] transform hover:-translate-y-1 hover:scale-105"
             >
               Start Free Trial
               <ArrowRight className="w-6 h-6" />
             </button>
           </div>
-          <p className="mt-8 text-brand-100 text-lg font-medium">
+          <p className="mt-8 text-gray-400 text-lg font-medium">
             No credit card required • 14-day free trial
           </p>
         </div>
