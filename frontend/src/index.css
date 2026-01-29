@@ -221,7 +221,11 @@
 
   /* Gradient text utilities */
   .text-gradient-brand {
-    @apply bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent;
+    background: linear-gradient(to right, #ff6b59, #FF8170);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
   }
 
   /* Shadow utilities */
