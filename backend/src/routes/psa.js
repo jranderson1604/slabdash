@@ -53,7 +53,7 @@ router.get("/test", authenticate, async (req, res) => {
   }
 });
 
-// Refresh all submissions from PSA
+// Refresh all submissions from PSA with real-time progress
 router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (req, res) => {
   try {
     // Get company's PSA API key
@@ -78,13 +78,25 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
       [req.user.company_id]
     );
 
+    // Set up Server-Sent Events for real-time progress
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive'
+    });
+
+    const total = submissions.rows.length;
     let updated = 0;
     let errors = 0;
+
+    // Send initial progress
+    res.write(`data: ${JSON.stringify({ type: 'start', total, updated: 0, errors: 0 })}\n\n`);
 
     const { getSubmissionProgress, updateSubmissionFromPsa } = require('../services/psaService');
 
     // Refresh each submission (with rate limiting)
-    for (const submission of submissions.rows) {
+    for (let i = 0; i < submissions.rows.length; i++) {
+      const submission = submissions.rows[i];
       try {
         // Get submission progress from PSA API
         const result = await getSubmissionProgress(psaApiKey, submission.psa_submission_number);
@@ -93,8 +105,30 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
           // Update submission with latest data (this also triggers email notifications)
           await updateSubmissionFromPsa(submission.id, result.data);
           updated++;
+
+          // Send progress update
+          res.write(`data: ${JSON.stringify({
+            type: 'progress',
+            total,
+            current: i + 1,
+            updated,
+            errors,
+            submissionNumber: submission.psa_submission_number,
+            status: 'success'
+          })}\n\n`);
         } else {
           errors++;
+
+          // Send error update
+          res.write(`data: ${JSON.stringify({
+            type: 'progress',
+            total,
+            current: i + 1,
+            updated,
+            errors,
+            submissionNumber: submission.psa_submission_number,
+            status: 'error'
+          })}\n\n`);
         }
 
         // Rate limit: wait 500ms between requests
@@ -102,21 +136,39 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
       } catch (err) {
         console.error(`Failed to refresh submission ${submission.psa_submission_number}:`, err.message);
         errors++;
+
+        // Send error update
+        res.write(`data: ${JSON.stringify({
+          type: 'progress',
+          total,
+          current: i + 1,
+          updated,
+          errors,
+          submissionNumber: submission.psa_submission_number,
+          status: 'error',
+          error: err.message
+        })}\n\n`);
       }
     }
 
-    res.json({
-      message: "Refresh completed",
-      total: submissions.rows.length,
+    // Send completion
+    res.write(`data: ${JSON.stringify({
+      type: 'complete',
+      total,
       updated,
-      errors
-    });
+      errors,
+      message: `Refresh completed: ${updated} updated, ${errors} errors`
+    })}\n\n`);
+
+    res.end();
   } catch (error) {
     console.error("Refresh all error:", error);
-    res.status(500).json({
-      error: "Failed to refresh submissions",
+    res.write(`data: ${JSON.stringify({
+      type: 'error',
+      error: 'Failed to refresh submissions',
       details: error.message
-    });
+    })}\n\n`);
+    res.end();
   }
 });
 

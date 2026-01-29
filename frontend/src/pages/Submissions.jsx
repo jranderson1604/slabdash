@@ -316,6 +316,7 @@ export default function Submissions() {
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshingAll, setRefreshingAll] = useState(false);
+  const [refreshProgress, setRefreshProgress] = useState({ total: 0, current: 0, updated: 0, errors: 0 });
   const [sendingBulk, setSendingBulk] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'active', 'shipped', 'problems'
   const [serviceLevelFilter, setServiceLevelFilter] = useState('all'); // 'all', or specific service level
@@ -347,14 +348,75 @@ export default function Submissions() {
     }
 
     setRefreshingAll(true);
+    setRefreshProgress({ total: 0, current: 0, updated: 0, errors: 0 });
+
     try {
-      const response = await submissions.refreshAll();
-      await loadSubmissions();
-      const count = response.data?.updated || 0;
-      alert(`Successfully refreshed ${count} submission(s) from PSA`);
+      const token = localStorage.getItem('slabdash_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      const eventSource = new EventSource(`${API_URL}/psa/refresh-all`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      // Note: EventSource doesn't support custom headers, so we'll use fetch with streaming
+      const response = await fetch(`${API_URL}/psa/refresh-all`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.type === 'start') {
+                setRefreshProgress({ total: data.total, current: 0, updated: 0, errors: 0 });
+              } else if (data.type === 'progress') {
+                setRefreshProgress({
+                  total: data.total,
+                  current: data.current,
+                  updated: data.updated,
+                  errors: data.errors
+                });
+              } else if (data.type === 'complete') {
+                setRefreshProgress({
+                  total: data.total,
+                  current: data.total,
+                  updated: data.updated,
+                  errors: data.errors
+                });
+                await loadSubmissions();
+                alert(`✓ ${data.message}`);
+              } else if (data.type === 'error') {
+                throw new Error(data.details || 'Failed to refresh submissions');
+              }
+            } catch (parseError) {
+              console.error('Failed to parse SSE data:', parseError);
+            }
+          }
+        }
+      }
     } catch (error) {
       console.error('Refresh all failed:', error);
-      const errorMsg = error.response?.data?.error || error.message || 'Failed to refresh submissions';
+      const errorMsg = error.message || 'Failed to refresh submissions';
       alert(`Refresh failed: ${errorMsg}\n\nPlease check your PSA API key in Company Settings.`);
     } finally {
       setRefreshingAll(false);
@@ -489,6 +551,51 @@ export default function Submissions() {
           </Link>
         </div>
       </div>
+
+      {/* Refresh Progress Bar */}
+      {refreshingAll && (
+        <div className="card bg-gradient-to-br from-brand-50 to-white border-brand-200">
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <RefreshCw className="w-5 h-5 text-brand-600 animate-spin" />
+                <h3 className="font-semibold text-gray-900">Refreshing Submissions from PSA</h3>
+              </div>
+              <span className="text-sm text-gray-600">
+                {refreshProgress.current} / {refreshProgress.total}
+              </span>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden mb-3">
+              <div
+                className="absolute inset-y-0 left-0 bg-gradient-to-r from-brand-500 to-brand-600 transition-all duration-500 ease-out"
+                style={{
+                  width: `${refreshProgress.total > 0 ? (refreshProgress.current / refreshProgress.total) * 100 : 0}%`
+                }}
+              />
+            </div>
+
+            {/* Stats */}
+            <div className="flex items-center gap-6 text-sm">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-green-500" />
+                <span className="text-gray-600">Updated: <strong className="text-green-600">{refreshProgress.updated}</strong></span>
+              </div>
+              {refreshProgress.errors > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <span className="text-gray-600">Errors: <strong className="text-red-600">{refreshProgress.errors}</strong></span>
+                </div>
+              )}
+              <div className="flex-1" />
+              <span className="text-gray-500">
+                {Math.round((refreshProgress.current / refreshProgress.total) * 100) || 0}%
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Help Section */}
       {showHelp && (
