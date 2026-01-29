@@ -79,6 +79,14 @@ async function runMigrationsAndStart() {
     await db.query(migration016);
     console.log('✓ Migration 016: Pickup system with codes and audit trail added');
 
+    // Migration 017: Invoicing system
+    const migration017 = fs.readFileSync(
+      path.join(__dirname, 'migrations/017_add_invoicing_system.sql'),
+      'utf8'
+    );
+    await db.query(migration017);
+    console.log('✓ Migration 017: Invoicing system with costs and delivery preferences added');
+
     console.log('All migrations completed successfully!\n');
   } catch (error) {
     // Don't fail if columns already exist
