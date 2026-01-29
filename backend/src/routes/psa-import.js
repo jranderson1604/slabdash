@@ -69,11 +69,16 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                     }
                 }
 
-                // Determine status - don't auto-mark as shipped from CSV
-                // Let PSA API refresh handle the shipped status correctly
+                // Determine status - NEVER auto-mark as shipped from CSV
+                // Only mark as shipped if we have EXPLICIT confirmation
                 const problemOrder = status.toLowerCase().includes('problem');
                 const gradesReady = status.toLowerCase().includes('ready') || status.toLowerCase() === 'completed';
-                const shipped = Boolean(trackingNumber); // Only mark shipped if there's a tracking number
+
+                // CRITICAL: Only mark shipped if trackingNumber exists AND is not empty
+                const shipped = !!(trackingNumber && trackingNumber.length > 0);
+
+                // Debug logging
+                console.log(`Processing ${submissionNumber}: status="${status}", tracking="${trackingNumber}", shipped=${shipped}, gradesReady=${gradesReady}`);
 
                 // Check if submission already exists
                 const existingResult = await db.query(
@@ -85,6 +90,8 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                     // Update existing submission
                     const submissionId = existingResult.rows[0].id;
 
+                    // CRITICAL FIX: Don't update shipped from CSV - only update from PSA API
+                    // CSV import should only update basic info, not shipping status
                     await db.query(
                         `UPDATE submissions SET
                             psa_order_number = $1,
@@ -93,11 +100,10 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                             service_level = $4,
                             return_tracking = $5,
                             date_sent = $6,
-                            shipped = $7,
-                            problem_order = $8,
-                            grades_ready = $9,
+                            problem_order = $7,
+                            grades_ready = $8,
                             last_api_update = CURRENT_TIMESTAMP
-                         WHERE id = $10 AND company_id = $11`,
+                         WHERE id = $9 AND company_id = $10`,
                         [
                             orderNumber || null,
                             status || null,
@@ -105,7 +111,6 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                             service || null,
                             trackingNumber || null,
                             dateArrived,
-                            shipped,
                             problemOrder,
                             gradesReady,
                             submissionId,
@@ -116,7 +121,7 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                     updated++;
                     console.log(`✓ Updated submission ${submissionNumber}`);
                 } else {
-                    // Create new submission
+                    // Create new submission - don't set shipped, let it default to false
                     await db.query(
                         `INSERT INTO submissions (
                             company_id,
@@ -127,12 +132,11 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                             service_level,
                             return_tracking,
                             date_sent,
-                            shipped,
                             problem_order,
                             grades_ready,
                             internal_id,
                             last_api_update
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)`,
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)`,
                         [
                             companyId,
                             submissionNumber,
@@ -142,7 +146,6 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                             service || null,
                             trackingNumber || null,
                             dateArrived,
-                            shipped,
                             problemOrder,
                             gradesReady,
                             submissionNumber // Use submission number as internal ID
