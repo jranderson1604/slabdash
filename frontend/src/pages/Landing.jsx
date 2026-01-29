@@ -157,7 +157,7 @@ export default function Landing() {
             {/* S logo - brand anchor in top-left */}
             <Link to="/" className="flex items-center">
               <img
-                src="/images/logo-icon.svg"
+                src="/images/logo-icon.png.svg"
                 alt="SlabDash"
                 className="h-20 w-20 sm:h-24 sm:w-24"
               />
@@ -199,7 +199,7 @@ export default function Landing() {
             {/* Hero Wordmark - Title */}
             <div className="flex justify-center mb-4 px-4">
               <img
-                src="/images/logo-full.svg"
+                src="/images/logo-full.png.svg"
                 alt="SlabDash"
                 className="w-full max-w-2xl h-auto drop-shadow-lg"
                 style={{ minHeight: '60px', maxHeight: '100px' }}
@@ -209,10 +209,10 @@ export default function Landing() {
               <Zap className="w-4 h-4" />
               Professional PSA Submission Tracking
             </div>
-            <h1 className="text-6xl sm:text-7xl lg:text-8xl font-extrabold leading-tight">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold leading-tight">
               <span className="block text-gray-900 mb-3">Manage Your</span>
-              <span className="block text-brand-500">
-                PSA SUBMISSIONS
+              <span className="block text-[#FF8170] text-5xl sm:text-6xl">
+                PSA Submissions
               </span>
               <span className="block text-gray-900 mt-3">With Ease</span>
             </h1>
@@ -301,7 +301,7 @@ export default function Landing() {
               <div className="relative">
                 <div className="absolute inset-0 bg-brand-500 opacity-20 blur-3xl rounded-full"></div>
                 <img
-                  src="/images/logo-icon.svg"
+                  src="/images/logo-icon.png.svg"
                   alt="SlabDash"
                   className="h-32 w-32 relative drop-shadow-2xl"
                 />
@@ -341,7 +341,7 @@ export default function Landing() {
               <div className="relative">
                 <div className="absolute inset-0 bg-brand-500 opacity-20 blur-3xl rounded-full"></div>
                 <img
-                  src="/images/logo-icon.svg"
+                  src="/images/logo-icon.png.svg"
                   alt="SlabDash"
                   className="h-32 w-32 relative drop-shadow-2xl"
                 />
@@ -416,7 +416,7 @@ export default function Landing() {
               <div className="relative">
                 <div className="absolute inset-0 bg-brand-500 opacity-20 blur-3xl rounded-full"></div>
                 <img
-                  src="/images/logo-icon.svg"
+                  src="/images/logo-icon.png.svg"
                   alt="SlabDash"
                   className="h-32 w-32 relative drop-shadow-2xl"
                 />
@@ -468,7 +468,7 @@ export default function Landing() {
             <div className="relative">
               <div className="absolute inset-0 bg-white opacity-20 blur-3xl rounded-full"></div>
               <img
-                src="/images/logo-icon.svg"
+                src="/images/logo-icon.png.svg"
                 alt="SlabDash"
                 className="h-48 w-48 relative drop-shadow-2xl"
               />
@@ -502,7 +502,7 @@ export default function Landing() {
             <div>
               <Link to="/" className="flex items-center mb-6">
                 <img
-                  src="/images/logo-icon.svg"
+                  src="/images/logo-icon.png.svg"
                   alt="SlabDash"
                   className="h-16 w-16"
                 />

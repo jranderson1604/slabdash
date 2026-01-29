@@ -143,13 +143,19 @@ const parseProgressData = (data) => {
     }
     
     if (completedCount === steps.length && steps.length > 0) currentStep = 'Shipped';
-    
+
+    // Only mark as shipped if there's tracking info OR current step explicitly says shipped
+    const isShipped = Boolean(data.trackingNumber) || currentStep === 'Shipped' || (data.shipped && data.trackingNumber);
+
+    // Grades are ready when all steps complete OR PSA says grades ready, but NOT shipped yet
+    const gradesReady = (completedCount === steps.length && steps.length > 0 && !isShipped) || (data.gradesReady && !isShipped);
+
     return {
         orderNumber: data.orderNumber,
         currentStep,
         progressPercent: steps.length > 0 ? Math.round((completedCount / steps.length) * 100) : 0,
-        gradesReady: data.gradesReady || false,
-        shipped: data.shipped || false,
+        gradesReady,
+        shipped: isShipped,
         problemOrder: data.problemOrder || false,
         accountingHold: data.accountingHold || false,
         steps: steps.map(s => ({ index: s.index, name: STEP_NAMES[s.step] || s.step, completed: s.completed }))
