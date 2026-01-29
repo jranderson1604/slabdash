@@ -49,35 +49,92 @@ function ProgressBar({ percent }) {
 }
 
 function StatusBadge({ submission }) {
-  if (submission.shipped) {
-    return (
-      <span className="badge badge-green flex items-center gap-1">
-        <CheckCircle2 className="w-3 h-3" />
-        Shipped
-      </span>
-    );
-  }
-  if (submission.problem_order) {
-    return (
-      <span className="badge badge-red flex items-center gap-1">
-        <AlertCircle className="w-3 h-3" />
-        Problem
-      </span>
-    );
-  }
-  if (submission.grades_ready) {
-    return (
-      <span className="badge badge-blue flex items-center gap-1">
-        <CheckCircle2 className="w-3 h-3" />
-        Grades Ready
-      </span>
-    );
-  }
+  // Define status information with colors and explanations
+  const getStatusInfo = () => {
+    if (submission.shipped) {
+      return {
+        label: 'Shipped',
+        color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+        icon: <CheckCircle2 className="w-3 h-3" />,
+        description: 'Your cards have been shipped back to you'
+      };
+    }
+    if (submission.problem_order) {
+      return {
+        label: 'Problem',
+        color: 'bg-rose-100 text-rose-800 border-rose-200',
+        icon: <AlertCircle className="w-3 h-3" />,
+        description: 'There is an issue with this order - check details'
+      };
+    }
+    if (submission.grades_ready) {
+      return {
+        label: 'Grades Ready',
+        color: 'bg-sky-100 text-sky-800 border-sky-200',
+        icon: <CheckCircle2 className="w-3 h-3" />,
+        description: 'Grading complete - awaiting shipment'
+      };
+    }
+
+    // Determine in-progress status based on current step
+    const step = submission.current_step || 'Pending';
+    const stepLower = step.toLowerCase();
+
+    if (stepLower.includes('research') || stepLower.includes('assembly')) {
+      return {
+        label: step,
+        color: 'bg-purple-100 text-purple-800 border-purple-200',
+        icon: <Clock className="w-3 h-3" />,
+        description: 'Initial processing and card review'
+      };
+    }
+    if (stepLower.includes('grading') || stepLower.includes('grade')) {
+      return {
+        label: step,
+        color: 'bg-amber-100 text-amber-800 border-amber-200',
+        icon: <Clock className="w-3 h-3" />,
+        description: 'Cards are being graded by PSA'
+      };
+    }
+    if (stepLower.includes('qa') || stepLower.includes('quality')) {
+      return {
+        label: step,
+        color: 'bg-blue-100 text-blue-800 border-blue-200',
+        icon: <Clock className="w-3 h-3" />,
+        description: 'Quality assurance check in progress'
+      };
+    }
+    if (stepLower.includes('encapsulation') || stepLower.includes('encap')) {
+      return {
+        label: step,
+        color: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+        icon: <Clock className="w-3 h-3" />,
+        description: 'Cards are being sealed in protective cases'
+      };
+    }
+
+    return {
+      label: step,
+      color: 'bg-gray-100 text-gray-800 border-gray-200',
+      icon: <Clock className="w-3 h-3" />,
+      description: 'Processing in progress'
+    };
+  };
+
+  const status = getStatusInfo();
+
   return (
-    <span className="badge badge-yellow flex items-center gap-1">
-      <Clock className="w-3 h-3" />
-      {submission.current_step || 'Pending'}
-    </span>
+    <div className="group relative">
+      <span className={`badge flex items-center gap-1 border ${status.color}`}>
+        {status.icon}
+        {status.label}
+      </span>
+      {/* Tooltip with explanation */}
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-10">
+        {status.description}
+        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+      </div>
+    </div>
   );
 }
 
@@ -318,6 +375,7 @@ export default function Submissions() {
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [refreshProgress, setRefreshProgress] = useState({ total: 0, current: 0, updated: 0, errors: 0 });
   const [sendingBulk, setSendingBulk] = useState(false);
+  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'completed'
   const [filter, setFilter] = useState('all'); // 'all', 'active', 'shipped', 'problems'
   const [serviceLevelFilter, setServiceLevelFilter] = useState('all'); // 'all', or specific service level
   const [search, setSearch] = useState('');
@@ -470,8 +528,17 @@ export default function Submissions() {
     loadSubmissions();
   }, [filter]);
 
+  // Filter by active/completed tab first
+  const tabFilteredSubs = subs.filter((s) => {
+    if (activeTab === 'completed') {
+      return s.shipped; // Only show shipped submissions in completed tab
+    } else {
+      return !s.shipped; // Show all non-shipped submissions in active tab
+    }
+  });
+
   // Enhanced filter by search - includes order #, sub #, customer name, and card names
-  const filteredSubs = subs.filter((s) => {
+  const filteredSubs = tabFilteredSubs.filter((s) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -498,6 +565,10 @@ export default function Submissions() {
   if (serviceLevelFilter !== 'all') {
     displaySubs = displaySubs.filter(s => s.service_level === serviceLevelFilter);
   }
+
+  // Calculate counts for tabs
+  const activeCount = subs.filter(s => !s.shipped).length;
+  const completedCount = subs.filter(s => s.shipped).length;
 
   // Get unique service levels for tabs
   const serviceLevels = ['all', ...new Set(subs.map(s => s.service_level).filter(Boolean))];
@@ -624,6 +695,54 @@ export default function Submissions() {
         </div>
       )}
 
+      {/* Active/Completed Tabs */}
+      <div className="card">
+        <div className="border-b border-gray-200">
+          <div className="flex">
+            <button
+              onClick={() => setActiveTab('active')}
+              className={`flex-1 px-6 py-4 text-sm font-medium transition-all border-b-2 ${
+                activeTab === 'active'
+                  ? 'border-brand-500 text-brand-600 bg-brand-50'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Clock className="w-4 h-4" />
+                <span>Active Submissions</span>
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                  activeTab === 'active'
+                    ? 'bg-brand-500 text-white'
+                    : 'bg-gray-200 text-gray-700'
+                }`}>
+                  {activeCount}
+                </span>
+              </div>
+            </button>
+            <button
+              onClick={() => setActiveTab('completed')}
+              className={`flex-1 px-6 py-4 text-sm font-medium transition-all border-b-2 ${
+                activeTab === 'completed'
+                  ? 'border-emerald-500 text-emerald-600 bg-emerald-50'
+                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Completed & Shipped</span>
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                  activeTab === 'completed'
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-gray-200 text-gray-700'
+                }`}>
+                  {completedCount}
+                </span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Filters */}
       <div className="card p-4">
         <div className="flex flex-col sm:flex-row gap-4">
@@ -639,20 +758,20 @@ export default function Submissions() {
             />
           </div>
 
-          {/* Status filter */}
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-400" />
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="input w-auto"
-            >
-              <option value="all">All Submissions</option>
-              <option value="active">Active Only</option>
-              <option value="shipped">Shipped</option>
-              <option value="problems">Problems</option>
-            </select>
-          </div>
+          {/* Status filter - only show for active tab */}
+          {activeTab === 'active' && (
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-gray-400" />
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="input w-auto"
+              >
+                <option value="all">All Statuses</option>
+                <option value="problems">Problems Only</option>
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
