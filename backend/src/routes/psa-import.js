@@ -36,10 +36,15 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                 const submissionNumber = record['Submission #']?.trim() || '';
                 const status = record['Status']?.trim() || '';
                 const items = parseInt(record['Items']) || 0;
-                const service = record['Service']?.trim() || '';
+                let service = record['Service']?.trim() || '';
                 const trackingUrl = record['Track Package']?.trim() || '';
                 const arrived = record['Arrived']?.trim() || '';
                 const completed = record['Completed']?.trim() || '';
+
+                // Normalize service level names
+                if (service.includes('Value Bulk')) {
+                    service = 'Value Bulk';
+                }
 
                 // Skip if no submission number
                 if (!submissionNumber) {
