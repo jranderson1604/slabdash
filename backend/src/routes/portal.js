@@ -4,6 +4,9 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authenticateCustomer } = require('../middleware/auth');
 const stripeService = require('../services/stripe');
+const multer = require('multer');
+const cloudinary = require('../config/cloudinary');
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Quick access endpoint for portal links (GET with token query param)
 router.get('/access', async (req, res) => {
@@ -182,9 +185,34 @@ router.get('/stats', authenticateCustomer, async (req, res) => {
     }
 });
 
-// Get all customer's cards across all submissions
-router.get('/cards', authenticateCustomer, async (req, res) => {
+// Get all customer's cards across all submissions (supports both JWT and portal token)
+router.get('/cards', async (req, res) => {
     try {
+        let customerId;
+
+        // Check for portal access token first
+        const token = req.query.token;
+        if (token) {
+            const customerResult = await db.query(
+                'SELECT id FROM customers WHERE portal_access_token = $1 AND portal_access_enabled = true',
+                [token]
+            );
+            if (customerResult.rows.length === 0) {
+                return res.status(401).json({ error: 'Invalid portal token' });
+            }
+            customerId = customerResult.rows[0].id;
+        } else {
+            // Fall back to JWT authentication
+            const authMiddleware = authenticateCustomer;
+            await new Promise((resolve, reject) => {
+                authMiddleware(req, res, (err) => {
+                    if (err) reject(err);
+                    else resolve();
+                });
+            });
+            customerId = req.customer.id;
+        }
+
         const result = await db.query(
             `SELECT c.*,
                 s.psa_submission_number,
@@ -195,11 +223,62 @@ router.get('/cards', authenticateCustomer, async (req, res) => {
              LEFT JOIN submissions s ON c.submission_id = s.id
              WHERE c.customer_owner_id = $1 OR s.customer_id = $1
              ORDER BY c.created_at DESC`,
-            [req.customer.id]
+            [customerId]
         );
         res.json(result.rows);
     } catch (error) {
+        console.error('Get cards error:', error);
         res.status(500).json({ error: 'Failed to get cards' });
+    }
+});
+
+// Upload images to customer's card
+router.post('/cards/:id/images', authenticateCustomer, upload.array('images', 5), async (req, res) => {
+    try {
+        // Verify card belongs to customer
+        const cardResult = await db.query(
+            `SELECT c.* FROM cards c
+             LEFT JOIN submissions s ON c.submission_id = s.id
+             WHERE c.id = $1 AND (c.customer_owner_id = $2 OR s.customer_id = $2)`,
+            [req.params.id, req.customer.id]
+        );
+
+        if (cardResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Card not found or access denied' });
+        }
+
+        if (!req.files || req.files.length === 0) {
+            return res.status(400).json({ error: 'No images provided' });
+        }
+
+        const imageUrls = [];
+        for (const file of req.files) {
+            const result = await new Promise((resolve, reject) => {
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    { folder: 'slabdash/cards', resource_type: 'image' },
+                    (error, result) => {
+                        if (error) reject(error);
+                        else resolve(result);
+                    }
+                );
+                uploadStream.end(file.buffer);
+            });
+            imageUrls.push(result.secure_url);
+        }
+
+        const card = cardResult.rows[0];
+        const existingImages = card.card_images || [];
+        const updatedImages = [...existingImages, ...imageUrls];
+
+        const updated = await db.query(
+            'UPDATE cards SET card_images = $1 WHERE id = $2 RETURNING *',
+            [JSON.stringify(updatedImages), req.params.id]
+        );
+
+        res.json({ card: updated.rows[0], uploadedUrls: imageUrls });
+    } catch (error) {
+        console.error('Image upload error:', error);
+        res.status(500).json({ error: 'Failed to upload images' });
     }
 });
 

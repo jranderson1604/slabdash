@@ -8,16 +8,16 @@ export default {
       },
       colors: {
         brand: {
-          50: 'rgb(var(--brand-50) / <alpha-value>)',
-          100: 'rgb(var(--brand-100) / <alpha-value>)',
-          200: 'rgb(var(--brand-200) / <alpha-value>)',
-          300: 'rgb(var(--brand-300) / <alpha-value>)',
-          400: 'rgb(var(--brand-400) / <alpha-value>)',
-          500: 'rgb(var(--brand-500) / <alpha-value>)',
-          600: 'rgb(var(--brand-600) / <alpha-value>)',
-          700: 'rgb(var(--brand-700) / <alpha-value>)',
-          800: 'rgb(var(--brand-800) / <alpha-value>)',
-          900: 'rgb(var(--brand-900) / <alpha-value>)',
+          50: '#fffaf8',
+          100: '#fff0ec',
+          200: '#ffe0d8',
+          300: '#ffc8ba',
+          400: '#ffa894',
+          500: '#FF8170',
+          600: '#ff6b59',
+          700: '#e8543d',
+          800: '#c74430',
+          900: '#a03626',
         }
       }
     },
