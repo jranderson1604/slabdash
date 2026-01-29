@@ -157,7 +157,7 @@ export default function Landing() {
             {/* S logo - brand anchor in top-left */}
             <Link to="/" className="flex items-center">
               <img
-                src="/images/logo-icon.png.svg"
+                src="/images/logo-icon.svg"
                 alt="SlabDash"
                 className="h-20 w-20 sm:h-24 sm:w-24"
               />
@@ -199,7 +199,7 @@ export default function Landing() {
             {/* Hero Wordmark - Title */}
             <div className="flex justify-center mb-4 px-4">
               <img
-                src="/images/logo-full.png.svg"
+                src="/images/logo-full.svg"
                 alt="SlabDash"
                 className="w-full max-w-2xl h-auto drop-shadow-lg"
                 style={{ minHeight: '60px', maxHeight: '100px' }}
@@ -211,8 +211,8 @@ export default function Landing() {
             </div>
             <h1 className="text-6xl sm:text-7xl lg:text-8xl font-extrabold leading-tight">
               <span className="block text-gray-900 mb-3">Manage Your</span>
-              <span className="block bg-gradient-to-r from-brand-600 via-brand-500 to-brand-600 bg-clip-text text-transparent drop-shadow-sm">
-                PSA Submissions
+              <span className="block text-brand-500">
+                PSA SUBMISSIONS
               </span>
               <span className="block text-gray-900 mt-3">With Ease</span>
             </h1>
@@ -301,7 +301,7 @@ export default function Landing() {
               <div className="relative">
                 <div className="absolute inset-0 bg-brand-500 opacity-20 blur-3xl rounded-full"></div>
                 <img
-                  src="/images/logo-icon.png.svg"
+                  src="/images/logo-icon.svg"
                   alt="SlabDash"
                   className="h-32 w-32 relative drop-shadow-2xl"
                 />
@@ -341,7 +341,7 @@ export default function Landing() {
               <div className="relative">
                 <div className="absolute inset-0 bg-brand-500 opacity-20 blur-3xl rounded-full"></div>
                 <img
-                  src="/images/logo-icon.png.svg"
+                  src="/images/logo-icon.svg"
                   alt="SlabDash"
                   className="h-32 w-32 relative drop-shadow-2xl"
                 />
@@ -416,7 +416,7 @@ export default function Landing() {
               <div className="relative">
                 <div className="absolute inset-0 bg-brand-500 opacity-20 blur-3xl rounded-full"></div>
                 <img
-                  src="/images/logo-icon.png.svg"
+                  src="/images/logo-icon.svg"
                   alt="SlabDash"
                   className="h-32 w-32 relative drop-shadow-2xl"
                 />
@@ -468,7 +468,7 @@ export default function Landing() {
             <div className="relative">
               <div className="absolute inset-0 bg-white opacity-20 blur-3xl rounded-full"></div>
               <img
-                src="/images/logo-icon.png"
+                src="/images/logo-icon.svg"
                 alt="SlabDash"
                 className="h-48 w-48 relative drop-shadow-2xl"
               />
@@ -496,25 +496,25 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gradient-to-br from-gray-900 to-dark text-gray-400 py-16 px-4 sm:px-6 lg:px-8">
+      <footer className="bg-gradient-to-br from-gray-900 to-gray-950 py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-4 gap-12 mb-12">
             <div>
               <Link to="/" className="flex items-center mb-6">
                 <img
-                  src="/images/logo-icon.png.svg"
+                  src="/images/logo-icon.svg"
                   alt="SlabDash"
                   className="h-16 w-16"
                 />
                 <span className="text-3xl font-black text-white ml-3">SlabDash</span>
               </Link>
-              <p className="text-base leading-relaxed">
+              <p className="text-gray-300 text-base leading-relaxed">
                 Professional PSA submission tracking for card shops and collectors.
               </p>
             </div>
             <div>
               <h4 className="text-white font-bold mb-6 text-lg">Product</h4>
-              <ul className="space-y-3 text-base">
+              <ul className="space-y-3 text-base text-gray-300">
                 <li><a href="#features" className="hover:text-brand-400 transition-colors">Features</a></li>
                 <li><a href="#pricing" className="hover:text-brand-400 transition-colors">Pricing</a></li>
                 <li><Link to="/portal" className="hover:text-brand-400 transition-colors">Customer Portal</Link></li>
@@ -522,7 +522,7 @@ export default function Landing() {
             </div>
             <div>
               <h4 className="text-white font-bold mb-6 text-lg">Company</h4>
-              <ul className="space-y-3 text-base">
+              <ul className="space-y-3 text-base text-gray-300">
                 <li><a href="#about" className="hover:text-brand-400 transition-colors">About</a></li>
                 <li><a href="#contact" className="hover:text-brand-400 transition-colors">Contact</a></li>
                 <li><a href="#terms" className="hover:text-brand-400 transition-colors">Terms</a></li>
@@ -531,14 +531,14 @@ export default function Landing() {
             </div>
             <div>
               <h4 className="text-white font-bold mb-6 text-lg">Connect</h4>
-              <ul className="space-y-3 text-base">
+              <ul className="space-y-3 text-base text-gray-300">
                 <li><Link to="/login" className="hover:text-brand-400 transition-colors">Admin Login</Link></li>
                 <li><Link to="/portal" className="hover:text-brand-400 transition-colors">Customer Login</Link></li>
               </ul>
             </div>
           </div>
           <div className="border-t border-gray-800 pt-8 text-center">
-            <p className="text-base">&copy; 2026 SlabDash. All rights reserved.</p>
+            <p className="text-gray-400 text-base">&copy; 2026 SlabDash. All rights reserved.</p>
           </div>
         </div>
       </footer>
