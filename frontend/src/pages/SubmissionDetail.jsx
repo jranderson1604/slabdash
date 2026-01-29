@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { submissions, cards, customers, emailTemplates } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import PickupCard from '../components/PickupCard';
+import InvoiceSection from '../components/InvoiceSection';
 import {
   ArrowLeft,
   RefreshCw,
@@ -1048,6 +1049,9 @@ export default function SubmissionDetail() {
 
           {/* Pickup System */}
           <PickupCard submission={submission} onPickupComplete={loadSubmission} />
+
+          {/* Invoicing */}
+          <InvoiceSection submission={submission} onInvoiceSent={loadSubmission} />
 
           {/* Cards */}
           <div className="card">

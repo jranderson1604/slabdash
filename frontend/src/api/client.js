@@ -127,4 +127,8 @@ export const pickup = {
   lookupByCode: (pickupCode) => api.get(`/pickup/lookup/${pickupCode}`)
 };
 
+export const invoices = {
+  generate: (submissionId) => api.post(`/invoices/generate/${submissionId}`)
+};
+
 export default api;
