@@ -50,9 +50,22 @@ router.get("/", authenticate, async (req, res) => {
            ORDER BY c.name`,
           [submission.id]
         );
+
+        // If no linked customers via junction table, check if there's a direct customer_id
+        let linkedCustomers = linkedCustomersResult.rows;
+        if (linkedCustomers.length === 0 && submission.customer_id) {
+          const directCustomerResult = await db.query(
+            `SELECT id, name, email, phone FROM customers WHERE id = $1`,
+            [submission.customer_id]
+          );
+          if (directCustomerResult.rows.length > 0) {
+            linkedCustomers = directCustomerResult.rows;
+          }
+        }
+
         return {
           ...submission,
-          linked_customers: linkedCustomersResult.rows
+          linked_customers: linkedCustomers
         };
       })
     );
