@@ -192,6 +192,20 @@ async function startServer() {
       `);
       console.log("✓ Migration: card_count column ensured");
 
+      // Remove user_id NOT NULL constraint if column exists (legacy cleanup)
+      await db.query(`
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'submissions' AND column_name = 'user_id'
+          ) THEN
+            ALTER TABLE submissions ALTER COLUMN user_id DROP NOT NULL;
+          END IF;
+        END $$;
+      `);
+      console.log("✓ Migration: user_id constraint removed if exists");
+
     } catch (migrationError) {
       // Don't fail startup if migration has issues, just log it
       console.warn("⚠ Migration warning:", migrationError.message);
