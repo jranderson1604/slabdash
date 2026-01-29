@@ -51,36 +51,36 @@ function SubmissionCard({ submission, onExpand, isExpanded }) {
   const showPickupCode = submission.grades_ready && !submission.picked_up && submission.pickup_code;
 
   return (
-    <div className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100">
+    <div className="group bg-white rounded-3xl shadow-wix hover:shadow-wix-lg transition-all duration-300 overflow-hidden border border-gray-100 transform hover:-translate-y-1">
       {/* Header */}
       <div
-        className="p-8 cursor-pointer"
+        className="p-10 cursor-pointer"
         onClick={onExpand}
       >
-        <div className="flex items-start justify-between mb-6">
+        <div className="flex items-start justify-between mb-8">
           <div className="flex-1">
-            <h3 className="text-3xl font-bold text-gray-900 mb-2 group-hover:text-brand-600 transition-colors">
+            <h3 className="text-4xl font-black text-gray-900 mb-3 group-hover:text-brand-600 transition-colors leading-tight">
               {submission.psa_submission_number || submission.internal_id || 'Submission'}
             </h3>
-            <p className="text-gray-500 text-lg">{submission.service_level || 'Standard Service'}</p>
+            <p className="text-gray-600 text-xl font-medium">{submission.service_level || 'Standard Service'}</p>
           </div>
-          <div className={`px-5 py-2.5 rounded-full font-semibold text-white bg-gradient-to-r ${status.color} shadow-lg flex items-center gap-2`}>
-            <StatusIcon className="w-5 h-5" />
-            {status.text}
+          <div className={`px-6 py-3 rounded-2xl font-bold text-white bg-gradient-to-r ${status.color} shadow-wix flex items-center gap-2.5`}>
+            <StatusIcon className="w-6 h-6" />
+            <span className="text-lg">{status.text}</span>
           </div>
         </div>
 
         {/* Progress */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-sm font-medium text-gray-600">Progress</span>
-            <span className="text-2xl font-bold bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent">
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-base font-bold text-gray-600">Progress</span>
+            <span className="text-3xl font-black bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent">
               {submission.progress_percent || 0}%
             </span>
           </div>
-          <div className="relative w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+          <div className="relative w-full h-4 bg-gray-100 rounded-full overflow-hidden shadow-inner">
             <div
-              className={`absolute top-0 left-0 h-full bg-gradient-to-r ${status.color} rounded-full transition-all duration-500 ease-out shadow-lg`}
+              className={`absolute top-0 left-0 h-full bg-gradient-to-r ${status.color} rounded-full transition-all duration-500 ease-out`}
               style={{ width: `${submission.progress_percent || 0}%` }}
             >
               <div className="absolute inset-0 bg-white opacity-20 animate-pulse"></div>
@@ -89,28 +89,28 @@ function SubmissionCard({ submission, onExpand, isExpanded }) {
         </div>
 
         {/* Meta Info */}
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center gap-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-8">
             <div>
-              <span className="text-gray-500">Cards</span>
-              <span className="ml-2 font-bold text-gray-900 text-lg">{submission.card_count || 0}</span>
+              <span className="text-gray-500 font-medium">Cards</span>
+              <span className="ml-3 font-black text-gray-900 text-2xl">{submission.card_count || 0}</span>
             </div>
             {submission.date_sent && (
-              <div className="text-gray-500">
+              <div className="text-gray-600 font-medium text-lg">
                 Sent {format(new Date(submission.date_sent), 'MMM d, yyyy')}
               </div>
             )}
           </div>
-          <button className="flex items-center gap-2 text-brand-600 font-semibold hover:text-brand-700 transition-colors">
+          <button className="flex items-center gap-2 text-brand-600 font-bold hover:text-brand-700 transition-colors text-lg">
             {isExpanded ? (
               <>
                 <span>Hide Details</span>
-                <ChevronUp className="w-5 h-5" />
+                <ChevronUp className="w-6 h-6" />
               </>
             ) : (
               <>
                 <span>View Details</span>
-                <ChevronDown className="w-5 h-5" />
+                <ChevronDown className="w-6 h-6" />
               </>
             )}
           </button>
@@ -601,51 +601,52 @@ export default function CustomerPortal() {
   const hasCards = filteredCards.length > 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
+    <div className="min-h-screen bg-white">
       {/* Header */}
-      <div className="bg-gradient-to-r from-brand-600 via-brand-500 to-brand-600 relative overflow-hidden">
-        <div className="absolute inset-0 bg-black opacity-5"></div>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white opacity-10 rounded-full -mr-48 -mt-48"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-white opacity-10 rounded-full -ml-48 -mb-48"></div>
+      <div className="bg-gradient-to-br from-brand-600 via-brand-500 to-brand-600 relative overflow-hidden shadow-wix-lg">
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white opacity-10 rounded-full -mr-32 -mt-32"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-white opacity-10 rounded-full -ml-32 -mb-32"></div>
+        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-white opacity-5 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
 
-        <div className="relative max-w-6xl mx-auto px-6 py-16">
-          <div className="text-center mb-8">
-            <h1 className="text-5xl font-black text-white mb-3 tracking-tight">
+        <div className="relative max-w-7xl mx-auto px-6 py-20">
+          <div className="text-center mb-10 fade-in">
+            <h1 className="text-6xl sm:text-7xl font-black text-white mb-4 tracking-tight drop-shadow-lg">
               {data.company.name}
             </h1>
-            <p className="text-brand-100 text-xl font-medium">Customer Portal</p>
+            <p className="text-brand-50 text-2xl font-bold">Customer Portal</p>
           </div>
-          <div className="max-w-md mx-auto bg-white bg-opacity-20 backdrop-blur-lg rounded-2xl p-6 text-center border border-white border-opacity-30">
-            <p className="font-bold text-white text-2xl mb-1">{data.customer.name}</p>
-            <p className="text-brand-100 text-lg">{data.customer.email}</p>
+          <div className="max-w-lg mx-auto bg-white/20 backdrop-blur-xl rounded-3xl p-8 text-center border-2 border-white/30 shadow-wix-lg scale-in">
+            <p className="font-black text-white text-3xl mb-2">{data.customer.name}</p>
+            <p className="text-brand-50 text-xl font-medium">{data.customer.email}</p>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-6xl mx-auto px-6 py-16 space-y-16">
+      <div className="max-w-7xl mx-auto px-6 py-20 space-y-24">
         {/* Active Submissions */}
-        <section>
-          <div className="flex items-center gap-4 mb-8">
-            <div className="w-14 h-14 bg-gradient-to-br from-brand-500 to-brand-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <Package className="w-7 h-7 text-white" />
+        <section className="slide-up">
+          <div className="flex items-center gap-5 mb-12">
+            <div className="w-20 h-20 bg-gradient-to-br from-brand-500 to-brand-600 rounded-3xl flex items-center justify-center shadow-wix">
+              <Package className="w-10 h-10 text-white" />
             </div>
             <div>
-              <h2 className="text-4xl font-black text-gray-900">My Submissions</h2>
+              <h2 className="text-5xl font-black text-gray-900 leading-tight">My Submissions</h2>
               {activeSubmissions.length > 0 && (
-                <p className="text-gray-500 text-lg mt-1">{activeSubmissions.length} active</p>
+                <p className="text-gray-600 text-xl mt-2 font-medium">{activeSubmissions.length} active</p>
               )}
             </div>
           </div>
 
           {activeSubmissions.length === 0 ? (
-            <div className="bg-white rounded-3xl border-2 border-dashed border-gray-200 p-16 text-center">
-              <Package className="w-24 h-24 text-gray-300 mx-auto mb-6" />
-              <h3 className="text-3xl font-bold text-gray-900 mb-3">No Active Submissions</h3>
-              <p className="text-gray-500 text-lg">Your submissions will appear here once you drop off cards</p>
+            <div className="bg-gradient-to-br from-gray-50 to-white rounded-3xl border-2 border-dashed border-gray-200 p-20 text-center shadow-sm">
+              <Package className="w-32 h-32 text-gray-300 mx-auto mb-8" />
+              <h3 className="text-4xl font-black text-gray-900 mb-4">No Active Submissions</h3>
+              <p className="text-gray-600 text-xl font-medium">Your submissions will appear here once you drop off cards</p>
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="space-y-8">
               {activeSubmissions.map((submission) => (
                 <SubmissionCard
                   key={submission.id}

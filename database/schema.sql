@@ -77,8 +77,10 @@ CREATE TABLE submissions (
     internal_id VARCHAR(50),
     psa_submission_number VARCHAR(50),
     psa_order_number VARCHAR(50),
+    psa_status VARCHAR(100),
     service_level VARCHAR(100),
     declared_value DECIMAL(10, 2),
+    card_count INTEGER DEFAULT 0,
     date_sent DATE,
     date_received DATE,
     date_graded DATE,
@@ -93,6 +95,7 @@ CREATE TABLE submissions (
     ready_for_label_review BOOLEAN DEFAULT FALSE,
     psa_api_response JSONB,
     last_api_update TIMESTAMP WITH TIME ZONE,
+    last_refreshed_at TIMESTAMP,
     total_grading_cost DECIMAL(10, 2),
     shipping_cost DECIMAL(10, 2),
     customer_paid DECIMAL(10, 2),
@@ -166,6 +169,8 @@ CREATE INDEX idx_submissions_psa_number ON submissions(psa_submission_number);
 CREATE INDEX idx_cards_submission ON cards(submission_id);
 CREATE INDEX idx_cards_cert ON cards(psa_cert_number);
 CREATE INDEX idx_api_logs_company ON api_logs(company_id);
+CREATE INDEX idx_submissions_psa_status ON submissions(psa_status);
+CREATE INDEX idx_submissions_last_refreshed ON submissions(last_refreshed_at);
 
 -- Auto-update timestamps
 CREATE OR REPLACE FUNCTION update_updated_at()
