@@ -391,7 +391,20 @@ export default function Submissions() {
       }
 
       const res = await submissions.list(params);
-      setSubs(res.data.submissions || []);
+      const loadedSubs = res.data.submissions || [];
+
+      // Debug: Log shipping status
+      console.log('Submissions loaded:', loadedSubs.length);
+      console.log('Shipped statuses:', loadedSubs.map(s => ({
+        id: s.id,
+        psa_num: s.psa_submission_number,
+        shipped: s.shipped,
+        type: typeof s.shipped,
+        grades_ready: s.grades_ready,
+        problem: s.problem_order
+      })));
+
+      setSubs(loadedSubs);
     } catch (error) {
       console.error('Failed to load submissions:', error);
     } finally {
@@ -530,10 +543,12 @@ export default function Submissions() {
 
   // Filter by active/completed tab first
   const tabFilteredSubs = subs.filter((s) => {
+    const isShipped = Boolean(s.shipped);
+
     if (activeTab === 'completed') {
-      return s.shipped === true || s.shipped === 1 || s.shipped === '1'; // Only show shipped submissions in completed tab
+      return isShipped; // Only show shipped submissions in completed tab
     } else {
-      return !s.shipped || s.shipped === false || s.shipped === 0 || s.shipped === '0'; // Show all non-shipped submissions in active tab
+      return !isShipped; // Show all non-shipped submissions in active tab
     }
   });
 
@@ -567,8 +582,8 @@ export default function Submissions() {
   }
 
   // Calculate counts for tabs
-  const activeCount = subs.filter(s => !s.shipped).length;
-  const completedCount = subs.filter(s => s.shipped).length;
+  const activeCount = subs.filter(s => !Boolean(s.shipped)).length;
+  const completedCount = subs.filter(s => Boolean(s.shipped)).length;
 
   // Get unique service levels for tabs
   const serviceLevels = ['all', ...new Set(subs.map(s => s.service_level).filter(Boolean))];
