@@ -69,11 +69,11 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                     }
                 }
 
-                // Determine shipping and problem status
-                // Only mark as shipped if there's a tracking number OR status explicitly says shipped
-                const shipped = Boolean(trackingNumber) || status.toLowerCase().includes('shipped');
+                // Determine status - don't auto-mark as shipped from CSV
+                // Let PSA API refresh handle the shipped status correctly
                 const problemOrder = status.toLowerCase().includes('problem');
-                const gradesReady = status.toLowerCase() === 'completed';
+                const gradesReady = status.toLowerCase().includes('ready') || status.toLowerCase() === 'completed';
+                const shipped = Boolean(trackingNumber); // Only mark shipped if there's a tracking number
 
                 // Check if submission already exists
                 const existingResult = await db.query(
