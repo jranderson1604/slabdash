@@ -1,193 +1,253 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { format } from 'date-fns';
 import {
-  Package, Loader2, AlertTriangle, CheckCircle2, Clock, DollarSign, X,
-  MapPin, ChevronDown, ChevronUp, Mail, Phone, ExternalLink, Key
+  Package, Loader2, AlertTriangle, CheckCircle2, Clock, DollarSign,
+  ChevronDown, ChevronUp, Key, Sparkles, Image as ImageIcon, Upload, X, Search, Grid
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 // Submission Card Component
 function SubmissionCard({ submission, onExpand, isExpanded }) {
-  const getStatusColor = () => {
-    if (submission.shipped) return 'bg-green-100 text-green-800 border-green-300';
-    if (submission.problem_order) return 'bg-red-100 text-red-800 border-red-300';
-    if (submission.grades_ready) return 'bg-blue-100 text-blue-800 border-blue-300';
-    return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+  const getStatusConfig = () => {
+    if (submission.shipped) return {
+      color: 'from-emerald-500 to-green-600',
+      text: 'Delivered',
+      icon: CheckCircle2,
+      bgLight: 'bg-emerald-50',
+      textLight: 'text-emerald-700',
+      borderLight: 'border-emerald-200'
+    };
+    if (submission.grades_ready) return {
+      color: 'from-blue-500 to-indigo-600',
+      text: 'Ready for Pickup',
+      icon: Sparkles,
+      bgLight: 'bg-blue-50',
+      textLight: 'text-blue-700',
+      borderLight: 'border-blue-200'
+    };
+    if (submission.problem_order) return {
+      color: 'from-red-500 to-rose-600',
+      text: 'Needs Attention',
+      icon: AlertTriangle,
+      bgLight: 'bg-red-50',
+      textLight: 'text-red-700',
+      borderLight: 'border-red-200'
+    };
+    return {
+      color: 'from-amber-500 to-orange-600',
+      text: submission.current_step || 'Processing',
+      icon: Clock,
+      bgLight: 'bg-amber-50',
+      textLight: 'text-amber-700',
+      borderLight: 'border-amber-200'
+    };
   };
 
-  const getStatusText = () => {
-    if (submission.shipped) return 'Delivered';
-    if (submission.grades_ready) return 'Ready for Pickup';
-    if (submission.problem_order) return 'Needs Attention';
-    return submission.current_step || 'Processing';
-  };
-
+  const status = getStatusConfig();
+  const StatusIcon = status.icon;
   const showPickupCode = submission.grades_ready && !submission.picked_up && submission.pickup_code;
 
   return (
-    <div className="bg-white rounded-xl border-2 border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+    <div className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-100">
       {/* Header */}
-      <div className="p-6 cursor-pointer" onClick={onExpand}>
-        <div className="flex items-start justify-between mb-4">
-          <div>
-            <h3 className="text-2xl font-bold text-gray-900">
+      <div
+        className="p-8 cursor-pointer"
+        onClick={onExpand}
+      >
+        <div className="flex items-start justify-between mb-6">
+          <div className="flex-1">
+            <h3 className="text-3xl font-bold text-gray-900 mb-2 group-hover:text-brand-600 transition-colors">
               {submission.psa_submission_number || submission.internal_id || 'Submission'}
             </h3>
-            <p className="text-gray-600 mt-1">{submission.service_level || 'Standard Service'}</p>
+            <p className="text-gray-500 text-lg">{submission.service_level || 'Standard Service'}</p>
           </div>
-          <span className={`px-4 py-2 rounded-full text-sm font-bold border-2 ${getStatusColor()}`}>
-            {getStatusText()}
-          </span>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="mb-4">
-          <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
-            <span className="font-medium">Progress</span>
-            <span className="font-bold text-lg">{submission.progress_percent || 0}%</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div
-              className={`h-3 rounded-full transition-all ${
-                submission.progress_percent >= 100 ? 'bg-green-500' :
-                submission.progress_percent >= 50 ? 'bg-blue-500' : 'bg-yellow-500'
-              }`}
-              style={{ width: `${submission.progress_percent || 0}%` }}
-            />
+          <div className={`px-5 py-2.5 rounded-full font-semibold text-white bg-gradient-to-r ${status.color} shadow-lg flex items-center gap-2`}>
+            <StatusIcon className="w-5 h-5" />
+            {status.text}
           </div>
         </div>
 
-        {/* Quick Info */}
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-600">
-            <span className="font-bold text-gray-900">{submission.card_count || 0}</span> cards
-          </span>
-          {submission.date_sent && (
-            <span className="text-gray-500">
-              Sent {format(new Date(submission.date_sent), 'MMM d, yyyy')}
+        {/* Progress */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm font-medium text-gray-600">Progress</span>
+            <span className="text-2xl font-bold bg-gradient-to-r from-brand-600 to-brand-500 bg-clip-text text-transparent">
+              {submission.progress_percent || 0}%
             </span>
-          )}
-          <button className="text-brand-600 hover:text-brand-700 font-medium flex items-center gap-1">
-            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            {isExpanded ? 'Hide' : 'View'} Details
+          </div>
+          <div className="relative w-full h-3 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className={`absolute top-0 left-0 h-full bg-gradient-to-r ${status.color} rounded-full transition-all duration-500 ease-out shadow-lg`}
+              style={{ width: `${submission.progress_percent || 0}%` }}
+            >
+              <div className="absolute inset-0 bg-white opacity-20 animate-pulse"></div>
+            </div>
+          </div>
+        </div>
+
+        {/* Meta Info */}
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center gap-6">
+            <div>
+              <span className="text-gray-500">Cards</span>
+              <span className="ml-2 font-bold text-gray-900 text-lg">{submission.card_count || 0}</span>
+            </div>
+            {submission.date_sent && (
+              <div className="text-gray-500">
+                Sent {format(new Date(submission.date_sent), 'MMM d, yyyy')}
+              </div>
+            )}
+          </div>
+          <button className="flex items-center gap-2 text-brand-600 font-semibold hover:text-brand-700 transition-colors">
+            {isExpanded ? (
+              <>
+                <span>Hide Details</span>
+                <ChevronUp className="w-5 h-5" />
+              </>
+            ) : (
+              <>
+                <span>View Details</span>
+                <ChevronDown className="w-5 h-5" />
+              </>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Pickup Code Alert (if ready) */}
+      {/* Pickup Alert */}
       {showPickupCode && (
-        <div className="px-6 pb-6">
-          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg p-4">
-            <div className="flex items-center gap-3 mb-2">
-              <Key className="w-6 h-6 text-green-600" />
-              <h4 className="font-bold text-green-900 text-lg">Ready for Pickup!</h4>
-            </div>
-            <p className="text-green-700 mb-3">Your pickup code:</p>
-            <div className="bg-white rounded-lg border-2 border-green-400 p-4 text-center">
-              <p className="text-5xl font-bold text-green-600 tracking-widest font-mono">
-                {submission.pickup_code}
+        <div className="px-8 pb-8">
+          <div className="relative overflow-hidden bg-gradient-to-br from-emerald-500 via-green-500 to-teal-600 rounded-2xl p-6 shadow-2xl">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full -mr-32 -mt-32"></div>
+            <div className="relative">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center">
+                  <Key className="w-6 h-6 text-emerald-600" />
+                </div>
+                <h4 className="text-2xl font-bold text-white">Ready for Pickup!</h4>
+              </div>
+              <p className="text-emerald-50 mb-4 text-lg">Your pickup code:</p>
+              <div className="bg-white rounded-xl p-6 shadow-xl">
+                <p className="text-center text-6xl font-black text-emerald-600 tracking-[0.25em] font-mono">
+                  {submission.pickup_code}
+                </p>
+              </div>
+              <p className="text-center text-white mt-4 text-sm">
+                Show this code when you arrive to pick up your cards
               </p>
             </div>
-            <p className="text-sm text-green-700 mt-3 text-center">
-              Show this code when you come to pick up your cards
-            </p>
           </div>
         </div>
       )}
 
-      {/* Expanded Details */}
+      {/* Expanded Content */}
       {isExpanded && (
-        <div className="border-t border-gray-200 bg-gray-50 p-6">
-          {/* Pickup QR Code */}
-          {showPickupCode && (
-            <div className="mb-6 flex justify-center">
-              <div className="text-center">
-                <p className="text-sm text-gray-600 mb-3 font-medium">Scan this at pickup:</p>
-                <div className="bg-white p-4 rounded-lg border-2 border-gray-200 inline-block">
-                  <QRCodeSVG
-                    value={JSON.stringify({
-                      type: 'slabdash_pickup',
-                      submission_id: submission.id,
-                      pickup_code: submission.pickup_code,
-                      submission_number: submission.psa_submission_number || submission.internal_id
-                    })}
-                    size={200}
-                    level="H"
-                  />
+        <div className="bg-gradient-to-b from-gray-50 to-white border-t border-gray-100">
+          <div className="p-8 space-y-8">
+            {/* QR Code */}
+            {showPickupCode && (
+              <div className="flex justify-center">
+                <div className="text-center">
+                  <p className="text-sm font-medium text-gray-600 mb-4">Scan at pickup</p>
+                  <div className="bg-white p-6 rounded-2xl shadow-lg inline-block border border-gray-200">
+                    <QRCodeSVG
+                      value={JSON.stringify({
+                        type: 'slabdash_pickup',
+                        submission_id: submission.id,
+                        pickup_code: submission.pickup_code,
+                        submission_number: submission.psa_submission_number || submission.internal_id
+                      })}
+                      size={220}
+                      level="H"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Progress Steps */}
-          {submission.steps?.length > 0 && (
-            <div className="mb-6">
-              <h4 className="font-bold text-gray-900 mb-3">Progress Timeline</h4>
-              <div className="space-y-3">
-                {submission.steps.map((step, i) => (
-                  <div key={i} className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      step.completed ? 'bg-green-500 text-white' : 'bg-gray-200 text-gray-500'
-                    }`}>
-                      {step.completed ? <CheckCircle2 className="w-5 h-5" /> : <span className="text-sm font-bold">{i + 1}</span>}
-                    </div>
-                    <div className="flex-1">
-                      <p className={`font-medium ${step.completed ? 'text-gray-900' : 'text-gray-400'}`}>
-                        {step.step_name}
-                      </p>
-                      {step.completed_at && (
-                        <p className="text-xs text-gray-500">
-                          {format(new Date(step.completed_at), 'MMM d, yyyy h:mm a')}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Cards List */}
-          {submission.cards?.length > 0 && (
-            <div>
-              <h4 className="font-bold text-gray-900 mb-3">Cards ({submission.cards.length})</h4>
-              <div className="space-y-2">
-                {submission.cards.map((card) => (
-                  <div key={card.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {card.player_name || card.description || 'Card'}
-                      </p>
-                      {card.psa_cert_number && (
-                        <p className="text-xs text-gray-500">Cert #{card.psa_cert_number}</p>
-                      )}
-                    </div>
-                    {card.grade && (
-                      <span className="text-2xl font-bold text-green-600">
-                        PSA {card.grade}
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Additional Info */}
-          <div className="mt-6 pt-6 border-t border-gray-200 grid grid-cols-2 gap-4 text-sm">
-            {submission.return_tracking && (
+            {/* Progress Timeline */}
+            {submission.steps?.length > 0 && (
               <div>
-                <p className="text-gray-500 mb-1">Return Tracking</p>
-                <p className="font-medium text-gray-900">{submission.return_tracking}</p>
+                <h4 className="text-xl font-bold text-gray-900 mb-5">Progress Timeline</h4>
+                <div className="space-y-4">
+                  {submission.steps.map((step, i) => (
+                    <div key={i} className="flex items-start gap-4">
+                      <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-all ${
+                        step.completed
+                          ? 'bg-gradient-to-br from-emerald-500 to-green-600 text-white'
+                          : 'bg-gray-200 text-gray-400'
+                      }`}>
+                        {step.completed ? (
+                          <CheckCircle2 className="w-6 h-6" />
+                        ) : (
+                          <span className="font-bold">{i + 1}</span>
+                        )}
+                      </div>
+                      <div className="flex-1 pt-1">
+                        <p className={`font-semibold text-lg ${step.completed ? 'text-gray-900' : 'text-gray-400'}`}>
+                          {step.step_name}
+                        </p>
+                        {step.completed_at && (
+                          <p className="text-sm text-gray-500 mt-1">
+                            {format(new Date(step.completed_at), 'MMM d, yyyy • h:mm a')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
-            {submission.psa_order_number && (
+
+            {/* Cards */}
+            {submission.cards?.length > 0 && (
               <div>
-                <p className="text-gray-500 mb-1">PSA Order #</p>
-                <p className="font-medium text-gray-900">{submission.psa_order_number}</p>
+                <h4 className="text-xl font-bold text-gray-900 mb-5">
+                  Cards <span className="text-gray-400">({submission.cards.length})</span>
+                </h4>
+                <div className="grid gap-3">
+                  {submission.cards.map((card) => (
+                    <div key={card.id} className="flex items-center justify-between p-5 bg-white rounded-xl border border-gray-200 hover:border-brand-300 hover:shadow-md transition-all">
+                      <div>
+                        <p className="font-semibold text-gray-900 text-lg">
+                          {card.player_name || card.description || 'Card'}
+                        </p>
+                        {card.psa_cert_number && (
+                          <p className="text-sm text-gray-500 mt-1">Cert #{card.psa_cert_number}</p>
+                        )}
+                      </div>
+                      {card.grade && (
+                        <div className="text-right">
+                          <div className="text-3xl font-black bg-gradient-to-r from-emerald-600 to-green-500 bg-clip-text text-transparent">
+                            {card.grade}
+                          </div>
+                          <div className="text-xs text-gray-500 font-medium">PSA GRADE</div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Additional Info */}
+            {(submission.return_tracking || submission.psa_order_number) && (
+              <div className="grid md:grid-cols-2 gap-6 pt-6 border-t border-gray-200">
+                {submission.return_tracking && (
+                  <div>
+                    <p className="text-sm text-gray-500 mb-2">Return Tracking</p>
+                    <p className="font-semibold text-gray-900">{submission.return_tracking}</p>
+                  </div>
+                )}
+                {submission.psa_order_number && (
+                  <div>
+                    <p className="text-sm text-gray-500 mb-2">PSA Order Number</p>
+                    <p className="font-semibold text-gray-900">{submission.psa_order_number}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -197,7 +257,7 @@ function SubmissionCard({ submission, onExpand, isExpanded }) {
   );
 }
 
-// Buyback Offer Card
+// Buyback Card
 function BuybackCard({ offer, onRespond }) {
   const [responding, setResponding] = useState(false);
 
@@ -205,7 +265,6 @@ function BuybackCard({ offer, onRespond }) {
     if (!confirm(`${response === 'accepted' ? 'Accept' : 'Decline'} this offer for $${offer.offer_price}?`)) {
       return;
     }
-
     setResponding(true);
     try {
       await onRespond(offer.id, response);
@@ -215,44 +274,46 @@ function BuybackCard({ offer, onRespond }) {
   };
 
   return (
-    <div className="bg-white rounded-xl border-2 border-gray-200 p-6">
-      <div className="flex items-start justify-between mb-4">
+    <div className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 p-8 border border-gray-100">
+      <div className="flex items-start justify-between mb-6">
         <div className="flex-1">
-          <h3 className="text-xl font-bold text-gray-900">
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">
             {offer.card_description || offer.player_name || 'Card'}
           </h3>
           {offer.card_grade && (
-            <p className="text-gray-600 mt-1">PSA {offer.card_grade}</p>
+            <p className="text-gray-600 text-lg">PSA {offer.card_grade}</p>
           )}
           {offer.psa_cert_number && (
-            <p className="text-sm text-gray-500">Cert #{offer.psa_cert_number}</p>
+            <p className="text-sm text-gray-500 mt-1">Cert #{offer.psa_cert_number}</p>
           )}
         </div>
         <div className="text-right">
-          <p className="text-3xl font-bold text-green-600">${parseFloat(offer.offer_price).toFixed(2)}</p>
-          <p className="text-sm text-gray-500">Offer</p>
+          <p className="text-4xl font-black bg-gradient-to-r from-emerald-600 to-green-500 bg-clip-text text-transparent">
+            ${parseFloat(offer.offer_price).toFixed(2)}
+          </p>
+          <p className="text-sm text-gray-500 font-medium mt-1">OFFER PRICE</p>
         </div>
       </div>
 
       {offer.notes && (
-        <div className="bg-gray-50 rounded-lg p-3 mb-4">
-          <p className="text-sm text-gray-700">{offer.notes}</p>
+        <div className="bg-gray-50 rounded-xl p-5 mb-6">
+          <p className="text-gray-700 leading-relaxed">{offer.notes}</p>
         </div>
       )}
 
       {offer.status === 'pending' && (
-        <div className="flex gap-3">
+        <div className="flex gap-4">
           <button
             onClick={() => handleResponse('accepted')}
             disabled={responding}
-            className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-green-700 disabled:opacity-50"
+            className="flex-1 bg-gradient-to-r from-emerald-600 to-green-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:shadow-xl hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {responding ? 'Processing...' : 'Accept Offer'}
           </button>
           <button
             onClick={() => handleResponse('rejected')}
             disabled={responding}
-            className="flex-1 bg-gray-600 text-white px-6 py-3 rounded-lg font-bold hover:bg-gray-700 disabled:opacity-50"
+            className="flex-1 bg-gray-600 text-white px-8 py-4 rounded-xl font-bold text-lg hover:bg-gray-700 hover:shadow-xl transition-all disabled:opacity-50"
           >
             Decline
           </button>
@@ -260,8 +321,8 @@ function BuybackCard({ offer, onRespond }) {
       )}
 
       {offer.status !== 'pending' && (
-        <div className={`text-center py-3 rounded-lg font-bold ${
-          offer.status === 'accepted' ? 'bg-green-100 text-green-800' :
+        <div className={`text-center py-4 rounded-xl font-bold text-lg ${
+          offer.status === 'accepted' ? 'bg-emerald-100 text-emerald-800' :
           offer.status === 'rejected' ? 'bg-red-100 text-red-800' :
           'bg-gray-100 text-gray-800'
         }`}>
@@ -272,12 +333,180 @@ function BuybackCard({ offer, onRespond }) {
   );
 }
 
-// Main Portal Component
+// Card Gallery Card Component
+function CardGalleryCard({ card, token, onUploadComplete }) {
+  const [uploading, setUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
+  const [showAllImages, setShowAllImages] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const images = card.card_images ? (Array.isArray(card.card_images) ? card.card_images : JSON.parse(card.card_images)) : [];
+  const displayImages = showAllImages ? images : images.slice(0, 3);
+
+  const handleDrag = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    const files = [...e.dataTransfer.files].filter(file => file.type.startsWith('image/'));
+    if (files.length > 0) {
+      await uploadImages(files);
+    }
+  };
+
+  const handleFileInput = async (e) => {
+    const files = [...e.target.files];
+    if (files.length > 0) {
+      await uploadImages(files);
+    }
+  };
+
+  const uploadImages = async (files) => {
+    if (files.length > 5) {
+      alert('Maximum 5 images at a time');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      files.forEach(file => formData.append('images', file));
+
+      const response = await fetch(`${API_URL}/portal/cards/${card.id}/images?token=${token}`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+
+      const result = await response.json();
+      if (onUploadComplete) onUploadComplete(result.card);
+    } catch (error) {
+      console.error('Upload failed:', error);
+      alert('Failed to upload images');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden">
+      {/* Card Info */}
+      <div className="p-6">
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1">
+            <h3 className="text-xl font-bold text-gray-900 mb-1">
+              {card.player_name || card.description || 'Card'}
+            </h3>
+            {(card.year || card.brand) && (
+              <p className="text-gray-600 text-sm">
+                {card.year} {card.brand}
+              </p>
+            )}
+            {card.psa_submission_number && (
+              <p className="text-xs text-gray-500 mt-1">
+                Submission: {card.psa_submission_number}
+              </p>
+            )}
+            {card.psa_cert_number && (
+              <p className="text-xs text-gray-500">
+                Cert #{card.psa_cert_number}
+              </p>
+            )}
+          </div>
+          {card.grade && (
+            <div className="text-right">
+              <div className="text-3xl font-black bg-gradient-to-r from-emerald-600 to-green-500 bg-clip-text text-transparent">
+                {card.grade}
+              </div>
+              <div className="text-xs text-gray-500 font-medium">PSA GRADE</div>
+            </div>
+          )}
+        </div>
+
+        {/* Images Grid */}
+        {images.length > 0 && (
+          <div className="mb-4">
+            <div className="grid grid-cols-3 gap-2 mb-2">
+              {displayImages.map((url, i) => (
+                <div key={i} className="aspect-square rounded-lg overflow-hidden bg-gray-100">
+                  <img src={url} alt={`Card ${i + 1}`} className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+            {images.length > 3 && (
+              <button
+                onClick={() => setShowAllImages(!showAllImages)}
+                className="text-sm text-brand-600 hover:text-brand-700 font-medium"
+              >
+                {showAllImages ? 'Show less' : `+${images.length - 3} more`}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Upload Area */}
+        <div
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+          className={`border-2 border-dashed rounded-xl p-6 text-center transition-all ${
+            dragActive
+              ? 'border-brand-500 bg-brand-50'
+              : 'border-gray-300 hover:border-brand-400 hover:bg-gray-50'
+          }`}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleFileInput}
+            className="hidden"
+          />
+          {uploading ? (
+            <div className="flex flex-col items-center">
+              <Loader2 className="w-8 h-8 text-brand-500 animate-spin mb-2" />
+              <p className="text-sm text-gray-600">Uploading...</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center">
+              <Upload className="w-8 h-8 text-gray-400 mb-2" />
+              <p className="text-sm font-medium text-gray-700 mb-1">Upload Card Photos</p>
+              <p className="text-xs text-gray-500 mb-3">Drag & drop or click to browse</p>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="px-4 py-2 bg-brand-600 text-white rounded-lg text-sm font-medium hover:bg-brand-700 transition-colors"
+              >
+                Choose Files
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Main Portal
 export default function CustomerPortal() {
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
+  const [cards, setCards] = useState([]);
   const [expandedSubmission, setExpandedSubmission] = useState(null);
+  const [cardSearch, setCardSearch] = useState('');
 
   const token = searchParams.get('token');
 
@@ -290,11 +519,21 @@ export default function CustomerPortal() {
       const response = await fetch(`${API_URL}/portal/access?token=${token}`);
       const result = await response.json();
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to load portal');
-      }
+      if (!response.ok) throw new Error(result.error || 'Failed to load portal');
 
       setData(result);
+
+      // Load cards separately
+      try {
+        const cardsResponse = await fetch(`${API_URL}/portal/cards?token=${token}`);
+        if (cardsResponse.ok) {
+          const cardsData = await cardsResponse.json();
+          setCards(cardsData);
+        }
+      } catch (err) {
+        console.error('Failed to load cards:', err);
+      }
+
       setLoading(false);
     } catch (error) {
       console.error('Portal load error:', error);
@@ -309,19 +548,35 @@ export default function CustomerPortal() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ response })
       });
-      // Reload data to refresh offer status
       loadPortalData();
     } catch (error) {
       alert('Failed to respond to offer');
     }
   };
 
+  const handleCardUploadComplete = (updatedCard) => {
+    setCards(prev => prev.map(c => c.id === updatedCard.id ? updatedCard : c));
+  };
+
+  // Filter cards based on search
+  const filteredCards = cards.filter(card => {
+    if (!cardSearch) return true;
+    const searchLower = cardSearch.toLowerCase();
+    return (
+      (card.player_name?.toLowerCase().includes(searchLower)) ||
+      (card.description?.toLowerCase().includes(searchLower)) ||
+      (card.brand?.toLowerCase().includes(searchLower)) ||
+      (card.year?.toString().includes(searchLower)) ||
+      (card.psa_cert_number?.toLowerCase().includes(searchLower))
+    );
+  });
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-16 h-16 animate-spin text-brand-500 mx-auto mb-4" />
-          <p className="text-xl text-gray-600">Loading your submissions...</p>
+          <Loader2 className="w-20 h-20 animate-spin text-brand-500 mx-auto mb-6" />
+          <p className="text-2xl font-semibold text-gray-600">Loading your portal...</p>
         </div>
       </div>
     );
@@ -329,11 +584,11 @@ export default function CustomerPortal() {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md text-center">
-          <AlertTriangle className="w-20 h-20 text-red-500 mx-auto mb-4" />
-          <h2 className="text-3xl font-bold text-gray-900 mb-3">Invalid Link</h2>
-          <p className="text-gray-600 mb-6">This portal link is invalid or has expired.</p>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-3xl shadow-2xl p-12 max-w-md text-center">
+          <AlertTriangle className="w-24 h-24 text-red-500 mx-auto mb-6" />
+          <h2 className="text-4xl font-bold text-gray-900 mb-4">Invalid Link</h2>
+          <p className="text-gray-600 text-lg mb-2">This portal link is invalid or has expired.</p>
           <p className="text-sm text-gray-500">Please contact the shop for a new link.</p>
         </div>
       </div>
@@ -343,46 +598,54 @@ export default function CustomerPortal() {
   const activeSubmissions = data.submissions.filter(s => !s.shipped);
   const completedSubmissions = data.submissions.filter(s => s.shipped);
   const pendingOffers = data.buybackOffers.filter(o => o.status === 'pending');
-  const respondedOffers = data.buybackOffers.filter(o => o.status !== 'pending');
+  const hasCards = filteredCards.length > 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
       {/* Header */}
-      <div className="bg-gradient-to-r from-brand-500 to-brand-600 text-white shadow-lg">
-        <div className="max-w-5xl mx-auto px-4 py-8">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold mb-2">{data.company.name}</h1>
-            <p className="text-brand-100 text-lg">Customer Portal</p>
+      <div className="bg-gradient-to-r from-brand-600 via-brand-500 to-brand-600 relative overflow-hidden">
+        <div className="absolute inset-0 bg-black opacity-5"></div>
+        <div className="absolute top-0 right-0 w-96 h-96 bg-white opacity-10 rounded-full -mr-48 -mt-48"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-white opacity-10 rounded-full -ml-48 -mb-48"></div>
+
+        <div className="relative max-w-6xl mx-auto px-6 py-16">
+          <div className="text-center mb-8">
+            <h1 className="text-5xl font-black text-white mb-3 tracking-tight">
+              {data.company.name}
+            </h1>
+            <p className="text-brand-100 text-xl font-medium">Customer Portal</p>
           </div>
-          <div className="mt-6 bg-white bg-opacity-20 backdrop-blur-sm rounded-lg p-4 text-center">
-            <p className="font-bold text-xl">{data.customer.name}</p>
-            <p className="text-brand-100">{data.customer.email}</p>
+          <div className="max-w-md mx-auto bg-white bg-opacity-20 backdrop-blur-lg rounded-2xl p-6 text-center border border-white border-opacity-30">
+            <p className="font-bold text-white text-2xl mb-1">{data.customer.name}</p>
+            <p className="text-brand-100 text-lg">{data.customer.email}</p>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+      <div className="max-w-6xl mx-auto px-6 py-16 space-y-16">
         {/* Active Submissions */}
         <section>
-          <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-            <Package className="w-8 h-8 text-brand-600" />
-            My Submissions
-            {activeSubmissions.length > 0 && (
-              <span className="px-4 py-1 bg-brand-100 text-brand-700 rounded-full text-lg font-bold">
-                {activeSubmissions.length}
-              </span>
-            )}
-          </h2>
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-14 h-14 bg-gradient-to-br from-brand-500 to-brand-600 rounded-2xl flex items-center justify-center shadow-lg">
+              <Package className="w-7 h-7 text-white" />
+            </div>
+            <div>
+              <h2 className="text-4xl font-black text-gray-900">My Submissions</h2>
+              {activeSubmissions.length > 0 && (
+                <p className="text-gray-500 text-lg mt-1">{activeSubmissions.length} active</p>
+              )}
+            </div>
+          </div>
 
           {activeSubmissions.length === 0 ? (
-            <div className="bg-white rounded-xl border-2 border-gray-200 p-12 text-center">
-              <Package className="w-20 h-20 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-2xl font-bold text-gray-900 mb-2">No Active Submissions</h3>
-              <p className="text-gray-600">Your submissions will appear here once you drop off cards</p>
+            <div className="bg-white rounded-3xl border-2 border-dashed border-gray-200 p-16 text-center">
+              <Package className="w-24 h-24 text-gray-300 mx-auto mb-6" />
+              <h3 className="text-3xl font-bold text-gray-900 mb-3">No Active Submissions</h3>
+              <p className="text-gray-500 text-lg">Your submissions will appear here once you drop off cards</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {activeSubmissions.map((submission) => (
                 <SubmissionCard
                   key={submission.id}
@@ -398,14 +661,16 @@ export default function CustomerPortal() {
         {/* Buyback Offers */}
         {pendingOffers.length > 0 && (
           <section>
-            <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-              <DollarSign className="w-8 h-8 text-green-600" />
-              Buyback Offers
-              <span className="px-4 py-1 bg-green-100 text-green-700 rounded-full text-lg font-bold">
-                {pendingOffers.length}
-              </span>
-            </h2>
-            <div className="grid gap-4">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <DollarSign className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h2 className="text-4xl font-black text-gray-900">Buyback Offers</h2>
+                <p className="text-gray-500 text-lg mt-1">{pendingOffers.length} pending</p>
+              </div>
+            </div>
+            <div className="grid gap-6">
               {pendingOffers.map((offer) => (
                 <BuybackCard key={offer.id} offer={offer} onRespond={handleBuybackResponse} />
               ))}
@@ -413,38 +678,90 @@ export default function CustomerPortal() {
           </section>
         )}
 
-        {/* Completed Submissions */}
-        {completedSubmissions.length > 0 && (
+        {/* My Cards Gallery */}
+        {hasCards && (
           <section>
-            <h2 className="text-2xl font-bold text-gray-700 mb-4 flex items-center gap-3">
-              <CheckCircle2 className="w-7 h-7 text-green-600" />
-              Completed Submissions ({completedSubmissions.length})
-            </h2>
-            <div className="space-y-3">
-              {completedSubmissions.map((submission) => (
-                <div key={submission.id} className="bg-white rounded-lg border border-gray-200 p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-bold text-gray-900">
-                        {submission.psa_submission_number || submission.internal_id}
-                      </h4>
-                      <p className="text-sm text-gray-600">{submission.card_count || 0} cards</p>
-                    </div>
-                    <CheckCircle2 className="w-6 h-6 text-green-600" />
-                  </div>
-                </div>
-              ))}
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <Grid className="w-7 h-7 text-white" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-4xl font-black text-gray-900">My Cards</h2>
+                <p className="text-gray-500 text-lg mt-1">{cards.length} total cards</p>
+              </div>
             </div>
+
+            {/* Search Bar */}
+            <div className="mb-8">
+              <div className="relative max-w-xl">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by player, description, brand, year, or cert number..."
+                  value={cardSearch}
+                  onChange={(e) => setCardSearch(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 bg-white border-2 border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-200 transition-all text-lg"
+                />
+                {cardSearch && (
+                  <button
+                    onClick={() => setCardSearch('')}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+              {cardSearch && (
+                <p className="text-sm text-gray-600 mt-3">
+                  Showing {filteredCards.length} of {cards.length} cards
+                </p>
+              )}
+            </div>
+
+            {/* Cards Grid */}
+            {filteredCards.length === 0 ? (
+              <div className="bg-white rounded-3xl border-2 border-dashed border-gray-200 p-16 text-center">
+                <ImageIcon className="w-24 h-24 text-gray-300 mx-auto mb-6" />
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">No cards found</h3>
+                <p className="text-gray-500 text-lg">
+                  {cardSearch ? 'Try a different search term' : 'Your cards will appear here'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredCards.map((card) => (
+                  <CardGalleryCard
+                    key={card.id}
+                    card={card}
+                    token={token}
+                    onUploadComplete={handleCardUploadComplete}
+                  />
+                ))}
+              </div>
+            )}
           </section>
         )}
 
-        {/* Responded Buyback Offers */}
-        {respondedOffers.length > 0 && (
+        {/* Completed */}
+        {completedSubmissions.length > 0 && (
           <section>
-            <h2 className="text-2xl font-bold text-gray-700 mb-4">Past Buyback Offers</h2>
+            <div className="flex items-center gap-4 mb-6">
+              <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+              <h3 className="text-2xl font-bold text-gray-700">
+                Completed Submissions ({completedSubmissions.length})
+              </h3>
+            </div>
             <div className="grid gap-4">
-              {respondedOffers.map((offer) => (
-                <BuybackCard key={offer.id} offer={offer} onRespond={handleBuybackResponse} />
+              {completedSubmissions.map((submission) => (
+                <div key={submission.id} className="bg-white rounded-xl border border-gray-200 p-6 flex items-center justify-between hover:shadow-md transition-shadow">
+                  <div>
+                    <h4 className="font-bold text-gray-900 text-lg">
+                      {submission.psa_submission_number || submission.internal_id}
+                    </h4>
+                    <p className="text-gray-500">{submission.card_count || 0} cards</p>
+                  </div>
+                  <CheckCircle2 className="w-8 h-8 text-emerald-600" />
+                </div>
               ))}
             </div>
           </section>
@@ -452,9 +769,9 @@ export default function CustomerPortal() {
       </div>
 
       {/* Footer */}
-      <div className="bg-white border-t border-gray-200 mt-12">
-        <div className="max-w-5xl mx-auto px-4 py-6 text-center text-sm text-gray-600">
-          <p>Questions? Contact {data.company.name}</p>
+      <div className="bg-white border-t border-gray-200 mt-24">
+        <div className="max-w-6xl mx-auto px-6 py-8 text-center">
+          <p className="text-gray-600">Questions? Contact <span className="font-semibold text-gray-900">{data.company.name}</span></p>
         </div>
       </div>
     </div>
