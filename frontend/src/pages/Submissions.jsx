@@ -375,7 +375,6 @@ export default function Submissions() {
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [refreshProgress, setRefreshProgress] = useState({ total: 0, current: 0, updated: 0, errors: 0 });
   const [sendingBulk, setSendingBulk] = useState(false);
-  const [activeTab, setActiveTab] = useState('active'); // 'active' or 'completed'
   const [filter, setFilter] = useState('all'); // 'all', 'active', 'shipped', 'problems'
   const [serviceLevelFilter, setServiceLevelFilter] = useState('all'); // 'all', or specific service level
   const [search, setSearch] = useState('');
@@ -613,39 +612,19 @@ export default function Submissions() {
     setSubs(subs.filter((s) => s.id !== id));
   };
 
-  const handleFixShippedStatus = async () => {
-    if (!confirm('This will reset incorrectly marked shipped submissions. Continue?')) {
-      return;
-    }
-
-    try {
-      const response = await submissions.fixShippedStatus();
-      alert(`✓ Fixed ${response.data.fixed} submissions!\n\nYour active submissions should now appear correctly.`);
-      await loadSubmissions();
-    } catch (error) {
-      console.error('Fix shipped status failed:', error);
-      alert('Failed to fix shipped statuses. Check console for details.');
-    }
-  };
-
   useEffect(() => {
     loadSubmissions();
-  }, [filter, activeTab]);
+  }, [filter]);
 
-  // Filter by active/completed tab first
-  const tabFilteredSubs = subs.filter((s) => {
-    // Completed = 100% progress (green bar), Active = < 100% progress
-    const isCompleted = (s.progress_percent || 0) >= 100;
-
-    if (activeTab === 'completed') {
-      return isCompleted; // Show 100% progress submissions in completed tab
-    } else {
-      return !isCompleted; // Show < 100% progress submissions in "At PSA" tab
-    }
+  // Sort submissions by date (newest first)
+  const sortedSubs = [...subs].sort((a, b) => {
+    const dateA = new Date(a.date_sent || a.created_at || 0);
+    const dateB = new Date(b.date_sent || b.created_at || 0);
+    return dateB - dateA; // Newest first
   });
 
   // Enhanced filter by search - includes order #, sub #, customer name, and card names
-  const filteredSubs = tabFilteredSubs.filter((s) => {
+  const filteredSubs = sortedSubs.filter((s) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -673,9 +652,8 @@ export default function Submissions() {
     displaySubs = displaySubs.filter(s => s.service_level === serviceLevelFilter);
   }
 
-  // Calculate counts for tabs
-  const activeCount = subs.filter(s => (s.progress_percent || 0) < 100).length;
-  const completedCount = subs.filter(s => (s.progress_percent || 0) >= 100).length;
+  // Total submission count
+  const totalCount = subs.length;
 
   // Get unique service levels for tabs, ordered by volume (Bulk → Plus → Regular → Express → Specialty)
   const serviceOrder = ['Bulk', 'Value Bulk', 'Plus', 'Value Plus', 'Regular', 'Standard', 'Express', 'Super Express', 'Walk-Through', 'Walk-Thru', 'Specialty', 'Reholder'];
@@ -743,16 +721,6 @@ export default function Submissions() {
             >
               <RefreshCw className={`w-4 h-4 ${refreshingAll ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">{refreshingAll ? 'Refreshing...' : 'Refresh All'}</span>
-            </button>
-          )}
-          {activeCount === 0 && completedCount > 0 && (
-            <button
-              onClick={handleFixShippedStatus}
-              className="btn gap-2 bg-yellow-500 hover:bg-yellow-600 text-white border-0"
-              title="Fix submissions incorrectly marked as shipped"
-            >
-              <AlertCircle className="w-4 h-4" />
-              <span className="hidden sm:inline">Fix Data</span>
             </button>
           )}
           <Link to="/submissions/new" className="btn btn-primary gap-2">
@@ -834,60 +802,14 @@ export default function Submissions() {
         </div>
       )}
 
-      {/* At PSA / Finished Tabs */}
-      <div className="card">
-        <div className="border-b border-gray-200">
-          <div className="flex">
-            <button
-              onClick={() => setActiveTab('active')}
-              className={`flex-1 px-6 py-4 text-sm font-medium transition-all border-b-2 ${
-                activeTab === 'active'
-                  ? 'border-brand-500 text-brand-600 bg-brand-50'
-                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <Package className="w-4 h-4" />
-                <span>At PSA</span>
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                  activeTab === 'active'
-                    ? 'bg-brand-500 text-white'
-                    : 'bg-gray-200 text-gray-700'
-                }`}>
-                  {activeCount}
-                </span>
-              </div>
-            </button>
-            <button
-              onClick={() => setActiveTab('completed')}
-              className={`flex-1 px-6 py-4 text-sm font-medium transition-all border-b-2 ${
-                activeTab === 'completed'
-                  ? 'border-emerald-500 text-emerald-600 bg-emerald-50'
-                  : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-              }`}
-            >
-              <div className="flex items-center justify-center gap-2">
-                <CheckCircle2 className="w-4 h-4" />
-                <span>Finished & Arrived</span>
-                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                  activeTab === 'completed'
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-gray-200 text-gray-700'
-                }`}>
-                  {completedCount}
-                </span>
-              </div>
-            </button>
-          </div>
-        </div>
-
-        {/* Service Level Tabs - Inside main tab */}
-        {serviceLevels.length > 1 && (
+      {/* Service Level Tabs */}
+      {serviceLevels.length > 1 && (
+        <div className="card">
           <div className="border-b border-gray-200">
             <div className="flex overflow-x-auto bg-gray-50">
               {serviceLevels.map((level) => {
-                // Count for this service level in current main tab
-                const levelSubs = tabFilteredSubs.filter(s => level === 'all' || s.service_level === level);
+                // Count for this service level
+                const levelSubs = sortedSubs.filter(s => level === 'all' || s.service_level === level);
                 const count = levelSubs.length;
                 const displayName = level === 'all' ? 'All Services' : level;
                 const colors = level === 'all' ? null : getServiceColor(level);
@@ -915,8 +837,8 @@ export default function Submissions() {
               })}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="card p-4">
@@ -933,20 +855,18 @@ export default function Submissions() {
             />
           </div>
 
-          {/* Status filter - only show for active tab */}
-          {activeTab === 'active' && (
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-400" />
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="input w-auto"
-              >
-                <option value="all">All Statuses</option>
-                <option value="problems">Problems Only</option>
-              </select>
-            </div>
-          )}
+          {/* Status filter */}
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-gray-400" />
+            <select
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="input w-auto"
+            >
+              <option value="all">All Statuses</option>
+              <option value="problems">Problems Only</option>
+            </select>
+          </div>
         </div>
       </div>
 
