@@ -71,11 +71,30 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
       });
     }
 
-    // Get ALL submissions for this company (not just unshipped)
+    // Get submissions that need refreshing:
+    // 1. All active submissions (progress < 100 and not shipped)
+    // 2. The most recent completed submission (to catch any final updates)
+    // This saves API calls by not refreshing old completed orders
     const submissions = await db.query(
-      `SELECT id, psa_submission_number
+      `SELECT id, psa_submission_number, progress_percent, shipped, date_sent
        FROM submissions
-       WHERE company_id = $1 AND psa_submission_number IS NOT NULL`,
+       WHERE company_id = $1
+         AND psa_submission_number IS NOT NULL
+         AND (
+           -- Active submissions (not complete)
+           (progress_percent < 100 AND shipped = false)
+           OR
+           -- Most recent completed submission only
+           id = (
+             SELECT id FROM submissions
+             WHERE company_id = $1
+               AND psa_submission_number IS NOT NULL
+               AND (progress_percent >= 100 OR shipped = true)
+             ORDER BY date_sent DESC, created_at DESC
+             LIMIT 1
+           )
+         )
+       ORDER BY date_sent DESC, created_at DESC`,
       [req.user.company_id]
     );
 

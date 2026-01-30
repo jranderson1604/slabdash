@@ -443,7 +443,14 @@ export default function Submissions() {
       return;
     }
 
-    if (!confirm('This will refresh all active submissions from PSA.\n\n⏱️ This process takes 5-7 seconds per submission to avoid rate limits.\n\nSome submissions may fail due to PSA rate limiting - this is normal.\n\nContinue?')) {
+    const activeCount = subs.filter(s => s.progress_percent < 100 && !s.shipped).length;
+    const hasCompleted = subs.some(s => s.progress_percent >= 100 || s.shipped);
+
+    const message = hasCompleted
+      ? `This will refresh ${activeCount} active submission${activeCount !== 1 ? 's' : ''} + the most recent completed submission.\n\n✅ Completed submissions are automatically skipped to save API calls.\n\n⏱️ This takes 8-12 seconds per submission to avoid rate limits.\n\n⚠️ PSA limits you to 100 API calls per day.\n\nContinue?`
+      : `This will refresh all ${activeCount} active submission${activeCount !== 1 ? 's' : ''} from PSA.\n\n⏱️ This takes 8-12 seconds per submission to avoid rate limits.\n\n⚠️ PSA limits you to 100 API calls per day.\n\nContinue?`;
+
+    if (!confirm(message)) {
       return;
     }
 
