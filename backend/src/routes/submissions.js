@@ -7,7 +7,7 @@ const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa, tryGe
 // List submissions
 router.get("/", authenticate, async (req, res) => {
   try {
-    const { limit = 50, offset = 0, customer_id, status } = req.query;
+    const { limit = 10000, offset = 0, customer_id, status } = req.query;
 
     let query = `
       SELECT s.*, c.name as customer_name, c.email as customer_email,
