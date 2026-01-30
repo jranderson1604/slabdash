@@ -548,19 +548,48 @@ export default function Submissions() {
     }
   };
 
+  const handleDeleteAllSubmissions = async () => {
+    const confirmText = 'DELETE ALL';
+    const userInput = prompt(
+      `⚠️ WARNING: This will permanently delete ALL submissions!\n\n` +
+      `This action CANNOT be undone.\n\n` +
+      `After deletion, you can re-import fresh data from PSA CSV.\n\n` +
+      `Type "${confirmText}" to confirm:`
+    );
+
+    if (userInput !== confirmText) {
+      if (userInput !== null) {
+        alert('Deletion cancelled - confirmation text did not match.');
+      }
+      return;
+    }
+
+    try {
+      // Delete all submissions
+      const deletePromises = subs.map(sub => submissions.delete(sub.id));
+      await Promise.all(deletePromises);
+
+      alert(`✓ Deleted all ${subs.length} submissions!\n\nYou can now import fresh data from PSA CSV.`);
+      await loadSubmissions();
+    } catch (error) {
+      console.error('Delete all failed:', error);
+      alert('Failed to delete all submissions. Check console for details.');
+    }
+  };
+
   useEffect(() => {
     loadSubmissions();
   }, [filter, activeTab]);
 
   // Filter by active/completed tab first
   const tabFilteredSubs = subs.filter((s) => {
-    // Only shipped submissions are truly finished and arrived back
-    const isShipped = Boolean(s.shipped);
+    // Completed = 100% progress (green bar), Active = < 100% progress
+    const isCompleted = (s.progress_percent || 0) >= 100;
 
     if (activeTab === 'completed') {
-      return isShipped; // Only show shipped submissions in completed tab
+      return isCompleted; // Show 100% progress submissions in completed tab
     } else {
-      return !isShipped; // Show all non-shipped submissions in "At PSA" tab (including grades_ready)
+      return !isCompleted; // Show < 100% progress submissions in "At PSA" tab
     }
   });
 
@@ -594,8 +623,8 @@ export default function Submissions() {
   }
 
   // Calculate counts for tabs
-  const activeCount = subs.filter(s => !Boolean(s.shipped)).length;
-  const completedCount = subs.filter(s => Boolean(s.shipped)).length;
+  const activeCount = subs.filter(s => (s.progress_percent || 0) < 100).length;
+  const completedCount = subs.filter(s => (s.progress_percent || 0) >= 100).length;
 
   // Get unique service levels for tabs, ordered by volume (Bulk → Plus → Regular → Express → Specialty)
   const serviceOrder = ['Bulk', 'Value Bulk', 'Plus', 'Value Plus', 'Regular', 'Standard', 'Express', 'Super Express', 'Walk-Through', 'Walk-Thru', 'Specialty', 'Reholder'];
@@ -673,6 +702,16 @@ export default function Submissions() {
             >
               <AlertCircle className="w-4 h-4" />
               <span className="hidden sm:inline">Fix Data</span>
+            </button>
+          )}
+          {subs.length > 0 && (
+            <button
+              onClick={handleDeleteAllSubmissions}
+              className="btn gap-2 bg-red-600 hover:bg-red-700 text-white border-0"
+              title="Delete all submissions and start fresh"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Delete All</span>
             </button>
           )}
           <Link to="/submissions/new" className="btn btn-primary gap-2">
