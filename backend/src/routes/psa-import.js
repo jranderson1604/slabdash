@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { parse } = require('csv-parse/sync');
+const { getSubmissionProgress, updateSubmissionFromPsa } = require('../services/psaService');
 
 /**
  * Import PSA bulk CSV export
@@ -180,6 +181,268 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
             error: 'Failed to import PSA CSV',
             details: error.message
         });
+    }
+});
+
+/**
+ * Import PSA CSV and automatically refresh each submission from PSA API
+ * This ensures accurate progress data
+ */
+router.post('/import-and-refresh', authenticate, requireRole('owner', 'admin'), async (req, res) => {
+    try {
+        const { csvData } = req.body;
+        const companyId = req.user.company_id;
+
+        if (!csvData) {
+            return res.status(400).json({ error: 'CSV data is required' });
+        }
+
+        // Get company's PSA API key
+        const companyResult = await db.query(
+            'SELECT psa_api_key FROM companies WHERE id = $1',
+            [companyId]
+        );
+
+        if (!companyResult.rows.length || !companyResult.rows[0].psa_api_key) {
+            return res.status(400).json({ error: 'PSA API key not configured. Please add your PSA API key in Company Settings.' });
+        }
+
+        const apiKey = companyResult.rows[0].psa_api_key;
+
+        // Set up Server-Sent Events for progress streaming
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        const sendEvent = (data) => {
+            res.write(`data: ${JSON.stringify(data)}\n\n`);
+        };
+
+        // Parse CSV
+        const records = parse(csvData, {
+            columns: true,
+            skip_empty_lines: true,
+            trim: true,
+            relax_column_count: true
+        });
+
+        let created = 0;
+        let updated = 0;
+        let skipped = 0;
+        const importedSubmissions = [];
+
+        sendEvent({ type: 'start', phase: 'import', total: records.length });
+
+        // Phase 1: Import CSV data
+        for (let i = 0; i < records.length; i++) {
+            const record = records[i];
+            try {
+                const orderNumber = record['Order #']?.trim() || '';
+                const submissionNumber = record['Submission #']?.trim() || '';
+                const status = record['Status']?.trim() || '';
+                const items = parseInt(record['Items']) || 0;
+                let service = record['Service']?.trim() || '';
+                const trackingUrl = record['Track Package']?.trim() || '';
+                const arrived = record['Arrived']?.trim() || '';
+
+                // Normalize service level names
+                if (service.includes('Value Bulk')) {
+                    service = 'Value Bulk';
+                }
+
+                // Skip if no submission number
+                if (!submissionNumber) {
+                    skipped++;
+                    sendEvent({ type: 'progress', phase: 'import', current: i + 1, created, updated, skipped });
+                    continue;
+                }
+
+                // Extract tracking number from URL if present
+                let trackingNumber = '';
+                if (trackingUrl && trackingUrl.includes('trknbr=')) {
+                    trackingNumber = trackingUrl.split('trknbr=')[1] || trackingUrl;
+                }
+
+                // Parse date
+                let dateArrived = null;
+                if (arrived) {
+                    try {
+                        const dateParts = arrived.replace(' Estimated', '').trim();
+                        dateArrived = new Date(dateParts).toISOString().split('T')[0];
+                    } catch (e) {
+                        // Invalid date, skip
+                    }
+                }
+
+                const problemOrder = status.toLowerCase().includes('problem');
+                const gradesReady = status.toLowerCase().includes('ready') || status.toLowerCase() === 'completed';
+
+                // Check if submission already exists
+                const existingResult = await db.query(
+                    `SELECT id FROM submissions WHERE psa_submission_number = $1 AND company_id = $2`,
+                    [submissionNumber, companyId]
+                );
+
+                let submissionId;
+
+                if (existingResult.rows.length > 0) {
+                    // Update existing submission
+                    submissionId = existingResult.rows[0].id;
+
+                    await db.query(
+                        `UPDATE submissions SET
+                            psa_order_number = $1,
+                            psa_status = $2,
+                            card_count = $3,
+                            service_level = $4,
+                            return_tracking = $5,
+                            date_sent = $6,
+                            problem_order = $7,
+                            grades_ready = $8,
+                            last_api_update = CURRENT_TIMESTAMP
+                         WHERE id = $9 AND company_id = $10`,
+                        [
+                            orderNumber || null,
+                            status || null,
+                            items,
+                            service || null,
+                            trackingNumber || null,
+                            dateArrived,
+                            problemOrder,
+                            gradesReady,
+                            submissionId,
+                            companyId
+                        ]
+                    );
+
+                    updated++;
+                } else {
+                    // Create new submission
+                    const insertResult = await db.query(
+                        `INSERT INTO submissions (
+                            company_id,
+                            psa_submission_number,
+                            psa_order_number,
+                            psa_status,
+                            card_count,
+                            service_level,
+                            return_tracking,
+                            date_sent,
+                            problem_order,
+                            grades_ready,
+                            internal_id,
+                            last_api_update
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+                        RETURNING id`,
+                        [
+                            companyId,
+                            submissionNumber,
+                            orderNumber || null,
+                            status || null,
+                            items,
+                            service || null,
+                            trackingNumber || null,
+                            dateArrived,
+                            problemOrder,
+                            gradesReady,
+                            submissionNumber
+                        ]
+                    );
+
+                    submissionId = insertResult.rows[0].id;
+                    created++;
+                }
+
+                importedSubmissions.push({ id: submissionId, number: submissionNumber });
+                sendEvent({ type: 'progress', phase: 'import', current: i + 1, created, updated, skipped });
+
+            } catch (error) {
+                console.error(`✗ Failed to process record:`, error.message);
+                skipped++;
+                sendEvent({ type: 'progress', phase: 'import', current: i + 1, created, updated, skipped });
+            }
+        }
+
+        sendEvent({ type: 'import_complete', created, updated, skipped });
+
+        // Phase 2: Refresh each submission from PSA API
+        sendEvent({ type: 'start', phase: 'refresh', total: importedSubmissions.length });
+
+        let refreshed = 0;
+        let refreshErrors = 0;
+
+        for (let i = 0; i < importedSubmissions.length; i++) {
+            const sub = importedSubmissions[i];
+
+            try {
+                sendEvent({
+                    type: 'progress',
+                    phase: 'refresh',
+                    current: i + 1,
+                    total: importedSubmissions.length,
+                    refreshed,
+                    errors: refreshErrors,
+                    submissionNumber: sub.number
+                });
+
+                const result = await getSubmissionProgress(apiKey, sub.number);
+
+                if (result.success) {
+                    await updateSubmissionFromPsa(sub.id, result.data);
+                    refreshed++;
+                } else {
+                    refreshErrors++;
+                    console.log(`Failed to refresh ${sub.number}: ${result.error}`);
+                }
+
+                // Aggressive delay between requests (5-7 seconds with jitter)
+                const baseDelay = 5000;
+                const jitter = Math.random() * 2000;
+                await new Promise(resolve => setTimeout(resolve, baseDelay + jitter));
+
+            } catch (error) {
+                if (error.response?.status === 429) {
+                    // Rate limit - use exponential backoff
+                    const backoffDelay = 10000 + (Math.random() * 5000);
+                    console.log(`Rate limited on ${sub.number}, waiting ${backoffDelay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, backoffDelay));
+
+                    // Retry once
+                    try {
+                        const retryResult = await getSubmissionProgress(apiKey, sub.number);
+                        if (retryResult.success) {
+                            await updateSubmissionFromPsa(sub.id, retryResult.data);
+                            refreshed++;
+                        } else {
+                            refreshErrors++;
+                        }
+                    } catch (retryError) {
+                        refreshErrors++;
+                        console.error(`Failed to refresh ${sub.number} after retry:`, retryError.message);
+                    }
+                } else {
+                    refreshErrors++;
+                    console.error(`Failed to refresh ${sub.number}:`, error.message);
+                }
+            }
+        }
+
+        sendEvent({
+            type: 'complete',
+            created,
+            updated,
+            skipped,
+            refreshed,
+            refreshErrors,
+            total: importedSubmissions.length
+        });
+
+        res.end();
+
+    } catch (error) {
+        console.error('PSA CSV import and refresh error:', error);
+        res.write(`data: ${JSON.stringify({ type: 'error', details: error.message })}\n\n`);
+        res.end();
     }
 });
 

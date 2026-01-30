@@ -118,7 +118,8 @@ export const emailTemplates = {
 };
 
 export const psaImport = {
-  importCsv: (csvData) => api.post('/psa-import/import-psa-csv', { csvData })
+  importCsv: (csvData) => api.post('/psa-import/import-psa-csv', { csvData }),
+  importAndRefresh: (csvData) => api.post('/psa-import/import-and-refresh', { csvData })
 };
 
 export const pickup = {
