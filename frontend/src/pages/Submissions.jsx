@@ -628,35 +628,6 @@ export default function Submissions() {
     }
   };
 
-  const handleDeleteAllSubmissions = async () => {
-    const confirmText = 'DELETE ALL';
-    const userInput = prompt(
-      `⚠️ WARNING: This will permanently delete ALL submissions!\n\n` +
-      `This action CANNOT be undone.\n\n` +
-      `After deletion, you can re-import fresh data from PSA CSV.\n\n` +
-      `Type "${confirmText}" to confirm:`
-    );
-
-    if (userInput !== confirmText) {
-      if (userInput !== null) {
-        alert('Deletion cancelled - confirmation text did not match.');
-      }
-      return;
-    }
-
-    try {
-      // Delete all submissions
-      const deletePromises = subs.map(sub => submissions.delete(sub.id));
-      await Promise.all(deletePromises);
-
-      alert(`✓ Deleted all ${subs.length} submissions!\n\nYou can now import fresh data from PSA CSV.`);
-      await loadSubmissions();
-    } catch (error) {
-      console.error('Delete all failed:', error);
-      alert('Failed to delete all submissions. Check console for details.');
-    }
-  };
-
   useEffect(() => {
     loadSubmissions();
   }, [filter, activeTab]);
@@ -782,16 +753,6 @@ export default function Submissions() {
             >
               <AlertCircle className="w-4 h-4" />
               <span className="hidden sm:inline">Fix Data</span>
-            </button>
-          )}
-          {subs.length > 0 && (
-            <button
-              onClick={handleDeleteAllSubmissions}
-              className="btn gap-2 bg-red-600 hover:bg-red-700 text-white border-0"
-              title="Delete all submissions and start fresh"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Delete All</span>
             </button>
           )}
           <Link to="/submissions/new" className="btn btn-primary gap-2">
@@ -1189,15 +1150,16 @@ export default function Submissions() {
                   </label>
                 </div>
 
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-start gap-3">
-                    <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1 text-sm text-yellow-800">
-                      <p className="font-medium mb-1">Note:</p>
+                    <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 text-sm text-blue-800">
+                      <p className="font-medium mb-1">How it works:</p>
                       <ul className="list-disc list-inside space-y-1">
-                        <li>Existing submissions will be updated based on PSA Submission Number</li>
-                        <li>New submissions will be created automatically</li>
-                        <li>Rows without a Submission # will be skipped</li>
+                        <li><strong>Updates existing submissions</strong> automatically based on PSA Submission Number (no duplicates)</li>
+                        <li><strong>Creates new submissions</strong> for any that don't exist yet</li>
+                        <li><strong>Refreshes from PSA API</strong> to get accurate progress data (if auto-refresh enabled)</li>
+                        <li><strong>Auto-categorizes</strong> into correct tabs based on progress percentage</li>
                       </ul>
                     </div>
                   </div>
