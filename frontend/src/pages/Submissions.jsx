@@ -382,7 +382,7 @@ export default function Submissions() {
   const [showHelp, setShowHelp] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [autoRefresh, setAutoRefresh] = useState(false);
   const [importProgress, setImportProgress] = useState({ phase: '', current: 0, total: 0, created: 0, updated: 0, refreshed: 0, errors: 0 });
 
   const loadSubmissions = async () => {
@@ -1057,7 +1057,7 @@ export default function Submissions() {
                 </div>
 
                 {/* Auto-refresh toggle */}
-                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <label className="flex items-start gap-3 cursor-pointer">
                     <input
                       type="checkbox"
@@ -1067,10 +1067,10 @@ export default function Submissions() {
                       className="mt-1 w-5 h-5 text-brand-600 rounded border-gray-300 focus:ring-brand-500 disabled:opacity-50"
                     />
                     <div className="flex-1">
-                      <p className="font-medium text-purple-900">Auto-refresh from PSA API (Recommended)</p>
-                      <p className="text-sm text-purple-700 mt-1">
-                        Automatically fetch accurate progress data from PSA for each submission after import.
-                        Takes 5-7 seconds per submission. Ensures 100% accuracy.
+                      <p className="font-medium text-yellow-900">Auto-refresh from PSA API (Optional - Slow)</p>
+                      <p className="text-sm text-yellow-700 mt-1">
+                        Automatically fetch progress from PSA API after import. Takes 7-10 seconds per submission.
+                        PSA has strict rate limits - many will fail. <strong>Recommended: Import CSV first, then use "Refresh All" button instead.</strong>
                       </p>
                     </div>
                   </label>
@@ -1154,13 +1154,15 @@ export default function Submissions() {
                   <div className="flex items-start gap-3">
                     <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
                     <div className="flex-1 text-sm text-blue-800">
-                      <p className="font-medium mb-1">How it works:</p>
-                      <ul className="list-disc list-inside space-y-1">
-                        <li><strong>Updates existing submissions</strong> automatically based on PSA Submission Number (no duplicates)</li>
-                        <li><strong>Creates new submissions</strong> for any that don't exist yet</li>
-                        <li><strong>Refreshes from PSA API</strong> to get accurate progress data (if auto-refresh enabled)</li>
-                        <li><strong>Auto-categorizes</strong> into correct tabs based on progress percentage</li>
-                      </ul>
+                      <p className="font-medium mb-2">Recommended workflow:</p>
+                      <ol className="list-decimal list-inside space-y-1 ml-2">
+                        <li><strong>Import CSV</strong> (leave auto-refresh unchecked for speed)</li>
+                        <li><strong>Click "Refresh All"</strong> button after import completes</li>
+                        <li>Submissions will auto-categorize into correct tabs based on progress</li>
+                      </ol>
+                      <p className="mt-2 text-xs">
+                        Updates existing submissions by PSA Submission Number - no duplicates created.
+                      </p>
                     </div>
                   </div>
                 </div>
