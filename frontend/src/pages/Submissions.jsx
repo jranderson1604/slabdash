@@ -405,6 +405,10 @@ export default function Submissions() {
       return;
     }
 
+    if (!confirm('This will refresh all active submissions from PSA.\n\n⏱️ This process takes 5-7 seconds per submission to avoid rate limits.\n\nSome submissions may fail due to PSA rate limiting - this is normal.\n\nContinue?')) {
+      return;
+    }
+
     setRefreshingAll(true);
     setRefreshProgress({ total: 0, current: 0, updated: 0, errors: 0 });
 
@@ -462,7 +466,12 @@ export default function Submissions() {
                   errors: data.errors
                 });
                 await loadSubmissions();
-                alert(`✓ ${data.message}`);
+
+                let message = `✓ Refresh Complete!\n\nUpdated: ${data.updated}\nFailed: ${data.errors}`;
+                if (data.errors > 0) {
+                  message += '\n\nℹ️ Some submissions failed due to PSA rate limiting.\nYou can try refreshing individual submissions later.';
+                }
+                alert(message);
               } else if (data.type === 'error') {
                 throw new Error(data.details || 'Failed to refresh submissions');
               }
@@ -539,18 +548,48 @@ export default function Submissions() {
     }
   };
 
+  const handleDeleteAllSubmissions = async () => {
+    const confirmText = 'DELETE ALL';
+    const userInput = prompt(
+      `⚠️ WARNING: This will permanently delete ALL submissions!\n\n` +
+      `This action CANNOT be undone.\n\n` +
+      `After deletion, you can re-import fresh data from PSA CSV.\n\n` +
+      `Type "${confirmText}" to confirm:`
+    );
+
+    if (userInput !== confirmText) {
+      if (userInput !== null) {
+        alert('Deletion cancelled - confirmation text did not match.');
+      }
+      return;
+    }
+
+    try {
+      // Delete all submissions
+      const deletePromises = subs.map(sub => submissions.delete(sub.id));
+      await Promise.all(deletePromises);
+
+      alert(`✓ Deleted all ${subs.length} submissions!\n\nYou can now import fresh data from PSA CSV.`);
+      await loadSubmissions();
+    } catch (error) {
+      console.error('Delete all failed:', error);
+      alert('Failed to delete all submissions. Check console for details.');
+    }
+  };
+
   useEffect(() => {
     loadSubmissions();
   }, [filter, activeTab]);
 
   // Filter by active/completed tab first
   const tabFilteredSubs = subs.filter((s) => {
-    const isShipped = Boolean(s.shipped);
+    // Completed = 100% progress (green bar), Active = < 100% progress
+    const isCompleted = (s.progress_percent || 0) >= 100;
 
     if (activeTab === 'completed') {
-      return isShipped; // Only show shipped submissions in completed tab
+      return isCompleted; // Show 100% progress submissions in completed tab
     } else {
-      return !isShipped; // Show all non-shipped submissions in active tab
+      return !isCompleted; // Show < 100% progress submissions in "At PSA" tab
     }
   });
 
@@ -584,11 +623,33 @@ export default function Submissions() {
   }
 
   // Calculate counts for tabs
-  const activeCount = subs.filter(s => !Boolean(s.shipped)).length;
-  const completedCount = subs.filter(s => Boolean(s.shipped)).length;
+  const activeCount = subs.filter(s => (s.progress_percent || 0) < 100).length;
+  const completedCount = subs.filter(s => (s.progress_percent || 0) >= 100).length;
 
-  // Get unique service levels for tabs
-  const serviceLevels = ['all', ...new Set(subs.map(s => s.service_level).filter(Boolean))];
+  // Get unique service levels for tabs, ordered by volume (Bulk → Plus → Regular → Express → Specialty)
+  const serviceOrder = ['Bulk', 'Value Bulk', 'Plus', 'Value Plus', 'Regular', 'Standard', 'Express', 'Super Express', 'Walk-Through', 'Walk-Thru', 'Specialty', 'Reholder'];
+  const uniqueLevels = [...new Set(subs.map(s => s.service_level).filter(Boolean))];
+  const orderedLevels = uniqueLevels.sort((a, b) => {
+    const indexA = serviceOrder.findIndex(s => a?.toLowerCase().includes(s.toLowerCase()));
+    const indexB = serviceOrder.findIndex(s => b?.toLowerCase().includes(s.toLowerCase()));
+    if (indexA === -1 && indexB === -1) return a?.localeCompare(b) || 0;
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+    return indexA - indexB;
+  });
+  const serviceLevels = ['all', ...orderedLevels];
+
+  // Service level colors
+  const getServiceColor = (level) => {
+    const levelLower = level?.toLowerCase() || '';
+    if (levelLower.includes('bulk')) return { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300', activeBg: 'bg-purple-500', activeText: 'text-white' };
+    if (levelLower.includes('plus')) return { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', activeBg: 'bg-blue-500', activeText: 'text-white' };
+    if (levelLower.includes('regular') || levelLower.includes('standard')) return { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300', activeBg: 'bg-green-500', activeText: 'text-white' };
+    if (levelLower.includes('express')) return { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300', activeBg: 'bg-orange-500', activeText: 'text-white' };
+    if (levelLower.includes('specialty') || levelLower.includes('reholder')) return { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-300', activeBg: 'bg-pink-500', activeText: 'text-white' };
+    if (levelLower.includes('walk')) return { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300', activeBg: 'bg-red-500', activeText: 'text-white' };
+    return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300', activeBg: 'bg-gray-500', activeText: 'text-white' };
+  };
 
   return (
     <div className="space-y-6">
@@ -641,6 +702,16 @@ export default function Submissions() {
             >
               <AlertCircle className="w-4 h-4" />
               <span className="hidden sm:inline">Fix Data</span>
+            </button>
+          )}
+          {subs.length > 0 && (
+            <button
+              onClick={handleDeleteAllSubmissions}
+              className="btn gap-2 bg-red-600 hover:bg-red-700 text-white border-0"
+              title="Delete all submissions and start fresh"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Delete All</span>
             </button>
           )}
           <Link to="/submissions/new" className="btn btn-primary gap-2">
@@ -722,7 +793,7 @@ export default function Submissions() {
         </div>
       )}
 
-      {/* Active/Completed Tabs */}
+      {/* At PSA / Finished Tabs */}
       <div className="card">
         <div className="border-b border-gray-200">
           <div className="flex">
@@ -735,8 +806,8 @@ export default function Submissions() {
               }`}
             >
               <div className="flex items-center justify-center gap-2">
-                <Clock className="w-4 h-4" />
-                <span>Active Submissions</span>
+                <Package className="w-4 h-4" />
+                <span>At PSA</span>
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                   activeTab === 'active'
                     ? 'bg-brand-500 text-white'
@@ -756,7 +827,7 @@ export default function Submissions() {
             >
               <div className="flex items-center justify-center gap-2">
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Completed & Shipped</span>
+                <span>Finished & Arrived</span>
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                   activeTab === 'completed'
                     ? 'bg-emerald-500 text-white'
@@ -768,6 +839,42 @@ export default function Submissions() {
             </button>
           </div>
         </div>
+
+        {/* Service Level Tabs - Inside main tab */}
+        {serviceLevels.length > 1 && (
+          <div className="border-b border-gray-200">
+            <div className="flex overflow-x-auto bg-gray-50">
+              {serviceLevels.map((level) => {
+                // Count for this service level in current main tab
+                const levelSubs = tabFilteredSubs.filter(s => level === 'all' || s.service_level === level);
+                const count = levelSubs.length;
+                const displayName = level === 'all' ? 'All Services' : level;
+                const colors = level === 'all' ? null : getServiceColor(level);
+
+                return (
+                  <button
+                    key={level}
+                    onClick={() => setServiceLevelFilter(level)}
+                    className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
+                      serviceLevelFilter === level
+                        ? (colors ? `${colors.activeBg} ${colors.activeText}` : 'bg-brand-500 text-white')
+                        : (colors ? `${colors.bg} ${colors.text} hover:${colors.border}` : 'bg-white text-gray-600 hover:bg-gray-100')
+                    }`}
+                  >
+                    {displayName}
+                    <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                      serviceLevelFilter === level
+                        ? 'bg-white bg-opacity-30'
+                        : 'bg-white bg-opacity-50'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
@@ -802,42 +909,6 @@ export default function Submissions() {
         </div>
       </div>
 
-      {/* Service Level Tabs */}
-      {serviceLevels.length > 1 && (
-        <div className="card">
-          <div className="border-b border-gray-200">
-            <div className="flex overflow-x-auto">
-              {serviceLevels.map((level) => {
-                const count = level === 'all'
-                  ? subs.length
-                  : subs.filter(s => s.service_level === level).length;
-                const displayName = level === 'all' ? 'All Service Levels' : level;
-
-                return (
-                  <button
-                    key={level}
-                    onClick={() => setServiceLevelFilter(level)}
-                    className={`px-6 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                      serviceLevelFilter === level
-                        ? 'border-brand-500 text-brand-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    {displayName}
-                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
-                      serviceLevelFilter === level
-                        ? 'bg-brand-100 text-brand-700'
-                        : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Table */}
       <div className="card">
