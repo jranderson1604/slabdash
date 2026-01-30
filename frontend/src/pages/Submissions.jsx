@@ -375,6 +375,7 @@ export default function Submissions() {
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [refreshProgress, setRefreshProgress] = useState({ total: 0, current: 0, updated: 0, errors: 0 });
   const [sendingBulk, setSendingBulk] = useState(false);
+  const [normalizing, setNormalizing] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'active', 'shipped', 'problems'
   const [serviceLevelFilter, setServiceLevelFilter] = useState('all'); // 'all', or specific service level
   const [search, setSearch] = useState('');
@@ -484,6 +485,41 @@ export default function Submissions() {
       alert(`Refresh failed: ${errorMsg}\n\nPlease check your PSA API key in Company Settings.`);
     } finally {
       setRefreshingAll(false);
+    }
+  };
+
+  const handleNormalizeServiceLevels = async () => {
+    if (!confirm('This will normalize all service level names by removing numbers and extra text.\n\nExample: "Value Plus 25" → "Value Plus", "Express 10" → "Express"\n\nContinue?')) {
+      return;
+    }
+
+    setNormalizing(true);
+    try {
+      const token = localStorage.getItem('slabdash_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+      const response = await fetch(`${API_URL}/psa/normalize-service-levels`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      alert(`✓ Service Levels Normalized!\n\nTotal: ${result.total}\nUpdated: ${result.updated}\n\nRefreshing submissions...`);
+
+      // Reload submissions to show normalized names
+      await loadSubmissions();
+    } catch (error) {
+      console.error('Normalize service levels failed:', error);
+      alert(`Normalization failed: ${error.message}`);
+    } finally {
+      setNormalizing(false);
     }
   };
 
@@ -710,14 +746,27 @@ export default function Submissions() {
             <span className="hidden sm:inline">{sendingBulk ? 'Sending...' : 'Email All'}</span>
           </button>
           {company?.hasPsaKey && (
-            <button
-              onClick={handleRefreshAll}
-              disabled={refreshingAll}
-              className="btn btn-secondary gap-2"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshingAll ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">{refreshingAll ? 'Refreshing...' : 'Refresh All'}</span>
-            </button>
+            <>
+              <button
+                onClick={handleNormalizeServiceLevels}
+                disabled={normalizing}
+                className="btn btn-secondary gap-2"
+                title="Clean up service level names (remove numbers like 'Value Plus 25' → 'Value Plus')"
+              >
+                <svg className={`w-4 h-4 ${normalizing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                </svg>
+                <span className="hidden sm:inline">{normalizing ? 'Normalizing...' : 'Clean Names'}</span>
+              </button>
+              <button
+                onClick={handleRefreshAll}
+                disabled={refreshingAll}
+                className="btn btn-secondary gap-2"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshingAll ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{refreshingAll ? 'Refreshing...' : 'Refresh All'}</span>
+              </button>
+            </>
           )}
           <Link to="/submissions/new" className="btn btn-primary gap-2">
             <Plus className="w-4 h-4" />
