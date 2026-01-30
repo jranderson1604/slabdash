@@ -382,6 +382,8 @@ export default function Submissions() {
   const [showHelp, setShowHelp] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [importProgress, setImportProgress] = useState({ phase: '', current: 0, total: 0, created: 0, updated: 0, refreshed: 0, errors: 0 });
 
   const loadSubmissions = async () => {
     try {
@@ -511,21 +513,99 @@ export default function Submissions() {
 
   const handleCsvImport = async (file) => {
     setImporting(true);
+    setImportProgress({ phase: '', current: 0, total: 0, created: 0, updated: 0, refreshed: 0, errors: 0 });
+
     try {
       const csvData = await file.text();
-      const response = await psaImport.importCsv(csvData);
 
-      const { created, updated, skipped } = response.data;
-      alert(`PSA CSV Import Complete!\n\nCreated: ${created}\nUpdated: ${updated}\nSkipped: ${skipped}`);
+      if (!autoRefresh) {
+        // Quick import without refresh
+        const response = await psaImport.importCsv(csvData);
+        const { created, updated, skipped } = response.data;
+        alert(`PSA CSV Import Complete!\n\nCreated: ${created}\nUpdated: ${updated}\nSkipped: ${skipped}`);
+        await loadSubmissions();
+        setShowCsvImport(false);
+      } else {
+        // Import with auto-refresh from PSA API
+        const token = localStorage.getItem('slabdash_token');
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
-      // Reload submissions to show new/updated data
-      await loadSubmissions();
-      setShowCsvImport(false);
+        const response = await fetch(`${API_URL}/psa-import/import-and-refresh`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ csvData })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+
+                if (data.type === 'start') {
+                  setImportProgress(prev => ({ ...prev, phase: data.phase, total: data.total }));
+                } else if (data.type === 'progress') {
+                  setImportProgress(prev => ({
+                    ...prev,
+                    phase: data.phase,
+                    current: data.current,
+                    total: data.total || prev.total,
+                    created: data.created || prev.created,
+                    updated: data.updated || prev.updated,
+                    refreshed: data.refreshed || prev.refreshed,
+                    errors: data.errors || prev.errors
+                  }));
+                } else if (data.type === 'import_complete') {
+                  setImportProgress(prev => ({
+                    ...prev,
+                    created: data.created,
+                    updated: data.updated
+                  }));
+                } else if (data.type === 'complete') {
+                  await loadSubmissions();
+
+                  let message = `✓ Import & Refresh Complete!\n\n`;
+                  message += `Imported: ${data.created} created, ${data.updated} updated\n`;
+                  message += `Refreshed: ${data.refreshed} updated from PSA API\n`;
+                  if (data.refreshErrors > 0) {
+                    message += `Failed: ${data.refreshErrors} (due to rate limiting)\n\n`;
+                    message += `ℹ️ Some submissions failed to refresh.\nYou can try refreshing them individually later.`;
+                  }
+                  alert(message);
+                  setShowCsvImport(false);
+                } else if (data.type === 'error') {
+                  throw new Error(data.details || 'Import and refresh failed');
+                }
+              } catch (parseError) {
+                console.error('Failed to parse SSE data:', parseError);
+              }
+            }
+          }
+        }
+      }
+
     } catch (error) {
       console.error('CSV import failed:', error);
-      alert(error.response?.data?.error || 'Failed to import PSA CSV');
+      alert(error.message || 'Failed to import PSA CSV');
     } finally {
       setImporting(false);
+      setImportProgress({ phase: '', current: 0, total: 0, created: 0, updated: 0, refreshed: 0, errors: 0 });
     }
   };
 
@@ -1015,10 +1095,67 @@ export default function Submissions() {
                   </div>
                 </div>
 
+                {/* Auto-refresh toggle */}
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={autoRefresh}
+                      onChange={(e) => setAutoRefresh(e.target.checked)}
+                      disabled={importing}
+                      className="mt-1 w-5 h-5 text-brand-600 rounded border-gray-300 focus:ring-brand-500 disabled:opacity-50"
+                    />
+                    <div className="flex-1">
+                      <p className="font-medium text-purple-900">Auto-refresh from PSA API (Recommended)</p>
+                      <p className="text-sm text-purple-700 mt-1">
+                        Automatically fetch accurate progress data from PSA for each submission after import.
+                        Takes 5-7 seconds per submission. Ensures 100% accuracy.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Import progress */}
+                {importing && importProgress.phase && (
+                  <div className="bg-gradient-to-br from-brand-50 to-white border border-brand-200 rounded-lg p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <Loader2 className="w-5 h-5 text-brand-600 animate-spin" />
+                      <h4 className="font-semibold text-gray-900">
+                        {importProgress.phase === 'import' ? 'Importing CSV Data...' : 'Refreshing from PSA API...'}
+                      </h4>
+                    </div>
+                    <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden mb-2">
+                      <div
+                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-brand-500 to-brand-600 transition-all duration-500"
+                        style={{
+                          width: `${importProgress.total > 0 ? (importProgress.current / importProgress.total) * 100 : 0}%`
+                        }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">
+                        {importProgress.current} / {importProgress.total}
+                      </span>
+                      {importProgress.phase === 'import' && (
+                        <span className="text-gray-600">
+                          Created: {importProgress.created}, Updated: {importProgress.updated}
+                        </span>
+                      )}
+                      {importProgress.phase === 'refresh' && (
+                        <span className="text-gray-600">
+                          Refreshed: {importProgress.refreshed}, Errors: {importProgress.errors}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-brand-400 transition-colors">
                   <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                   <p className="text-gray-700 font-medium mb-2">Choose PSA CSV file</p>
-                  <p className="text-sm text-gray-500 mb-4">CSV files only</p>
+                  <p className="text-sm text-gray-500 mb-4">
+                    {autoRefresh ? 'Will auto-refresh each submission from PSA API' : 'Quick import without API refresh'}
+                  </p>
                   <input
                     type="file"
                     accept=".csv"
