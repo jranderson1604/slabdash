@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require("../db");
 const { authenticate, requireRole } = require("../middleware/auth");
 const axios = require("axios");
+const { normalizeServiceLevel } = require("../utils/serviceLevel");
 
 // Test PSA API connection
 router.get("/test", authenticate, async (req, res) => {
@@ -70,11 +71,11 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
       });
     }
 
-    // Get all unshipped submissions for this company
+    // Get ALL submissions for this company (not just unshipped)
     const submissions = await db.query(
       `SELECT id, psa_submission_number
        FROM submissions
-       WHERE company_id = $1 AND shipped = false AND psa_submission_number IS NOT NULL`,
+       WHERE company_id = $1 AND psa_submission_number IS NOT NULL`,
       [req.user.company_id]
     );
 
@@ -95,7 +96,7 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
     const { getSubmissionProgress, updateSubmissionFromPsa } = require('../services/psaService');
 
     // Helper function to retry with exponential backoff on rate limit
-    const getSubmissionWithRetry = async (apiKey, submissionNumber, maxRetries = 4) => {
+    const getSubmissionWithRetry = async (apiKey, submissionNumber, maxRetries = 3) => {
       let lastError;
       for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
@@ -105,10 +106,10 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
           lastError = err;
           // Check if it's a rate limit error (429)
           if (err.response?.status === 429 && attempt < maxRetries) {
-            // Aggressive backoff: 5s, 10s, 20s, 40s
-            const backoffDelay = Math.pow(2, attempt) * 5000;
+            // Very aggressive backoff: 10s, 30s, 60s
+            const backoffDelay = Math.pow(3, attempt) * 10000;
             // Add random jitter to prevent synchronized retries
-            const jitter = Math.random() * 2000;
+            const jitter = Math.random() * 5000;
             const totalDelay = backoffDelay + jitter;
             console.log(`Rate limited on ${submissionNumber}, retrying in ${Math.round(totalDelay/1000)}s (attempt ${attempt + 1}/${maxRetries})`);
             await new Promise(resolve => setTimeout(resolve, totalDelay));
@@ -157,9 +158,9 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
           })}\n\n`);
         }
 
-        // Rate limit: wait 5 seconds between requests + random jitter to avoid 429 errors
-        const baseDelay = 5000;
-        const jitter = Math.random() * 2000; // 0-2s random jitter
+        // Rate limit: wait 8-12 seconds between requests to avoid 429 errors
+        const baseDelay = 8000;
+        const jitter = Math.random() * 4000; // 0-4s random jitter
         await new Promise(resolve => setTimeout(resolve, baseDelay + jitter));
       } catch (err) {
         console.error(`Failed to refresh submission ${submission.psa_submission_number}:`, err.message);
@@ -177,8 +178,8 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
           error: err.message
         })}\n\n`);
 
-        // After error, wait even longer (10s) before next request
-        await new Promise(resolve => setTimeout(resolve, 10000));
+        // After error, wait even longer (15-20s) before next request
+        await new Promise(resolve => setTimeout(resolve, 15000 + Math.random() * 5000));
       }
     }
 
@@ -200,6 +201,42 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
       details: error.message
     })}\n\n`);
     res.end();
+  }
+});
+
+// Normalize all existing service level names
+router.post("/normalize-service-levels", authenticate, requireRole("owner", "admin"), async (req, res) => {
+  try {
+    // Get all submissions with service levels
+    const submissions = await db.query(
+      `SELECT id, service_level FROM submissions WHERE company_id = $1 AND service_level IS NOT NULL`,
+      [req.user.company_id]
+    );
+
+    let updated = 0;
+    for (const sub of submissions.rows) {
+      const normalized = normalizeServiceLevel(sub.service_level);
+      if (normalized !== sub.service_level) {
+        await db.query(
+          `UPDATE submissions SET service_level = $1 WHERE id = $2`,
+          [normalized, sub.id]
+        );
+        updated++;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Normalized ${updated} service level names`,
+      total: submissions.rows.length,
+      updated
+    });
+  } catch (error) {
+    console.error("Normalize service levels error:", error);
+    res.status(500).json({
+      error: "Failed to normalize service levels",
+      details: error.message
+    });
   }
 });
 
