@@ -554,12 +554,12 @@ export default function Submissions() {
 
   // Filter by active/completed tab first
   const tabFilteredSubs = subs.filter((s) => {
-    const isShipped = Boolean(s.shipped);
+    const isCompleted = Boolean(s.shipped) || Boolean(s.grades_ready);
 
     if (activeTab === 'completed') {
-      return isShipped; // Only show shipped submissions in completed tab
+      return isCompleted; // Show grades ready OR shipped in completed tab
     } else {
-      return !isShipped; // Show all non-shipped submissions in active tab
+      return !isCompleted; // Show submissions still being processed in active tab
     }
   });
 
@@ -593,11 +593,33 @@ export default function Submissions() {
   }
 
   // Calculate counts for tabs
-  const activeCount = subs.filter(s => !Boolean(s.shipped)).length;
-  const completedCount = subs.filter(s => Boolean(s.shipped)).length;
+  const activeCount = subs.filter(s => !Boolean(s.shipped) && !Boolean(s.grades_ready)).length;
+  const completedCount = subs.filter(s => Boolean(s.shipped) || Boolean(s.grades_ready)).length;
 
-  // Get unique service levels for tabs
-  const serviceLevels = ['all', ...new Set(subs.map(s => s.service_level).filter(Boolean))];
+  // Get unique service levels for tabs, ordered by volume (Bulk, Plus, Regular, Express, Specialty)
+  const serviceOrder = ['Bulk', 'Value Plus', 'Plus', 'Regular', 'Express', 'Super Express', 'Walk-Through', 'Walk-Thru', 'Reholder', 'Specialty'];
+  const uniqueLevels = [...new Set(subs.map(s => s.service_level).filter(Boolean))];
+  const orderedLevels = uniqueLevels.sort((a, b) => {
+    const indexA = serviceOrder.findIndex(s => a?.toLowerCase().includes(s.toLowerCase()));
+    const indexB = serviceOrder.findIndex(s => b?.toLowerCase().includes(s.toLowerCase()));
+    if (indexA === -1 && indexB === -1) return a?.localeCompare(b) || 0;
+    if (indexA === -1) return 1;
+    if (indexB === -1) return -1;
+    return indexA - indexB;
+  });
+  const serviceLevels = ['all', ...orderedLevels];
+
+  // Service level colors
+  const getServiceColor = (level) => {
+    const levelLower = level?.toLowerCase() || '';
+    if (levelLower.includes('bulk')) return { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300', activeBg: 'bg-purple-500', activeText: 'text-white' };
+    if (levelLower.includes('plus')) return { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', activeBg: 'bg-blue-500', activeText: 'text-white' };
+    if (levelLower.includes('regular') || levelLower.includes('standard')) return { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300', activeBg: 'bg-green-500', activeText: 'text-white' };
+    if (levelLower.includes('express')) return { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300', activeBg: 'bg-orange-500', activeText: 'text-white' };
+    if (levelLower.includes('specialty') || levelLower.includes('reholder')) return { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-300', activeBg: 'bg-pink-500', activeText: 'text-white' };
+    if (levelLower.includes('walk')) return { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300', activeBg: 'bg-red-500', activeText: 'text-white' };
+    return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300', activeBg: 'bg-gray-500', activeText: 'text-white' };
+  };
 
   return (
     <div className="space-y-6">
@@ -787,22 +809,23 @@ export default function Submissions() {
                 const levelSubs = tabFilteredSubs.filter(s => level === 'all' || s.service_level === level);
                 const count = levelSubs.length;
                 const displayName = level === 'all' ? 'All Services' : level;
+                const colors = level === 'all' ? null : getServiceColor(level);
 
                 return (
                   <button
                     key={level}
                     onClick={() => setServiceLevelFilter(level)}
-                    className={`px-6 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                    className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
                       serviceLevelFilter === level
-                        ? 'border-brand-500 text-brand-600 bg-white'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        ? (colors ? `${colors.activeBg} ${colors.activeText}` : 'bg-brand-500 text-white')
+                        : (colors ? `${colors.bg} ${colors.text} hover:${colors.border}` : 'bg-white text-gray-600 hover:bg-gray-100')
                     }`}
                   >
                     {displayName}
-                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
+                    <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                       serviceLevelFilter === level
-                        ? 'bg-brand-100 text-brand-700'
-                        : 'bg-gray-200 text-gray-600'
+                        ? 'bg-white bg-opacity-30'
+                        : 'bg-white bg-opacity-50'
                     }`}>
                       {count}
                     </span>
@@ -846,42 +869,6 @@ export default function Submissions() {
         </div>
       </div>
 
-      {/* Service Level Tabs */}
-      {serviceLevels.length > 1 && (
-        <div className="card">
-          <div className="border-b border-gray-200">
-            <div className="flex overflow-x-auto">
-              {serviceLevels.map((level) => {
-                const count = level === 'all'
-                  ? subs.length
-                  : subs.filter(s => s.service_level === level).length;
-                const displayName = level === 'all' ? 'All Service Levels' : level;
-
-                return (
-                  <button
-                    key={level}
-                    onClick={() => setServiceLevelFilter(level)}
-                    className={`px-6 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                      serviceLevelFilter === level
-                        ? 'border-brand-500 text-brand-600'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    {displayName}
-                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
-                      serviceLevelFilter === level
-                        ? 'bg-brand-100 text-brand-700'
-                        : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Table */}
       <div className="card">
