@@ -395,34 +395,20 @@ router.post('/import-and-refresh', authenticate, requireRole('owner', 'admin'), 
                     console.log(`Failed to refresh ${sub.number}: ${result.error}`);
                 }
 
-                // Aggressive delay between requests (5-7 seconds with jitter)
-                const baseDelay = 5000;
-                const jitter = Math.random() * 2000;
+                // Aggressive delay between requests (7-10 seconds with jitter)
+                const baseDelay = 7000;
+                const jitter = Math.random() * 3000;
                 await new Promise(resolve => setTimeout(resolve, baseDelay + jitter));
 
             } catch (error) {
-                if (error.response?.status === 429) {
-                    // Rate limit - use exponential backoff
-                    const backoffDelay = 10000 + (Math.random() * 5000);
-                    console.log(`Rate limited on ${sub.number}, waiting ${backoffDelay}ms...`);
-                    await new Promise(resolve => setTimeout(resolve, backoffDelay));
+                refreshErrors++;
+                console.error(`Failed to refresh ${sub.number}:`, error.message);
 
-                    // Retry once
-                    try {
-                        const retryResult = await getSubmissionProgress(apiKey, sub.number);
-                        if (retryResult.success) {
-                            await updateSubmissionFromPsa(sub.id, retryResult.data);
-                            refreshed++;
-                        } else {
-                            refreshErrors++;
-                        }
-                    } catch (retryError) {
-                        refreshErrors++;
-                        console.error(`Failed to refresh ${sub.number} after retry:`, retryError.message);
-                    }
-                } else {
-                    refreshErrors++;
-                    console.error(`Failed to refresh ${sub.number}:`, error.message);
+                // If rate limited, add extra delay before next request
+                if (error.response?.status === 429) {
+                    const backoffDelay = 15000 + (Math.random() * 5000);
+                    console.log(`Rate limited on ${sub.number}, adding ${backoffDelay}ms delay...`);
+                    await new Promise(resolve => setTimeout(resolve, backoffDelay));
                 }
             }
         }
