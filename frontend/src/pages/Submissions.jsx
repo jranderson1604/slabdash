@@ -386,12 +386,8 @@ export default function Submissions() {
 
   const loadSubmissions = async () => {
     try {
-      const params = {};
-      if (filter !== 'all') {
-        params.status = filter; // Send 'active', 'shipped', etc. as status parameter
-      }
-
-      const res = await submissions.list(params);
+      // Always load ALL submissions, no backend filtering
+      const res = await submissions.list({});
       setSubs(res.data.submissions || []);
     } catch (error) {
       console.error('Failed to load submissions:', error);
