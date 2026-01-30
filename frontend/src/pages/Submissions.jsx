@@ -554,12 +554,13 @@ export default function Submissions() {
 
   // Filter by active/completed tab first
   const tabFilteredSubs = subs.filter((s) => {
-    const isCompleted = Boolean(s.shipped) || Boolean(s.grades_ready);
+    // Only shipped submissions are truly finished and arrived back
+    const isShipped = Boolean(s.shipped);
 
     if (activeTab === 'completed') {
-      return isCompleted; // Show grades ready OR shipped in completed tab
+      return isShipped; // Only show shipped submissions in completed tab
     } else {
-      return !isCompleted; // Show submissions still being processed in active tab
+      return !isShipped; // Show all non-shipped submissions in "At PSA" tab (including grades_ready)
     }
   });
 
@@ -593,11 +594,11 @@ export default function Submissions() {
   }
 
   // Calculate counts for tabs
-  const activeCount = subs.filter(s => !Boolean(s.shipped) && !Boolean(s.grades_ready)).length;
-  const completedCount = subs.filter(s => Boolean(s.shipped) || Boolean(s.grades_ready)).length;
+  const activeCount = subs.filter(s => !Boolean(s.shipped)).length;
+  const completedCount = subs.filter(s => Boolean(s.shipped)).length;
 
-  // Get unique service levels for tabs, ordered by volume (Bulk, Plus, Regular, Express, Specialty)
-  const serviceOrder = ['Bulk', 'Value Plus', 'Plus', 'Regular', 'Express', 'Super Express', 'Walk-Through', 'Walk-Thru', 'Reholder', 'Specialty'];
+  // Get unique service levels for tabs, ordered by volume (Bulk → Plus → Regular → Express → Specialty)
+  const serviceOrder = ['Bulk', 'Value Bulk', 'Plus', 'Value Plus', 'Regular', 'Standard', 'Express', 'Super Express', 'Walk-Through', 'Walk-Thru', 'Specialty', 'Reholder'];
   const uniqueLevels = [...new Set(subs.map(s => s.service_level).filter(Boolean))];
   const orderedLevels = uniqueLevels.sort((a, b) => {
     const indexA = serviceOrder.findIndex(s => a?.toLowerCase().includes(s.toLowerCase()));
