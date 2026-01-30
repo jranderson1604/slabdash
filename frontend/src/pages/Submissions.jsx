@@ -143,7 +143,38 @@ function SubmissionRow({ submission, onRefresh, onDelete }) {
   const [refreshing, setRefreshing] = useState(false);
   const [showCustomersModal, setShowCustomersModal] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [editingServiceLevel, setEditingServiceLevel] = useState(false);
+  const [newServiceLevel, setNewServiceLevel] = useState(submission.service_level || '');
   const navigate = useNavigate();
+
+  const serviceLevelOptions = [
+    'Bulk',
+    'Value Bulk',
+    'Plus',
+    'Value Plus',
+    'Regular',
+    'Standard',
+    'Express',
+    'Super Express',
+    'Walk-Through',
+    'Walk-Thru',
+    'Specialty',
+    'Reholder'
+  ];
+
+  const handleServiceLevelChange = async (e) => {
+    e.stopPropagation();
+    const value = e.target.value;
+    setNewServiceLevel(value);
+
+    try {
+      await submissions.update(submission.id, { service_level: value });
+      onRefresh();
+    } catch (error) {
+      console.error('Failed to update service level:', error);
+      alert('Failed to update service level');
+    }
+  };
 
   const handleRefresh = async (e) => {
     e.stopPropagation();
@@ -228,8 +259,17 @@ function SubmissionRow({ submission, onRefresh, onDelete }) {
             <span className="text-gray-400">No customers</span>
           )}
         </td>
-      <td>
-        <span className="text-gray-600">{submission.service_level || '—'}</span>
+      <td onClick={(e) => e.stopPropagation()}>
+        <select
+          value={newServiceLevel}
+          onChange={handleServiceLevelChange}
+          className="text-sm border border-gray-300 rounded-lg px-2 py-1 bg-white text-gray-900 hover:border-brand-500 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+        >
+          <option value="">No Service Level</option>
+          {serviceLevelOptions.map(level => (
+            <option key={level} value={level}>{level}</option>
+          ))}
+        </select>
       </td>
       <td>
         <ProgressBar percent={submission.progress_percent || 0} />
@@ -674,10 +714,16 @@ export default function Submissions() {
     );
   });
 
-  // Additional filter for problems
-  let displaySubs = filter === 'problems'
-    ? filteredSubs.filter(s => s.problem_order)
-    : filteredSubs;
+  // Filter by completion status and problems
+  let displaySubs = filteredSubs;
+
+  if (filter === 'active') {
+    displaySubs = displaySubs.filter(s => s.progress_percent < 100 && !s.shipped);
+  } else if (filter === 'completed') {
+    displaySubs = displaySubs.filter(s => s.progress_percent >= 100 || s.shipped);
+  } else if (filter === 'problems') {
+    displaySubs = displaySubs.filter(s => s.problem_order);
+  }
 
   // Filter by service level
   if (serviceLevelFilter !== 'all') {
@@ -847,6 +893,82 @@ export default function Submissions() {
         </div>
       )}
 
+      {/* Completion Status Tabs */}
+      <div className="card">
+        <div className="border-b border-gray-200">
+          <div className="flex bg-gray-50">
+            <button
+              onClick={() => setFilter('all')}
+              className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
+                filter === 'all'
+                  ? 'bg-brand-500 text-white border-b-2 border-brand-600'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              All Submissions
+              <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                filter === 'all'
+                  ? 'bg-white bg-opacity-30 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}>
+                {subs.length}
+              </span>
+            </button>
+            <button
+              onClick={() => setFilter('active')}
+              className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
+                filter === 'active'
+                  ? 'bg-blue-500 text-white border-b-2 border-blue-600'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Active (At PSA)
+              <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                filter === 'active'
+                  ? 'bg-white bg-opacity-30 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}>
+                {subs.filter(s => s.progress_percent < 100 && !s.shipped).length}
+              </span>
+            </button>
+            <button
+              onClick={() => setFilter('completed')}
+              className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
+                filter === 'completed'
+                  ? 'bg-green-500 text-white border-b-2 border-green-600'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Completed
+              <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                filter === 'completed'
+                  ? 'bg-white bg-opacity-30 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}>
+                {subs.filter(s => s.progress_percent >= 100 || s.shipped).length}
+              </span>
+            </button>
+            <button
+              onClick={() => setFilter('problems')}
+              className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
+                filter === 'problems'
+                  ? 'bg-red-500 text-white border-b-2 border-red-600'
+                  : 'bg-white text-gray-700 hover:bg-gray-100'
+              }`}
+            >
+              Problems
+              <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                filter === 'problems'
+                  ? 'bg-white bg-opacity-30 text-white'
+                  : 'bg-gray-200 text-gray-700'
+              }`}>
+                {subs.filter(s => s.problem_order).length}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Service Level Tabs */}
       {serviceLevels.length > 1 && (
         <div className="card">
@@ -872,8 +994,8 @@ export default function Submissions() {
                     {displayName}
                     <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                       serviceLevelFilter === level
-                        ? 'bg-white bg-opacity-30'
-                        : 'bg-white bg-opacity-50'
+                        ? 'bg-white bg-opacity-30 text-white'
+                        : 'bg-gray-800 bg-opacity-10'
                     }`}>
                       {count}
                     </span>
