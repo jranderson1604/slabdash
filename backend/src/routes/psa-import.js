@@ -4,6 +4,7 @@ const db = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
 const { parse } = require('csv-parse/sync');
 const { getSubmissionProgress, updateSubmissionFromPsa } = require('../services/psaService');
+const { normalizeServiceLevel } = require('../utils/serviceLevel');
 
 /**
  * Import PSA bulk CSV export
@@ -37,15 +38,10 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                 const submissionNumber = record['Submission #']?.trim() || '';
                 const status = record['Status']?.trim() || '';
                 const items = parseInt(record['Items']) || 0;
-                let service = record['Service']?.trim() || '';
+                let service = normalizeServiceLevel(record['Service']?.trim() || '');
                 const trackingUrl = record['Track Package']?.trim() || '';
                 const arrived = record['Arrived']?.trim() || '';
                 const completed = record['Completed']?.trim() || '';
-
-                // Normalize service level names
-                if (service.includes('Value Bulk')) {
-                    service = 'Value Bulk';
-                }
 
                 // Skip if no submission number
                 if (!submissionNumber) {
@@ -241,14 +237,9 @@ router.post('/import-and-refresh', authenticate, requireRole('owner', 'admin'), 
                 const submissionNumber = record['Submission #']?.trim() || '';
                 const status = record['Status']?.trim() || '';
                 const items = parseInt(record['Items']) || 0;
-                let service = record['Service']?.trim() || '';
+                let service = normalizeServiceLevel(record['Service']?.trim() || '');
                 const trackingUrl = record['Track Package']?.trim() || '';
                 const arrived = record['Arrived']?.trim() || '';
-
-                // Normalize service level names
-                if (service.includes('Value Bulk')) {
-                    service = 'Value Bulk';
-                }
 
                 // Skip if no submission number
                 if (!submissionNumber) {

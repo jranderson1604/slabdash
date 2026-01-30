@@ -1,5 +1,6 @@
 const { parse } = require("csv-parse/sync");
 const db = require("../db");
+const { normalizeServiceLevel } = require("../utils/serviceLevel");
 
 /**
  * Parse PSA CSV file - supports two formats:
@@ -193,7 +194,7 @@ function parseDetailedFormat(records) {
     if (!submissions[submissionNumber]) {
       submissions[submissionNumber] = {
         psa_submission_number: submissionNumber,
-        service_level: record["Service Level"] || record["Service"] || null,
+        service_level: normalizeServiceLevel(record["Service Level"] || record["Service"] || null),
         cards: []
       };
     }
@@ -270,7 +271,7 @@ async function importSubmissionsFromCSV(csvContent, companyId, userId = null, ps
           `UPDATE submissions
            SET service_level = COALESCE($1, service_level)
            WHERE id = $2`,
-          [submissionData.service_level, submissionId]
+          [normalizeServiceLevel(submissionData.service_level), submissionId]
         );
         results.submissionsUpdated++;
       } else {
@@ -280,7 +281,7 @@ async function importSubmissionsFromCSV(csvContent, companyId, userId = null, ps
             company_id, user_id, psa_submission_number, service_level
           ) VALUES ($1, $2, $3, $4)
           RETURNING id`,
-          [companyId, userId, submissionData.psa_submission_number, submissionData.service_level]
+          [companyId, userId, submissionData.psa_submission_number, normalizeServiceLevel(submissionData.service_level)]
         );
         submissionId = newSubmission.rows[0].id;
         results.submissionsCreated++;

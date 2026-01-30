@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require("../db");
 const { authenticate, requireRole } = require("../middleware/auth");
 const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa, tryGetOrderDetails, getCertificate, scrapePsaCertImages } = require("../services/psaService");
+const { normalizeServiceLevel } = require("../utils/serviceLevel");
 
 // List submissions
 router.get("/", authenticate, async (req, res) => {
@@ -275,7 +276,7 @@ router.post("/", authenticate, async (req, res) => {
         customer_id || null,
         internal_id || null,
         psa_submission_number || null,
-        service_level || null,
+        normalizeServiceLevel(service_level) || null,
         date_sent || null,
         notes || null,
         parsedPsaData?.currentStep || null,
@@ -323,7 +324,9 @@ router.put("/:id", authenticate, async (req, res) => {
     for (const field of allowed) {
       if (req.body[field] !== undefined) {
         updates.push(`${field} = $${paramIndex++}`);
-        values.push(req.body[field]);
+        // Normalize service level names
+        const value = field === 'service_level' ? normalizeServiceLevel(req.body[field]) : req.body[field];
+        values.push(value);
       }
     }
 
