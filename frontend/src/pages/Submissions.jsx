@@ -731,7 +731,7 @@ export default function Submissions() {
         </div>
       )}
 
-      {/* Active/Completed Tabs */}
+      {/* At PSA / Finished Tabs */}
       <div className="card">
         <div className="border-b border-gray-200">
           <div className="flex">
@@ -744,8 +744,8 @@ export default function Submissions() {
               }`}
             >
               <div className="flex items-center justify-center gap-2">
-                <Clock className="w-4 h-4" />
-                <span>Active Submissions</span>
+                <Package className="w-4 h-4" />
+                <span>At PSA</span>
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                   activeTab === 'active'
                     ? 'bg-brand-500 text-white'
@@ -765,7 +765,7 @@ export default function Submissions() {
             >
               <div className="flex items-center justify-center gap-2">
                 <CheckCircle2 className="w-4 h-4" />
-                <span>Completed & Shipped</span>
+                <span>Finished & Arrived</span>
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                   activeTab === 'completed'
                     ? 'bg-emerald-500 text-white'
@@ -777,6 +777,41 @@ export default function Submissions() {
             </button>
           </div>
         </div>
+
+        {/* Service Level Tabs - Inside main tab */}
+        {serviceLevels.length > 1 && (
+          <div className="border-b border-gray-200">
+            <div className="flex overflow-x-auto bg-gray-50">
+              {serviceLevels.map((level) => {
+                // Count for this service level in current main tab
+                const levelSubs = tabFilteredSubs.filter(s => level === 'all' || s.service_level === level);
+                const count = levelSubs.length;
+                const displayName = level === 'all' ? 'All Services' : level;
+
+                return (
+                  <button
+                    key={level}
+                    onClick={() => setServiceLevelFilter(level)}
+                    className={`px-6 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                      serviceLevelFilter === level
+                        ? 'border-brand-500 text-brand-600 bg-white'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    {displayName}
+                    <span className={`ml-2 px-2 py-0.5 rounded-full text-xs ${
+                      serviceLevelFilter === level
+                        ? 'bg-brand-100 text-brand-700'
+                        : 'bg-gray-200 text-gray-600'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Filters */}
