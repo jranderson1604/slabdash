@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { customers } from '../api/client';
+import { customers, submissions } from '../api/client';
 import {
   ArrowLeft,
   Edit2,
@@ -20,6 +20,8 @@ import {
   DollarSign,
   Clock,
   TrendingUp,
+  Search,
+  Plus,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -35,6 +37,10 @@ export default function CustomerDetail() {
   const [portalLink, setPortalLink] = useState(null);
   const [copied, setCopied] = useState(false);
   const [showAllSubmissions, setShowAllSubmissions] = useState(false);
+  const [submissionList, setSubmissionList] = useState([]);
+  const [submissionSearchQuery, setSubmissionSearchQuery] = useState('');
+  const [showSubmissionDropdown, setShowSubmissionDropdown] = useState(false);
+  const [assigningSubmission, setAssigningSubmission] = useState(false);
 
   const loadCustomer = async () => {
     try {
@@ -59,7 +65,35 @@ export default function CustomerDetail() {
     }
   };
 
-  useEffect(() => { loadCustomer(); }, [id]);
+  useEffect(() => {
+    loadCustomer();
+    loadSubmissions();
+  }, [id]);
+
+  const loadSubmissions = async () => {
+    try {
+      const res = await submissions.list({ limit: 1000 });
+      setSubmissionList(res.data.submissions || []);
+    } catch (error) {
+      console.error('Failed to load submissions:', error);
+    }
+  };
+
+  const handleAssignToSubmission = async (submissionId) => {
+    setAssigningSubmission(true);
+    try {
+      await submissions.addCustomer(submissionId, { customer_id: id });
+      // Reload customer to get updated submissions list
+      await loadCustomer();
+      setSubmissionSearchQuery('');
+      setShowSubmissionDropdown(false);
+    } catch (error) {
+      console.error('Failed to assign customer to submission:', error);
+      alert('Failed to assign customer to submission');
+    } finally {
+      setAssigningSubmission(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!confirm(`Delete ${customer.name}? This cannot be undone.`)) return;
@@ -167,6 +201,77 @@ export default function CustomerDetail() {
                 {customer.notes && <div className="pt-4 border-t border-gray-100"><p className="text-sm text-gray-500 mb-1">Notes</p><p className="text-gray-700 whitespace-pre-wrap">{customer.notes}</p></div>}
               </div>
             )}
+          </div>
+
+          {/* Add customer to submission */}
+          <div className="card">
+            <div className="p-6 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Add Customer to Submission
+              </h2>
+
+              {/* Searchable submission input */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search submissions by PSA #, order #, or service level..."
+                  value={submissionSearchQuery}
+                  onChange={(e) => {
+                    setSubmissionSearchQuery(e.target.value);
+                    setShowSubmissionDropdown(true);
+                  }}
+                  onFocus={() => setShowSubmissionDropdown(true)}
+                  disabled={assigningSubmission}
+                  className="input pl-10 w-full"
+                />
+
+                {/* Dropdown results */}
+                {showSubmissionDropdown && submissionSearchQuery && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {submissionList
+                      .filter(sub =>
+                        !customer.recent_submissions?.some(rs => rs.id === sub.id) &&
+                        (sub.psa_submission_number?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
+                         sub.psa_order_number?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
+                         sub.internal_id?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
+                         sub.service_level?.toLowerCase().includes(submissionSearchQuery.toLowerCase()))
+                      )
+                      .slice(0, 10)
+                      .map((sub) => (
+                        <button
+                          key={sub.id}
+                          onClick={() => handleAssignToSubmission(sub.id)}
+                          disabled={assigningSubmission}
+                          className="w-full text-left px-4 py-3 hover:bg-brand-50 transition-colors border-b border-gray-100 last:border-b-0 disabled:opacity-50"
+                        >
+                          <p className="font-medium text-gray-900">
+                            {sub.psa_submission_number || sub.internal_id || 'No ID'}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {sub.service_level || 'Unknown service'} • {sub.card_count || 0} cards
+                          </p>
+                        </button>
+                      ))}
+                    {submissionList.filter(sub =>
+                      !customer.recent_submissions?.some(rs => rs.id === sub.id) &&
+                      (sub.psa_submission_number?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
+                       sub.psa_order_number?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
+                       sub.internal_id?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
+                       sub.service_level?.toLowerCase().includes(submissionSearchQuery.toLowerCase()))
+                    ).length === 0 && (
+                      <div className="px-4 py-3 text-gray-500 text-sm">
+                        No submissions found matching "{submissionSearchQuery}"
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-gray-500 mt-2">
+                💡 Search for a submission and click to link this customer to it
+              </p>
+            </div>
           </div>
 
           <div className="card">
