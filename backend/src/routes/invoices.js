@@ -154,11 +154,75 @@ Thank you for your business!
 }
 
 /**
+ * Preview invoice before sending
+ */
+router.get('/preview/:submissionId', authenticate, requireRole('owner', 'admin'), async (req, res) => {
+    try {
+        const { submissionId } = req.params;
+        const companyId = req.user.company_id;
+
+        // Get submission details
+        const submissionResult = await db.query(
+            `SELECT s.*, comp.name as company_name
+             FROM submissions s
+             JOIN companies comp ON s.company_id = comp.id
+             WHERE s.id = $1 AND s.company_id = $2`,
+            [submissionId, companyId]
+        );
+
+        if (submissionResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Submission not found' });
+        }
+
+        const submission = submissionResult.rows[0];
+
+        // Get all customers linked to this submission
+        const customersResult = await db.query(
+            `SELECT sc.*, c.name, c.email, c.phone, c.delivery_method, c.shipping_address
+             FROM submission_customers sc
+             JOIN customers c ON sc.customer_id = c.id
+             WHERE sc.submission_id = $1`,
+            [submissionId]
+        );
+
+        // Get card count for the submission
+        const cardsResult = await db.query(
+            `SELECT COUNT(*) as count FROM cards WHERE submission_id = $1`,
+            [submissionId]
+        );
+
+        // Generate invoice number preview
+        const year = new Date().getFullYear();
+        const invoiceNumber = submission.invoice_number || generateInvoiceNumber(companyId, year);
+
+        res.json({
+            success: true,
+            invoice_number: invoiceNumber,
+            submission_number: submission.psa_submission_number || submission.internal_id,
+            psa_service_cost: submission.psa_service_cost || 0,
+            additional_fees: submission.additional_fees || 0,
+            customers: customersResult.rows.map(c => ({
+                name: c.name,
+                email: c.email,
+                delivery_method: c.delivery_method || 'pickup',
+                pickup_code: submission.pickup_code,
+                card_count: cardsResult.rows[0].count
+            }))
+        });
+
+    } catch (error) {
+        console.error('Invoice preview error:', error);
+        res.status(500).json({ error: 'Failed to generate preview', details: error.message });
+    }
+});
+
+/**
  * Generate and send invoices for a submission
  */
 router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin'), async (req, res) => {
     try {
         const { submissionId } = req.params;
+        const { psa_service_cost, additional_fees } = req.body;
         const companyId = req.user.company_id;
 
         // Get submission with cards and customers
@@ -194,6 +258,17 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
             `SELECT * FROM cards WHERE submission_id = $1 ORDER BY id`,
             [submissionId]
         );
+
+        // Save PSA service cost and additional fees to submission
+        if (psa_service_cost !== undefined || additional_fees !== undefined) {
+            await db.query(
+                `UPDATE submissions
+                 SET psa_service_cost = COALESCE($1, psa_service_cost),
+                     additional_fees = COALESCE($2, additional_fees)
+                 WHERE id = $3`,
+                [psa_service_cost || null, additional_fees || null, submissionId]
+            );
+        }
 
         // Generate invoice number if not exists
         let invoiceNumber = submission.invoice_number;
@@ -248,43 +323,44 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
             );
         }
 
+        // Calculate total invoice amount
+        const psaCost = parseFloat(psa_service_cost) || parseFloat(submission.psa_service_cost) || 0;
+        const addFees = parseFloat(additional_fees) || parseFloat(submission.additional_fees) || 0;
+        const totalInvoice = psaCost + addFees;
+
+        // Split evenly among customers
+        const perCustomerCost = totalInvoice / customersResult.rows.length;
+
         // Send invoice to each customer
         let emailsSent = 0;
         let emailsFailed = 0;
         const errors = [];
 
         for (const customer of customersResult.rows) {
-            // Get cards for this customer
-            const customerCards = cardsResult.rows.filter(c => c.customer_owner_id === customer.customer_id);
-
-            // Calculate line items
+            // Create line items for this customer
             const lineItems = [];
-            let customerTotal = 0;
 
-            customerCards.forEach(card => {
-                const cardTotal = (parseFloat(card.grading_fee) || 0) + (parseFloat(card.upcharge) || 0);
-                customerTotal += cardTotal;
-
+            // Add PSA service cost line item
+            if (psaCost > 0) {
                 lineItems.push({
-                    description: card.player_name || card.description || 'Card',
+                    description: `PSA Grading Service (${submission.service_level || 'Standard'})`,
                     quantity: 1,
-                    unit_price: cardTotal,
-                    total: cardTotal
+                    unit_price: psaCost / customersResult.rows.length,
+                    total: psaCost / customersResult.rows.length
                 });
-            });
-
-            // If no cards assigned, split total evenly
-            if (lineItems.length === 0) {
-                const totalCost = parseFloat(submission.total_cost) || 0;
-                const perCustomer = totalCost / customersResult.rows.length;
-                lineItems.push({
-                    description: 'Grading Service',
-                    quantity: 1,
-                    unit_price: perCustomer,
-                    total: perCustomer
-                });
-                customerTotal = perCustomer;
             }
+
+            // Add additional fees line item
+            if (addFees > 0) {
+                lineItems.push({
+                    description: 'Additional Fees (Shipping, Handling, etc.)',
+                    quantity: 1,
+                    unit_price: addFees / customersResult.rows.length,
+                    total: addFees / customersResult.rows.length
+                });
+            }
+
+            const customerTotal = perCustomerCost;
 
             // Send invoice email
             const result = await sendInvoiceEmail(
