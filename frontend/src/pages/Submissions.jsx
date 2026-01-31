@@ -702,21 +702,31 @@ export default function Submissions() {
     return dateB - dateA; // Newest first
   });
 
-  // Enhanced filter by search - includes order #, sub #, customer name, and card names
+  // Enhanced filter by search - includes order #, sub #, customer names, and card data
   const filteredSubs = sortedSubs.filter((s) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
+      // Submission identifiers
       s.psa_submission_number?.toLowerCase().includes(q) ||
       s.psa_order_number?.toLowerCase().includes(q) ||
       s.internal_id?.toLowerCase().includes(q) ||
+      // Direct customer
       s.customer_name?.toLowerCase().includes(q) ||
       s.customer_email?.toLowerCase().includes(q) ||
-      // Search through card names if CSV data is loaded
+      // Linked customers (consignment)
+      s.linked_customers?.some(customer =>
+        customer.name?.toLowerCase().includes(q) ||
+        customer.email?.toLowerCase().includes(q)
+      ) ||
+      // Cards data (player names, descriptions, years, brands)
       s.cards?.some(card =>
+        card.player_name?.toLowerCase().includes(q) ||
+        card.description?.toLowerCase().includes(q) ||
         card.card_name?.toLowerCase().includes(q) ||
         card.year?.toString().includes(q) ||
-        card.brand?.toLowerCase().includes(q)
+        card.brand?.toLowerCase().includes(q) ||
+        card.psa_cert_number?.toLowerCase().includes(q)
       )
     );
   });
@@ -1022,7 +1032,7 @@ export default function Submissions() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by order #, sub #, customer name, or card name..."
+              placeholder="Search by order #, customer name, player name, card description..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="input pl-10"

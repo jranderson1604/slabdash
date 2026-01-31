@@ -40,7 +40,7 @@ router.get("/", authenticate, async (req, res) => {
 
     const result = await db.query(query, params);
 
-    // Get linked customers for each submission
+    // Get linked customers and cards for each submission
     const submissionsWithCustomers = await Promise.all(
       result.rows.map(async (submission) => {
         const linkedCustomersResult = await db.query(
@@ -64,9 +64,19 @@ router.get("/", authenticate, async (req, res) => {
           }
         }
 
+        // Load cards for search functionality (player names, descriptions, etc.)
+        const cardsResult = await db.query(
+          `SELECT id, player_name, description, year, card_set as brand, grade, psa_cert_number
+           FROM cards
+           WHERE submission_id = $1
+           ORDER BY id`,
+          [submission.id]
+        );
+
         return {
           ...submission,
-          linked_customers: linkedCustomers
+          linked_customers: linkedCustomers,
+          cards: cardsResult.rows
         };
       })
     );
