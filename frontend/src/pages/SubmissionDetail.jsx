@@ -558,6 +558,8 @@ export default function SubmissionDetail() {
   const [refreshing, setRefreshing] = useState(false);
   const [showAddCard, setShowAddCard] = useState(false);
   const [customerList, setCustomerList] = useState([]);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [assigningCustomer, setAssigningCustomer] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1379,47 +1381,63 @@ export default function SubmissionDetail() {
                   Add Customer to This Submission
                 </label>
               </div>
-              <select
-                value={customerToAdd}
-                onChange={(e) => setCustomerToAdd(e.target.value)}
-                disabled={assigningCustomer}
-                className="input mb-3 w-full"
-              >
-                <option value="">-- Select a customer from the list --</option>
-                {customerList
-                  .filter(c => !submission.linked_customers?.some(lc => lc.id === c.id))
-                  .map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.email})
-                    </option>
-                  ))}
-              </select>
-              <button
-                onClick={() => {
-                  if (customerToAdd) {
-                    handleAddLinkedCustomer(customerToAdd);
-                    setCustomerToAdd('');
-                  } else {
-                    alert('Please select a customer from the dropdown first');
-                  }
-                }}
-                disabled={assigningCustomer}
-                className="btn btn-primary w-full text-base py-3 disabled:opacity-50 disabled:cursor-not-allowed gap-2"
-              >
-                {assigningCustomer ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Adding Customer...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-5 h-5" />
-                    Add Customer to Submission
-                  </>
+
+              {/* Searchable customer input */}
+              <div className="relative mb-3">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search customers by name or email..."
+                  value={customerSearchQuery}
+                  onChange={(e) => {
+                    setCustomerSearchQuery(e.target.value);
+                    setShowCustomerDropdown(true);
+                  }}
+                  onFocus={() => setShowCustomerDropdown(true)}
+                  disabled={assigningCustomer}
+                  className="input pl-10 w-full"
+                />
+
+                {/* Dropdown results */}
+                {showCustomerDropdown && customerSearchQuery && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {customerList
+                      .filter(c =>
+                        !submission.linked_customers?.some(lc => lc.id === c.id) &&
+                        (c.name?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+                         c.email?.toLowerCase().includes(customerSearchQuery.toLowerCase()))
+                      )
+                      .map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => {
+                            setCustomerToAdd(c.id);
+                            setCustomerSearchQuery(c.name);
+                            setShowCustomerDropdown(false);
+                            handleAddLinkedCustomer(c.id);
+                            setCustomerSearchQuery('');
+                          }}
+                          className="w-full text-left px-4 py-3 hover:bg-brand-50 transition-colors border-b border-gray-100 last:border-b-0"
+                        >
+                          <p className="font-medium text-gray-900">{c.name}</p>
+                          <p className="text-sm text-gray-500">{c.email}</p>
+                        </button>
+                      ))}
+                    {customerList.filter(c =>
+                      !submission.linked_customers?.some(lc => lc.id === c.id) &&
+                      (c.name?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+                       c.email?.toLowerCase().includes(customerSearchQuery.toLowerCase()))
+                    ).length === 0 && (
+                      <div className="px-4 py-3 text-gray-500 text-sm">
+                        No customers found matching "{customerSearchQuery}"
+                      </div>
+                    )}
+                  </div>
                 )}
-              </button>
-              <p className="text-xs text-brand-700 mt-2 font-medium">
-                💡 Step 1: Select a customer above → Step 2: Click the button to add them
+              </div>
+
+              <p className="text-xs text-brand-700 font-medium">
+                💡 Search for a customer by name or email and click to add them
               </p>
             </div>
 
