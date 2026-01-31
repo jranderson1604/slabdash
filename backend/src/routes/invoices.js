@@ -178,7 +178,7 @@ router.get('/preview/:submissionId', authenticate, requireRole('owner', 'admin')
 
         // Get all customers linked to this submission
         const customersResult = await db.query(
-            `SELECT sc.*, c.name, c.email, c.phone, c.delivery_method, c.shipping_address
+            `SELECT sc.*, c.name, c.email, c.phone
              FROM submission_customers sc
              JOIN customers c ON sc.customer_id = c.id
              WHERE sc.submission_id = $1`,
@@ -199,12 +199,12 @@ router.get('/preview/:submissionId', authenticate, requireRole('owner', 'admin')
             success: true,
             invoice_number: invoiceNumber,
             submission_number: submission.psa_submission_number || submission.internal_id,
-            psa_service_cost: submission.psa_service_cost || 0,
-            additional_fees: submission.additional_fees || 0,
+            psa_service_cost: 0, // Will be set in the preview modal
+            additional_fees: 0, // Will be set in the preview modal
             customers: customersResult.rows.map(c => ({
                 name: c.name,
                 email: c.email,
-                delivery_method: c.delivery_method || 'pickup',
+                delivery_method: 'pickup', // Default to pickup
                 pickup_code: submission.pickup_code,
                 card_count: cardsResult.rows[0].count
             }))
@@ -259,15 +259,20 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
             [submissionId]
         );
 
-        // Save PSA service cost and additional fees to submission
+        // Save PSA service cost and additional fees to submission (if columns exist)
         if (psa_service_cost !== undefined || additional_fees !== undefined) {
-            await db.query(
-                `UPDATE submissions
-                 SET psa_service_cost = COALESCE($1, psa_service_cost),
-                     additional_fees = COALESCE($2, additional_fees)
-                 WHERE id = $3`,
-                [psa_service_cost || null, additional_fees || null, submissionId]
-            );
+            try {
+                await db.query(
+                    `UPDATE submissions
+                     SET psa_service_cost = COALESCE($1, psa_service_cost),
+                         additional_fees = COALESCE($2, additional_fees)
+                     WHERE id = $3`,
+                    [psa_service_cost || null, additional_fees || null, submissionId]
+                );
+            } catch (error) {
+                // Columns don't exist yet - run migration first
+                console.log('Note: psa_service_cost/additional_fees columns not found. Run migration to add them.');
+            }
         }
 
         // Generate invoice number if not exists
