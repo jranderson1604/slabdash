@@ -1,41 +1,9 @@
 import { useState } from 'react';
-import { DollarSign, Loader2, Send, CheckCircle2, AlertCircle } from 'lucide-react';
-import { invoices } from '../api/client';
+import { DollarSign, Eye, CheckCircle2, AlertCircle } from 'lucide-react';
+import InvoicePreviewModal from './InvoicePreviewModal';
 
 export default function InvoiceSection({ submission, onInvoiceSent }) {
-  const [sending, setSending] = useState(false);
-
-  const handleSendInvoices = async () => {
-    const customerCount = submission.linked_customers?.length || 0;
-    if (customerCount === 0) {
-      alert('No customers linked to this submission. Please add customers first.');
-      return;
-    }
-
-    if (!confirm(`Send invoices to ${customerCount} customer(s)?\n\nMake sure you've set costs for cards before sending invoices.`)) {
-      return;
-    }
-
-    setSending(true);
-    try {
-      const response = await invoices.generate(submission.id);
-      const { emails_sent, emails_failed, invoice_number } = response.data;
-
-      alert(
-        `✅ Invoices Sent!\n\n` +
-        `Invoice #${invoice_number}\n` +
-        `Sent: ${emails_sent}\n` +
-        `Failed: ${emails_failed}`
-      );
-
-      if (onInvoiceSent) onInvoiceSent();
-    } catch (error) {
-      console.error('Failed to send invoices:', error);
-      alert(error.response?.data?.error || 'Failed to send invoices');
-    } finally {
-      setSending(false);
-    }
-  };
+  const [showPreview, setShowPreview] = useState(false);
 
   if (submission.invoice_sent) {
     return (
@@ -93,31 +61,32 @@ export default function InvoiceSection({ submission, onInvoiceSent }) {
             </div>
           </div>
           <button
-            onClick={handleSendInvoices}
-            disabled={sending}
+            onClick={() => setShowPreview(true)}
             className="btn btn-primary"
           >
-            {sending ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4" />
-                Send Invoices
-              </>
-            )}
+            <Eye className="w-4 h-4" />
+            Preview & Send Invoices
           </button>
         </div>
 
         <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
           <p className="text-sm text-blue-800">
-            💡 <strong>Tip:</strong> Invoices will include pickup codes for pickup customers and shipping addresses for shipping customers.
-            Make sure you've set costs for each card before sending.
+            💡 <strong>Tip:</strong> Preview lets you review and edit costs before sending. Invoices will include pickup codes for pickup customers.
           </p>
         </div>
       </div>
+
+      {/* Invoice Preview Modal */}
+      {showPreview && (
+        <InvoicePreviewModal
+          submission={submission}
+          onClose={() => setShowPreview(false)}
+          onSent={() => {
+            setShowPreview(false);
+            if (onInvoiceSent) onInvoiceSent();
+          }}
+        />
+      )}
     </div>
   );
 }

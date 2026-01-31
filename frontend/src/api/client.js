@@ -130,7 +130,8 @@ export const pickup = {
 };
 
 export const invoices = {
-  generate: (submissionId) => api.post(`/invoices/generate/${submissionId}`)
+  preview: (submissionId) => api.get(`/invoices/preview/${submissionId}`),
+  generate: (submissionId, data) => api.post(`/invoices/generate/${submissionId}`, data)
 };
 
 export default api;
