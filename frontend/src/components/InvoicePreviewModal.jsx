@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, Send, Edit2, DollarSign, Loader2, Eye } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { X, Send, Edit2, DollarSign, Loader2, Eye, ChevronDown } from 'lucide-react';
 import { invoices } from '../api/client';
 
 export default function InvoicePreviewModal({ submission, onClose, onSent }) {
@@ -9,6 +9,7 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
   const [editing, setEditing] = useState(false);
   const [psaServiceCost, setPsaServiceCost] = useState(0);
   const [additionalFees, setAdditionalFees] = useState(0);
+  const [showAllCustomers, setShowAllCustomers] = useState(false);
 
   useEffect(() => {
     loadPreview();
@@ -82,15 +83,25 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
     );
   }
 
-  const total = (psaServiceCost + additionalFees) || 0;
-  const customerCount = preview?.customers?.length || 0;
-  const perCustomer = customerCount > 0 ? (total / customerCount) : 0;
+  // Memoize calculations to prevent re-renders
+  const total = useMemo(() => (psaServiceCost + additionalFees) || 0, [psaServiceCost, additionalFees]);
+  const customerCount = useMemo(() => preview?.customers?.length || 0, [preview?.customers]);
+  const perCustomer = useMemo(() => customerCount > 0 ? (total / customerCount) : 0, [total, customerCount]);
+
+  // Limit displayed customers for performance (show first 5, expand to show all)
+  const displayedCustomers = useMemo(() => {
+    if (!preview?.customers) return [];
+    if (showAllCustomers || customerCount <= 5) {
+      return preview.customers;
+    }
+    return preview.customers.slice(0, 5);
+  }, [preview?.customers, showAllCustomers, customerCount]);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-r from-brand-500 to-brand-600 text-white p-6 flex items-center justify-between">
+        <div className="flex-shrink-0 bg-gradient-to-r from-brand-500 to-brand-600 text-white p-6 flex items-center justify-between rounded-t-xl">
           <div className="flex items-center gap-3">
             <Eye className="w-6 h-6" />
             <div>
@@ -103,8 +114,8 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-6">
+        {/* Content - Scrollable */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {/* Cost Editing Section */}
           <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-6">
             <div className="flex items-center justify-between mb-4">
@@ -179,10 +190,12 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
 
           {/* Email Preview for Each Customer */}
           <div>
-            <h3 className="font-semibold text-gray-900 mb-3">Email Preview</h3>
+            <h3 className="font-semibold text-gray-900 mb-3">
+              Email Preview {customerCount > 0 && `(${customerCount} customer${customerCount !== 1 ? 's' : ''})`}
+            </h3>
             <div className="space-y-3">
-              {preview?.customers?.map((customer, idx) => (
-                <div key={idx} className="border border-gray-200 rounded-lg overflow-hidden">
+              {displayedCustomers.map((customer, idx) => (
+                <div key={customer.id || idx} className="border border-gray-200 rounded-lg overflow-hidden">
                   <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
                     <div className="flex items-center justify-between">
                       <div>
@@ -208,6 +221,17 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
                   </div>
                 </div>
               ))}
+
+              {/* Show More Button */}
+              {customerCount > 5 && !showAllCustomers && (
+                <button
+                  onClick={() => setShowAllCustomers(true)}
+                  className="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-brand-500 hover:text-brand-600 hover:bg-brand-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                  Show {customerCount - 5} more customer{customerCount - 5 !== 1 ? 's' : ''}
+                </button>
+              )}
             </div>
           </div>
 
@@ -220,7 +244,7 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
         </div>
 
         {/* Footer Actions */}
-        <div className="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-4 flex items-center justify-end gap-3">
+        <div className="flex-shrink-0 bg-gray-50 border-t border-gray-200 p-4 flex items-center justify-end gap-3 rounded-b-xl">
           <button onClick={onClose} className="btn btn-secondary">
             Cancel
           </button>
