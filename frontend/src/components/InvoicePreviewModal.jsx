@@ -30,6 +30,11 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
   };
 
   const handleSend = async () => {
+    if (!preview?.customers || preview.customers.length === 0) {
+      alert('No customers found. Please add customers to this submission first.');
+      return;
+    }
+
     if (!confirm(`Send invoices to ${preview.customers.length} customer(s)?\n\nThis will email invoices and mark the submission as invoiced.`)) {
       return;
     }
@@ -42,6 +47,7 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
       });
       const { emails_sent, emails_failed, invoice_number } = response.data;
 
+      // Show success message
       alert(
         `✅ Invoices Sent!\n\n` +
         `Invoice #${invoice_number}\n` +
@@ -49,17 +55,21 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
         `Failed: ${emails_failed}`
       );
 
-      if (onSent) onSent();
+      // Close modal first
       onClose();
+
+      // Then trigger parent refresh
+      if (onSent) {
+        setTimeout(() => onSent(), 100);
+      }
     } catch (error) {
       console.error('Failed to send invoices:', error);
       alert(error.response?.data?.error || 'Failed to send invoices');
-    } finally {
       setSending(false);
     }
   };
 
-  if (loading) {
+  if (loading || !preview) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
         <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
@@ -73,7 +83,8 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
   }
 
   const total = (psaServiceCost + additionalFees) || 0;
-  const perCustomer = preview?.customers?.length ? (total / preview.customers.length) : 0;
+  const customerCount = preview?.customers?.length || 0;
+  const perCustomer = customerCount > 0 ? (total / customerCount) : 0;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -84,10 +95,10 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
             <Eye className="w-6 h-6" />
             <div>
               <h2 className="text-xl font-bold">Invoice Preview</h2>
-              <p className="text-sm text-brand-100">Review before sending to {preview?.customers?.length || 0} customer(s)</p>
+              <p className="text-sm text-brand-100">Review before sending to {customerCount} customer(s)</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors">
+          <button onClick={onClose} disabled={sending} className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors disabled:opacity-50">
             <X className="w-5 h-5" />
           </button>
         </div>
