@@ -25,23 +25,26 @@ async function sendInvoiceEmail(customer, submission, lineItems, total, pickupCo
 
     const deliveryMethod = customer.delivery_method || 'pickup';
     const deliveryInfo = deliveryMethod === 'pickup'
-        ? `<div style="background: #e8f5e9; border-left: 4px solid #4caf50; padding: 15px; margin: 20px 0;">
-             <p style="margin: 0 0 10px 0; font-weight: bold; color: #2e7d32;">📍 Pickup Information</p>
-             <p style="margin: 0; font-size: 14px; color: #1b5e20;">Your pickup code: <strong style="font-size: 24px; font-family: monospace; letter-spacing: 2px;">${pickupCode}</strong></p>
-             <p style="margin: 10px 0 0 0; font-size: 12px; color: #558b2f;">Please show this code when picking up your cards.</p>
+        ? `<div style="background: #fff5f5; border: 2px solid #FFE5E5; border-radius: 8px; padding: 20px; margin: 20px 0;">
+             <p style="margin: 0 0 12px 0; font-weight: 700; color: #C5050C; font-size: 15px;">📍 Pickup Information</p>
+             <p style="margin: 0; font-size: 14px; color: #495057;">Your pickup code:</p>
+             <div style="background: #C5050C; color: white; padding: 12px 20px; border-radius: 6px; margin: 10px 0; text-align: center;">
+                <strong style="font-size: 28px; font-family: 'Courier New', monospace; letter-spacing: 4px;">${pickupCode}</strong>
+             </div>
+             <p style="margin: 10px 0 0 0; font-size: 12px; color: #6c757d;">Please show this code when picking up your cards.</p>
            </div>`
-        : `<div style="background: #e3f2fd; border-left: 4px solid #2196f3; padding: 15px; margin: 20px 0;">
-             <p style="margin: 0 0 10px 0; font-weight: bold; color: #1565c0;">📦 Shipping Information</p>
-             <p style="margin: 0; font-size: 14px; color: #0d47a1;">Your cards will be shipped to:</p>
-             <p style="margin: 5px 0 0 0; font-size: 14px; color: #1976d2; white-space: pre-line;">${customer.shipping_address || 'Address on file'}</p>
+        : `<div style="background: #fff5f5; border: 2px solid #FFE5E5; border-radius: 8px; padding: 20px; margin: 20px 0;">
+             <p style="margin: 0 0 12px 0; font-weight: 700; color: #C5050C; font-size: 15px;">📦 Shipping Information</p>
+             <p style="margin: 0; font-size: 14px; color: #495057;">Your cards will be shipped to:</p>
+             <p style="margin: 10px 0 0 0; font-size: 14px; color: #212529; white-space: pre-line; font-weight: 500;">${customer.shipping_address || 'Address on file'}</p>
            </div>`;
 
-    const lineItemsHtml = lineItems.map(item => `
-        <tr>
-            <td style="padding: 12px; border-bottom: 1px solid #e0e0e0;">${item.description}</td>
-            <td style="padding: 12px; border-bottom: 1px solid #e0e0e0; text-align: center;">${item.quantity}</td>
-            <td style="padding: 12px; border-bottom: 1px solid #e0e0e0; text-align: right;">$${item.unit_price.toFixed(2)}</td>
-            <td style="padding: 12px; border-bottom: 1px solid #e0e0e0; text-align: right; font-weight: bold;">$${item.total.toFixed(2)}</td>
+    const lineItemsHtml = lineItems.map((item, index) => `
+        <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f8f9fa'};">
+            <td style="padding: 14px 16px; border-bottom: 1px solid #dee2e6; color: #212529; font-size: 14px;">${item.description}</td>
+            <td style="padding: 14px 16px; border-bottom: 1px solid #dee2e6; text-align: center; color: #6c757d; font-size: 14px;">${item.quantity}</td>
+            <td style="padding: 14px 16px; border-bottom: 1px solid #dee2e6; text-align: right; color: #6c757d; font-size: 14px;">$${item.unit_price.toFixed(2)}</td>
+            <td style="padding: 14px 16px; border-bottom: 1px solid #dee2e6; text-align: right; font-weight: 600; color: #212529; font-size: 15px;">$${item.total.toFixed(2)}</td>
         </tr>
     `).join('');
 
@@ -54,63 +57,80 @@ async function sendInvoiceEmail(customer, submission, lineItems, total, pickupCo
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
         </head>
-        <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; background-color: #f5f5f5;">
-            <div style="max-width: 650px; margin: 0 auto; background-color: #ffffff;">
-                <!-- Header -->
-                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-                    <h1 style="color: white; margin: 0; font-size: 32px;">Invoice</h1>
-                    <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0; font-size: 16px;">${companyName}</p>
+        <body style="margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #f8f9fa;">
+            <div style="max-width: 650px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <!-- Header with SlabDash Branding -->
+                <div style="background: linear-gradient(135deg, #C5050C 0%, #AC0000 100%); padding: 40px 30px; text-align: center; position: relative;">
+                    <div style="background: white; display: inline-block; padding: 12px 24px; border-radius: 8px; margin-bottom: 20px;">
+                        <svg width="120" height="32" viewBox="0 0 120 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <text x="0" y="24" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="bold" fill="#C5050C">SLABDASH</text>
+                        </svg>
+                    </div>
+                    <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Invoice</h1>
+                    <p style="color: rgba(255,255,255,0.95); margin: 8px 0 0 0; font-size: 15px; font-weight: 500;">${companyName}</p>
                 </div>
 
                 <!-- Invoice Details -->
-                <div style="padding: 30px;">
-                    <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
-                        <div>
-                            <p style="margin: 0; color: #666; font-size: 14px;">Bill To:</p>
-                            <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: bold; color: #333;">${customer.name}</p>
-                            <p style="margin: 5px 0 0 0; color: #666; font-size: 14px;">${customer.email}</p>
-                        </div>
-                        <div style="text-align: right;">
-                            <p style="margin: 0; color: #666; font-size: 14px;">Invoice #</p>
-                            <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: bold; color: #333;">${submission.invoice_number}</p>
-                            <p style="margin: 10px 0 0 0; color: #666; font-size: 14px;">Submission: ${submission.psa_submission_number || submission.internal_id}</p>
-                        </div>
+                <div style="padding: 35px 30px;">
+                    <!-- Customer & Invoice Info -->
+                    <div style="background: #f8f9fa; border-left: 4px solid #C5050C; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+                        <table style="width: 100%;">
+                            <tr>
+                                <td style="vertical-align: top; width: 50%;">
+                                    <p style="margin: 0; color: #6c757d; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Bill To</p>
+                                    <p style="margin: 8px 0 0 0; font-size: 18px; font-weight: 700; color: #212529;">${customer.name}</p>
+                                    <p style="margin: 4px 0 0 0; color: #6c757d; font-size: 14px;">${customer.email}</p>
+                                </td>
+                                <td style="vertical-align: top; text-align: right; width: 50%;">
+                                    <p style="margin: 0; color: #6c757d; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Invoice #</p>
+                                    <p style="margin: 8px 0 0 0; font-size: 18px; font-weight: 700; color: #C5050C;">${submission.invoice_number}</p>
+                                    <p style="margin: 10px 0 0 0; color: #6c757d; font-size: 13px;">Submission: ${submission.psa_submission_number || submission.internal_id}</p>
+                                </td>
+                            </tr>
+                        </table>
                     </div>
 
                     <!-- Delivery Method -->
                     ${deliveryInfo}
 
                     <!-- Line Items -->
-                    <table style="width: 100%; border-collapse: collapse; margin: 30px 0;">
+                    <table style="width: 100%; border-collapse: collapse; margin: 25px 0; border: 1px solid #dee2e6; border-radius: 8px; overflow: hidden;">
                         <thead>
-                            <tr style="background-color: #f8f9fa;">
-                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #dee2e6; color: #495057;">Description</th>
-                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #dee2e6; color: #495057;">Qty</th>
-                                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6; color: #495057;">Unit Price</th>
-                                <th style="padding: 12px; text-align: right; border-bottom: 2px solid #dee2e6; color: #495057;">Total</th>
+                            <tr style="background: linear-gradient(to right, #C5050C, #AC0000);">
+                                <th style="padding: 14px 16px; text-align: left; color: white; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Description</th>
+                                <th style="padding: 14px 16px; text-align: center; color: white; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Qty</th>
+                                <th style="padding: 14px 16px; text-align: right; color: white; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Unit Price</th>
+                                <th style="padding: 14px 16px; text-align: right; color: white; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Total</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${lineItemsHtml}
                         </tbody>
                         <tfoot>
-                            <tr>
-                                <td colspan="3" style="padding: 15px 12px; text-align: right; font-size: 18px; font-weight: bold; color: #333;">Total Due:</td>
-                                <td style="padding: 15px 12px; text-align: right; font-size: 24px; font-weight: bold; color: #667eea;">$${total.toFixed(2)}</td>
+                            <tr style="background-color: #f8f9fa;">
+                                <td colspan="3" style="padding: 18px 16px; text-align: right; font-size: 18px; font-weight: 700; color: #212529;">Total Due:</td>
+                                <td style="padding: 18px 16px; text-align: right; font-size: 26px; font-weight: 700; color: #C5050C;">$${total.toFixed(2)}</td>
                             </tr>
                         </tfoot>
                     </table>
 
                     <!-- Payment Instructions -->
-                    <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 20px; margin: 20px 0;">
-                        <p style="margin: 0 0 10px 0; font-weight: bold; color: #856404;">💳 Payment Instructions</p>
-                        <p style="margin: 0; font-size: 14px; color: #856404;">Please have payment ready when ${deliveryMethod === 'pickup' ? 'picking up' : 'you receive'} your cards. We accept cash, credit cards, and digital payments.</p>
+                    <div style="background: linear-gradient(to right, #fff9e6, #fff3cd); border-left: 4px solid #ffc107; border-radius: 8px; padding: 20px; margin: 25px 0;">
+                        <p style="margin: 0 0 10px 0; font-weight: 700; color: #b8860b; font-size: 15px;">💳 Payment Instructions</p>
+                        <p style="margin: 0; font-size: 14px; color: #856404; line-height: 1.6;">Please have payment ready when ${deliveryMethod === 'pickup' ? 'picking up' : 'you receive'} your cards. We accept cash, credit cards, and digital payments.</p>
                     </div>
 
-                    <div style="border-top: 2px solid #e0e0e0; padding-top: 20px; margin-top: 30px; text-align: center;">
-                        <p style="margin: 0; color: #666; font-size: 12px;">Thank you for your business!</p>
-                        <p style="margin: 5px 0 0 0; color: #999; font-size: 11px;">If you have any questions about this invoice, please contact us.</p>
+                    <div style="border-top: 2px solid #dee2e6; padding-top: 25px; margin-top: 30px; text-align: center;">
+                        <p style="margin: 0; color: #212529; font-size: 16px; font-weight: 600;">Thank you for your business!</p>
+                        <p style="margin: 10px 0 0 0; color: #6c757d; font-size: 13px;">If you have any questions about this invoice, please contact us.</p>
                     </div>
+                </div>
+
+                <!-- Footer with SlabDash Branding -->
+                <div style="background: linear-gradient(135deg, #C5050C 0%, #AC0000 100%); padding: 25px 30px; text-align: center;">
+                    <p style="margin: 0; color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 500;">Powered by</p>
+                    <p style="margin: 5px 0 0 0; color: white; font-size: 18px; font-weight: 700; letter-spacing: 1px;">SLABDASH</p>
+                    <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.8); font-size: 11px;">Professional Card Grading Management</p>
                 </div>
             </div>
         </body>
@@ -452,12 +472,17 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
         }
 
         // Mark submission invoice as sent
-        await db.query(
-            `UPDATE submissions
-             SET invoice_sent = true, invoice_sent_at = CURRENT_TIMESTAMP
-             WHERE id = $1`,
-            [submissionId]
-        );
+        try {
+            await db.query(
+                `UPDATE submissions
+                 SET invoice_sent = true, invoice_sent_at = CURRENT_TIMESTAMP
+                 WHERE id = $1`,
+                [submissionId]
+            );
+        } catch (error) {
+            // Columns don't exist yet - invoices were still sent successfully
+            console.log('Note: invoice_sent/invoice_sent_at columns not found in submissions. Run migration to add them.');
+        }
 
         res.json({
             success: true,
