@@ -58,8 +58,7 @@ export const submissions = {
     }),
   importCSV: (id, csvData) => api.post(`/submissions/${id}/import-csv`, { csvData }),
   fixShippedStatus: () => api.post('/submissions/fix-shipped-status'),
-  verifyPickupCode: (data) => api.post('/submissions/verify-pickup-code', data),
-  markCustomerPickedUp: (data) => api.post('/submissions/mark-customer-picked-up', data)
+  verifyPickupCode: (data) => api.post('/submissions/verify-pickup-code', data)
 };
 
 export const cards = {

@@ -5,10 +5,8 @@ import { submissions as submissionsApi } from '../api/client';
 export default function AdminPickupVerification({ onClose }) {
   const [pickupCode, setPickupCode] = useState('');
   const [loading, setLoading] = useState(false);
-  const [submission, setSubmission] = useState(null);
-  const [customers, setCustomers] = useState([]);
+  const [result, setResult] = useState(null);
   const [error, setError] = useState('');
-  const [processing, setProcessing] = useState(null);
 
   const handleVerifyCode = async (e) => {
     e.preventDefault();
@@ -17,55 +15,32 @@ export default function AdminPickupVerification({ onClose }) {
 
     try {
       const response = await submissionsApi.verifyPickupCode({ pickup_code: pickupCode });
-      setSubmission(response.data.submission);
-      setCustomers(response.data.customers);
+      setResult(response.data);
+      setPickupCode(''); // Clear for next entry
     } catch (err) {
       setError(err.response?.data?.error || 'Invalid pickup code');
-      setSubmission(null);
-      setCustomers([]);
+      setResult(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleMarkPickedUp = async (customerId) => {
-    setProcessing(customerId);
-    try {
-      await submissionsApi.markCustomerPickedUp({
-        submission_id: submission.id,
-        customer_id: customerId
-      });
-
-      // Update local state
-      setCustomers(customers.map(c =>
-        c.id === customerId
-          ? { ...c, picked_up: true, picked_up_at: new Date().toISOString() }
-          : c
-      ));
-    } catch (err) {
-      alert(err.response?.data?.error || 'Failed to mark as picked up');
-    } finally {
-      setProcessing(null);
-    }
-  };
-
   const handleReset = () => {
     setPickupCode('');
-    setSubmission(null);
-    setCustomers([]);
+    setResult(null);
     setError('');
   };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-auto">
+      <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full">
         {/* Header */}
         <div className="bg-gradient-to-r from-brand-500 to-brand-600 text-white p-6 flex items-center justify-between rounded-t-xl">
           <div className="flex items-center gap-3">
             <Package className="w-6 h-6" />
             <div>
               <h2 className="text-xl font-bold">Pickup Code Verification</h2>
-              <p className="text-sm text-brand-100">Verify customer pickup and mark as complete</p>
+              <p className="text-sm text-brand-100">Scan or enter customer pickup code</p>
             </div>
           </div>
           <button
@@ -77,7 +52,7 @@ export default function AdminPickupVerification({ onClose }) {
         </div>
 
         <div className="p-6">
-          {!submission ? (
+          {!result ? (
             // Pickup Code Entry Form
             <form onSubmit={handleVerifyCode} className="space-y-4">
               <div>
@@ -89,7 +64,10 @@ export default function AdminPickupVerification({ onClose }) {
                   <input
                     type="text"
                     value={pickupCode}
-                    onChange={(e) => setPickupCode(e.target.value.toUpperCase())}
+                    onChange={(e) => {
+                      setPickupCode(e.target.value.toUpperCase());
+                      setError(''); // Clear error when typing
+                    }}
                     placeholder="ABC-123"
                     className="input pl-10 text-lg font-mono tracking-wider"
                     required
@@ -98,7 +76,9 @@ export default function AdminPickupVerification({ onClose }) {
                   />
                 </div>
                 {error && (
-                  <p className="mt-2 text-sm text-red-600">{error}</p>
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-sm text-red-800 font-medium">{error}</p>
+                  </div>
                 )}
               </div>
 
@@ -107,92 +87,86 @@ export default function AdminPickupVerification({ onClose }) {
                 disabled={loading || !pickupCode}
                 className="btn btn-primary w-full"
               >
-                {loading ? 'Verifying...' : 'Verify Pickup Code'}
+                {loading ? 'Verifying...' : 'Verify & Mark Picked Up'}
               </button>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>Instructions:</strong> Enter the customer's pickup code from their invoice email.
+                  The system will automatically mark them as picked up.
+                </p>
+              </div>
             </form>
           ) : (
-            // Customer List
+            // Success Message
             <div className="space-y-4">
-              {/* Submission Info */}
-              <div className="bg-brand-50 border-2 border-brand-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
+              {/* Success Banner */}
+              <div className={`border-2 rounded-lg p-6 ${
+                result.already_picked_up
+                  ? 'bg-yellow-50 border-yellow-300'
+                  : 'bg-green-50 border-green-300'
+              }`}>
+                <div className="flex items-center gap-3 mb-4">
+                  <CheckCircle2 className={`w-8 h-8 ${
+                    result.already_picked_up ? 'text-yellow-600' : 'text-green-600'
+                  }`} />
                   <div>
-                    <p className="text-sm text-gray-600">Submission</p>
-                    <p className="text-lg font-bold text-gray-900">{submission.number}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600">Pickup Code</p>
-                    <p className="text-2xl font-mono font-bold text-brand-600">{submission.pickup_code}</p>
+                    <h3 className={`text-xl font-bold ${
+                      result.already_picked_up ? 'text-yellow-900' : 'text-green-900'
+                    }`}>
+                      {result.already_picked_up ? 'Already Picked Up' : 'Pickup Confirmed!'}
+                    </h3>
+                    <p className={`text-sm ${
+                      result.already_picked_up ? 'text-yellow-700' : 'text-green-700'
+                    }`}>
+                      {result.message}
+                    </p>
                   </div>
                 </div>
-              </div>
 
-              {/* Customers */}
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-3">
-                  Customers ({customers.filter(c => !c.picked_up).length} pending)
-                </h3>
-                <div className="space-y-2">
-                  {customers.map((customer) => (
-                    <div
-                      key={customer.id}
-                      className={`border-2 rounded-lg p-4 ${
-                        customer.picked_up
-                          ? 'bg-green-50 border-green-200'
-                          : 'bg-white border-gray-200'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <User className="w-4 h-4 text-gray-500" />
-                            <p className="font-semibold text-gray-900">{customer.name}</p>
-                            {customer.picked_up && (
-                              <CheckCircle2 className="w-5 h-5 text-green-600" />
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Mail className="w-4 h-4 text-gray-400" />
-                            <p className="text-sm text-gray-600">{customer.email}</p>
-                          </div>
-                          {customer.picked_up && customer.picked_up_at && (
-                            <div className="flex items-center gap-2 mt-2">
-                              <Clock className="w-4 h-4 text-green-600" />
-                              <p className="text-sm text-green-700">
-                                Picked up {new Date(customer.picked_up_at).toLocaleString()}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-
-                        {!customer.picked_up && (
-                          <button
-                            onClick={() => handleMarkPickedUp(customer.id)}
-                            disabled={processing === customer.id}
-                            className="btn btn-primary btn-sm"
-                          >
-                            {processing === customer.id ? 'Marking...' : 'Mark Picked Up'}
-                          </button>
-                        )}
-                      </div>
+                {/* Customer Info */}
+                <div className="bg-white rounded-lg p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <User className="w-5 h-5 text-gray-500" />
+                    <span className="font-semibold text-gray-900">{result.customer.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-5 h-5 text-gray-400" />
+                    <span className="text-sm text-gray-600">{result.customer.email}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Package className="w-5 h-5 text-gray-400" />
+                    <span className="text-sm text-gray-600">Submission: {result.submission.number}</span>
+                  </div>
+                  {result.picked_up_at && (
+                    <div className="flex items-center gap-2">
+                      <Clock className={`w-5 h-5 ${
+                        result.already_picked_up ? 'text-yellow-500' : 'text-green-500'
+                      }`} />
+                      <span className={`text-sm font-medium ${
+                        result.already_picked_up ? 'text-yellow-700' : 'text-green-700'
+                      }`}>
+                        {new Date(result.picked_up_at).toLocaleString()}
+                      </span>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
 
               {/* Actions */}
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-2">
                 <button
                   onClick={handleReset}
-                  className="btn btn-secondary flex-1"
+                  className="btn btn-primary flex-1"
+                  autoFocus
                 >
                   Verify Another Code
                 </button>
                 <button
                   onClick={onClose}
-                  className="btn btn-primary flex-1"
+                  className="btn btn-secondary flex-1"
                 >
-                  Done
+                  Close
                 </button>
               </div>
             </div>

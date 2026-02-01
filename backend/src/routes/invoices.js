@@ -238,7 +238,7 @@ router.get('/preview/:submissionId', authenticate, requireRole('owner', 'admin')
                 name: c.name,
                 email: c.email,
                 delivery_method: 'pickup', // Default to pickup
-                pickup_code: submission.pickup_code,
+                pickup_code: c.pickup_code || '(Will be generated)',
                 card_count: cardsResult.rows[0].count
             }))
         });
@@ -373,34 +373,20 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
             });
         }
 
-        // Generate pickup code if not exists and submission is ready
-        let pickupCode = submission.pickup_code;
-        if (!pickupCode && submission.grades_ready) {
-            const generatePickupCode = () => {
-                const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-                const numbers = '0123456789';
-                let code = '';
-                for (let i = 0; i < 3; i++) {
-                    code += letters.charAt(Math.floor(Math.random() * letters.length));
-                }
-                code += '-';
-                for (let i = 0; i < 3; i++) {
-                    code += numbers.charAt(Math.floor(Math.random() * numbers.length));
-                }
-                return code;
-            };
-
-            pickupCode = generatePickupCode();
-            try {
-                await db.query(
-                    'UPDATE submissions SET pickup_code = $1 WHERE id = $2',
-                    [pickupCode, submissionId]
-                );
-            } catch (error) {
-                // Column doesn't exist yet - pickup code will still be used in emails but not saved
-                console.log('Note: pickup_code column not found. Pickup code will be used but not saved. Run migration to add it.');
+        // Pickup code generation helper
+        const generatePickupCode = () => {
+            const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+            const numbers = '0123456789';
+            let code = '';
+            for (let i = 0; i < 3; i++) {
+                code += letters.charAt(Math.floor(Math.random() * letters.length));
             }
-        }
+            code += '-';
+            for (let i = 0; i < 3; i++) {
+                code += numbers.charAt(Math.floor(Math.random() * numbers.length));
+            }
+            return code;
+        };
 
         // Calculate total invoice amount
         const psaCost = parseFloat(psa_service_cost) || parseFloat(submission.psa_service_cost) || 0;
@@ -416,6 +402,25 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
         const errors = [];
 
         for (const customer of customersWithEmails) {
+            // Generate unique pickup code for this customer if submission is ready
+            let customerPickupCode = null;
+            if (submission.grades_ready) {
+                customerPickupCode = generatePickupCode();
+
+                // Save pickup code to submission_customers table
+                try {
+                    await db.query(
+                        `UPDATE submission_customers
+                         SET pickup_code = $1
+                         WHERE submission_id = $2 AND customer_id = $3`,
+                        [customerPickupCode, submissionId, customer.customer_id]
+                    );
+                } catch (error) {
+                    // Column doesn't exist yet - pickup code will still be used in emails but not saved
+                    console.log('Note: pickup_code column not found in submission_customers. Run migration to add it.');
+                }
+            }
+
             // Create line items for this customer
             const lineItems = [];
 
@@ -441,13 +446,13 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
 
             const customerTotal = perCustomerCost;
 
-            // Send invoice email
+            // Send invoice email with customer-specific pickup code
             const result = await sendInvoiceEmail(
                 customer,
                 { ...submission, invoice_number: invoiceNumber },
                 lineItems,
                 customerTotal,
-                pickupCode,
+                customerPickupCode,
                 submission.company_name,
                 mailgunConfig
             );
