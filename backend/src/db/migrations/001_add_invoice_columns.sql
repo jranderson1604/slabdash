@@ -4,6 +4,8 @@
 -- Add invoice cost tracking to submissions table
 ALTER TABLE submissions
 ADD COLUMN IF NOT EXISTS invoice_number VARCHAR(50),
+ADD COLUMN IF NOT EXISTS invoice_sent BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS invoice_sent_at TIMESTAMP,
 ADD COLUMN IF NOT EXISTS psa_service_cost DECIMAL(10,2),
 ADD COLUMN IF NOT EXISTS additional_fees DECIMAL(10,2),
 ADD COLUMN IF NOT EXISTS pickup_code VARCHAR(20);
