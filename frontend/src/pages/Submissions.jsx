@@ -27,7 +27,6 @@ import {
   Upload,
 } from 'lucide-react';
 import { format } from 'date-fns';
-import AdminPickupVerification from '../components/AdminPickupVerification';
 
 function ProgressBar({ percent }) {
   const getColor = (p) => {
@@ -426,7 +425,10 @@ export default function Submissions() {
   const [importing, setImporting] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [importProgress, setImportProgress] = useState({ phase: '', current: 0, total: 0, created: 0, updated: 0, refreshed: 0, errors: 0 });
-  const [showPickupVerification, setShowPickupVerification] = useState(false);
+  const [pickupCode, setPickupCode] = useState('');
+  const [pickupResult, setPickupResult] = useState(null);
+  const [pickupLoading, setPickupLoading] = useState(false);
+  const [pickupError, setPickupError] = useState('');
 
   const loadSubmissions = async () => {
     try {
@@ -589,6 +591,23 @@ export default function Submissions() {
       alert(error.response?.data?.error || 'Failed to send bulk emails');
     } finally {
       setSendingBulk(false);
+    }
+  };
+
+  const handlePickupCodeVerify = async (e) => {
+    e.preventDefault();
+    setPickupError('');
+    setPickupLoading(true);
+
+    try {
+      const response = await submissions.verifyPickupCode({ pickup_code: pickupCode });
+      setPickupResult(response.data);
+      setPickupCode(''); // Clear for next entry
+    } catch (error) {
+      setPickupError(error.response?.data?.error || 'Invalid pickup code');
+      setPickupResult(null);
+    } finally {
+      setPickupLoading(false);
     }
   };
 
@@ -834,13 +853,6 @@ export default function Submissions() {
               </button>
             </>
           )}
-          <button
-            onClick={() => setShowPickupVerification(true)}
-            className="btn btn-secondary gap-2"
-          >
-            <PackageCheck className="w-4 h-4" />
-            <span className="hidden sm:inline">Pickup Code</span>
-          </button>
           <Link to="/submissions/new" className="btn btn-primary gap-2">
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">New Submission</span>
@@ -1034,34 +1046,132 @@ export default function Submissions() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* Filters and Pickup Code */}
       <div className="card p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          {/* Search */}
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by order #, customer name, player name, card description..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="input pl-10"
-            />
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Left side - Search and filters */}
+          <div className="flex-1 flex flex-col sm:flex-row gap-4">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by order #, customer name, player name, card description..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="input pl-10"
+              />
+            </div>
+
+            {/* Status filter */}
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-gray-400" />
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                className="input w-auto"
+              >
+                <option value="all">All Statuses</option>
+                <option value="problems">Problems Only</option>
+              </select>
+            </div>
           </div>
 
-          {/* Status filter */}
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-400" />
-            <select
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="input w-auto"
-            >
-              <option value="all">All Statuses</option>
-              <option value="problems">Problems Only</option>
-            </select>
+          {/* Right side - Pickup Code Verification */}
+          <div className="lg:border-l lg:border-gray-200 lg:pl-4">
+            <form onSubmit={handlePickupCodeVerify} className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1 sm:w-64">
+                <PackageCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  value={pickupCode}
+                  onChange={(e) => {
+                    setPickupCode(e.target.value.toUpperCase());
+                    setPickupError('');
+                    setPickupResult(null);
+                  }}
+                  placeholder="Pickup Code (ABC-123)"
+                  className="input pl-10 font-mono"
+                  maxLength={7}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={pickupLoading || !pickupCode}
+                className="btn btn-primary whitespace-nowrap"
+              >
+                {pickupLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Verifying...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4" />
+                    Verify Pickup
+                  </>
+                )}
+              </button>
+            </form>
           </div>
         </div>
+
+        {/* Pickup Code Error */}
+        {pickupError && (
+          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-red-800 font-medium">{pickupError}</p>
+          </div>
+        )}
+
+        {/* Pickup Code Success */}
+        {pickupResult && (
+          <div className={`mt-3 p-4 border-2 rounded-lg ${
+            pickupResult.already_picked_up
+              ? 'bg-yellow-50 border-yellow-300'
+              : 'bg-green-50 border-green-300'
+          }`}>
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className={`w-6 h-6 flex-shrink-0 ${
+                pickupResult.already_picked_up ? 'text-yellow-600' : 'text-green-600'
+              }`} />
+              <div className="flex-1 min-w-0">
+                <p className={`font-bold text-sm ${
+                  pickupResult.already_picked_up ? 'text-yellow-900' : 'text-green-900'
+                }`}>
+                  {pickupResult.already_picked_up ? 'Already Picked Up' : 'Pickup Confirmed!'}
+                </p>
+                <p className={`text-sm mt-1 ${
+                  pickupResult.already_picked_up ? 'text-yellow-700' : 'text-green-700'
+                }`}>
+                  {pickupResult.message}
+                </p>
+                <div className="mt-2 text-xs text-gray-600 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <User className="w-3 h-3" />
+                    <span>{pickupResult.customer.name} ({pickupResult.customer.email})</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Package className="w-3 h-3" />
+                    <span>Submission: {pickupResult.submission.number}</span>
+                  </div>
+                  {pickupResult.picked_up_at && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3 h-3" />
+                      <span>{new Date(pickupResult.picked_up_at).toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => setPickupResult(null)}
+                className="p-1 hover:bg-white hover:bg-opacity-50 rounded transition-colors"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
 
