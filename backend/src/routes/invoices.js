@@ -25,26 +25,26 @@ async function sendInvoiceEmail(customer, submission, lineItems, total, pickupCo
 
     const deliveryMethod = customer.delivery_method || 'pickup';
     const deliveryInfo = deliveryMethod === 'pickup'
-        ? `<div style="background: #FFF7F5; border: 2px solid #FFE0D9; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        ? `<div style="background: #FFF5F2; border: 2px solid #FFD4C9; border-radius: 8px; padding: 20px; margin: 20px 0;">
              <p style="margin: 0 0 12px 0; font-weight: 700; color: #FF8170; font-size: 15px;">📍 Pickup Information</p>
-             <p style="margin: 0; font-size: 14px; color: #495057;">Your pickup code:</p>
-             <div style="background: linear-gradient(135deg, #FF8170 0%, #FF6B59 100%); color: white; padding: 12px 20px; border-radius: 6px; margin: 10px 0; text-align: center; box-shadow: 0 2px 8px rgba(255, 129, 112, 0.25);">
-                <strong style="font-size: 28px; font-family: 'Inter', -apple-system, 'Courier New', monospace; letter-spacing: 4px;">${pickupCode}</strong>
+             <p style="margin: 0; font-size: 14px; color: #6B4E3D;">Your pickup code:</p>
+             <div style="background: linear-gradient(135deg, #FF8170 0%, #F07057 100%); color: white; padding: 16px 24px; border-radius: 8px; margin: 12px 0; text-align: center; box-shadow: 0 4px 12px rgba(255, 129, 112, 0.3);">
+                <strong style="font-size: 32px; font-family: 'Inter', -apple-system, 'Courier New', monospace; letter-spacing: 6px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">${pickupCode}</strong>
              </div>
-             <p style="margin: 10px 0 0 0; font-size: 12px; color: #6c757d;">Please show this code when picking up your cards.</p>
+             <p style="margin: 10px 0 0 0; font-size: 13px; color: #8B6F5C; font-weight: 500;">Please show this code when picking up your cards.</p>
            </div>`
-        : `<div style="background: #FFF7F5; border: 2px solid #FFE0D9; border-radius: 8px; padding: 20px; margin: 20px 0;">
+        : `<div style="background: #FFF5F2; border: 2px solid #FFD4C9; border-radius: 8px; padding: 20px; margin: 20px 0;">
              <p style="margin: 0 0 12px 0; font-weight: 700; color: #FF8170; font-size: 15px;">📦 Shipping Information</p>
-             <p style="margin: 0; font-size: 14px; color: #495057;">Your cards will be shipped to:</p>
-             <p style="margin: 10px 0 0 0; font-size: 14px; color: #212529; white-space: pre-line; font-weight: 500;">${customer.shipping_address || 'Address on file'}</p>
+             <p style="margin: 0; font-size: 14px; color: #6B4E3D;">Your cards will be shipped to:</p>
+             <p style="margin: 10px 0 0 0; font-size: 14px; color: #2C2416; white-space: pre-line; font-weight: 500;">${customer.shipping_address || 'Address on file'}</p>
            </div>`;
 
     const lineItemsHtml = lineItems.map((item, index) => `
-        <tr style="background-color: ${index % 2 === 0 ? '#FFFFFF' : '#FFF7F5'};">
-            <td style="padding: 14px 16px; border-bottom: 1px solid #FFE0D9; color: #1C1C21; font-size: 14px;">${item.description}</td>
-            <td style="padding: 14px 16px; border-bottom: 1px solid #FFE0D9; text-align: center; color: #6c757d; font-size: 14px;">${item.quantity}</td>
-            <td style="padding: 14px 16px; border-bottom: 1px solid #FFE0D9; text-align: right; color: #6c757d; font-size: 14px;">$${item.unit_price.toFixed(2)}</td>
-            <td style="padding: 14px 16px; border-bottom: 1px solid #FFE0D9; text-align: right; font-weight: 600; color: #1C1C21; font-size: 15px;">$${item.total.toFixed(2)}</td>
+        <tr style="background-color: ${index % 2 === 0 ? '#FFFFFF' : '#FFF5F2'};">
+            <td style="padding: 14px 16px; border-bottom: 1px solid #FFD4C9; color: #1C1C21; font-size: 14px;">${item.description}</td>
+            <td style="padding: 14px 16px; border-bottom: 1px solid #FFD4C9; text-align: center; color: #6c757d; font-size: 14px;">${item.quantity}</td>
+            <td style="padding: 14px 16px; border-bottom: 1px solid #FFD4C9; text-align: right; color: #6c757d; font-size: 14px;">$${item.unit_price.toFixed(2)}</td>
+            <td style="padding: 14px 16px; border-bottom: 1px solid #FFD4C9; text-align: right; font-weight: 600; color: #1C1C21; font-size: 15px;">$${item.total.toFixed(2)}</td>
         </tr>
     `).join('');
 
@@ -60,19 +60,20 @@ async function sendInvoiceEmail(customer, submission, lineItems, total, pickupCo
             <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
         </head>
-        <body style="margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #FAFAF7;">
+        <body style="margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background-color: #F5F0EB;">
             <div style="max-width: 650px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
                 <!-- Header with SlabDash Branding -->
-                <div style="background: linear-gradient(135deg, #FF8170 0%, #FF6B59 100%); padding: 40px 30px; text-align: center; position: relative;">
-                    <div style="background: white; display: inline-block; padding: 12px 24px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
-                        <span style="font-family: 'Inter', Arial, sans-serif; font-size: 22px; font-weight: 700; color: #FF8170; letter-spacing: -0.5px;">SLABDASH</span>
+                <div style="background: linear-gradient(135deg, #FF8170 0%, #F07057 100%); padding: 40px 30px; text-align: center; position: relative;">
+                    <div style="background: white; display: inline-block; padding: 16px 32px; border-radius: 16px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                        <img src="${process.env.LOGO_URL || 'https://i.imgur.com/placeholder.png'}" alt="SlabDash Logo" style="height: 45px; display: block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';" />
+                        <span style="font-family: 'Inter', Arial, sans-serif; font-size: 24px; font-weight: 800; color: #FF8170; letter-spacing: -0.5px; display: none;">SLABDASH</span>
                     </div>
-                    <h1 style="color: white; margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.5px;">Invoice</h1>
-                    <p style="color: rgba(255,255,255,0.95); margin: 8px 0 0 0; font-size: 15px; font-weight: 500;">${companyName}</p>
+                    <h1 style="color: white; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">Invoice</h1>
+                    <p style="color: rgba(255,255,255,0.95); margin: 8px 0 0 0; font-size: 16px; font-weight: 500;">${companyName}</p>
                 </div>
 
                 <!-- Invoice Details -->
-                <div style="padding: 35px 30px; background-color: #FAFAF7;">
+                <div style="padding: 35px 30px; background-color: #F5F0EB;">
                     <!-- Customer & Invoice Info -->
                     <div style="background: #FFFFFF; border-left: 4px solid #FF8170; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                         <table style="width: 100%;">
@@ -95,9 +96,9 @@ async function sendInvoiceEmail(customer, submission, lineItems, total, pickupCo
                     ${deliveryInfo}
 
                     <!-- Line Items -->
-                    <table style="width: 100%; border-collapse: collapse; margin: 25px 0; border: 1px solid #FFE0D9; border-radius: 8px; overflow: hidden; background-color: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                    <table style="width: 100%; border-collapse: collapse; margin: 25px 0; border: 1px solid #FFD4C9; border-radius: 8px; overflow: hidden; background-color: #FFFFFF; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
                         <thead>
-                            <tr style="background: linear-gradient(135deg, #FF8170 0%, #FF6B59 100%);">
+                            <tr style="background: linear-gradient(135deg, #FF8170 0%, #F07057 100%);">
                                 <th style="padding: 14px 16px; text-align: left; color: white; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Description</th>
                                 <th style="padding: 14px 16px; text-align: center; color: white; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Qty</th>
                                 <th style="padding: 14px 16px; text-align: right; color: white; font-weight: 600; font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;">Unit Price</th>
@@ -108,7 +109,7 @@ async function sendInvoiceEmail(customer, submission, lineItems, total, pickupCo
                             ${lineItemsHtml}
                         </tbody>
                         <tfoot>
-                            <tr style="background-color: #FFF7F5;">
+                            <tr style="background-color: #FFF5F2;">
                                 <td colspan="3" style="padding: 18px 16px; text-align: right; font-size: 18px; font-weight: 700; color: #1C1C21;">Total Due:</td>
                                 <td style="padding: 18px 16px; text-align: right; font-size: 26px; font-weight: 700; color: #FF8170;">$${total.toFixed(2)}</td>
                             </tr>
@@ -116,19 +117,19 @@ async function sendInvoiceEmail(customer, submission, lineItems, total, pickupCo
                     </table>
 
                     <!-- Payment Instructions -->
-                    <div style="background: linear-gradient(to right, #fff9e6, #fff3cd); border-left: 4px solid #ffc107; border-radius: 8px; padding: 20px; margin: 25px 0;">
-                        <p style="margin: 0 0 10px 0; font-weight: 700; color: #b8860b; font-size: 15px;">💳 Payment Instructions</p>
-                        <p style="margin: 0; font-size: 14px; color: #856404; line-height: 1.6;">Please have payment ready when ${deliveryMethod === 'pickup' ? 'picking up' : 'you receive'} your cards. We accept cash, credit cards, and digital payments.</p>
+                    <div style="background: linear-gradient(to right, #FFF8F0, #FFE8D9); border-left: 4px solid #FF8170; border-radius: 8px; padding: 20px; margin: 25px 0;">
+                        <p style="margin: 0 0 10px 0; font-weight: 700; color: #D96846; font-size: 15px;">💳 Payment Instructions</p>
+                        <p style="margin: 0; font-size: 14px; color: #8B4513; line-height: 1.6;">Please have payment ready when ${deliveryMethod === 'pickup' ? 'picking up' : 'you receive'} your cards. We accept cash, credit cards, and digital payments.</p>
                     </div>
 
-                    <div style="border-top: 2px solid #FFE0D9; padding-top: 25px; margin-top: 30px; text-align: center;">
+                    <div style="border-top: 2px solid #FFD4C9; padding-top: 25px; margin-top: 30px; text-align: center;">
                         <p style="margin: 0; color: #1C1C21; font-size: 16px; font-weight: 600;">Thank you for your business!</p>
                         <p style="margin: 10px 0 0 0; color: #6c757d; font-size: 13px;">If you have any questions about this invoice, please contact us.</p>
                     </div>
                 </div>
 
                 <!-- Footer with SlabDash Branding -->
-                <div style="background: linear-gradient(135deg, #FF8170 0%, #FF6B59 100%); padding: 25px 30px; text-align: center;">
+                <div style="background: linear-gradient(135deg, #FF8170 0%, #F07057 100%); padding: 25px 30px; text-align: center;">
                     <p style="margin: 0; color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 500;">Powered by</p>
                     <p style="margin: 5px 0 0 0; color: white; font-size: 18px; font-weight: 700; letter-spacing: 0.5px;">SLABDASH</p>
                     <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 11px;">Professional Card Grading Management</p>
