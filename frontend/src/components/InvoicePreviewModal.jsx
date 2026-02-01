@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Send, Edit2, DollarSign, Loader2, Eye, ChevronDown } from 'lucide-react';
 import { invoices } from '../api/client';
 
@@ -85,19 +85,19 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
     );
   }
 
-  // Memoize calculations to prevent re-renders
-  const total = useMemo(() => (psaServiceCost + additionalFees) || 0, [psaServiceCost, additionalFees]);
-  const customerCount = useMemo(() => preview?.customers?.length || 0, [preview?.customers]);
-  const perCustomer = useMemo(() => customerCount > 0 ? (total / customerCount) : 0, [total, customerCount]);
+  // Calculate totals
+  const total = (psaServiceCost + additionalFees) || 0;
+  const customerCount = preview?.customers?.length || 0;
+  const perCustomer = customerCount > 0 ? (total / customerCount) : 0;
 
   // Limit displayed customers for performance (show first 5, expand to show all)
-  const displayedCustomers = useMemo(() => {
+  const displayedCustomers = (() => {
     if (!preview?.customers) return [];
     if (showAllCustomers || customerCount <= 5) {
       return preview.customers;
     }
     return preview.customers.slice(0, 5);
-  }, [preview?.customers, showAllCustomers, customerCount]);
+  })();
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
