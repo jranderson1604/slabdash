@@ -18,7 +18,10 @@ ADD COLUMN IF NOT EXISTS shipping_address TEXT;
 -- Add invoice tracking to submission_customers junction table
 ALTER TABLE submission_customers
 ADD COLUMN IF NOT EXISTS invoice_sent BOOLEAN DEFAULT false,
-ADD COLUMN IF NOT EXISTS customer_cost DECIMAL(10,2);
+ADD COLUMN IF NOT EXISTS customer_cost DECIMAL(10,2),
+ADD COLUMN IF NOT EXISTS picked_up BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS picked_up_at TIMESTAMP,
+ADD COLUMN IF NOT EXISTS pickup_code VARCHAR(20);
 
 -- Add mailgun configuration to companies table (optional - falls back to env vars)
 ALTER TABLE companies
@@ -26,5 +29,6 @@ ADD COLUMN IF NOT EXISTS mailgun_api_key TEXT,
 ADD COLUMN IF NOT EXISTS mailgun_domain VARCHAR(255),
 ADD COLUMN IF NOT EXISTS mailgun_from_email VARCHAR(255);
 
--- Create index for faster lookups
+-- Create indexes for faster lookups
 CREATE INDEX IF NOT EXISTS idx_submissions_invoice ON submissions(invoice_sent, invoice_number);
+CREATE INDEX IF NOT EXISTS idx_submission_customers_pickup ON submission_customers(pickup_code) WHERE pickup_code IS NOT NULL;

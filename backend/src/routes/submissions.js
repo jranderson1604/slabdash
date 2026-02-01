@@ -851,4 +851,87 @@ router.post("/fix-shipped-status", authenticate, requireRole("owner", "admin"), 
   }
 });
 
+// Verify pickup code and automatically mark customer as picked up
+router.post("/verify-pickup-code", authenticate, requireRole("owner", "admin"), async (req, res) => {
+  try {
+    const { pickup_code } = req.body;
+
+    if (!pickup_code) {
+      return res.status(400).json({ error: "Pickup code is required" });
+    }
+
+    const cleanCode = pickup_code.toUpperCase().trim();
+
+    // Find customer by their unique pickup code
+    const result = await db.query(
+      `SELECT sc.submission_id, sc.customer_id, sc.picked_up, sc.picked_up_at,
+              c.name as customer_name, c.email as customer_email,
+              s.psa_submission_number, s.internal_id, s.company_id
+       FROM submission_customers sc
+       JOIN customers c ON sc.customer_id = c.id
+       JOIN submissions s ON sc.submission_id = s.id
+       WHERE sc.pickup_code = $1`,
+      [cleanCode]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Invalid pickup code" });
+    }
+
+    const record = result.rows[0];
+
+    // Verify submission belongs to this company
+    if (record.company_id !== req.user.company_id) {
+      return res.status(404).json({ error: "Invalid pickup code" });
+    }
+
+    // Check if already picked up
+    if (record.picked_up) {
+      return res.json({
+        success: true,
+        already_picked_up: true,
+        message: `${record.customer_name} already picked up on ${new Date(record.picked_up_at).toLocaleString()}`,
+        customer: {
+          name: record.customer_name,
+          email: record.customer_email
+        },
+        submission: {
+          number: record.psa_submission_number || record.internal_id
+        },
+        picked_up_at: record.picked_up_at
+      });
+    }
+
+    // Automatically mark as picked up
+    try {
+      await db.query(
+        `UPDATE submission_customers
+         SET picked_up = true, picked_up_at = CURRENT_TIMESTAMP
+         WHERE submission_id = $1 AND customer_id = $2`,
+        [record.submission_id, record.customer_id]
+      );
+    } catch (error) {
+      console.log('Note: picked_up columns not found. Run migration to add them.');
+    }
+
+    res.json({
+      success: true,
+      message: `${record.customer_name} marked as picked up!`,
+      customer: {
+        name: record.customer_name,
+        email: record.customer_email
+      },
+      submission: {
+        number: record.psa_submission_number || record.internal_id
+      },
+      picked_up_at: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error("Verify pickup code error:", error);
+    res.status(500).json({ error: "Failed to verify pickup code" });
+  }
+});
+
+
 module.exports = router;

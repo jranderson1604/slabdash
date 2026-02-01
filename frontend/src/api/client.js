@@ -57,7 +57,8 @@ export const submissions = {
       headers: { 'Content-Type': 'multipart/form-data' }
     }),
   importCSV: (id, csvData) => api.post(`/submissions/${id}/import-csv`, { csvData }),
-  fixShippedStatus: () => api.post('/submissions/fix-shipped-status')
+  fixShippedStatus: () => api.post('/submissions/fix-shipped-status'),
+  verifyPickupCode: (data) => api.post('/submissions/verify-pickup-code', data)
 };
 
 export const cards = {
