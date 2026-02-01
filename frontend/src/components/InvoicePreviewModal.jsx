@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Send, Edit2, DollarSign, Loader2, Eye, ChevronDown } from 'lucide-react';
+import { X, Send, Edit2, DollarSign, Loader2, Eye, ChevronDown, AlertCircle } from 'lucide-react';
 import { invoices } from '../api/client';
 
 export default function InvoicePreviewModal({ submission, onClose, onSent }) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [preview, setPreview] = useState(null);
+  const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false);
   const [psaServiceCost, setPsaServiceCost] = useState(0);
   const [additionalFees, setAdditionalFees] = useState(0);
@@ -18,16 +19,19 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
 
   const loadPreview = async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await invoices.preview(submission.id);
       setPreview(res.data);
       setPsaServiceCost(parseFloat(res.data.psa_service_cost || 0));
       setAdditionalFees(parseFloat(res.data.additional_fees || 0));
-    } catch (error) {
-      console.error('Failed to load invoice preview:', error);
-      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Failed to load invoice preview';
-      alert(errorMessage + '\n\nPlease ensure customers have email addresses before sending invoices.');
-      onClose(); // Close modal on error
+    } catch (err) {
+      console.error('Failed to load invoice preview:', err);
+      const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Failed to load invoice preview';
+      const errorDetails = err.response?.data?.total_customers
+        ? `\n\nThis submission has ${err.response.data.total_customers} customer(s) but none have email addresses.`
+        : '';
+      setError(errorMessage + errorDetails);
     } finally {
       setLoading(false);
     }
@@ -73,13 +77,73 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
     }
   };
 
-  if (loading || !preview) {
+  // Show loading state
+  if (loading) {
     return createPortal(
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
         <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
           <div className="p-8 flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
             <span className="ml-3 text-gray-600">Loading invoice preview...</span>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  // Show error state
+  if (error) {
+    return createPortal(
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
+        <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full">
+          <div className="bg-gradient-to-r from-red-500 to-red-600 text-white p-6 flex items-center justify-between rounded-t-xl">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-6 h-6" />
+              <h2 className="text-xl font-bold">Cannot Generate Invoice</h2>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-white hover:bg-opacity-20 rounded-lg transition-colors">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-6">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <p className="text-red-800 font-medium">{error}</p>
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <p className="text-sm text-blue-800">
+                <strong>To fix this:</strong>
+              </p>
+              <ul className="text-sm text-blue-700 mt-2 ml-4 list-disc space-y-1">
+                <li>Go to the submission's customer list</li>
+                <li>Add email addresses to each customer</li>
+                <li>Come back and try generating the invoice again</li>
+              </ul>
+            </div>
+          </div>
+          <div className="bg-gray-50 border-t border-gray-200 p-4 flex justify-end rounded-b-xl">
+            <button onClick={onClose} className="btn btn-primary">
+              Close
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
+  // If no preview data, show error
+  if (!preview) {
+    return createPortal(
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
+        <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full">
+          <div className="p-8 text-center">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Invoice Preview</h3>
+            <p className="text-gray-600">Please try again or contact support if the problem persists.</p>
+            <button onClick={onClose} className="btn btn-primary mt-4">
+              Close
+            </button>
           </div>
         </div>
       </div>,
