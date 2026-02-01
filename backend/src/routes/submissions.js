@@ -862,17 +862,38 @@ router.post("/verify-pickup-code", authenticate, requireRole("owner", "admin"), 
 
     const cleanCode = pickup_code.toUpperCase().trim();
 
-    // Find customer by their unique pickup code
-    const result = await db.query(
-      `SELECT sc.submission_id, sc.customer_id, sc.picked_up, sc.picked_up_at,
-              c.name as customer_name, c.email as customer_email,
-              s.psa_submission_number, s.internal_id, s.company_id
-       FROM submission_customers sc
-       JOIN customers c ON sc.customer_id = c.id
-       JOIN submissions s ON sc.submission_id = s.id
-       WHERE sc.pickup_code = $1`,
-      [cleanCode]
-    );
+    // Try to find customer by their unique pickup code
+    // First try with picked_up columns, fall back to simpler query if columns don't exist
+    let result;
+    let hasPickupColumns = true;
+
+    try {
+      result = await db.query(
+        `SELECT sc.submission_id, sc.customer_id, sc.pickup_code, sc.picked_up, sc.picked_up_at,
+                c.name as customer_name, c.email as customer_email,
+                s.psa_submission_number, s.internal_id, s.company_id
+         FROM submission_customers sc
+         JOIN customers c ON sc.customer_id = c.id
+         JOIN submissions s ON sc.submission_id = s.id
+         WHERE sc.pickup_code = $1`,
+        [cleanCode]
+      );
+    } catch (error) {
+      // Columns don't exist yet - use simpler query
+      console.log('Note: picked_up columns not found. Using fallback query.');
+      hasPickupColumns = false;
+
+      result = await db.query(
+        `SELECT sc.submission_id, sc.customer_id, sc.pickup_code,
+                c.name as customer_name, c.email as customer_email,
+                s.psa_submission_number, s.internal_id, s.company_id
+         FROM submission_customers sc
+         JOIN customers c ON sc.customer_id = c.id
+         JOIN submissions s ON sc.submission_id = s.id
+         WHERE sc.pickup_code = $1`,
+        [cleanCode]
+      );
+    }
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: "Invalid pickup code" });
@@ -885,8 +906,8 @@ router.post("/verify-pickup-code", authenticate, requireRole("owner", "admin"), 
       return res.status(404).json({ error: "Invalid pickup code" });
     }
 
-    // Check if already picked up
-    if (record.picked_up) {
+    // Check if already picked up (only if columns exist)
+    if (hasPickupColumns && record.picked_up) {
       return res.json({
         success: true,
         already_picked_up: true,
@@ -902,16 +923,18 @@ router.post("/verify-pickup-code", authenticate, requireRole("owner", "admin"), 
       });
     }
 
-    // Automatically mark as picked up
-    try {
-      await db.query(
-        `UPDATE submission_customers
-         SET picked_up = true, picked_up_at = CURRENT_TIMESTAMP
-         WHERE submission_id = $1 AND customer_id = $2`,
-        [record.submission_id, record.customer_id]
-      );
-    } catch (error) {
-      console.log('Note: picked_up columns not found. Run migration to add them.');
+    // Automatically mark as picked up (if columns exist)
+    if (hasPickupColumns) {
+      try {
+        await db.query(
+          `UPDATE submission_customers
+           SET picked_up = true, picked_up_at = CURRENT_TIMESTAMP
+           WHERE submission_id = $1 AND customer_id = $2`,
+          [record.submission_id, record.customer_id]
+        );
+      } catch (error) {
+        console.log('Note: picked_up columns not found during update. Run migration to enable pickup tracking.');
+      }
     }
 
     res.json({
