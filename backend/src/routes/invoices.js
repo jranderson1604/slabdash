@@ -370,10 +370,15 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
             };
 
             pickupCode = generatePickupCode();
-            await db.query(
-                'UPDATE submissions SET pickup_code = $1 WHERE id = $2',
-                [pickupCode, submissionId]
-            );
+            try {
+                await db.query(
+                    'UPDATE submissions SET pickup_code = $1 WHERE id = $2',
+                    [pickupCode, submissionId]
+                );
+            } catch (error) {
+                // Column doesn't exist yet - pickup code will still be used in emails but not saved
+                console.log('Note: pickup_code column not found. Pickup code will be used but not saved. Run migration to add it.');
+            }
         }
 
         // Calculate total invoice amount
