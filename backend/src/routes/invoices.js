@@ -185,6 +185,17 @@ router.get('/preview/:submissionId', authenticate, requireRole('owner', 'admin')
             [submissionId]
         );
 
+        // Filter customers with valid email addresses
+        const customersWithEmails = customersResult.rows.filter(c => c.email && c.email.trim() !== '');
+
+        if (customersWithEmails.length === 0) {
+            return res.status(400).json({
+                error: 'No customers with email addresses for this submission',
+                message: 'Please add email addresses to customers before generating invoices.',
+                total_customers: customersResult.rows.length
+            });
+        }
+
         // Get card count for the submission
         const cardsResult = await db.query(
             `SELECT COUNT(*) as count FROM cards WHERE submission_id = $1`,
@@ -199,9 +210,10 @@ router.get('/preview/:submissionId', authenticate, requireRole('owner', 'admin')
             success: true,
             invoice_number: invoiceNumber,
             submission_number: submission.psa_submission_number || submission.internal_id,
-            psa_service_cost: 0, // Will be set in the preview modal
-            additional_fees: 0, // Will be set in the preview modal
-            customers: customersResult.rows.map(c => ({
+            psa_service_cost: parseFloat(submission.psa_service_cost) || 0,
+            additional_fees: parseFloat(submission.additional_fees) || 0,
+            customers: customersWithEmails.map(c => ({
+                id: c.customer_id,
                 name: c.name,
                 email: c.email,
                 delivery_method: 'pickup', // Default to pickup
@@ -251,6 +263,17 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
 
         if (customersResult.rows.length === 0) {
             return res.status(400).json({ error: 'No customers linked to this submission' });
+        }
+
+        // Filter customers with valid email addresses
+        const customersWithEmails = customersResult.rows.filter(c => c.email && c.email.trim() !== '');
+
+        if (customersWithEmails.length === 0) {
+            return res.status(400).json({
+                error: 'No customers with email addresses for this submission',
+                message: 'Please add email addresses to customers before generating invoices.',
+                total_customers: customersResult.rows.length
+            });
         }
 
         // Get all cards with their costs
@@ -333,15 +356,15 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
         const addFees = parseFloat(additional_fees) || parseFloat(submission.additional_fees) || 0;
         const totalInvoice = psaCost + addFees;
 
-        // Split evenly among customers
-        const perCustomerCost = totalInvoice / customersResult.rows.length;
+        // Split evenly among customers with emails
+        const perCustomerCost = totalInvoice / customersWithEmails.length;
 
         // Send invoice to each customer
         let emailsSent = 0;
         let emailsFailed = 0;
         const errors = [];
 
-        for (const customer of customersResult.rows) {
+        for (const customer of customersWithEmails) {
             // Create line items for this customer
             const lineItems = [];
 
@@ -350,8 +373,8 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
                 lineItems.push({
                     description: `PSA Grading Service (${submission.service_level || 'Standard'})`,
                     quantity: 1,
-                    unit_price: psaCost / customersResult.rows.length,
-                    total: psaCost / customersResult.rows.length
+                    unit_price: psaCost / customersWithEmails.length,
+                    total: psaCost / customersWithEmails.length
                 });
             }
 
@@ -360,8 +383,8 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
                 lineItems.push({
                     description: 'Additional Fees (Shipping, Handling, etc.)',
                     quantity: 1,
-                    unit_price: addFees / customersResult.rows.length,
-                    total: addFees / customersResult.rows.length
+                    unit_price: addFees / customersWithEmails.length,
+                    total: addFees / customersWithEmails.length
                 });
             }
 

@@ -24,7 +24,9 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
       setAdditionalFees(parseFloat(res.data.additional_fees || 0));
     } catch (error) {
       console.error('Failed to load invoice preview:', error);
-      alert('Failed to load invoice preview');
+      const errorMessage = error.response?.data?.error || error.response?.data?.message || 'Failed to load invoice preview';
+      alert(errorMessage + '\n\nPlease ensure customers have email addresses before sending invoices.');
+      onClose(); // Close modal on error
     } finally {
       setLoading(false);
     }

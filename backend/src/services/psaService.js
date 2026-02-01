@@ -26,8 +26,25 @@ const getSubmissionProgress = async (apiKey, submissionNumber) => {
         const response = await createPsaClient(apiKey).get(`/order/GetSubmissionProgress/${submissionNumber}`);
         return { success: true, data: response.data };
     } catch (error) {
-        if (error.response?.status === 404) return { success: false, error: 'Submission not found' };
-        throw error;
+        const status = error.response?.status;
+        const message = error.response?.data?.message || error.message;
+
+        // Handle specific error codes gracefully
+        if (status === 404) {
+            return { success: false, error: 'Submission not found', status: 404 };
+        }
+        if (status === 500) {
+            console.log(`PSA API returned 500 for submission ${submissionNumber} - this is a PSA API issue, will skip`);
+            return { success: false, error: 'PSA API server error (500)', status: 500 };
+        }
+        if (status === 429) {
+            // Let rate limit errors bubble up for retry logic
+            throw error;
+        }
+
+        // Log other errors and return gracefully
+        console.error(`PSA API error for submission ${submissionNumber}:`, message);
+        return { success: false, error: message || 'Unknown PSA API error', status: status || 0 };
     }
 };
 
