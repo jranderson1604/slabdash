@@ -63,7 +63,7 @@ router.post('/add-card-count', authenticate, requireRole('owner', 'admin'), asyn
  * Invoice and pickup code migration
  * Adds columns for invoice generation and customer-specific pickup codes
  */
-router.post('/add-invoice-columns', authenticate, requireRole('owner'), async (req, res) => {
+router.post('/add-invoice-columns', authenticate, requireRole('owner', 'admin'), async (req, res) => {
     try {
         console.log('Running invoice and pickup code migration...');
         const results = [];
