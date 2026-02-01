@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Send, Edit2, DollarSign, Loader2, Eye, ChevronDown } from 'lucide-react';
 import { invoices } from '../api/client';
 
@@ -73,15 +74,16 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
   };
 
   if (loading || !preview) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4">
-        <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto relative z-[101]">
+    return createPortal(
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+        <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
           <div className="p-8 flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
             <span className="ml-3 text-gray-600">Loading invoice preview...</span>
           </div>
         </div>
-      </div>
+      </div>,
+      document.body
     );
   }
 
@@ -99,9 +101,9 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
     return preview.customers.slice(0, 5);
   })();
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[100] p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col relative z-[101]">
+  return createPortal(
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex-shrink-0 bg-gradient-to-r from-brand-500 to-brand-600 text-white p-6 flex items-center justify-between rounded-t-xl">
           <div className="flex items-center gap-3">
@@ -269,6 +271,7 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

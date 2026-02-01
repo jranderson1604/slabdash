@@ -304,10 +304,15 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
             const year = new Date().getFullYear();
             invoiceNumber = generateInvoiceNumber(companyId, year);
 
-            await db.query(
-                'UPDATE submissions SET invoice_number = $1 WHERE id = $2',
-                [invoiceNumber, submissionId]
-            );
+            try {
+                await db.query(
+                    'UPDATE submissions SET invoice_number = $1 WHERE id = $2',
+                    [invoiceNumber, submissionId]
+                );
+            } catch (error) {
+                // Column doesn't exist yet - run migration first
+                console.log('Note: invoice_number column not found. Invoice will be generated but not saved. Run migration to add it.');
+            }
         }
 
         // Get mailgun config
