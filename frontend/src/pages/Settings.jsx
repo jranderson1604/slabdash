@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { companies, psa } from '../api/client';
+import { companies, psa, migration } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import {
   Settings as SettingsIcon,
@@ -18,6 +18,8 @@ import {
   Crown,
   DollarSign,
   Users,
+  Database,
+  Play,
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -49,6 +51,9 @@ export default function Settings() {
   const [showApiKey, setShowApiKey] = useState(false);
   const [subscriptionStatus, setSubscriptionStatus] = useState(null);
   const [loadingSubscription, setLoadingSubscription] = useState(false);
+  const [migrationStatus, setMigrationStatus] = useState(null);
+  const [checkingMigration, setCheckingMigration] = useState(false);
+  const [runningMigration, setRunningMigration] = useState(false);
   const [settings, setSettings] = useState({
     name: '',
     email: '',
@@ -71,7 +76,48 @@ export default function Settings() {
   useEffect(() => {
     loadSettings();
     loadSubscriptionStatus();
+    checkMigrationStatus();
   }, []);
+
+  const checkMigrationStatus = async () => {
+    try {
+      setCheckingMigration(true);
+      const res = await migration.checkInvoiceStatus();
+      setMigrationStatus(res.data);
+    } catch (error) {
+      console.error('Failed to check migration status:', error);
+    } finally {
+      setCheckingMigration(false);
+    }
+  };
+
+  const runMigration = async () => {
+    if (!confirm('Run database migration? This will add columns for invoice generation and pickup code verification.')) {
+      return;
+    }
+
+    try {
+      setRunningMigration(true);
+      const res = await migration.runInvoiceMigration();
+      setMigrationStatus({
+        ...migrationStatus,
+        migration_needed: false,
+        checks: res.data.results?.map((r, i) => ({
+          check: `Step ${i + 1}`,
+          status: r,
+          critical: true
+        })) || []
+      });
+      alert('✓ Migration completed successfully!\n\n' + (res.data.results?.join('\n') || ''));
+      // Refresh migration status
+      await checkMigrationStatus();
+    } catch (error) {
+      console.error('Migration failed:', error);
+      alert('Migration failed: ' + (error.response?.data?.details || error.message));
+    } finally {
+      setRunningMigration(false);
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -340,6 +386,112 @@ export default function Settings() {
               Save PSA Settings
             </button>
           </div>
+        </div>
+      </SettingsSection>
+
+      {/* Database Migration */}
+      <SettingsSection
+        icon={Database}
+        title="Database Migration"
+        description="Enable invoice generation and pickup code features"
+      >
+        <div className="space-y-4">
+          {checkingMigration ? (
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Checking migration status...
+            </div>
+          ) : migrationStatus ? (
+            <>
+              {/* Status Summary */}
+              <div className={`p-4 rounded-lg border-2 ${
+                migrationStatus.migration_needed
+                  ? 'bg-yellow-50 border-yellow-200'
+                  : 'bg-green-50 border-green-200'
+              }`}>
+                <div className="flex items-start gap-3">
+                  {migrationStatus.migration_needed ? (
+                    <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  )}
+                  <div className="flex-1">
+                    <p className={`font-semibold ${
+                      migrationStatus.migration_needed ? 'text-yellow-900' : 'text-green-900'
+                    }`}>
+                      {migrationStatus.summary}
+                    </p>
+                    <p className={`text-sm mt-1 ${
+                      migrationStatus.migration_needed ? 'text-yellow-700' : 'text-green-700'
+                    }`}>
+                      {migrationStatus.migration_needed
+                        ? 'Run the migration to enable customer-specific pickup codes and invoice generation.'
+                        : 'All features are enabled and working correctly!'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Feature Checklist */}
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-gray-700">Feature Status:</p>
+                {migrationStatus.checks?.map((check, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-sm">
+                    {check.status.includes('✓') ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-yellow-600" />
+                    )}
+                    <span className={check.status.includes('✓') ? 'text-gray-700' : 'text-gray-600'}>
+                      {check.check}: {check.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center gap-3 pt-2">
+                <button
+                  onClick={runMigration}
+                  disabled={runningMigration || !migrationStatus.migration_needed}
+                  className="btn btn-primary gap-2"
+                >
+                  {runningMigration ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Running Migration...
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4" />
+                      Run Migration
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={checkMigrationStatus}
+                  disabled={checkingMigration}
+                  className="btn btn-secondary gap-2"
+                >
+                  <RefreshCw className={`w-4 h-4 ${checkingMigration ? 'animate-spin' : ''}`} />
+                  Refresh Status
+                </button>
+              </div>
+
+              {/* Info Box */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  <strong>What this does:</strong> Adds database columns for invoice generation,
+                  customer-specific pickup codes, and pickup status tracking. This is a safe operation
+                  that only adds new columns - it won't modify or delete any existing data.
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="text-sm text-gray-500">
+              Unable to check migration status. Please try refreshing the page.
+            </div>
+          )}
         </div>
       </SettingsSection>
 
