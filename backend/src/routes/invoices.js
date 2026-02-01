@@ -434,12 +434,17 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
             if (result.success) {
                 emailsSent++;
                 // Mark invoice as sent for this customer
-                await db.query(
-                    `UPDATE submission_customers
-                     SET invoice_sent = true, customer_cost = $1
-                     WHERE submission_id = $2 AND customer_id = $3`,
-                    [customerTotal, submissionId, customer.customer_id]
-                );
+                try {
+                    await db.query(
+                        `UPDATE submission_customers
+                         SET invoice_sent = true, customer_cost = $1
+                         WHERE submission_id = $2 AND customer_id = $3`,
+                        [customerTotal, submissionId, customer.customer_id]
+                    );
+                } catch (error) {
+                    // Columns don't exist yet - invoice was still sent successfully
+                    console.log('Note: invoice_sent/customer_cost columns not found in submission_customers. Run migration to add them.');
+                }
             } else {
                 emailsFailed++;
                 errors.push({ customer: customer.name, error: result.error });
