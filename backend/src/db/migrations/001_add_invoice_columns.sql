@@ -13,6 +13,11 @@ ALTER TABLE customers
 ADD COLUMN IF NOT EXISTS delivery_method VARCHAR(20) DEFAULT 'pickup',
 ADD COLUMN IF NOT EXISTS shipping_address TEXT;
 
+-- Add invoice tracking to submission_customers junction table
+ALTER TABLE submission_customers
+ADD COLUMN IF NOT EXISTS invoice_sent BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS customer_cost DECIMAL(10,2);
+
 -- Add mailgun configuration to companies table (optional - falls back to env vars)
 ALTER TABLE companies
 ADD COLUMN IF NOT EXISTS mailgun_api_key TEXT,
