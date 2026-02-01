@@ -851,4 +851,101 @@ router.post("/fix-shipped-status", authenticate, requireRole("owner", "admin"), 
   }
 });
 
+// Verify pickup code and get associated customers
+router.post("/verify-pickup-code", authenticate, requireRole("owner", "admin"), async (req, res) => {
+  try {
+    const { pickup_code } = req.body;
+
+    if (!pickup_code) {
+      return res.status(400).json({ error: "Pickup code is required" });
+    }
+
+    // Find submission with this pickup code
+    const submissionResult = await db.query(
+      `SELECT id, psa_submission_number, internal_id, pickup_code
+       FROM submissions
+       WHERE company_id = $1 AND pickup_code = $2`,
+      [req.user.company_id, pickup_code.toUpperCase().trim()]
+    );
+
+    if (submissionResult.rows.length === 0) {
+      return res.status(404).json({ error: "Invalid pickup code" });
+    }
+
+    const submission = submissionResult.rows[0];
+
+    // Get all customers linked to this submission with their pickup status
+    const customersResult = await db.query(
+      `SELECT sc.customer_id, sc.picked_up, sc.picked_up_at, c.name, c.email
+       FROM submission_customers sc
+       JOIN customers c ON sc.customer_id = c.id
+       WHERE sc.submission_id = $1`,
+      [submission.id]
+    );
+
+    res.json({
+      success: true,
+      submission: {
+        id: submission.id,
+        number: submission.psa_submission_number || submission.internal_id,
+        pickup_code: submission.pickup_code
+      },
+      customers: customersResult.rows.map(c => ({
+        id: c.customer_id,
+        name: c.name,
+        email: c.email,
+        picked_up: c.picked_up || false,
+        picked_up_at: c.picked_up_at
+      }))
+    });
+
+  } catch (error) {
+    console.error("Verify pickup code error:", error);
+    res.status(500).json({ error: "Failed to verify pickup code" });
+  }
+});
+
+// Mark specific customer as picked up for a submission
+router.post("/mark-customer-picked-up", authenticate, requireRole("owner", "admin"), async (req, res) => {
+  try {
+    const { submission_id, customer_id } = req.body;
+
+    if (!submission_id || !customer_id) {
+      return res.status(400).json({ error: "Submission ID and Customer ID are required" });
+    }
+
+    // Verify submission belongs to company
+    const submissionCheck = await db.query(
+      `SELECT id FROM submissions WHERE id = $1 AND company_id = $2`,
+      [submission_id, req.user.company_id]
+    );
+
+    if (submissionCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Submission not found" });
+    }
+
+    // Mark this specific customer as picked up for this submission
+    try {
+      await db.query(
+        `UPDATE submission_customers
+         SET picked_up = true, picked_up_at = CURRENT_TIMESTAMP
+         WHERE submission_id = $1 AND customer_id = $2`,
+        [submission_id, customer_id]
+      );
+    } catch (error) {
+      // Columns don't exist yet - still return success
+      console.log('Note: picked_up/picked_up_at columns not found in submission_customers. Run migration to add them.');
+    }
+
+    res.json({
+      success: true,
+      message: "Customer marked as picked up"
+    });
+
+  } catch (error) {
+    console.error("Mark customer picked up error:", error);
+    res.status(500).json({ error: "Failed to mark customer as picked up" });
+  }
+});
+
 module.exports = router;

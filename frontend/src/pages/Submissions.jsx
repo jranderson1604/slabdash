@@ -11,6 +11,7 @@ import {
   Eye,
   Trash2,
   Package,
+  PackageCheck,
   Loader2,
   AlertCircle,
   CheckCircle2,
@@ -26,6 +27,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { format } from 'date-fns';
+import AdminPickupVerification from '../components/AdminPickupVerification';
 
 function ProgressBar({ percent }) {
   const getColor = (p) => {
@@ -424,6 +426,7 @@ export default function Submissions() {
   const [importing, setImporting] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [importProgress, setImportProgress] = useState({ phase: '', current: 0, total: 0, created: 0, updated: 0, refreshed: 0, errors: 0 });
+  const [showPickupVerification, setShowPickupVerification] = useState(false);
 
   const loadSubmissions = async () => {
     try {
@@ -831,6 +834,13 @@ export default function Submissions() {
               </button>
             </>
           )}
+          <button
+            onClick={() => setShowPickupVerification(true)}
+            className="btn btn-secondary gap-2"
+          >
+            <PackageCheck className="w-4 h-4" />
+            <span className="hidden sm:inline">Pickup Code</span>
+          </button>
           <Link to="/submissions/new" className="btn btn-primary gap-2">
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">New Submission</span>
