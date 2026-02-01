@@ -135,4 +135,9 @@ export const invoices = {
   generate: (submissionId, data) => api.post(`/invoices/generate/${submissionId}`, data)
 };
 
+export const migration = {
+  checkInvoiceStatus: () => api.get('/migration/check-invoice-status'),
+  runInvoiceMigration: () => api.post('/migration/add-invoice-columns')
+};
+
 export default api;
