@@ -315,21 +315,41 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
             }
         }
 
-        // Get mailgun config
-        const configResult = await db.query(
-            `SELECT mailgun_api_key, mailgun_domain, mailgun_from_email
-             FROM companies WHERE id = $1`,
-            [companyId]
-        );
-
-        const mailgunConfig = {
-            api_key: configResult.rows[0].mailgun_api_key,
-            domain: configResult.rows[0].mailgun_domain,
-            from_email: configResult.rows[0].mailgun_from_email
+        // Get mailgun config - try database first, fall back to environment variables
+        let mailgunConfig = {
+            api_key: null,
+            domain: null,
+            from_email: null
         };
 
+        try {
+            const configResult = await db.query(
+                `SELECT mailgun_api_key, mailgun_domain, mailgun_from_email
+                 FROM companies WHERE id = $1`,
+                [companyId]
+            );
+
+            if (configResult.rows[0]) {
+                mailgunConfig = {
+                    api_key: configResult.rows[0].mailgun_api_key,
+                    domain: configResult.rows[0].mailgun_domain,
+                    from_email: configResult.rows[0].mailgun_from_email
+                };
+            }
+        } catch (error) {
+            console.log('Note: mailgun columns not found in companies table. Using environment variables.');
+        }
+
+        // Fall back to environment variables if not set in database
+        mailgunConfig.api_key = mailgunConfig.api_key || process.env.DEFAULT_MAILGUN_API_KEY;
+        mailgunConfig.domain = mailgunConfig.domain || process.env.DEFAULT_MAILGUN_DOMAIN;
+        mailgunConfig.from_email = mailgunConfig.from_email || process.env.DEFAULT_FROM_EMAIL;
+
         if (!mailgunConfig.api_key || !mailgunConfig.domain) {
-            return res.status(400).json({ error: 'Mailgun not configured' });
+            return res.status(400).json({
+                error: 'Mailgun not configured',
+                message: 'Please configure Mailgun API key and domain in environment variables or company settings'
+            });
         }
 
         // Generate pickup code if not exists and submission is ready

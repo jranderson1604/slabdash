@@ -12,5 +12,11 @@ ALTER TABLE customers
 ADD COLUMN IF NOT EXISTS delivery_method VARCHAR(20) DEFAULT 'pickup',
 ADD COLUMN IF NOT EXISTS shipping_address TEXT;
 
+-- Add mailgun configuration to companies table (optional - falls back to env vars)
+ALTER TABLE companies
+ADD COLUMN IF NOT EXISTS mailgun_api_key TEXT,
+ADD COLUMN IF NOT EXISTS mailgun_domain VARCHAR(255),
+ADD COLUMN IF NOT EXISTS mailgun_from_email VARCHAR(255);
+
 -- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_submissions_invoice ON submissions(invoice_sent, invoice_number);
