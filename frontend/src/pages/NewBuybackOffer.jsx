@@ -39,7 +39,7 @@ export default function NewBuybackOffer() {
 
   const loadCustomers = async () => {
     try {
-      const res = await customers.list({ limit: 1000 });
+      const res = await customers.list({});
       setCustomerList(res.data.customers || []);
     } catch (error) {
       console.error('Failed to load customers:', error);

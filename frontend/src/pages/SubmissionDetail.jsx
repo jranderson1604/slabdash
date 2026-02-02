@@ -589,7 +589,7 @@ export default function SubmissionDetail() {
 
   const loadCustomers = async () => {
     try {
-      const res = await customers.list({ limit: 100 });
+      const res = await customers.list({});
       setCustomerList(res.data.customers || []);
     } catch (error) {
       console.error('Failed to load customers:', error);

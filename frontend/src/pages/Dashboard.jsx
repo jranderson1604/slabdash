@@ -106,8 +106,8 @@ export default function Dashboard() {
   const loadData = async () => {
     try {
       const [subsRes, custsRes] = await Promise.all([
-        submissions.list({ limit: 100 }),
-        customers.list({ limit: 100 }),
+        submissions.list({}),
+        customers.list({}),
       ]);
 
       const subs = subsRes.data.submissions || [];

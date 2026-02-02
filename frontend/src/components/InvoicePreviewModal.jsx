@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Send, Edit2, DollarSign, Loader2, Eye, ChevronDown, AlertCircle } from 'lucide-react';
+import { X, Send, Edit2, DollarSign, Loader2, Eye, ChevronDown, AlertCircle, Zap } from 'lucide-react';
 import { invoices } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 export default function InvoicePreviewModal({ submission, onClose, onSent }) {
+  const { company } = useAuth();
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [preview, setPreview] = useState(null);
   const [error, setError] = useState(null);
   const [editing, setEditing] = useState(false);
-  const [psaServiceCost, setPsaServiceCost] = useState(0);
-  const [additionalFees, setAdditionalFees] = useState(0);
+  const [psaServiceCost, setPsaServiceCost] = useState('0');
+  const [additionalFees, setAdditionalFees] = useState('0');
   const [showAllCustomers, setShowAllCustomers] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState('');
 
   useEffect(() => {
     loadPreview();
@@ -23,8 +26,8 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
     try {
       const res = await invoices.preview(submission.id);
       setPreview(res.data);
-      setPsaServiceCost(parseFloat(res.data.psa_service_cost || 0));
-      setAdditionalFees(parseFloat(res.data.additional_fees || 0));
+      setPsaServiceCost(String(parseFloat(res.data.psa_service_cost || 0)));
+      setAdditionalFees(String(parseFloat(res.data.additional_fees || 0)));
     } catch (err) {
       console.error('Failed to load invoice preview:', err);
       const errorMessage = err.response?.data?.error || err.response?.data?.message || 'Failed to load invoice preview';
@@ -50,8 +53,8 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
     setSending(true);
     try {
       const response = await invoices.generate(submission.id, {
-        psa_service_cost: psaServiceCost,
-        additional_fees: additionalFees
+        psa_service_cost: parseFloat(psaServiceCost) || 0,
+        additional_fees: parseFloat(additionalFees) || 0
       });
       const { emails_sent, emails_failed, invoice_number } = response.data;
 
@@ -152,7 +155,12 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
   }
 
   // Calculate totals
-  const total = (psaServiceCost + additionalFees) || 0;
+  const psaCostNum = parseFloat(psaServiceCost) || 0;
+  const additionalFeesNum = parseFloat(additionalFees) || 0;
+  const subtotal = psaCostNum + additionalFeesNum;
+  const taxPercentage = company?.tax_percentage || 0;
+  const taxAmount = subtotal * (taxPercentage / 100);
+  const total = subtotal + taxAmount;
   const customerCount = preview?.customers?.length || 0;
   const perCustomer = customerCount > 0 ? (total / customerCount) : 0;
 
@@ -200,6 +208,39 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
               </button>
             </div>
 
+            {/* Preset Selector */}
+            {editing && company?.service_level_pricing && Object.keys(company.service_level_pricing).length > 0 && (
+              <div className="mb-4 pb-4 border-b border-blue-200">
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-yellow-500" />
+                  Quick Select Service Level
+                </label>
+                <select
+                  value={selectedPreset}
+                  onChange={(e) => {
+                    setSelectedPreset(e.target.value);
+                    if (e.target.value && company.service_level_pricing[e.target.value]) {
+                      setPsaServiceCost(String(company.service_level_pricing[e.target.value]));
+                    }
+                  }}
+                  className="input"
+                >
+                  <option value="">-- Select a preset --</option>
+                  {Object.entries(company.service_level_pricing)
+                    .filter(([_, price]) => price != null && price > 0)
+                    .sort(([a], [b]) => a.localeCompare(b))
+                    .map(([level, price]) => (
+                      <option key={level} value={level}>
+                        {level} - ${parseFloat(price).toFixed(2)}
+                      </option>
+                    ))}
+                </select>
+                <p className="text-xs text-gray-600 mt-1">
+                  Select a preset to fill in the PSA service cost, or enter manually below
+                </p>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -211,13 +252,25 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
                     <input
                       type="number"
                       step="0.01"
+                      min="0"
                       value={psaServiceCost}
-                      onChange={(e) => setPsaServiceCost(parseFloat(e.target.value) || 0)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        // Allow empty string or valid numbers
+                        if (val === '' || !isNaN(parseFloat(val))) {
+                          setPsaServiceCost(val);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Clean up on blur - remove leading zeros
+                        const num = parseFloat(e.target.value) || 0;
+                        setPsaServiceCost(String(num));
+                      }}
                       className="input pl-8"
                     />
                   </div>
                 ) : (
-                  <div className="text-2xl font-bold text-gray-900">${psaServiceCost.toFixed(2)}</div>
+                  <div className="text-2xl font-bold text-gray-900">${psaCostNum.toFixed(2)}</div>
                 )}
                 <p className="text-xs text-gray-500 mt-1">Cost from PSA for grading services</p>
               </div>
@@ -232,20 +285,42 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
                     <input
                       type="number"
                       step="0.01"
+                      min="0"
                       value={additionalFees}
-                      onChange={(e) => setAdditionalFees(parseFloat(e.target.value) || 0)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        // Allow empty string or valid numbers
+                        if (val === '' || !isNaN(parseFloat(val))) {
+                          setAdditionalFees(val);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Clean up on blur - remove leading zeros
+                        const num = parseFloat(e.target.value) || 0;
+                        setAdditionalFees(String(num));
+                      }}
                       className="input pl-8"
                     />
                   </div>
                 ) : (
-                  <div className="text-2xl font-bold text-gray-900">${additionalFees.toFixed(2)}</div>
+                  <div className="text-2xl font-bold text-gray-900">${additionalFeesNum.toFixed(2)}</div>
                 )}
                 <p className="text-xs text-gray-500 mt-1">Shipping, handling, or other fees</p>
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-blue-200">
-              <div className="flex justify-between items-center">
+            <div className="mt-4 pt-4 border-t border-blue-200 space-y-2">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-700">Subtotal:</span>
+                <span className="font-semibold text-gray-900">${subtotal.toFixed(2)}</span>
+              </div>
+              {taxPercentage > 0 && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-700">Tax ({taxPercentage}%):</span>
+                  <span className="font-semibold text-gray-900">${taxAmount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-2 border-t border-blue-200">
                 <span className="text-lg font-semibold text-gray-900">Total Invoice Amount:</span>
                 <span className="text-3xl font-bold text-brand-600">${total.toFixed(2)}</span>
               </div>
