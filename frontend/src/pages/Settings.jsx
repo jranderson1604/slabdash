@@ -20,6 +20,8 @@ import {
   Users,
   Database,
   Play,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -74,6 +76,7 @@ export default function Settings() {
     service_level_pricing: {},
     tax_percentage: 0,
   });
+  const [newServiceLevel, setNewServiceLevel] = useState('');
 
   useEffect(() => {
     loadSettings();
@@ -125,6 +128,26 @@ export default function Settings() {
     try {
       const res = await companies.get();
       const data = res.data;
+
+      // Initialize with default service levels if empty
+      let serviceLevelPricing = data.service_level_pricing || {};
+      if (Object.keys(serviceLevelPricing).length === 0) {
+        serviceLevelPricing = {
+          'Value Bulk': null,
+          'Vintage Bulk': null,
+          'Value Plus': null,
+          'Regular': null,
+          'Standard': null,
+          'Express': null,
+          'Super Express': null,
+          'Walk-Through': null,
+          'Specialty': null,
+          'Reholder': null,
+          'Autograph Authentication': null,
+          'TCG Bulk': null,
+        };
+      }
+
       setSettings({
         name: data.name || '',
         email: data.email || '',
@@ -142,7 +165,7 @@ export default function Settings() {
         primary_color: data.primary_color || '#ef4444',
         background_color: data.background_color || '#f5f5f5',
         sidebar_color: data.sidebar_color || '#ffffff',
-        service_level_pricing: data.service_level_pricing || {},
+        service_level_pricing: serviceLevelPricing,
         tax_percentage: data.tax_percentage || 0,
       });
     } catch (error) {
@@ -404,45 +427,111 @@ export default function Settings() {
             Configure default prices for each service level. These will be available as quick-select presets when generating invoices.
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              'Bulk',
-              'Value Bulk',
-              'Plus',
-              'Value Plus',
-              'Regular',
-              'Standard',
-              'Express',
-              'Super Express',
-              'Walk-Through',
-              'Specialty',
-              'Reholder'
-            ].map((level) => (
-              <div key={level}>
-                <label className="label">{level}</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={settings.service_level_pricing?.[level] || ''}
-                    onChange={(e) => {
-                      const val = e.target.value;
+          {/* Existing Service Levels */}
+          <div className="space-y-3">
+            {Object.entries(settings.service_level_pricing || {})
+              .sort(([a], [b]) => a.localeCompare(b))
+              .map(([level, price]) => (
+                <div key={level} className="flex items-center gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700 min-w-[180px]">{level}</span>
+                      <div className="relative flex-1 max-w-xs">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          placeholder="0.00"
+                          value={price || ''}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setSettings({
+                              ...settings,
+                              service_level_pricing: {
+                                ...settings.service_level_pricing,
+                                [level]: val === '' ? null : parseFloat(val)
+                              }
+                            });
+                          }}
+                          className="input pl-8 py-2"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const newPricing = { ...settings.service_level_pricing };
+                      delete newPricing[level];
+                      setSettings({
+                        ...settings,
+                        service_level_pricing: newPricing
+                      });
+                    }}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Remove service level"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+          </div>
+
+          {/* Add New Service Level */}
+          <div className="pt-4 border-t border-gray-200">
+            <label className="block text-sm font-medium text-gray-700 mb-2">Add New Service Level</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="e.g., Premium Authentication"
+                value={newServiceLevel}
+                onChange={(e) => setNewServiceLevel(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && newServiceLevel.trim()) {
+                    e.preventDefault();
+                    if (!settings.service_level_pricing?.[newServiceLevel.trim()]) {
                       setSettings({
                         ...settings,
                         service_level_pricing: {
                           ...settings.service_level_pricing,
-                          [level]: val === '' ? null : parseFloat(val)
+                          [newServiceLevel.trim()]: null
                         }
                       });
-                    }}
-                    className="input pl-8"
-                  />
-                </div>
-              </div>
-            ))}
+                      setNewServiceLevel('');
+                    } else {
+                      alert('This service level already exists');
+                    }
+                  }
+                }}
+                className="input flex-1"
+              />
+              <button
+                onClick={() => {
+                  if (newServiceLevel.trim()) {
+                    if (!settings.service_level_pricing?.[newServiceLevel.trim()]) {
+                      setSettings({
+                        ...settings,
+                        service_level_pricing: {
+                          ...settings.service_level_pricing,
+                          [newServiceLevel.trim()]: null
+                        }
+                      });
+                      setNewServiceLevel('');
+                    } else {
+                      alert('This service level already exists');
+                    }
+                  }
+                }}
+                disabled={!newServiceLevel.trim()}
+                className="btn btn-secondary gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Press Enter or click Add to create a new service level
+            </p>
           </div>
 
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">

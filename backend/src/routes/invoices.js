@@ -271,13 +271,30 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
         const companyId = req.user.company_id;
 
         // Get submission with cards and customers
-        const submissionResult = await db.query(
-            `SELECT s.*, comp.name as company_name, comp.tax_percentage
-             FROM submissions s
-             JOIN companies comp ON s.company_id = comp.id
-             WHERE s.id = $1 AND s.company_id = $2`,
-            [submissionId, companyId]
-        );
+        let submissionResult;
+        try {
+            submissionResult = await db.query(
+                `SELECT s.*, comp.name as company_name, comp.tax_percentage
+                 FROM submissions s
+                 JOIN companies comp ON s.company_id = comp.id
+                 WHERE s.id = $1 AND s.company_id = $2`,
+                [submissionId, companyId]
+            );
+        } catch (error) {
+            // Fallback if tax_percentage column doesn't exist yet
+            if (error.code === '42703') {
+                console.log('Note: tax_percentage column not found. Run migration to add it.');
+                submissionResult = await db.query(
+                    `SELECT s.*, comp.name as company_name, 0 as tax_percentage
+                     FROM submissions s
+                     JOIN companies comp ON s.company_id = comp.id
+                     WHERE s.id = $1 AND s.company_id = $2`,
+                    [submissionId, companyId]
+                );
+            } else {
+                throw error;
+            }
+        }
 
         if (submissionResult.rows.length === 0) {
             return res.status(404).json({ error: 'Submission not found' });
