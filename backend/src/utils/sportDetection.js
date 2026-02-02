@@ -1,58 +1,83 @@
 /**
- * Smart sport detection for card categorization
- * Auto-detects sport/category based on brand, player name, team, and description
+ * Card categorization for simplified organization
+ * Categories: Sports, TCG (Trading Card Games), Other
  */
 
-// Basketball players (recent and legends)
-const BASKETBALL_PLAYERS = [
-  'cooper flagg', 'lebron', 'jordan', 'kobe', 'curry', 'durant', 'giannis', 'embiid',
+// TCG (Trading Card Game) keywords
+const TCG_KEYWORDS = [
+  // Pokemon
+  'pokemon', 'pokémon', 'pikachu', 'charizard', 'mewtwo', 'blastoise', 'venusaur',
+  'eevee', 'snorlax', 'gyarados', 'dragonite', 'umbreon', 'espeon', 'vaporeon',
+  'jolteon', 'flareon', 'lugia', 'ho-oh', 'rayquaza', 'lucario', 'greninja',
+  'bulbasaur', 'squirtle',
+
+  // One Piece
+  'one piece', 'luffy', 'zoro', 'nami', 'sanji', 'chopper', 'robin', 'franky',
+  'brook', 'usopp', 'shanks', 'ace', 'whitebeard', 'kaido', 'big mom', 'doflamingo',
+  'bandai',
+
+  // Magic: The Gathering
+  'magic', 'mtg', 'gathering', 'planeswalker', 'black lotus', 'mox', 'jace',
+  'liliana', 'chandra', 'garruk', 'nissa', 'ajani', 'teferi', 'urza',
+
+  // Yu-Gi-Oh
+  'yugioh', 'yu-gi-oh', 'blue eyes', 'dark magician', 'exodia',
+
+  // Digimon
+  'digimon', 'agumon', 'gabumon', 'greymon'
+];
+
+// Sports keywords (all sports combined)
+const SPORTS_KEYWORDS = [
+  // Basketball
+  'hoops', 'nba', 'prizm basketball', 'select basketball', 'court kings',
+  'chronicles basketball', 'donruss basketball', 'optic basketball',
+  'lebron', 'jordan', 'kobe', 'curry', 'durant', 'giannis', 'embiid',
   'jokic', 'tatum', 'luka', 'doncic', 'wembanyama', 'victor', 'anthony edwards',
-  'kawhi', 'harden', 'westbrook', 'lillard', 'booker', 'young', 'morant', 'ja'
-];
-
-// Football players
-const FOOTBALL_PLAYERS = [
-  'mahomes', 'brady', 'allen', 'burrow', 'herbert', 'lawrence', 'stroud', 'manning',
-  'rodgers', 'jackson', 'lamar', 'hurts', 'prescott', 'dak', 'daniels', 'caleb williams'
-];
-
-// Baseball players
-const BASEBALL_PLAYERS = [
-  'trout', 'ohtani', 'judge', 'acuna', 'betts', 'mookie', 'tatis', 'soto',
-  'guerrero', 'vlad', 'harper', 'turner', 'freeman', 'alvarez', 'yordan'
-];
-
-// Hockey players
-const HOCKEY_PLAYERS = [
-  'mcdavid', 'matthews', 'crosby', 'ovechkin', 'makar', 'mackinnon', 'draisaitl',
-  'pastrnak', 'panarin', 'kucherov', 'bedard', 'connor'
-];
-
-// Basketball teams
-const BASKETBALL_TEAMS = [
+  'kawhi', 'harden', 'westbrook', 'lillard', 'booker', 'young', 'morant',
   'lakers', 'celtics', 'warriors', 'bulls', 'heat', 'knicks', 'nets', 'bucks',
   'sixers', '76ers', 'clippers', 'mavericks', 'nuggets', 'suns', 'grizzlies',
-  'duke', 'kentucky', 'kansas', 'ucla', 'gonzaga', 'carolina', 'unc'
-];
+  'cooper flagg',
 
-// Football teams
-const FOOTBALL_TEAMS = [
+  // Football
+  'nfl', 'prizm football', 'select football', 'optic football', 'chronicles football',
+  'donruss football', 'score football',
+  'mahomes', 'brady', 'allen', 'burrow', 'herbert', 'lawrence', 'stroud', 'manning',
+  'rodgers', 'jackson', 'lamar', 'hurts', 'prescott', 'dak', 'daniels', 'caleb williams',
   'patriots', 'cowboys', 'packers', '49ers', 'niners', 'steelers', 'eagles',
-  'chiefs', 'bills', 'bengals', 'ravens', 'rams', 'chargers', 'browns', 'jets'
-];
+  'chiefs', 'bills', 'bengals', 'ravens', 'rams', 'chargers', 'browns', 'jets',
 
-// Baseball teams
-const BASEBALL_TEAMS = [
+  // Baseball
+  'mlb', 'topps', 'bowman', 'diamond kings', 'stadium club', 'donruss baseball',
+  'chronicles baseball', 'heritage', 'allen & ginter', 'gypsy queen',
+  'trout', 'ohtani', 'judge', 'acuna', 'betts', 'mookie', 'tatis', 'soto',
+  'guerrero', 'vlad', 'harper', 'turner', 'freeman', 'alvarez', 'yordan',
   'yankees', 'dodgers', 'red sox', 'cubs', 'cardinals', 'astros', 'braves',
-  'mets', 'phillies', 'padres', 'giants', 'angels', 'blue jays', 'mariners'
-];
+  'mets', 'phillies', 'padres', 'giants', 'angels', 'blue jays', 'mariners',
 
-// Hockey teams
-const HOCKEY_TEAMS = [
+  // Hockey
+  'nhl', 'upper deck hockey', 'parkhurst', 'o-pee-chee', 'opc', 'sp authentic', 'the cup',
+  'mcdavid', 'matthews', 'crosby', 'ovechkin', 'makar', 'mackinnon', 'draisaitl',
+  'pastrnak', 'panarin', 'kucherov', 'bedard', 'connor',
   'maple leafs', 'canadiens', 'bruins', 'rangers', 'penguins', 'blackhawks',
-  'red wings', 'flyers', 'oilers', 'lightning', 'avalanche', 'golden knights'
+  'red wings', 'flyers', 'oilers', 'lightning', 'avalanche', 'golden knights',
+
+  // College sports
+  'college', 'ncaa', 'university', 'duke', 'kentucky', 'kansas', 'ucla',
+  'gonzaga', 'carolina', 'unc',
+
+  // WNBA
+  'wnba', 'caitlin clark', 'angel reese', 'sabrina ionescu', 'paige bueckers',
+
+  // General sports keywords
+  'athlete', 'championship', 'playoff', 'mvp', 'rookie card'
 ];
 
+/**
+ * Detect card category from card data
+ * @param {Object} card - Card object with brand, description, player_name, team fields
+ * @returns {string} - Category: Sports, TCG, or Other
+ */
 function detectSport(card) {
   const brand = (card.brand || '').toLowerCase();
   const description = (card.description || '').toLowerCase();
@@ -60,108 +85,21 @@ function detectSport(card) {
   const team = (card.team || '').toLowerCase();
   const combined = `${brand} ${description} ${playerName} ${team}`.toLowerCase();
 
-  // Pokemon
-  if (combined.match(/pokemon|pokémon|pikachu|charizard|eevee|mewtwo|bulbasaur|squirtle/)) {
-    return 'Pokemon';
-  }
-
-  // One Piece
-  if (combined.match(/one piece|luffy|zoro|nami|sanji|chopper|bandai/)) {
-    return 'One Piece';
-  }
-
-  // Magic: The Gathering
-  if (combined.match(/magic|mtg|gathering|black lotus|planeswalker/)) {
-    return 'Magic';
-  }
-
-  // Basketball - Brand detection
-  if (brand.match(/hoops|prizm basketball|select basketball|court kings|donruss basketball|optic basketball/)) {
-    return 'Basketball';
-  }
-
-  // Football - Brand detection
-  if (brand.match(/prizm football|select football|donruss football|optic football|chronicles football/)) {
-    return 'Football';
-  }
-
-  // Baseball - Brand detection
-  if (brand.match(/topps|bowman|stadium club|heritage|allen & ginter|gypsy queen|donruss baseball/)) {
-    return 'Baseball';
-  }
-
-  // Hockey - Brand detection
-  if (brand.match(/upper deck hockey|sp authentic|the cup|opc|o-pee-chee/)) {
-    return 'Hockey';
-  }
-
-  // Basketball - Player detection
-  for (const player of BASKETBALL_PLAYERS) {
-    if (playerName.includes(player) || description.includes(player)) {
-      return 'Basketball';
+  // Check for TCG keywords first
+  for (const keyword of TCG_KEYWORDS) {
+    if (combined.includes(keyword)) {
+      return 'TCG';
     }
   }
 
-  // Football - Player detection
-  for (const player of FOOTBALL_PLAYERS) {
-    if (playerName.includes(player) || description.includes(player)) {
-      return 'Football';
+  // Check for Sports keywords
+  for (const keyword of SPORTS_KEYWORDS) {
+    if (combined.includes(keyword)) {
+      return 'Sports';
     }
   }
 
-  // Baseball - Player detection
-  for (const player of BASEBALL_PLAYERS) {
-    if (playerName.includes(player) || description.includes(player)) {
-      return 'Baseball';
-    }
-  }
-
-  // Hockey - Player detection
-  for (const player of HOCKEY_PLAYERS) {
-    if (playerName.includes(player) || description.includes(player)) {
-      return 'Hockey';
-    }
-  }
-
-  // Basketball - Team detection
-  for (const teamName of BASKETBALL_TEAMS) {
-    if (team.includes(teamName) || description.includes(teamName)) {
-      return 'Basketball';
-    }
-  }
-
-  // Football - Team detection
-  for (const teamName of FOOTBALL_TEAMS) {
-    if (team.includes(teamName) || description.includes(teamName)) {
-      return 'Football';
-    }
-  }
-
-  // Baseball - Team detection
-  for (const teamName of BASEBALL_TEAMS) {
-    if (team.includes(teamName) || description.includes(teamName)) {
-      return 'Baseball';
-    }
-  }
-
-  // Hockey - Team detection
-  for (const teamName of HOCKEY_TEAMS) {
-    if (team.includes(teamName) || description.includes(teamName)) {
-      return 'Hockey';
-    }
-  }
-
-  // College sports
-  if (combined.match(/college|ncaa|university/)) {
-    return 'College';
-  }
-
-  // WNBA
-  if (combined.match(/wnba|caitlin clark|angel reese|sabrina ionescu|paige bueckers/)) {
-    return 'WNBA';
-  }
-
-  // Default to Other if can't detect
+  // Default to Other
   return 'Other';
 }
 
