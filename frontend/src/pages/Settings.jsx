@@ -71,6 +71,7 @@ export default function Settings() {
     primary_color: '#ef4444',
     background_color: '#f5f5f5',
     sidebar_color: '#ffffff',
+    service_level_pricing: {},
   });
 
   useEffect(() => {
@@ -140,6 +141,7 @@ export default function Settings() {
         primary_color: data.primary_color || '#ef4444',
         background_color: data.background_color || '#f5f5f5',
         sidebar_color: data.sidebar_color || '#ffffff',
+        service_level_pricing: data.service_level_pricing || {},
       });
     } catch (error) {
       console.error('Failed to load settings:', error);
@@ -384,6 +386,73 @@ export default function Settings() {
             <button onClick={() => handleSave('psa')} disabled={saving} className="btn btn-primary gap-2">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save PSA Settings
+            </button>
+          </div>
+        </div>
+      </SettingsSection>
+
+      {/* Service Level Pricing */}
+      <SettingsSection
+        icon={DollarSign}
+        title="Service Level Pricing Presets"
+        description="Set default prices for each PSA service level to speed up invoice generation"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 mb-4">
+            Configure default prices for each service level. These will be available as quick-select presets when generating invoices.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              'Bulk',
+              'Value Bulk',
+              'Plus',
+              'Value Plus',
+              'Regular',
+              'Standard',
+              'Express',
+              'Super Express',
+              'Walk-Through',
+              'Specialty',
+              'Reholder'
+            ].map((level) => (
+              <div key={level}>
+                <label className="label">{level}</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={settings.service_level_pricing?.[level] || ''}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSettings({
+                        ...settings,
+                        service_level_pricing: {
+                          ...settings.service_level_pricing,
+                          [level]: val === '' ? null : parseFloat(val)
+                        }
+                      });
+                    }}
+                    className="input pl-8"
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+            <p className="text-sm text-blue-800">
+              <strong>How it works:</strong> When generating invoices, you'll see a dropdown to quickly select these preset prices instead of entering manually. You can still override with manual entry if needed.
+            </p>
+          </div>
+
+          <div className="pt-4">
+            <button onClick={() => handleSave('pricing')} disabled={saving} className="btn btn-primary gap-2">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Save Pricing Presets
             </button>
           </div>
         </div>

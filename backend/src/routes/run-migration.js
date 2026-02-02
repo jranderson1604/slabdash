@@ -117,9 +117,11 @@ router.post('/add-invoice-columns', authenticate, requireRole('owner', 'admin'),
                 ALTER TABLE companies
                 ADD COLUMN IF NOT EXISTS mailgun_api_key TEXT,
                 ADD COLUMN IF NOT EXISTS mailgun_domain VARCHAR(255),
-                ADD COLUMN IF NOT EXISTS mailgun_from_email VARCHAR(255)
+                ADD COLUMN IF NOT EXISTS mailgun_from_email VARCHAR(255),
+                ADD COLUMN IF NOT EXISTS service_level_pricing JSONB
             `);
             results.push('✓ Added Mailgun config columns to companies table');
+            results.push('✓ Added service level pricing column for invoice presets');
         } catch (error) {
             results.push(`✗ Companies table: ${error.message}`);
         }
