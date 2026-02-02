@@ -25,6 +25,16 @@ router.get('/settings', authenticate, async (req, res) => {
 // Update settings
 router.patch('/settings', authenticate, async (req, res) => {
     try {
+        // Check which columns exist in the companies table
+        const columnCheckResult = await db.query(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'companies'
+            AND column_name IN ('service_level_pricing', 'tax_percentage')
+        `);
+
+        const existingColumns = new Set(columnCheckResult.rows.map(r => r.column_name));
+
         const allowed = [
             'name', 'email', 'phone', 'website', 'logo_url', 'primary_color',
             'background_color', 'sidebar_color',
@@ -34,10 +44,18 @@ router.patch('/settings', authenticate, async (req, res) => {
             'use_custom_smtp', 'service_level_pricing', 'tax_percentage'
         ];
         const updates = [], values = [];
+        const skippedFields = [];
         let i = 1;
 
         for (const field of allowed) {
             if (req.body[field] !== undefined) {
+                // Skip fields that don't exist in database yet
+                if ((field === 'service_level_pricing' || field === 'tax_percentage') && !existingColumns.has(field)) {
+                    skippedFields.push(field);
+                    console.log(`Note: Skipping ${field} - column not found. Run migration to add it.`);
+                    continue;
+                }
+
                 // Handle JSONB fields
                 if (field === 'service_level_pricing') {
                     updates.push(`${field} = $${i++}::jsonb`);
@@ -49,7 +67,16 @@ router.patch('/settings', authenticate, async (req, res) => {
             }
         }
 
-        if (updates.length === 0) return res.status(400).json({ error: 'No valid fields' });
+        if (updates.length === 0) {
+            if (skippedFields.length > 0) {
+                return res.status(400).json({
+                    error: 'Database migration required',
+                    message: `The following fields require migration: ${skippedFields.join(', ')}. Please run the database migration from Settings page.`,
+                    skipped_fields: skippedFields
+                });
+            }
+            return res.status(400).json({ error: 'No valid fields' });
+        }
 
         values.push(req.user.company_id);
         const result = await db.query(`UPDATE companies SET ${updates.join(', ')} WHERE id = $${i} RETURNING *`, values);
