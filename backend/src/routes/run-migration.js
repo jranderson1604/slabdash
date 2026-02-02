@@ -227,15 +227,31 @@ router.get('/check-invoice-status', authenticate, async (req, res) => {
             critical: false
         });
 
+        // Check cards sport column for categorization
+        const sportCheck = await db.query(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'cards'
+            AND column_name = 'sport'
+        `);
+        checks.push({
+            check: 'Sport Categorization',
+            status: sportCheck.rows.length > 0 ? '✓ Ready' : '✗ Need Migration',
+            critical: false
+        });
+
         const allCritical = checks.filter(c => c.critical).every(c => c.status.includes('✓'));
+        const allChecks = checks.every(c => c.status.includes('✓'));
 
         res.json({
             success: true,
-            migration_needed: !allCritical,
+            migration_needed: !allChecks,
             checks: checks,
-            summary: allCritical
-                ? '✓ All critical features are ready! Pickup code verification is enabled.'
-                : '⚠ Migration needed - run POST /api/migration/add-invoice-columns to enable full functionality'
+            summary: allChecks
+                ? '✓ All features are ready!'
+                : allCritical
+                    ? '⚠ Additional features available - run migration to enable sport categorization and other features'
+                    : '⚠ Migration needed - run migration to enable full functionality'
         });
 
     } catch (error) {
