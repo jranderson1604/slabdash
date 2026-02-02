@@ -97,7 +97,7 @@ export default function Settings() {
   };
 
   const runMigration = async () => {
-    if (!confirm('Run database migration? This will add columns for invoice generation and pickup code verification.')) {
+    if (!confirm('Run database migration? This will add columns for invoice generation, pickup code verification, and sport categorization.')) {
       return;
     }
 
@@ -586,7 +586,7 @@ export default function Settings() {
       <SettingsSection
         icon={Database}
         title="Database Migration"
-        description="Enable invoice generation and pickup code features"
+        description="Enable invoice generation, pickup codes, and sport categorization"
       >
         <div className="space-y-4">
           {checkingMigration ? (
