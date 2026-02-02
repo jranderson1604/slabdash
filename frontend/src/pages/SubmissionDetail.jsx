@@ -572,6 +572,10 @@ export default function SubmissionDetail() {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [showBulkAssignModal, setShowBulkAssignModal] = useState(false);
+  const [bulkAssignCSV, setBulkAssignCSV] = useState('');
+  const [bulkAssignResult, setBulkAssignResult] = useState(null);
+  const [bulkAssigning, setBulkAssigning] = useState(false);
 
   const loadSubmission = async () => {
     try {
@@ -793,6 +797,43 @@ export default function SubmissionDetail() {
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
+  };
+
+  const handleBulkAssign = async () => {
+    if (!bulkAssignCSV.trim()) {
+      alert('Please paste CSV data');
+      return;
+    }
+
+    setBulkAssigning(true);
+    try {
+      const response = await cards.bulkAssign(bulkAssignCSV, id);
+      setBulkAssignResult(response.data);
+
+      // Show summary
+      const summary = response.data.summary;
+      alert(
+        `✅ Bulk Assignment Complete!\n\n` +
+        `Total: ${summary.total}\n` +
+        `Assigned: ${summary.assigned}\n` +
+        `Unmatched Customers: ${summary.unmatched}\n` +
+        `Cards Not Found: ${summary.notFound}\n` +
+        `Errors: ${summary.errors}`
+      );
+
+      // Reload submission to show updated assignments
+      await loadSubmission();
+
+      // Clear form if successful
+      if (summary.assigned > 0) {
+        setBulkAssignCSV('');
+      }
+    } catch (error) {
+      console.error('Bulk assign failed:', error);
+      alert('Failed to assign cards: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setBulkAssigning(false);
+    }
   };
 
   const handleImageUpload = async (e) => {
@@ -1094,6 +1135,14 @@ export default function SubmissionDetail() {
                       className="hidden"
                     />
                   </label>
+                  <button
+                    onClick={() => setShowBulkAssignModal(true)}
+                    className="btn btn-primary gap-2 whitespace-nowrap"
+                    title="Bulk assign cards to customers using CSV"
+                  >
+                    <Users className="w-4 h-4" />
+                    Bulk Assign
+                  </button>
                   <button
                     onClick={() => setShowAddCard(true)}
                     className="btn btn-secondary gap-2 whitespace-nowrap"
@@ -1598,6 +1647,124 @@ export default function SubmissionDetail() {
                   Done
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Assign Modal */}
+      {showBulkAssignModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-900">Bulk Assign Cards to Customers</h2>
+                <button
+                  onClick={() => {
+                    setShowBulkAssignModal(false);
+                    setBulkAssignResult(null);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-lg"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800 font-medium mb-2">📋 CSV Format Instructions:</p>
+                <p className="text-sm text-blue-700 mb-2">Paste your CSV data with two columns:</p>
+                <ul className="text-sm text-blue-700 list-disc ml-5 space-y-1">
+                  <li><strong>Column 1:</strong> PSA Cert Number (e.g., 12345678)</li>
+                  <li><strong>Column 2:</strong> Customer Name or Email</li>
+                </ul>
+                <p className="text-xs text-blue-600 mt-3">
+                  Example:<br/>
+                  <code className="bg-blue-100 px-2 py-1 rounded">12345678, John Doe</code><br/>
+                  <code className="bg-blue-100 px-2 py-1 rounded">87654321, jane@example.com</code>
+                </p>
+              </div>
+
+              <div>
+                <label className="label">Paste CSV Data</label>
+                <textarea
+                  value={bulkAssignCSV}
+                  onChange={(e) => setBulkAssignCSV(e.target.value)}
+                  placeholder="12345678, John Doe&#10;87654321, jane@example.com&#10;11111111, Bob Smith"
+                  className="input h-64 font-mono text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Paste rows with cert number and customer name/email separated by commas
+                </p>
+              </div>
+
+              {bulkAssignResult && (
+                <div className="space-y-3">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p className="font-semibold text-green-900 mb-2">✅ Results Summary</p>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div><span className="text-gray-600">Total:</span> <strong>{bulkAssignResult.summary.total}</strong></div>
+                      <div><span className="text-green-600">Assigned:</span> <strong>{bulkAssignResult.summary.assigned}</strong></div>
+                      <div><span className="text-yellow-600">Unmatched:</span> <strong>{bulkAssignResult.summary.unmatched}</strong></div>
+                      <div><span className="text-red-600">Not Found:</span> <strong>{bulkAssignResult.summary.notFound}</strong></div>
+                    </div>
+                  </div>
+
+                  {bulkAssignResult.unmatched.length > 0 && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <p className="font-semibold text-yellow-900 mb-2">⚠️ Unmatched Customers</p>
+                      <div className="text-sm text-yellow-800 space-y-1 max-h-32 overflow-auto">
+                        {bulkAssignResult.unmatched.map((item, idx) => (
+                          <div key={idx}>Line {item.lineNumber}: {item.certNumber} → "{item.customerIdentifier}" (customer not found)</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {bulkAssignResult.notFound.length > 0 && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <p className="font-semibold text-red-900 mb-2">❌ Cards Not Found</p>
+                      <div className="text-sm text-red-800 space-y-1 max-h-32 overflow-auto">
+                        {bulkAssignResult.notFound.map((item, idx) => (
+                          <div key={idx}>Cert #{item.certNumber}: {item.reason}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowBulkAssignModal(false);
+                  setBulkAssignResult(null);
+                }}
+                className="btn btn-secondary"
+              >
+                {bulkAssignResult ? 'Close' : 'Cancel'}
+              </button>
+              {!bulkAssignResult && (
+                <button
+                  onClick={handleBulkAssign}
+                  disabled={bulkAssigning || !bulkAssignCSV.trim()}
+                  className="btn btn-primary gap-2"
+                >
+                  {bulkAssigning ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Assigning...
+                    </>
+                  ) : (
+                    <>
+                      <Users className="w-4 h-4" />
+                      Assign Cards
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
