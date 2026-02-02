@@ -20,7 +20,7 @@ export default function NewSubmission() {
   });
 
   useEffect(() => {
-    customers.list({ limit: 100 }).then((res) => {
+    customers.list({}).then((res) => {
       setCustomerList(res.data.customers || []);
     });
   }, []);
