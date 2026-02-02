@@ -26,6 +26,7 @@ export default function Cards() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'graded', 'pending'
   const [gradeFilter, setGradeFilter] = useState('all'); // 'all', '10', '9+', '8+', 'other'
+  const [categoryFilter, setCategoryFilter] = useState('all'); // 'all', 'Sports', 'TCG', 'Other'
   const [sortBy, setSortBy] = useState('date'); // 'date', 'grade', 'customer', 'submission'
   const [sortOrder, setSortOrder] = useState('desc'); // 'asc', 'desc'
   const [showHelp, setShowHelp] = useState(false);
@@ -59,6 +60,12 @@ export default function Cards() {
       if (gradeFilter === '9+' && gradeNum < 9) return false;
       if (gradeFilter === '8+' && gradeNum < 8) return false;
       if (gradeFilter === 'other' && gradeNum >= 8) return false;
+    }
+
+    // Category filter
+    if (categoryFilter !== 'all') {
+      const cardCategory = card.sport || 'Other';
+      if (cardCategory !== categoryFilter) return false;
     }
 
     // Search filter
@@ -208,6 +215,55 @@ export default function Cards() {
         </div>
       )}
 
+      {/* Category Tabs */}
+      {cardList.length > 0 && (() => {
+        // Calculate category counts
+        const categoryCounts = cardList.reduce((acc, card) => {
+          const category = card.sport || 'Other';
+          acc[category] = (acc[category] || 0) + 1;
+          return acc;
+        }, {});
+
+        // Define category order (Sports, TCG, Other)
+        const categoryOrder = ['Sports', 'TCG', 'Other'];
+
+        // Get all categories that exist in the cards
+        const availableCategories = categoryOrder.filter(cat => categoryCounts[cat] > 0);
+
+        // Only show tabs if we have cards with categories
+        if (availableCategories.length === 0) return null;
+
+        return (
+          <div className="card p-4">
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setCategoryFilter('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  categoryFilter === 'all'
+                    ? 'bg-brand-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                All ({cardList.length})
+              </button>
+              {availableCategories.map(category => (
+                <button
+                  key={category}
+                  onClick={() => setCategoryFilter(category)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    categoryFilter === category
+                      ? 'bg-brand-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {category} ({categoryCounts[category]})
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Filters */}
       <div className="card p-4">
         <div className="flex flex-col gap-4">
@@ -283,10 +339,10 @@ export default function Cards() {
           <div className="p-12 text-center">
             <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {search || statusFilter !== 'all' || gradeFilter !== 'all' ? 'No matching cards' : 'No cards yet'}
+              {search || statusFilter !== 'all' || gradeFilter !== 'all' || categoryFilter !== 'all' ? 'No matching cards' : 'No cards yet'}
             </h3>
             <p className="text-gray-500">
-              {search || statusFilter !== 'all' || gradeFilter !== 'all'
+              {search || statusFilter !== 'all' || gradeFilter !== 'all' || categoryFilter !== 'all'
                 ? 'Try adjusting your search or filters'
                 : 'Cards will appear here when you add them to submissions'}
             </p>
@@ -420,7 +476,7 @@ export default function Cards() {
       {sortedCards.length > 0 && (
         <p className="text-sm text-gray-500 text-center">
           Showing {sortedCards.length} of {cardList.length} card{cardList.length !== 1 ? 's' : ''}
-          {(search || statusFilter !== 'all' || gradeFilter !== 'all') && ' (filtered)'}
+          {(search || statusFilter !== 'all' || gradeFilter !== 'all' || categoryFilter !== 'all') && ' (filtered)'}
         </p>
       )}
     </div>

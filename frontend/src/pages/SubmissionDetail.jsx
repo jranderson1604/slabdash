@@ -1202,31 +1202,20 @@ export default function SubmissionDetail() {
                 </div>
               </div>
 
-              {/* Sport Tabs */}
+              {/* Category Tabs */}
               {submission.cards && submission.cards.length > 0 && (() => {
-                // Calculate sport counts
-                const sportCounts = submission.cards.reduce((acc, card) => {
-                  const sport = card.sport || 'Other';
-                  acc[sport] = (acc[sport] || 0) + 1;
+                // Calculate category counts
+                const categoryCounts = submission.cards.reduce((acc, card) => {
+                  const category = card.sport || 'Other';
+                  acc[category] = (acc[category] || 0) + 1;
                   return acc;
                 }, {});
 
-                // Define sport order (Big 3, then Pokemon/One Piece, then others)
-                const sportOrder = [
-                  'Basketball',
-                  'Football',
-                  'Baseball',
-                  'Pokemon',
-                  'One Piece',
-                  'Magic',
-                  'Hockey',
-                  'College',
-                  'WNBA',
-                  'Other'
-                ];
+                // Define category order (Sports, TCG, Other)
+                const categoryOrder = ['Sports', 'TCG', 'Other'];
 
-                // Get all sports that exist in the cards
-                const availableSports = sportOrder.filter(sport => sportCounts[sport] > 0);
+                // Get all categories that exist in the cards
+                const availableCategories = categoryOrder.filter(cat => categoryCounts[cat] > 0);
 
                 return (
                   <div className="border-t border-gray-200 pt-4 pb-2">
@@ -1241,17 +1230,17 @@ export default function SubmissionDetail() {
                       >
                         All ({submission.cards.length})
                       </button>
-                      {availableSports.map(sport => (
+                      {availableCategories.map(category => (
                         <button
-                          key={sport}
-                          onClick={() => setSelectedSport(sport)}
+                          key={category}
+                          onClick={() => setSelectedSport(category)}
                           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            selectedSport === sport
+                            selectedSport === category
                               ? 'bg-brand-500 text-white'
                               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                           }`}
                         >
-                          {sport} ({sportCounts[sport]})
+                          {category} ({categoryCounts[category]})
                         </button>
                       ))}
                     </div>
