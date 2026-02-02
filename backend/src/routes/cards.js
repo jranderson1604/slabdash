@@ -230,6 +230,132 @@ router.delete('/:id/images/:imageIndex', authenticate, async (req, res) => {
     }
 });
 
+// Bulk assign cards to customers via CSV
+router.post('/bulk-assign', authenticate, async (req, res) => {
+    try {
+        const { csvData, submissionId } = req.body;
+
+        if (!csvData || !submissionId) {
+            return res.status(400).json({ error: 'CSV data and submission ID required' });
+        }
+
+        // Verify submission belongs to company
+        const subCheck = await db.query(
+            'SELECT id FROM submissions WHERE id = $1 AND company_id = $2',
+            [submissionId, req.user.company_id]
+        );
+        if (subCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Submission not found' });
+        }
+
+        // Parse CSV (expecting: cert_number, customer_name or cert_number, customer_email)
+        const lines = csvData.trim().split('\n');
+        const assignments = [];
+        const errors = [];
+
+        // Skip header row if present
+        const startIndex = lines[0].toLowerCase().includes('cert') ? 1 : 0;
+
+        for (let i = startIndex; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            const [certNumber, customerIdentifier] = line.split(',').map(s => s.trim());
+
+            if (!certNumber || !customerIdentifier) {
+                errors.push({ line: i + 1, error: 'Missing cert number or customer identifier' });
+                continue;
+            }
+
+            assignments.push({ certNumber, customerIdentifier, lineNumber: i + 1 });
+        }
+
+        // Get all customers for this company
+        const customersResult = await db.query(
+            'SELECT id, name, email FROM customers WHERE company_id = $1',
+            [req.user.company_id]
+        );
+        const customers = customersResult.rows;
+
+        // Match assignments to customers
+        const matched = [];
+        const unmatched = [];
+
+        for (const assignment of assignments) {
+            const { certNumber, customerIdentifier, lineNumber } = assignment;
+
+            // Try to find customer by name or email (case insensitive)
+            const customer = customers.find(c =>
+                c.name.toLowerCase() === customerIdentifier.toLowerCase() ||
+                c.email.toLowerCase() === customerIdentifier.toLowerCase()
+            );
+
+            if (customer) {
+                matched.push({ certNumber, customerId: customer.id, customerName: customer.name });
+            } else {
+                unmatched.push({ certNumber, customerIdentifier, lineNumber });
+            }
+        }
+
+        // Get all cards for this submission
+        const cardsResult = await db.query(
+            'SELECT id, psa_cert_number FROM cards WHERE submission_id = $1 AND company_id = $2',
+            [submissionId, req.user.company_id]
+        );
+        const cards = cardsResult.rows;
+
+        // Execute bulk assignment
+        const assigned = [];
+        const notFound = [];
+
+        for (const match of matched) {
+            const card = cards.find(c => c.psa_cert_number === match.certNumber);
+
+            if (card) {
+                await db.query(
+                    'UPDATE cards SET customer_id = $1 WHERE id = $2',
+                    [match.customerId, card.id]
+                );
+
+                // Also update submission_customers junction table
+                try {
+                    await db.query(
+                        `INSERT INTO submission_customers (submission_id, customer_id)
+                         VALUES ($1, $2)
+                         ON CONFLICT (submission_id, customer_id) DO NOTHING`,
+                        [submissionId, match.customerId]
+                    );
+                } catch (err) {
+                    // Junction table might not exist, that's okay
+                    console.log('Note: submission_customers table update skipped');
+                }
+
+                assigned.push({ certNumber: match.certNumber, customerName: match.customerName });
+            } else {
+                notFound.push({ certNumber: match.certNumber, reason: 'Card not found in submission' });
+            }
+        }
+
+        res.json({
+            success: true,
+            summary: {
+                total: assignments.length,
+                assigned: assigned.length,
+                unmatched: unmatched.length,
+                notFound: notFound.length,
+                errors: errors.length
+            },
+            assigned,
+            unmatched,
+            notFound,
+            errors
+        });
+    } catch (error) {
+        console.error('Bulk assign error:', error);
+        res.status(500).json({ error: 'Failed to bulk assign cards', details: error.message });
+    }
+});
+
 // Delete
 router.delete('/:id', authenticate, async (req, res) => {
     try {

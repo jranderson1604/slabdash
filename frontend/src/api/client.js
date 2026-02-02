@@ -72,7 +72,8 @@ export const cards = {
     api.post(`/cards/${id}/images`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     }),
-  deleteImage: (id, imageIndex) => api.delete(`/cards/${id}/images/${imageIndex}`)
+  deleteImage: (id, imageIndex) => api.delete(`/cards/${id}/images/${imageIndex}`),
+  bulkAssign: (csvData, submissionId) => api.post('/cards/bulk-assign', { csvData, submissionId })
 };
 
 export const psa = {
