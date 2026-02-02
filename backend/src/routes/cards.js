@@ -6,6 +6,7 @@ const psaService = require('../services/psaService');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const upload = multer({ storage: multer.memoryStorage() });
+const { detectSport } = require('../utils/sportDetection');
 
 // List cards
 router.get('/', authenticate, async (req, res) => {
@@ -113,7 +114,7 @@ router.post('/bulk', authenticate, async (req, res) => {
 // Update card
 router.patch('/:id', authenticate, async (req, res) => {
     try {
-        const allowed = ['description', 'year', 'brand', 'card_number', 'player_name', 'team', 'variation', 'psa_cert_number', 'grade', 'notes', 'customer_owner_id'];
+        const allowed = ['description', 'year', 'brand', 'card_number', 'player_name', 'team', 'variation', 'psa_cert_number', 'grade', 'notes', 'customer_owner_id', 'sport'];
         const updates = [], values = [];
         let i = 1;
         
@@ -227,6 +228,73 @@ router.delete('/:id/images/:imageIndex', authenticate, async (req, res) => {
         res.json({ card: updated.rows[0] });
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete image' });
+    }
+});
+
+// Auto-detect sports for cards in a submission
+router.post('/auto-detect-sports', authenticate, async (req, res) => {
+    try {
+        const { submissionId } = req.body;
+
+        if (!submissionId) {
+            return res.status(400).json({ error: 'Submission ID required' });
+        }
+
+        // Get all cards for this submission
+        const cardsResult = await db.query(
+            'SELECT * FROM cards WHERE submission_id = $1 AND company_id = $2',
+            [submissionId, req.user.company_id]
+        );
+
+        const cards = cardsResult.rows;
+        const detected = [];
+        const skipped = [];
+
+        for (const card of cards) {
+            // Skip if already has sport assigned
+            if (card.sport) {
+                skipped.push({ id: card.id, reason: 'Already categorized', sport: card.sport });
+                continue;
+            }
+
+            // Detect sport
+            const detectedSport = detectSport(card);
+
+            // Update card with detected sport
+            try {
+                await db.query(
+                    'UPDATE cards SET sport = $1 WHERE id = $2',
+                    [detectedSport, card.id]
+                );
+                detected.push({
+                    id: card.id,
+                    description: card.description,
+                    player_name: card.player_name,
+                    sport: detectedSport
+                });
+            } catch (error) {
+                // Column might not exist yet
+                console.log('Note: sport column not found. Run migration first.');
+                return res.status(400).json({
+                    error: 'Sport column not found',
+                    message: 'Please run the database migration from Settings page to enable sport categorization.'
+                });
+            }
+        }
+
+        res.json({
+            success: true,
+            summary: {
+                total: cards.length,
+                detected: detected.length,
+                skipped: skipped.length
+            },
+            detected,
+            skipped
+        });
+    } catch (error) {
+        console.error('Auto-detect sports error:', error);
+        res.status(500).json({ error: 'Failed to auto-detect sports', details: error.message });
     }
 });
 
