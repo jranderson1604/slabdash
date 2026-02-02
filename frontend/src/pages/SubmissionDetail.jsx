@@ -28,6 +28,7 @@ import {
   Download,
   Users,
   Send,
+  Zap,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -576,6 +577,8 @@ export default function SubmissionDetail() {
   const [bulkAssignCSV, setBulkAssignCSV] = useState('');
   const [bulkAssignResult, setBulkAssignResult] = useState(null);
   const [bulkAssigning, setBulkAssigning] = useState(false);
+  const [selectedSport, setSelectedSport] = useState('All');
+  const [autoDetecting, setAutoDetecting] = useState(false);
 
   const loadSubmission = async () => {
     try {
@@ -833,6 +836,34 @@ export default function SubmissionDetail() {
       alert('Failed to assign cards: ' + (error.response?.data?.error || error.message));
     } finally {
       setBulkAssigning(false);
+    }
+  };
+
+  const handleAutoDetectSports = async () => {
+    if (!confirm('Auto-detect sports for all cards? This will categorize cards based on brands, player names, and keywords.')) {
+      return;
+    }
+
+    setAutoDetecting(true);
+    try {
+      const response = await cards.autoDetectSports(id);
+      const summary = response.data.summary;
+
+      alert(
+        `✅ Sport Detection Complete!\n\n` +
+        `Total: ${summary.total}\n` +
+        `Detected: ${summary.detected}\n` +
+        `Skipped: ${summary.skipped} (already categorized)`
+      );
+
+      // Reload submission to show updated sports
+      await loadSubmission();
+    } catch (error) {
+      console.error('Auto-detect failed:', error);
+      const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message;
+      alert('Failed to auto-detect sports: ' + errorMsg);
+    } finally {
+      setAutoDetecting(false);
     }
   };
 
@@ -1150,8 +1181,83 @@ export default function SubmissionDetail() {
                     <Plus className="w-4 h-4" />
                     Add Card
                   </button>
+                  <button
+                    onClick={handleAutoDetectSports}
+                    disabled={autoDetecting || !submission.cards || submission.cards.length === 0}
+                    className="btn btn-secondary gap-2 whitespace-nowrap"
+                    title="Auto-detect sports for all cards"
+                  >
+                    {autoDetecting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Detecting...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4" />
+                        Auto-Detect
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
+
+              {/* Sport Tabs */}
+              {submission.cards && submission.cards.length > 0 && (() => {
+                // Calculate sport counts
+                const sportCounts = submission.cards.reduce((acc, card) => {
+                  const sport = card.sport || 'Other';
+                  acc[sport] = (acc[sport] || 0) + 1;
+                  return acc;
+                }, {});
+
+                // Define sport order (Big 3, then Pokemon/One Piece, then others)
+                const sportOrder = [
+                  'Basketball',
+                  'Football',
+                  'Baseball',
+                  'Pokemon',
+                  'One Piece',
+                  'Magic',
+                  'Hockey',
+                  'College',
+                  'WNBA',
+                  'Other'
+                ];
+
+                // Get all sports that exist in the cards
+                const availableSports = sportOrder.filter(sport => sportCounts[sport] > 0);
+
+                return (
+                  <div className="border-t border-gray-200 pt-4 pb-2">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setSelectedSport('All')}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          selectedSport === 'All'
+                            ? 'bg-brand-500 text-white'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        }`}
+                      >
+                        All ({submission.cards.length})
+                      </button>
+                      {availableSports.map(sport => (
+                        <button
+                          key={sport}
+                          onClick={() => setSelectedSport(sport)}
+                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            selectedSport === sport
+                              ? 'bg-brand-500 text-white'
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          {sport} ({sportCounts[sport]})
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {showAddCard && (
@@ -1179,6 +1285,13 @@ export default function SubmissionDetail() {
                   <tbody className="divide-y divide-gray-200">
                     {submission.cards
                       .filter(c => {
+                        // Sport filter
+                        if (selectedSport !== 'All') {
+                          const cardSport = c.sport || 'Other';
+                          if (cardSport !== selectedSport) return false;
+                        }
+
+                        // Search query filter
                         if (!searchQuery) return true;
                         const query = searchQuery.toLowerCase();
                         return (
@@ -1200,7 +1313,15 @@ export default function SubmissionDetail() {
                     }
                   </tbody>
                 </table>
-                {searchQuery && submission.cards.filter(c => {
+                {submission.cards.filter(c => {
+                  // Sport filter
+                  if (selectedSport !== 'All') {
+                    const cardSport = c.sport || 'Other';
+                    if (cardSport !== selectedSport) return false;
+                  }
+
+                  // Search query filter
+                  if (!searchQuery) return true;
                   const query = searchQuery.toLowerCase();
                   return (
                     c.player_name?.toLowerCase().includes(query) ||
@@ -1212,7 +1333,14 @@ export default function SubmissionDetail() {
                 }).length === 0 && (
                   <div className="p-8 text-center">
                     <Package className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                    <p className="text-gray-500">No cards match "{searchQuery}"</p>
+                    <p className="text-gray-500">
+                      {searchQuery
+                        ? `No cards match "${searchQuery}"`
+                        : selectedSport !== 'All'
+                        ? `No ${selectedSport} cards found`
+                        : 'No cards found'
+                      }
+                    </p>
                   </div>
                 )}
               </div>
