@@ -17,7 +17,7 @@ function generateInvoiceNumber(companyId, year) {
 /**
  * Send invoice email to customer
  */
-async function sendInvoiceEmail(customer, submission, lineItems, total, pickupCode, companyName, mailgunConfig) {
+async function sendInvoiceEmail(customer, submission, lineItems, subtotal, taxAmount, taxPercentage, total, pickupCode, companyName, mailgunConfig) {
     const mg = mailgun.client({
         username: 'api',
         key: mailgunConfig.api_key
@@ -109,9 +109,19 @@ async function sendInvoiceEmail(customer, submission, lineItems, total, pickupCo
                             ${lineItemsHtml}
                         </tbody>
                         <tfoot>
+                            <tr style="background-color: #FFFFFF;">
+                                <td colspan="3" style="padding: 12px 16px; text-align: right; font-size: 15px; font-weight: 600; color: #6c757d; border-top: 2px solid #FFD4C9;">Subtotal:</td>
+                                <td style="padding: 12px 16px; text-align: right; font-size: 16px; font-weight: 600; color: #1C1C21; border-top: 2px solid #FFD4C9;">$${subtotal.toFixed(2)}</td>
+                            </tr>
+                            ${taxPercentage > 0 ? `
+                            <tr style="background-color: #FFFFFF;">
+                                <td colspan="3" style="padding: 12px 16px; text-align: right; font-size: 15px; font-weight: 600; color: #6c757d;">Tax (${taxPercentage}%):</td>
+                                <td style="padding: 12px 16px; text-align: right; font-size: 16px; font-weight: 600; color: #1C1C21;">$${taxAmount.toFixed(2)}</td>
+                            </tr>
+                            ` : ''}
                             <tr style="background-color: #FFF5F2;">
-                                <td colspan="3" style="padding: 18px 16px; text-align: right; font-size: 18px; font-weight: 700; color: #1C1C21;">Total Due:</td>
-                                <td style="padding: 18px 16px; text-align: right; font-size: 26px; font-weight: 700; color: #FF8170;">$${total.toFixed(2)}</td>
+                                <td colspan="3" style="padding: 18px 16px; text-align: right; font-size: 18px; font-weight: 700; color: #1C1C21; ${taxPercentage > 0 ? 'border-top: 2px solid #FFD4C9;' : ''}">Total Due:</td>
+                                <td style="padding: 18px 16px; text-align: right; font-size: 26px; font-weight: 700; color: #FF8170; ${taxPercentage > 0 ? 'border-top: 2px solid #FFD4C9;' : ''}">$${total.toFixed(2)}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -153,7 +163,8 @@ ${deliveryMethod === 'pickup' ? `PICKUP CODE: ${pickupCode}\nPlease show this co
 LINE ITEMS:
 ${lineItems.map(item => `${item.description} x${item.quantity} @ $${item.unit_price.toFixed(2)} = $${item.total.toFixed(2)}`).join('\n')}
 
-TOTAL DUE: $${total.toFixed(2)}
+SUBTOTAL: $${subtotal.toFixed(2)}
+${taxPercentage > 0 ? `TAX (${taxPercentage}%): $${taxAmount.toFixed(2)}\n` : ''}TOTAL DUE: $${total.toFixed(2)}
 
 Thank you for your business!
     `;
@@ -261,7 +272,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
 
         // Get submission with cards and customers
         const submissionResult = await db.query(
-            `SELECT s.*, comp.name as company_name
+            `SELECT s.*, comp.name as company_name, comp.tax_percentage
              FROM submissions s
              JOIN companies comp ON s.company_id = comp.id
              WHERE s.id = $1 AND s.company_id = $2`,
@@ -389,13 +400,26 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
             return code;
         };
 
-        // Calculate total invoice amount
+        // Calculate total invoice amount with tax
         const psaCost = parseFloat(psa_service_cost) || parseFloat(submission.psa_service_cost) || 0;
         const addFees = parseFloat(additional_fees) || parseFloat(submission.additional_fees) || 0;
-        const totalInvoice = psaCost + addFees;
+        const subtotal = psaCost + addFees;
+
+        // Get tax percentage from company settings (default to 0 if column doesn't exist)
+        let taxPercentage = 0;
+        try {
+            taxPercentage = parseFloat(submission.tax_percentage) || 0;
+        } catch (error) {
+            console.log('Note: tax_percentage column not found. Run migration to add it.');
+        }
+
+        const taxAmount = subtotal * (taxPercentage / 100);
+        const totalInvoice = subtotal + taxAmount;
 
         // Split evenly among customers with emails
         const perCustomerCost = totalInvoice / customersWithEmails.length;
+        const perCustomerSubtotal = subtotal / customersWithEmails.length;
+        const perCustomerTax = taxAmount / customersWithEmails.length;
 
         // Send invoice to each customer
         let emailsSent = 0;
@@ -452,6 +476,9 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
                 customer,
                 { ...submission, invoice_number: invoiceNumber },
                 lineItems,
+                perCustomerSubtotal,
+                perCustomerTax,
+                taxPercentage,
                 customerTotal,
                 customerPickupCode,
                 submission.company_name,

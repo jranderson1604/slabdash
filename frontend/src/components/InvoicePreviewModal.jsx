@@ -157,7 +157,10 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
   // Calculate totals
   const psaCostNum = parseFloat(psaServiceCost) || 0;
   const additionalFeesNum = parseFloat(additionalFees) || 0;
-  const total = psaCostNum + additionalFeesNum;
+  const subtotal = psaCostNum + additionalFeesNum;
+  const taxPercentage = company?.tax_percentage || 0;
+  const taxAmount = subtotal * (taxPercentage / 100);
+  const total = subtotal + taxAmount;
   const customerCount = preview?.customers?.length || 0;
   const perCustomer = customerCount > 0 ? (total / customerCount) : 0;
 
@@ -306,8 +309,18 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
               </div>
             </div>
 
-            <div className="mt-4 pt-4 border-t border-blue-200">
-              <div className="flex justify-between items-center">
+            <div className="mt-4 pt-4 border-t border-blue-200 space-y-2">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-700">Subtotal:</span>
+                <span className="font-semibold text-gray-900">${subtotal.toFixed(2)}</span>
+              </div>
+              {taxPercentage > 0 && (
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-700">Tax ({taxPercentage}%):</span>
+                  <span className="font-semibold text-gray-900">${taxAmount.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-2 border-t border-blue-200">
                 <span className="text-lg font-semibold text-gray-900">Total Invoice Amount:</span>
                 <span className="text-3xl font-bold text-brand-600">${total.toFixed(2)}</span>
               </div>

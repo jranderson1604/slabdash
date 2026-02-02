@@ -118,10 +118,12 @@ router.post('/add-invoice-columns', authenticate, requireRole('owner', 'admin'),
                 ADD COLUMN IF NOT EXISTS mailgun_api_key TEXT,
                 ADD COLUMN IF NOT EXISTS mailgun_domain VARCHAR(255),
                 ADD COLUMN IF NOT EXISTS mailgun_from_email VARCHAR(255),
-                ADD COLUMN IF NOT EXISTS service_level_pricing JSONB
+                ADD COLUMN IF NOT EXISTS service_level_pricing JSONB,
+                ADD COLUMN IF NOT EXISTS tax_percentage DECIMAL(5,2) DEFAULT 0
             `);
             results.push('✓ Added Mailgun config columns to companies table');
             results.push('✓ Added service level pricing column for invoice presets');
+            results.push('✓ Added tax percentage column for state-specific tax rates');
         } catch (error) {
             results.push(`✗ Companies table: ${error.message}`);
         }

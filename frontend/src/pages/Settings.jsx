@@ -72,6 +72,7 @@ export default function Settings() {
     background_color: '#f5f5f5',
     sidebar_color: '#ffffff',
     service_level_pricing: {},
+    tax_percentage: 0,
   });
 
   useEffect(() => {
@@ -142,6 +143,7 @@ export default function Settings() {
         background_color: data.background_color || '#f5f5f5',
         sidebar_color: data.sidebar_color || '#ffffff',
         service_level_pricing: data.service_level_pricing || {},
+        tax_percentage: data.tax_percentage || 0,
       });
     } catch (error) {
       console.error('Failed to load settings:', error);
@@ -449,10 +451,43 @@ export default function Settings() {
             </p>
           </div>
 
+          {/* Tax Percentage */}
+          <div className="pt-6 border-t border-gray-200">
+            <h4 className="font-semibold text-gray-900 mb-2">Sales Tax</h4>
+            <p className="text-sm text-gray-600 mb-3">
+              Set your state's sales tax percentage to automatically calculate tax on invoices.
+            </p>
+            <div className="max-w-xs">
+              <label className="label">Tax Percentage</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  placeholder="0.00"
+                  value={settings.tax_percentage || ''}
+                  onChange={(e) => {
+                    const val = parseFloat(e.target.value);
+                    setSettings({
+                      ...settings,
+                      tax_percentage: isNaN(val) ? 0 : val
+                    });
+                  }}
+                  className="input pr-10"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500">%</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Example: Enter 8.25 for 8.25% sales tax
+              </p>
+            </div>
+          </div>
+
           <div className="pt-4">
             <button onClick={() => handleSave('pricing')} disabled={saving} className="btn btn-primary gap-2">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Save Pricing Presets
+              Save Pricing & Tax Settings
             </button>
           </div>
         </div>
