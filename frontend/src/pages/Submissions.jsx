@@ -139,7 +139,7 @@ function StatusBadge({ submission }) {
   );
 }
 
-function SubmissionRow({ submission, onRefresh, onDelete }) {
+function SubmissionRow({ submission, onRefresh, onDelete, isSelected, onToggleSelect }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [showCustomersModal, setShowCustomersModal] = useState(false);
@@ -237,15 +237,23 @@ function SubmissionRow({ submission, onRefresh, onDelete }) {
         className="cursor-pointer"
         onClick={() => navigate(`/submissions/${submission.id}`)}
       >
+        <td onClick={(e) => e.stopPropagation()}>
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={() => onToggleSelect(submission.id)}
+            className="w-4 h-4 text-brand-600 rounded border-gray-300 focus:ring-brand-500"
+          />
+        </td>
         <td>
-          <div>
-            <p className="font-medium text-gray-900">
-              {submission.psa_submission_number || submission.internal_id || 'No ID'}
-            </p>
-            {submission.psa_order_number && (
-              <p className="text-xs text-gray-500">Order: {submission.psa_order_number}</p>
-            )}
-          </div>
+          <p className="font-medium text-gray-900">
+            {submission.psa_submission_number || submission.internal_id || '—'}
+          </p>
+        </td>
+        <td>
+          <p className="text-gray-700">
+            {submission.psa_order_number || '—'}
+          </p>
         </td>
         <td onClick={(e) => e.stopPropagation()}>
           {customerCount > 0 ? (
@@ -429,6 +437,9 @@ export default function Submissions() {
   const [pickupResult, setPickupResult] = useState(null);
   const [pickupLoading, setPickupLoading] = useState(false);
   const [pickupError, setPickupError] = useState('');
+  const [selectedSubmissions, setSelectedSubmissions] = useState([]);
+  const [sortBy, setSortBy] = useState('date'); // 'date', 'submission', 'order'
+  const [sortOrder, setSortOrder] = useState('desc'); // 'asc', 'desc'
 
   const loadSubmissions = async () => {
     try {
@@ -713,15 +724,70 @@ export default function Submissions() {
     setSubs(subs.filter((s) => s.id !== id));
   };
 
+  const handleBulkDelete = async () => {
+    if (selectedSubmissions.length === 0) return;
+
+    const confirmed = confirm(
+      `Delete ${selectedSubmissions.length} submission(s)? This cannot be undone.\n\nThis will permanently delete all cards and data associated with these submissions.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      // Delete each selected submission
+      await Promise.all(
+        selectedSubmissions.map(id => submissions.delete(id))
+      );
+
+      // Remove from local state
+      setSubs(subs.filter(s => !selectedSubmissions.includes(s.id)));
+      setSelectedSubmissions([]);
+      alert(`Successfully deleted ${selectedSubmissions.length} submission(s)`);
+    } catch (error) {
+      console.error('Bulk delete failed:', error);
+      alert('Failed to delete some submissions. Please try again.');
+    }
+  };
+
+  const toggleSelectSubmission = (id) => {
+    setSelectedSubmissions(prev =>
+      prev.includes(id)
+        ? prev.filter(sid => sid !== id)
+        : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedSubmissions.length === filteredSubs.length) {
+      setSelectedSubmissions([]);
+    } else {
+      setSelectedSubmissions(filteredSubs.map(s => s.id));
+    }
+  };
+
   useEffect(() => {
     loadSubmissions();
   }, [filter]);
 
-  // Sort submissions by date (newest first)
+  // Sort submissions
   const sortedSubs = [...subs].sort((a, b) => {
-    const dateA = new Date(a.date_sent || a.created_at || 0);
-    const dateB = new Date(b.date_sent || b.created_at || 0);
-    return dateB - dateA; // Newest first
+    let compareValue = 0;
+
+    if (sortBy === 'submission') {
+      const subA = a.psa_submission_number || '';
+      const subB = b.psa_submission_number || '';
+      compareValue = subA.localeCompare(subB);
+    } else if (sortBy === 'order') {
+      const orderA = a.psa_order_number || '';
+      const orderB = b.psa_order_number || '';
+      compareValue = orderA.localeCompare(orderB);
+    } else { // date
+      const dateA = new Date(a.date_sent || a.created_at || 0);
+      const dateB = new Date(b.date_sent || b.created_at || 0);
+      compareValue = dateB - dateA;
+    }
+
+    return sortOrder === 'asc' ? compareValue : -compareValue;
   });
 
   // Enhanced filter by search - includes order #, sub #, customer names, and card data
@@ -830,6 +896,15 @@ export default function Submissions() {
             <Mail className={`w-4 h-4 ${sendingBulk ? 'animate-pulse' : ''}`} />
             <span className="hidden sm:inline">{sendingBulk ? 'Sending...' : 'Email All'}</span>
           </button>
+          {selectedSubmissions.length > 0 && (
+            <button
+              onClick={handleBulkDelete}
+              className="btn btn-secondary gap-2 bg-red-50 text-red-700 hover:bg-red-100 border-red-200"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span className="hidden sm:inline">Delete ({selectedSubmissions.length})</span>
+            </button>
+          )}
           {company?.hasPsaKey && (
             <>
               <button
@@ -1203,13 +1278,73 @@ export default function Submissions() {
             <table>
               <thead>
                 <tr>
-                  <th>Submission #</th>
+                  <th className="w-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedSubmissions.length === filteredSubs.length && filteredSubs.length > 0}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 text-brand-600 rounded border-gray-300 focus:ring-brand-500"
+                    />
+                  </th>
+                  <th>
+                    <button
+                      onClick={() => {
+                        if (sortBy === 'submission') {
+                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('submission');
+                          setSortOrder('asc');
+                        }
+                      }}
+                      className="flex items-center gap-1 hover:text-brand-600"
+                    >
+                      Submission #
+                      {sortBy === 'submission' && (
+                        <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </button>
+                  </th>
+                  <th>
+                    <button
+                      onClick={() => {
+                        if (sortBy === 'order') {
+                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('order');
+                          setSortOrder('asc');
+                        }
+                      }}
+                      className="flex items-center gap-1 hover:text-brand-600"
+                    >
+                      Order #
+                      {sortBy === 'order' && (
+                        <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </button>
+                  </th>
                   <th>Customer</th>
                   <th>Service</th>
                   <th>Progress</th>
                   <th>Status</th>
                   <th>Cards</th>
-                  <th>Date Arrived at PSA</th>
+                  <th>
+                    <button
+                      onClick={() => {
+                        if (sortBy === 'date') {
+                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setSortBy('date');
+                          setSortOrder('desc');
+                        }
+                      }}
+                      className="flex items-center gap-1 hover:text-brand-600"
+                    >
+                      Date Arrived
+                      {sortBy === 'date' && (
+                        <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+                      )}
+                    </button>
+                  </th>
                   <th className="w-10"></th>
                 </tr>
               </thead>
@@ -1220,6 +1355,8 @@ export default function Submissions() {
                     submission={sub}
                     onRefresh={loadSubmissions}
                     onDelete={handleDelete}
+                    isSelected={selectedSubmissions.includes(sub.id)}
+                    onToggleSelect={toggleSelectSubmission}
                   />
                 ))}
               </tbody>
