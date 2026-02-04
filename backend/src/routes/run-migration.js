@@ -141,6 +141,30 @@ router.post('/add-invoice-columns', authenticate, requireRole('owner', 'admin'),
             results.push(`✗ Cards table sport column: ${error.message}`);
         }
 
+        // Fix unique constraint on submissions to allow same submission # across companies
+        try {
+            // Drop old constraint if it exists
+            await db.query(`
+                ALTER TABLE submissions
+                DROP CONSTRAINT IF EXISTS submissions_psa_submission_number_key
+            `);
+
+            // Add new composite unique constraint
+            await db.query(`
+                ALTER TABLE submissions
+                ADD CONSTRAINT submissions_company_psa_sub_unique
+                UNIQUE (company_id, psa_submission_number)
+            `);
+            results.push('✓ Fixed submission number constraint to allow same submission # across different companies');
+        } catch (error) {
+            // Ignore if constraint already exists
+            if (error.code === '42P07') {
+                results.push('✓ Submission number constraint already updated');
+            } else {
+                results.push(`⚠ Submission constraint: ${error.message}`);
+            }
+        }
+
         // Create indexes for faster lookups
         try {
             await db.query(`
