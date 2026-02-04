@@ -118,7 +118,8 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                     updated++;
                     console.log(`✓ Updated submission ${submissionNumber}`);
                 } else {
-                    // Create new submission - don't set shipped, let it default to false
+                    // Create new submission with ON CONFLICT handling
+                    // If submission already exists, update it instead
                     await db.query(
                         `INSERT INTO submissions (
                             company_id,
@@ -133,7 +134,17 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                             grades_ready,
                             internal_id,
                             last_api_update
-                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)`,
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+                        ON CONFLICT (psa_submission_number) DO UPDATE SET
+                            psa_order_number = EXCLUDED.psa_order_number,
+                            psa_status = EXCLUDED.psa_status,
+                            card_count = EXCLUDED.card_count,
+                            service_level = EXCLUDED.service_level,
+                            return_tracking = EXCLUDED.return_tracking,
+                            date_sent = EXCLUDED.date_sent,
+                            problem_order = EXCLUDED.problem_order,
+                            grades_ready = EXCLUDED.grades_ready,
+                            last_api_update = CURRENT_TIMESTAMP`,
                         [
                             companyId,
                             submissionNumber,
