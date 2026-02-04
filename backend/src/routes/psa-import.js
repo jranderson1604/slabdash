@@ -118,49 +118,57 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                     updated++;
                     console.log(`✓ Updated submission ${submissionNumber}`);
                 } else {
-                    // Create new submission
-                    // If duplicate key error occurs, it means this submission belongs to another company
-                    try {
-                        await db.query(
-                            `INSERT INTO submissions (
-                                company_id,
-                                psa_submission_number,
-                                psa_order_number,
-                                psa_status,
-                                card_count,
-                                service_level,
-                                return_tracking,
-                                date_sent,
-                                problem_order,
-                                grades_ready,
-                                internal_id,
-                                last_api_update
-                            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)`,
-                            [
-                                companyId,
-                                submissionNumber,
-                                orderNumber || null,
-                                status || null,
-                                items,
-                                service || null,
-                                trackingNumber || null,
-                                dateArrived,
-                                problemOrder,
-                                gradesReady,
-                                submissionNumber // Use submission number as internal ID
-                            ]
-                        );
+                    // Create new submission with ON CONFLICT for upsert
+                    // Uses composite unique constraint (company_id, psa_submission_number)
+                    const result = await db.query(
+                        `INSERT INTO submissions (
+                            company_id,
+                            psa_submission_number,
+                            psa_order_number,
+                            psa_status,
+                            card_count,
+                            service_level,
+                            return_tracking,
+                            date_sent,
+                            problem_order,
+                            grades_ready,
+                            internal_id,
+                            last_api_update
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
+                        ON CONFLICT (company_id, psa_submission_number)
+                        DO UPDATE SET
+                            psa_order_number = EXCLUDED.psa_order_number,
+                            psa_status = EXCLUDED.psa_status,
+                            card_count = EXCLUDED.card_count,
+                            service_level = EXCLUDED.service_level,
+                            return_tracking = EXCLUDED.return_tracking,
+                            date_sent = EXCLUDED.date_sent,
+                            problem_order = EXCLUDED.problem_order,
+                            grades_ready = EXCLUDED.grades_ready,
+                            last_api_update = CURRENT_TIMESTAMP
+                        RETURNING (xmax = 0) AS inserted`,
+                        [
+                            companyId,
+                            submissionNumber,
+                            orderNumber || null,
+                            status || null,
+                            items,
+                            service || null,
+                            trackingNumber || null,
+                            dateArrived,
+                            problemOrder,
+                            gradesReady,
+                            submissionNumber // Use submission number as internal ID
+                        ]
+                    );
 
+                    // Check if it was inserted (xmax = 0) or updated (xmax != 0)
+                    if (result.rows[0]?.inserted) {
                         created++;
                         console.log(`✓ Created submission ${submissionNumber}`);
-                    } catch (insertError) {
-                        if (insertError.code === '23505') {
-                            // Duplicate key - submission exists for a different company account
-                            console.log(`⚠ Skipped ${submissionNumber} - already exists for another account`);
-                            skipped++;
-                        } else {
-                            throw insertError;
-                        }
+                    } else {
+                        updated++;
+                        console.log(`✓ Updated submission ${submissionNumber}`);
                     }
                 }
             } catch (error) {
