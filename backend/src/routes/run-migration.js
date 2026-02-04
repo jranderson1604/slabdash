@@ -264,6 +264,19 @@ router.get('/check-invoice-status', authenticate, async (req, res) => {
             critical: false
         });
 
+        // Check if submissions has the new composite unique constraint
+        const constraintCheck = await db.query(`
+            SELECT constraint_name
+            FROM information_schema.table_constraints
+            WHERE table_name = 'submissions'
+            AND constraint_name = 'submissions_company_psa_sub_unique'
+        `);
+        checks.push({
+            check: 'Multi-Account Support',
+            status: constraintCheck.rows.length > 0 ? '✓ Ready' : '✗ Need Migration',
+            critical: false
+        });
+
         const allCritical = checks.filter(c => c.critical).every(c => c.status.includes('✓'));
         const allChecks = checks.every(c => c.status.includes('✓'));
 
