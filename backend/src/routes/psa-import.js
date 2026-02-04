@@ -119,8 +119,8 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                     console.log(`✓ Updated submission ${submissionNumber}`);
                 } else {
                     // Create new submission with ON CONFLICT handling
-                    // If submission already exists, update it instead
-                    await db.query(
+                    // Use the constraint name and check if it was insert or update
+                    const result = await db.query(
                         `INSERT INTO submissions (
                             company_id,
                             psa_submission_number,
@@ -135,7 +135,8 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                             internal_id,
                             last_api_update
                         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
-                        ON CONFLICT (psa_submission_number) DO UPDATE SET
+                        ON CONFLICT ON CONSTRAINT submissions_psa_submission_number_key
+                        DO UPDATE SET
                             psa_order_number = EXCLUDED.psa_order_number,
                             psa_status = EXCLUDED.psa_status,
                             card_count = EXCLUDED.card_count,
@@ -144,7 +145,9 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                             date_sent = EXCLUDED.date_sent,
                             problem_order = EXCLUDED.problem_order,
                             grades_ready = EXCLUDED.grades_ready,
-                            last_api_update = CURRENT_TIMESTAMP`,
+                            last_api_update = CURRENT_TIMESTAMP
+                        WHERE submissions.company_id = $1
+                        RETURNING (xmax = 0) AS inserted`,
                         [
                             companyId,
                             submissionNumber,
@@ -160,8 +163,14 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
                         ]
                     );
 
-                    created++;
-                    console.log(`✓ Created submission ${submissionNumber}`);
+                    // Check if it was inserted (xmax = 0) or updated (xmax != 0)
+                    if (result.rows[0]?.inserted) {
+                        created++;
+                        console.log(`✓ Created submission ${submissionNumber}`);
+                    } else {
+                        updated++;
+                        console.log(`✓ Updated submission ${submissionNumber}`);
+                    }
                 }
             } catch (error) {
                 console.error(`✗ Failed to process record:`, error.message);
