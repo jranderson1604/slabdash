@@ -157,6 +157,7 @@ export default function Customers() {
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCustomers, setTotalCustomers] = useState(0);
+  const [sendingIntroEmails, setSendingIntroEmails] = useState(false);
   const pageSize = 50;
 
   const loadCustomers = async () => {
@@ -283,6 +284,25 @@ export default function Customers() {
     }
   };
 
+  const handleSendBulkIntroEmails = async () => {
+    if (!confirm(`Send introduction emails to all customers with active submissions?\n\nThis will send a welcome email with portal access and submission details to each customer.`)) return;
+
+    setSendingIntroEmails(true);
+    try {
+      const res = await customers.sendBulkIntroductionEmails();
+      const { sent, failed, total } = res.data;
+      let message = `Successfully sent introduction emails!\n\n✓ Sent: ${sent}\n`;
+      if (failed > 0) message += `✗ Failed: ${failed}\n`;
+      message += `Total: ${total}`;
+      alert(message);
+    } catch (error) {
+      console.error('Send bulk intro emails failed:', error);
+      alert(error.response?.data?.error || 'Failed to send introduction emails');
+    } finally {
+      setSendingIntroEmails(false);
+    }
+  };
+
   const handleCSVImport = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -324,13 +344,30 @@ export default function Customers() {
         </div>
         <div className="flex items-center gap-3">
           {customerList.length > 0 && (
-            <button
-              onClick={handleDeleteAll}
-              className="btn bg-red-600 text-white hover:bg-red-700 gap-2"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Delete All</span>
-            </button>
+            <>
+              <button
+                onClick={handleSendBulkIntroEmails}
+                disabled={sendingIntroEmails}
+                className="btn bg-blue-600 text-white hover:bg-blue-700 gap-2 disabled:opacity-50"
+                title="Send introduction email to all customers in active submissions"
+              >
+                {sendingIntroEmails ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Mail className="w-4 h-4" />
+                )}
+                <span className="hidden sm:inline">
+                  {sendingIntroEmails ? 'Sending...' : 'Send Intro Emails'}
+                </span>
+              </button>
+              <button
+                onClick={handleDeleteAll}
+                className="btn bg-red-600 text-white hover:bg-red-700 gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Delete All</span>
+              </button>
+            </>
           )}
           <label className="btn btn-secondary gap-2 cursor-pointer">
             <FileSpreadsheet className="w-4 h-4" />

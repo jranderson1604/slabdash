@@ -314,6 +314,96 @@ const emailTemplates = {
             </html>
         `,
     }),
+
+    // Welcome/Introduction email
+    welcomeIntroduction: (data) => ({
+        subject: `Welcome to ${data.companyName} - Track Your PSA Submissions`,
+        html: `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                    .container { max-width: 600px; margin: 0 auto; padding: 20px; background: #ffffff; }
+                    .header { background: linear-gradient(135deg, #FF8170, #ff6b59); color: white; padding: 40px 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                    .logo { font-size: 48px; margin-bottom: 10px; }
+                    .content { background: #f9fafb; padding: 30px; }
+                    .welcome-box { background: white; border-left: 4px solid #FF8170; padding: 20px; margin: 20px 0; border-radius: 4px; }
+                    .button { display: inline-block; background: #FF8170; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; margin: 10px 0; }
+                    .submission-list { background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+                    .submission-item { padding: 15px; margin: 10px 0; border-left: 3px solid #10b981; background: #f9fafb; border-radius: 4px; }
+                    .instructions { background: #e0f2fe; border: 2px solid #0ea5e9; padding: 20px; border-radius: 8px; margin: 20px 0; }
+                    .step { margin: 15px 0; padding-left: 30px; position: relative; }
+                    .step::before { content: "✓"; position: absolute; left: 0; color: #10b981; font-weight: bold; font-size: 20px; }
+                    .footer { text-align: center; color: #6b7280; font-size: 14px; margin-top: 30px; padding: 20px; background: white; border-radius: 0 0 10px 10px; }
+                    .tip-box { background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px; }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <div class="header">
+                        <div class="logo">👋</div>
+                        <h1 style="margin: 10px 0;">Welcome to ${data.companyName}!</h1>
+                        <p style="margin: 10px 0 0 0; opacity: 0.9; font-size: 18px;">Your PSA Submission Tracking Portal</p>
+                    </div>
+                    <div class="content">
+                        <div class="welcome-box">
+                            <h2 style="margin-top: 0; color: #FF8170;">Hi ${data.customerName},</h2>
+                            <p>Thank you for choosing ${data.companyName} for your PSA grading submissions! We've set up your personal tracking portal so you can monitor your cards every step of the way.</p>
+                        </div>
+
+                        ${data.submissionCount > 0 ? `
+                        <div class="submission-list">
+                            <h3 style="margin-top: 0;">📦 Your Current Submissions (${data.submissionCount})</h3>
+                            ${data.submissions || '<p>Your submissions are being processed...</p>'}
+                        </div>
+                        ` : '<p style="text-align: center; color: #6b7280;">No active submissions yet.</p>'}
+
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${data.portalUrl}" class="button" style="font-size: 18px;">🔗 Access Your Tracking Portal</a>
+                        </div>
+
+                        <div class="instructions">
+                            <h3 style="margin-top: 0; color: #0ea5e9;">📱 How to Use Your Portal</h3>
+                            <div class="step"><strong>View Real-Time Updates:</strong> Check your submission status anytime as PSA processes your cards</div>
+                            <div class="step"><strong>See Your Grades:</strong> View grades as soon as they're available from PSA</div>
+                            <div class="step"><strong>Track Shipping:</strong> Get tracking numbers when your cards ship back</div>
+                            <div class="step"><strong>Add to Home Screen:</strong> On mobile, tap the share button and "Add to Home Screen" for quick access</div>
+                        </div>
+
+                        <div class="tip-box">
+                            <strong>💡 Pro Tip:</strong> Bookmark your portal link or add it to your phone's home screen for instant access anytime!
+                        </div>
+
+                        <h3>📲 Add to Home Screen (Mobile)</h3>
+                        <p><strong>iPhone/iPad:</strong></p>
+                        <ol>
+                            <li>Open your portal link in Safari</li>
+                            <li>Tap the Share button (square with arrow)</li>
+                            <li>Scroll down and tap "Add to Home Screen"</li>
+                            <li>Tap "Add" in the top right</li>
+                        </ol>
+                        <p><strong>Android:</strong></p>
+                        <ol>
+                            <li>Open your portal link in Chrome</li>
+                            <li>Tap the menu (three dots)</li>
+                            <li>Tap "Add to Home screen"</li>
+                            <li>Tap "Add"</li>
+                        </ol>
+
+                        <div class="footer">
+                            <p style="margin: 5px 0;"><strong>Need Help?</strong></p>
+                            <p style="margin: 5px 0;">Contact us anytime - we're here to help!</p>
+                            <p style="margin: 15px 0 5px 0; color: #FF8170; font-weight: bold;">${data.companyName}</p>
+                            ${data.companyEmail ? `<p style="margin: 5px 0;">${data.companyEmail}</p>` : ''}
+                            ${data.companyPhone ? `<p style="margin: 5px 0;">${data.companyPhone}</p>` : ''}
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `,
+    }),
 };
 
 /**
