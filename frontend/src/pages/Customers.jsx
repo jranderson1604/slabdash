@@ -158,6 +158,9 @@ export default function Customers() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCustomers, setTotalCustomers] = useState(0);
   const [sendingIntroEmails, setSendingIntroEmails] = useState(false);
+  const [showTestEmailModal, setShowTestEmailModal] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
   const pageSize = 50;
 
   const loadCustomers = async () => {
@@ -303,6 +306,26 @@ export default function Customers() {
     }
   };
 
+  const handleSendTestEmail = async () => {
+    if (!testEmail || !testEmail.includes('@')) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    setSendingTestEmail(true);
+    try {
+      await customers.sendTestIntroductionEmail(testEmail);
+      alert(`Test introduction email sent to ${testEmail}!\n\nCheck your inbox to preview the email.`);
+      setShowTestEmailModal(false);
+      setTestEmail('');
+    } catch (error) {
+      console.error('Send test email failed:', error);
+      alert(error.response?.data?.error || 'Failed to send test email');
+    } finally {
+      setSendingTestEmail(false);
+    }
+  };
+
   const handleCSVImport = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -345,6 +368,14 @@ export default function Customers() {
         <div className="flex items-center gap-3">
           {customerList.length > 0 && (
             <>
+              <button
+                onClick={() => setShowTestEmailModal(true)}
+                className="btn btn-secondary gap-2"
+                title="Send a test email to preview the introduction email"
+              >
+                <Eye className="w-4 h-4" />
+                <span className="hidden sm:inline">Preview Email</span>
+              </button>
               <button
                 onClick={handleSendBulkIntroEmails}
                 disabled={sendingIntroEmails}
@@ -591,6 +622,80 @@ export default function Customers() {
               </button>
               <button
                 onClick={() => setShowAddToSubmissionModal(false)}
+                className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Test Introduction Email Modal */}
+      {showTestEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Mail className="w-6 h-6 text-blue-600" />
+                Preview Introduction Email
+              </h3>
+              <button
+                onClick={() => {
+                  setShowTestEmailModal(false);
+                  setTestEmail('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="mb-6">
+              <p className="text-gray-600 mb-4">
+                Send a test introduction email to preview how it will look. The test email will include sample submission data.
+              </p>
+
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Your Email Address
+              </label>
+              <input
+                type="email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendTestEmail()}
+                placeholder="your@email.com"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                autoFocus
+              />
+              <p className="text-xs text-gray-500 mt-2">
+                💡 The test email will show sample customer and submission data
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleSendTestEmail}
+                disabled={sendingTestEmail || !testEmail}
+                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {sendingTestEmail ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    Send Test Email
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setShowTestEmailModal(false);
+                  setTestEmail('');
+                }}
                 className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 Cancel
