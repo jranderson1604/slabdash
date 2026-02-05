@@ -343,9 +343,67 @@ const testEmailConfig = async (companyId, testEmail) => {
     }
 };
 
+/**
+ * Send introduction/welcome email to customer
+ */
+const sendIntroductionEmail = async (companyId, customerEmail, emailData, isTest = false) => {
+    try {
+        console.log(`📧 Sending ${isTest ? 'TEST ' : ''}introduction email for company:`, companyId, 'to:', customerEmail);
+        const config = await getCompanyEmailConfig(companyId);
+
+        // Build email HTML from template
+        const { emailTemplates } = require('./notificationService');
+        const { subject, html } = emailTemplates.welcomeIntroduction(emailData);
+
+        // Add test prefix if this is a test
+        const finalSubject = isTest ? `[TEST PREVIEW] ${subject}` : subject;
+
+        // Determine from address and send method
+        let fromAddress;
+
+        if (!config.use_custom_smtp) {
+            // Use Mailgun HTTP API
+            const defaultConfig = getDefaultEmailConfig();
+            fromAddress = `${config.from_name || defaultConfig.from_name} <${defaultConfig.from_email}>`;
+
+            console.log('📤 Sending introduction email via Mailgun from:', fromAddress);
+
+            const mg = mailgun.client({
+                username: 'api',
+                key: defaultConfig.mailgun_api_key
+            });
+
+            await mg.messages.create(defaultConfig.mailgun_domain, {
+                from: fromAddress,
+                to: [customerEmail],
+                subject: finalSubject,
+                html: html
+            });
+        } else {
+            // Use custom SMTP
+            fromAddress = `${config.from_name || 'SlabDash'} <${config.from_email}>`;
+            const transporter = createTransporter(config);
+
+            await transporter.sendMail({
+                from: fromAddress,
+                to: customerEmail,
+                subject: finalSubject,
+                html: html
+            });
+        }
+
+        console.log(`✅ ${isTest ? 'Test ' : ''}Introduction email sent successfully to:`, customerEmail);
+        return { success: true };
+    } catch (error) {
+        console.error('❌ Failed to send introduction email:', error.message);
+        return { success: false, error: error.message };
+    }
+};
+
 module.exports = {
     sendSubmissionUpdateEmail,
     testEmailConfig,
+    sendIntroductionEmail,
     getEmailTemplate,
     renderTemplate
 };
