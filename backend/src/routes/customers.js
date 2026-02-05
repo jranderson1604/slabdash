@@ -449,6 +449,84 @@ router.post('/:id/send-introduction-email', authenticate, async (req, res) => {
     }
 });
 
+// Send test introduction email with sample data
+router.post('/send-test-introduction-email', authenticate, async (req, res) => {
+    try {
+        const { testEmail } = req.body;
+
+        if (!testEmail) {
+            return res.status(400).json({ error: 'Test email address required' });
+        }
+
+        // Get company details
+        const companyResult = await db.query(
+            'SELECT name, email, phone FROM companies WHERE id = $1',
+            [req.companyId]
+        );
+
+        const company = companyResult.rows[0] || { name: 'Your Card Shop' };
+
+        // Create sample data for preview
+        const sampleSubmissionsHtml = `
+            <div class="submission-item">
+                <strong>Submission #12345678</strong><br>
+                <span style="color: #6b7280; font-size: 14px;">
+                    25 cards •
+                    Regular •
+                    Grading
+                </span>
+            </div>
+            <div class="submission-item">
+                <strong>Submission #87654321</strong><br>
+                <span style="color: #6b7280; font-size: 14px;">
+                    10 cards •
+                    Express •
+                    Research & ID
+                    • <span style="color: #10b981; font-weight: bold;">✓ Grades Ready</span>
+                </span>
+            </div>
+        `;
+
+        const samplePortalUrl = `${process.env.FRONTEND_URL || 'https://slabdash-8n99.vercel.app'}/portal?token=sample-token-preview`;
+
+        // Send email using notification service
+        const { sendEmail, emailTemplates } = require('../services/notificationService');
+
+        const emailData = {
+            customerName: 'John Doe',
+            companyName: company.name,
+            companyEmail: company.email,
+            companyPhone: company.phone,
+            portalUrl: samplePortalUrl,
+            submissionCount: 2,
+            submissions: sampleSubmissionsHtml
+        };
+
+        const { subject, html } = emailTemplates.welcomeIntroduction(emailData);
+
+        const result = await sendEmail({
+            to: testEmail,
+            subject: `[TEST PREVIEW] ${subject}`,
+            html: html
+        });
+
+        if (result.success) {
+            res.json({
+                success: true,
+                message: `Test email sent to ${testEmail}`
+            });
+        } else {
+            res.status(500).json({
+                error: 'Failed to send test email',
+                details: result.error
+            });
+        }
+    } catch (error) {
+        console.error('Send test introduction email error:', error);
+        res.status(500).json({ error: 'Failed to send test email' });
+    }
+});
+
 // Send introduction emails to all customers in active submissions
 router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => {
     try {
