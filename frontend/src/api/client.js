@@ -36,6 +36,7 @@ export const customers = {
   delete: (id) => api.delete(`/customers/${id}`),
   sendPortalLink: (id) => api.post(`/customers/${id}/send-portal-link`),
   sendIntroductionEmail: (id) => api.post(`/customers/${id}/send-introduction-email`),
+  sendTestIntroductionEmail: (testEmail) => api.post('/customers/send-test-introduction-email', { testEmail }),
   sendBulkIntroductionEmails: () => api.post('/customers/send-bulk-introduction-emails'),
   importCSV: (csvData) => api.post('/customers/import-csv', { csvData }),
   bulkDelete: (customerIds) => api.post('/customers/bulk-delete', { customerIds }),
