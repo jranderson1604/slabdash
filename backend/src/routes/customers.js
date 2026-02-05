@@ -543,6 +543,9 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
 
         const customers = customersResult.rows;
 
+        console.log(`📊 Found ${customers.length} customers with submissions`);
+        console.log('Customer emails:', customers.map(c => c.email).join(', '));
+
         if (customers.length === 0) {
             return res.json({
                 success: true,
