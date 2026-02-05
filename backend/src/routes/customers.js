@@ -530,30 +530,15 @@ router.post('/send-test-introduction-email', authenticate, async (req, res) => {
 // Send introduction emails to all customers in active submissions
 router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => {
     try {
-        // Get all customers who have cards in submissions (find via cards OR submission_customers)
+        // Get all customers who are in active submissions
         const customersResult = await db.query(
             `SELECT DISTINCT c.id, c.name, c.email, c.portal_access_token
              FROM customers c
+             INNER JOIN submission_customers sc ON c.id = sc.customer_id
+             INNER JOIN submissions s ON sc.submission_id = s.id
              WHERE c.company_id = $1
              AND c.email IS NOT NULL
-             AND (
-                 -- Customers linked via submission_customers table
-                 c.id IN (
-                     SELECT DISTINCT sc.customer_id
-                     FROM submission_customers sc
-                     INNER JOIN submissions s ON sc.submission_id = s.id
-                     WHERE s.company_id = $1
-                 )
-                 OR
-                 -- Customers who have cards assigned to them in submissions
-                 c.id IN (
-                     SELECT DISTINCT cards.customer_id
-                     FROM cards
-                     INNER JOIN submissions s ON cards.submission_id = s.id
-                     WHERE cards.customer_id IS NOT NULL
-                     AND s.company_id = $1
-                 )
-             )`,
+             AND s.company_id = $1`,
             [req.companyId]
         );
 
