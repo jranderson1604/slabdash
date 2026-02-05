@@ -410,8 +410,8 @@ router.post('/:id/send-introduction-email', authenticate, async (req, res) => {
             `).join('');
         }
 
-        // Send email using notification service
-        const { sendEmail, emailTemplates } = require('../services/notificationService');
+        // Send email using email service
+        const { sendIntroductionEmail } = require('../services/emailService');
 
         const emailData = {
             customerName: customer.name,
@@ -423,13 +423,7 @@ router.post('/:id/send-introduction-email', authenticate, async (req, res) => {
             submissions: submissionsHtml
         };
 
-        const { subject, html } = emailTemplates.welcomeIntroduction(emailData);
-
-        const result = await sendEmail({
-            to: customer.email,
-            subject: subject,
-            html: html
-        });
+        const result = await sendIntroductionEmail(req.companyId, customer.email, emailData);
 
         if (result.success) {
             res.json({
@@ -489,8 +483,8 @@ router.post('/send-test-introduction-email', authenticate, async (req, res) => {
 
         const samplePortalUrl = `${process.env.FRONTEND_URL || 'https://slabdash-8n99.vercel.app'}/portal?token=sample-token-preview`;
 
-        // Send email using notification service
-        const { sendEmail, emailTemplates } = require('../services/notificationService');
+        // Send email using email service
+        const { sendIntroductionEmail } = require('../services/emailService');
 
         const emailData = {
             customerName: 'John Doe',
@@ -502,13 +496,7 @@ router.post('/send-test-introduction-email', authenticate, async (req, res) => {
             submissions: sampleSubmissionsHtml
         };
 
-        const { subject, html } = emailTemplates.welcomeIntroduction(emailData);
-
-        const result = await sendEmail({
-            to: testEmail,
-            subject: `[TEST PREVIEW] ${subject}`,
-            html: html
-        });
+        const result = await sendIntroductionEmail(req.companyId, testEmail, emailData, true);
 
         if (result.success) {
             res.json({
@@ -612,7 +600,7 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
                 }
 
                 // Send email
-                const { sendEmail, emailTemplates } = require('../services/notificationService');
+                const { sendIntroductionEmail } = require('../services/emailService');
 
                 const emailData = {
                     customerName: customer.name,
@@ -624,13 +612,7 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
                     submissions: submissionsHtml
                 };
 
-                const { subject, html } = emailTemplates.welcomeIntroduction(emailData);
-
-                const result = await sendEmail({
-                    to: customer.email,
-                    subject: subject,
-                    html: html
-                });
+                const result = await sendIntroductionEmail(req.companyId, customer.email, emailData);
 
                 if (result.success) {
                     successCount++;
