@@ -4,6 +4,14 @@ const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { v4: uuidv4 } = require('uuid');
 
+// Helper function to validate email addresses
+const isValidEmail = (email) => {
+    if (!email) return false;
+    // Basic email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+};
+
 // List customers
 router.get('/', authenticate, async (req, res) => {
     try {
@@ -355,6 +363,10 @@ router.post('/:id/send-introduction-email', authenticate, async (req, res) => {
             return res.status(400).json({ error: 'Customer has no email address' });
         }
 
+        if (!isValidEmail(customer.email)) {
+            return res.status(400).json({ error: `Invalid email address: ${customer.email}` });
+        }
+
         // Get company details
         const companyResult = await db.query(
             'SELECT name, email, phone FROM companies WHERE id = $1',
@@ -542,6 +554,7 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
         const results = [];
         let successCount = 0;
         let failCount = 0;
+        let skippedCount = 0;
 
         // Get company details once
         const companyResult = await db.query(
@@ -552,6 +565,20 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
 
         for (const customer of customers) {
             try {
+                // Skip invalid email addresses
+                if (!isValidEmail(customer.email)) {
+                    skippedCount++;
+                    results.push({
+                        customer: customer.email,
+                        name: customer.name,
+                        success: false,
+                        skipped: true,
+                        reason: 'Invalid email address'
+                    });
+                    console.log(`⚠ Skipping invalid email for ${customer.name}: ${customer.email}`);
+                    continue;
+                }
+
                 // Generate or get existing portal access token
                 let token = customer.portal_access_token;
                 if (!token) {
@@ -635,6 +662,7 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
             success: true,
             sent: successCount,
             failed: failCount,
+            skipped: skippedCount,
             total: customers.length,
             results: results
         });
