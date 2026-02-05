@@ -334,6 +334,256 @@ router.post('/delete-all', authenticate, async (req, res) => {
     }
 });
 
+// Send introduction email to customer
+router.post('/:id/send-introduction-email', authenticate, async (req, res) => {
+    try {
+        const customerId = req.params.id;
+
+        // Get customer details
+        const customerResult = await db.query(
+            'SELECT * FROM customers WHERE id = $1 AND company_id = $2',
+            [customerId, req.companyId]
+        );
+
+        if (customerResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Customer not found' });
+        }
+
+        const customer = customerResult.rows[0];
+
+        if (!customer.email) {
+            return res.status(400).json({ error: 'Customer has no email address' });
+        }
+
+        // Get company details
+        const companyResult = await db.query(
+            'SELECT name, email, phone FROM companies WHERE id = $1',
+            [req.companyId]
+        );
+
+        const company = companyResult.rows[0] || { name: 'Your Card Shop' };
+
+        // Generate or get existing portal access token
+        let token = customer.portal_access_token;
+        if (!token) {
+            token = uuidv4();
+            const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year
+            await db.query(
+                `UPDATE customers SET portal_access_token = $1, portal_token_expires = $2, portal_access_enabled = true
+                 WHERE id = $3`,
+                [token, expires, customerId]
+            );
+        }
+
+        const portalUrl = `${process.env.FRONTEND_URL || 'https://slabdash-8n99.vercel.app'}/portal?token=${token}`;
+
+        // Get customer's submissions
+        const submissionsResult = await db.query(
+            `SELECT s.id, s.psa_submission_number, s.internal_id, s.service_level, s.current_step,
+                    s.progress_percent, s.grades_ready, COUNT(c.id) as card_count
+             FROM submissions s
+             LEFT JOIN cards c ON s.id = c.submission_id
+             WHERE s.id IN (
+                 SELECT submission_id FROM submission_customers WHERE customer_id = $1
+             )
+             AND s.company_id = $2
+             GROUP BY s.id
+             ORDER BY s.created_at DESC`,
+            [customerId, req.companyId]
+        );
+
+        const submissions = submissionsResult.rows;
+
+        // Build HTML for submission list
+        let submissionsHtml = '';
+        if (submissions.length > 0) {
+            submissionsHtml = submissions.map(sub => `
+                <div class="submission-item">
+                    <strong>Submission #${sub.psa_submission_number || sub.internal_id}</strong><br>
+                    <span style="color: #6b7280; font-size: 14px;">
+                        ${sub.card_count} card${sub.card_count !== 1 ? 's' : ''} •
+                        ${sub.service_level || 'Standard'} •
+                        ${sub.current_step || 'Processing'}
+                        ${sub.grades_ready ? ' • <span style="color: #10b981; font-weight: bold;">✓ Grades Ready</span>' : ''}
+                    </span>
+                </div>
+            `).join('');
+        }
+
+        // Send email using notification service
+        const { sendEmail, emailTemplates } = require('../services/notificationService');
+
+        const emailData = {
+            customerName: customer.name,
+            companyName: company.name,
+            companyEmail: company.email,
+            companyPhone: company.phone,
+            portalUrl: portalUrl,
+            submissionCount: submissions.length,
+            submissions: submissionsHtml
+        };
+
+        const { subject, html } = emailTemplates.welcomeIntroduction(emailData);
+
+        const result = await sendEmail({
+            to: customer.email,
+            subject: subject,
+            html: html
+        });
+
+        if (result.success) {
+            res.json({
+                success: true,
+                message: 'Introduction email sent successfully',
+                portalUrl: portalUrl
+            });
+        } else {
+            res.status(500).json({
+                error: 'Failed to send email',
+                details: result.error
+            });
+        }
+    } catch (error) {
+        console.error('Send introduction email error:', error);
+        res.status(500).json({ error: 'Failed to send introduction email' });
+    }
+});
+
+// Send introduction emails to all customers in active submissions
+router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => {
+    try {
+        // Get all customers who have submissions
+        const customersResult = await db.query(
+            `SELECT DISTINCT c.id, c.name, c.email, c.portal_access_token
+             FROM customers c
+             INNER JOIN submission_customers sc ON c.id = sc.customer_id
+             INNER JOIN submissions s ON sc.submission_id = s.id
+             WHERE c.company_id = $1 AND c.email IS NOT NULL
+             AND s.company_id = $1`,
+            [req.companyId]
+        );
+
+        const customers = customersResult.rows;
+
+        if (customers.length === 0) {
+            return res.json({
+                success: true,
+                sent: 0,
+                message: 'No customers with email addresses found in submissions'
+            });
+        }
+
+        const results = [];
+        let successCount = 0;
+        let failCount = 0;
+
+        // Get company details once
+        const companyResult = await db.query(
+            'SELECT name, email, phone FROM companies WHERE id = $1',
+            [req.companyId]
+        );
+        const company = companyResult.rows[0] || { name: 'Your Card Shop' };
+
+        for (const customer of customers) {
+            try {
+                // Generate or get existing portal access token
+                let token = customer.portal_access_token;
+                if (!token) {
+                    token = uuidv4();
+                    const expires = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // 1 year
+                    await db.query(
+                        `UPDATE customers SET portal_access_token = $1, portal_token_expires = $2, portal_access_enabled = true
+                         WHERE id = $3`,
+                        [token, expires, customer.id]
+                    );
+                }
+
+                const portalUrl = `${process.env.FRONTEND_URL || 'https://slabdash-8n99.vercel.app'}/portal?token=${token}`;
+
+                // Get customer's submissions
+                const submissionsResult = await db.query(
+                    `SELECT s.id, s.psa_submission_number, s.internal_id, s.service_level, s.current_step,
+                            s.progress_percent, s.grades_ready, COUNT(c.id) as card_count
+                     FROM submissions s
+                     LEFT JOIN cards c ON s.id = c.submission_id
+                     WHERE s.id IN (
+                         SELECT submission_id FROM submission_customers WHERE customer_id = $1
+                     )
+                     AND s.company_id = $2
+                     GROUP BY s.id
+                     ORDER BY s.created_at DESC`,
+                    [customer.id, req.companyId]
+                );
+
+                const submissions = submissionsResult.rows;
+
+                // Build HTML for submission list
+                let submissionsHtml = '';
+                if (submissions.length > 0) {
+                    submissionsHtml = submissions.map(sub => `
+                        <div class="submission-item">
+                            <strong>Submission #${sub.psa_submission_number || sub.internal_id}</strong><br>
+                            <span style="color: #6b7280; font-size: 14px;">
+                                ${sub.card_count} card${sub.card_count !== 1 ? 's' : ''} •
+                                ${sub.service_level || 'Standard'} •
+                                ${sub.current_step || 'Processing'}
+                                ${sub.grades_ready ? ' • <span style="color: #10b981; font-weight: bold;">✓ Grades Ready</span>' : ''}
+                            </span>
+                        </div>
+                    `).join('');
+                }
+
+                // Send email
+                const { sendEmail, emailTemplates } = require('../services/notificationService');
+
+                const emailData = {
+                    customerName: customer.name,
+                    companyName: company.name,
+                    companyEmail: company.email,
+                    companyPhone: company.phone,
+                    portalUrl: portalUrl,
+                    submissionCount: submissions.length,
+                    submissions: submissionsHtml
+                };
+
+                const { subject, html } = emailTemplates.welcomeIntroduction(emailData);
+
+                const result = await sendEmail({
+                    to: customer.email,
+                    subject: subject,
+                    html: html
+                });
+
+                if (result.success) {
+                    successCount++;
+                    results.push({ customer: customer.email, success: true });
+                } else {
+                    failCount++;
+                    results.push({ customer: customer.email, success: false, error: result.error });
+                }
+
+                // Small delay to avoid rate limiting
+                await new Promise(resolve => setTimeout(resolve, 100));
+            } catch (error) {
+                failCount++;
+                results.push({ customer: customer.email, success: false, error: error.message });
+                console.error(`Failed to send intro email to ${customer.email}:`, error);
+            }
+        }
+
+        res.json({
+            success: true,
+            sent: successCount,
+            failed: failCount,
+            total: customers.length,
+            results: results
+        });
+    } catch (error) {
+        console.error('Bulk introduction email error:', error);
+        res.status(500).json({ error: 'Failed to send bulk introduction emails' });
+    }
+});
+
 // Bulk add customers to submission
 router.post('/bulk-add-to-submission', authenticate, async (req, res) => {
     try {

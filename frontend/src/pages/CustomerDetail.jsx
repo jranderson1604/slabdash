@@ -41,6 +41,7 @@ export default function CustomerDetail() {
   const [submissionSearchQuery, setSubmissionSearchQuery] = useState('');
   const [showSubmissionDropdown, setShowSubmissionDropdown] = useState(false);
   const [assigningSubmission, setAssigningSubmission] = useState(false);
+  const [sendingIntroEmail, setSendingIntroEmail] = useState(false);
 
   const loadCustomer = async () => {
     try {
@@ -141,6 +142,22 @@ export default function CustomerDetail() {
     const subject = encodeURIComponent('Track Your Card Submission');
     const body = encodeURIComponent(`Hi ${customer.name},\n\nYou can track your card submissions here:\n${portalLink}\n\nThanks!`);
     window.open(`mailto:${customer.email}?subject=${subject}&body=${body}`);
+  };
+
+  const handleSendIntroductionEmail = async () => {
+    if (!confirm(`Send introduction email to ${customer.name}?\n\nThis will send a welcome email with portal access and submission details.`)) return;
+
+    setSendingIntroEmail(true);
+    try {
+      const res = await customers.sendIntroductionEmail(id);
+      alert(`Introduction email sent successfully!\n\nPortal URL: ${res.data.portalUrl}`);
+      setPortalLink(res.data.portalUrl);
+    } catch (error) {
+      console.error('Send introduction email failed:', error);
+      alert(error.response?.data?.error || 'Failed to send introduction email');
+    } finally {
+      setSendingIntroEmail(false);
+    }
   };
 
   if (loading) {
@@ -371,7 +388,19 @@ export default function CustomerDetail() {
             <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2"><LinkIcon className="w-4 h-4" />Customer Portal</h3>
             <div className="space-y-4">
               <div className="flex items-center justify-between"><span className="text-gray-600">Portal Access</span><span className={`badge ${customer.portal_access_enabled ? 'badge-green' : 'badge-gray'}`}>{customer.portal_access_enabled ? 'Enabled' : 'Disabled'}</span></div>
-              
+
+              {customer.email && (
+                <button
+                  onClick={handleSendIntroductionEmail}
+                  disabled={sendingIntroEmail}
+                  className="btn bg-blue-600 text-white hover:bg-blue-700 w-full gap-2 disabled:opacity-50"
+                  title="Send welcome email with portal access and submission details"
+                >
+                  {sendingIntroEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                  {sendingIntroEmail ? 'Sending...' : 'Send Introduction Email'}
+                </button>
+              )}
+
               {customer.portal_access_enabled && !portalLink && (
                 <button onClick={handleGeneratePortalLink} disabled={generatingLink} className="btn btn-secondary w-full gap-2">
                   {generatingLink ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
