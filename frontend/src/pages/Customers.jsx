@@ -155,9 +155,12 @@ export default function Customers() {
   const [submissionsList, setSubmissionsList] = useState([]);
   const [selectedSubmission, setSelectedSubmission] = useState('');
   const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+  const [submissionSearch, setSubmissionSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCustomers, setTotalCustomers] = useState(0);
   const [sendingIntroEmails, setSendingIntroEmails] = useState(false);
+  const [emailProgress, setEmailProgress] = useState({ sent: 0, total: 0, failed: 0 });
+  const [showEmailProgressModal, setShowEmailProgressModal] = useState(false);
   const [showTestEmailModal, setShowTestEmailModal] = useState(false);
   const [testEmail, setTestEmail] = useState('');
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
@@ -235,6 +238,8 @@ export default function Customers() {
 
   const handleOpenAddToSubmission = async () => {
     setShowAddToSubmissionModal(true);
+    setSubmissionSearch('');
+    setSelectedSubmission('');
     setLoadingSubmissions(true);
     try {
       const res = await submissions.list({ limit: 100 });
@@ -290,16 +295,37 @@ export default function Customers() {
   const handleSendBulkIntroEmails = async () => {
     if (!confirm(`Send introduction emails to all customers with active submissions?\n\nThis will send a welcome email with portal access and submission details to each customer.`)) return;
 
+    // Show progress modal
+    setShowEmailProgressModal(true);
     setSendingIntroEmails(true);
+    setEmailProgress({ sent: 0, total: 0, failed: 0 });
+
+    // Start a timer to estimate progress (4 seconds per email)
+    let estimatedCount = 0;
+    const progressTimer = setInterval(() => {
+      estimatedCount++;
+      setEmailProgress(prev => ({ ...prev, sent: estimatedCount }));
+    }, 4000);
+
     try {
       const res = await customers.sendBulkIntroductionEmails();
+      clearInterval(progressTimer);
+
       const { sent, failed, skipped, total } = res.data;
-      let message = `Introduction email results:\n\n✓ Sent: ${sent}\n`;
-      if (skipped > 0) message += `⊘ Skipped (invalid emails): ${skipped}\n`;
-      if (failed > 0) message += `✗ Failed: ${failed}\n`;
-      message += `\nTotal customers: ${total}`;
-      alert(message);
+      setEmailProgress({ sent, total, failed });
+
+      // Keep modal open for 2 seconds to show final results
+      setTimeout(() => {
+        setShowEmailProgressModal(false);
+        let message = `Introduction email results:\n\n✓ Sent: ${sent}\n`;
+        if (skipped > 0) message += `⊘ Skipped (invalid emails): ${skipped}\n`;
+        if (failed > 0) message += `✗ Failed: ${failed}\n`;
+        message += `\nTotal customers: ${total}`;
+        alert(message);
+      }, 2000);
     } catch (error) {
+      clearInterval(progressTimer);
+      setShowEmailProgressModal(false);
       console.error('Send bulk intro emails failed:', error);
       alert(error.response?.data?.error || 'Failed to send introduction emails');
     } finally {
@@ -590,25 +616,63 @@ export default function Customers() {
               </p>
 
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Submission
+                Search & Select Submission
               </label>
+
               {loadingSubmissions ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-brand-500" />
                 </div>
               ) : (
-                <select
-                  value={selectedSubmission}
-                  onChange={(e) => setSelectedSubmission(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                >
-                  <option value="">Choose a submission...</option>
-                  {submissionsList.map((sub) => (
-                    <option key={sub.id} value={sub.id}>
-                      {sub.psa_submission_number || sub.internal_id} - {sub.customer_name || 'No customer'}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  {/* Search input */}
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search by submission number..."
+                      value={submissionSearch}
+                      onChange={(e) => setSubmissionSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                    />
+                  </div>
+
+                  {/* Submission dropdown */}
+                  <select
+                    value={selectedSubmission}
+                    onChange={(e) => setSelectedSubmission(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent mb-2"
+                  >
+                    <option value="">Choose a submission...</option>
+                    {submissionsList
+                      .filter((sub) => {
+                        if (!submissionSearch) return true;
+                        const searchLower = submissionSearch.toLowerCase();
+                        const psaNum = (sub.psa_submission_number || '').toLowerCase();
+                        const internalId = (sub.internal_id || '').toLowerCase();
+                        const customerName = (sub.customer_name || '').toLowerCase();
+                        return psaNum.includes(searchLower) ||
+                               internalId.includes(searchLower) ||
+                               customerName.includes(searchLower);
+                      })
+                      .map((sub) => (
+                        <option key={sub.id} value={sub.id}>
+                          {sub.psa_submission_number || sub.internal_id} - {sub.customer_name || 'No customer'}
+                        </option>
+                      ))}
+                  </select>
+
+                  {/* Clear selection button */}
+                  {selectedSubmission && (
+                    <button
+                      onClick={() => setSelectedSubmission('')}
+                      className="text-sm text-gray-600 hover:text-gray-800 flex items-center gap-1"
+                    >
+                      <X className="w-3 h-3" />
+                      Clear selection
+                    </button>
+                  )}
+                </>
               )}
             </div>
 
@@ -701,6 +765,63 @@ export default function Customers() {
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Progress Modal */}
+      {showEmailProgressModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="text-center">
+              <div className="mb-4">
+                <Mail className="w-12 h-12 text-blue-600 mx-auto animate-pulse" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">
+                Sending Introduction Emails
+              </h3>
+              <p className="text-gray-600 mb-6">
+                {emailProgress.total > 0 ? (
+                  <>Successfully sent {emailProgress.sent} of {emailProgress.total} emails</>
+                ) : (
+                  <>Sending emails... ({emailProgress.sent} sent so far)</>
+                )}
+              </p>
+
+              {/* Progress Bar */}
+              <div className="w-full bg-gray-200 rounded-full h-3 mb-4 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full transition-all duration-500 ease-out flex items-center justify-end"
+                  style={{
+                    width: emailProgress.total > 0
+                      ? `${(emailProgress.sent / emailProgress.total) * 100}%`
+                      : '100%'
+                  }}
+                >
+                  {emailProgress.total > 0 && emailProgress.sent === emailProgress.total && (
+                    <span className="text-xs text-white font-medium mr-2">✓</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Stats */}
+              {emailProgress.total > 0 && (
+                <div className="flex justify-center gap-4 text-sm">
+                  <div className="text-green-600 font-medium">
+                    ✓ {emailProgress.sent} sent
+                  </div>
+                  {emailProgress.failed > 0 && (
+                    <div className="text-red-600 font-medium">
+                      ✗ {emailProgress.failed} failed
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500 mt-4">
+                Please wait... This may take a few minutes.
+              </p>
             </div>
           </div>
         </div>
