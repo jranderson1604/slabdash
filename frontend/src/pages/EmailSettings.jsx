@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { companies, emailTemplates } from '../api/client';
 import api from '../api/client';
-import { Mail, Send, CheckCircle, AlertCircle, Loader2, Save, Info, FileText, Users, Bell, BellOff } from 'lucide-react';
+import { Mail, Send, CheckCircle, AlertCircle, Loader2, Save, Info, FileText, Users, Bell, BellOff, Eye, X } from 'lucide-react';
 import {
   isPushNotificationSupported,
   getNotificationPermission,
@@ -32,6 +32,9 @@ export default function EmailSettings() {
   const [testResult, setTestResult] = useState(null);
   const [sendingBulk, setSendingBulk] = useState(false);
   const [bulkResult, setBulkResult] = useState(null);
+  const [showBulkTestEmailModal, setShowBulkTestEmailModal] = useState(false);
+  const [bulkTestEmail, setBulkTestEmail] = useState('');
+  const [sendingBulkTestEmail, setSendingBulkTestEmail] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushPermission, setPushPermission] = useState('default');
@@ -149,6 +152,26 @@ export default function EmailSettings() {
       });
     } finally {
       setSendingBulk(false);
+    }
+  };
+
+  const handleSendBulkTestEmail = async () => {
+    if (!bulkTestEmail || !bulkTestEmail.includes('@')) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    setSendingBulkTestEmail(true);
+    try {
+      await emailTemplates.sendTestSubmissionUpdate(bulkTestEmail, null);
+      alert(`Test bulk status update email sent to ${bulkTestEmail}!\n\nCheck your inbox to preview the email with sample data.`);
+      setShowBulkTestEmailModal(false);
+      setBulkTestEmail('');
+    } catch (error) {
+      console.error('Send bulk test email failed:', error);
+      alert(error.response?.data?.error || 'Failed to send test email');
+    } finally {
+      setSendingBulkTestEmail(false);
     }
   };
 
@@ -543,18 +566,27 @@ export default function EmailSettings() {
             <li>All emails are logged and monitored</li>
           </ul>
         </div>
-        <button
-          onClick={handleBulkStatusUpdate}
-          disabled={sendingBulk || !settings.email_notifications_enabled}
-          className="btn btn-primary gap-2"
-        >
-          {sendingBulk ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            <Users className="w-4 h-4" />
-          )}
-          {sendingBulk ? 'Sending...' : 'Send Status Update to All Customers'}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowBulkTestEmailModal(true)}
+            className="btn btn-secondary gap-2"
+          >
+            <Eye className="w-4 h-4" />
+            Preview Email
+          </button>
+          <button
+            onClick={handleBulkStatusUpdate}
+            disabled={sendingBulk || !settings.email_notifications_enabled}
+            className="btn btn-primary gap-2"
+          >
+            {sendingBulk ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Users className="w-4 h-4" />
+            )}
+            {sendingBulk ? 'Sending...' : 'Send Status Update to All Customers'}
+          </button>
+        </div>
         {!settings.email_notifications_enabled && (
           <p className="text-xs text-amber-600 mt-2">
             ⚠️ Email notifications must be enabled to use this feature
@@ -693,6 +725,76 @@ export default function EmailSettings() {
           Save Email Settings
         </button>
       </div>
+
+      {/* Bulk Test Email Modal */}
+      {showBulkTestEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Mail className="w-6 h-6 text-blue-600" />
+                Preview Bulk Status Update Email
+              </h3>
+              <button
+                onClick={() => {
+                  setShowBulkTestEmailModal(false);
+                  setBulkTestEmail('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <p className="text-gray-600 mb-4">
+              Send a test email to preview how bulk status update emails will look to customers. This will use sample submission data.
+            </p>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Test Email Address
+              </label>
+              <input
+                type="email"
+                value={bulkTestEmail}
+                onChange={(e) => setBulkTestEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleSendBulkTestEmail}
+                disabled={sendingBulkTestEmail || !bulkTestEmail}
+                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {sendingBulkTestEmail ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    Send Test Email
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setShowBulkTestEmailModal(false);
+                  setBulkTestEmail('');
+                }}
+                className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
