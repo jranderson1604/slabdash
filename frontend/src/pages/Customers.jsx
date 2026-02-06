@@ -803,7 +803,7 @@ export default function Customers() {
                   <div className="absolute -right-6 -top-6 transform transition-all duration-500">
                     <div className="relative w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center shadow-lg">
                       <img
-                        src="/images/1F004F9D-A4EB-4BE1-B59B-3E94343B0A5B.png"
+                        src="/images/DASHY.png"
                         alt="Dashy"
                         className="w-10 h-10 animate-bounce rounded-full"
                         onError={(e) => {
