@@ -29,6 +29,8 @@ import {
   Users,
   Send,
   Zap,
+  Mail,
+  Eye,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -570,6 +572,9 @@ export default function SubmissionDetail() {
   const [customerToAdd, setCustomerToAdd] = useState('');
   const [showCustomerListModal, setShowCustomerListModal] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [showTestEmailModal, setShowTestEmailModal] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
@@ -664,6 +669,26 @@ export default function SubmissionDetail() {
       alert(error.response?.data?.error || 'Failed to send status update');
     } finally {
       setSendingEmail(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!testEmail || !testEmail.includes('@')) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    setSendingTestEmail(true);
+    try {
+      await emailTemplates.sendTestSubmissionUpdate(testEmail, id);
+      alert(`Test submission update email sent to ${testEmail}!\n\nCheck your inbox to preview the email.`);
+      setShowTestEmailModal(false);
+      setTestEmail('');
+    } catch (error) {
+      console.error('Send test email failed:', error);
+      alert(error.response?.data?.error || 'Failed to send test email');
+    } finally {
+      setSendingTestEmail(false);
     }
   };
 
@@ -1030,6 +1055,14 @@ export default function SubmissionDetail() {
                 Edit
               </button>
               <button
+                onClick={() => setShowTestEmailModal(true)}
+                className="btn btn-secondary gap-2"
+                title="Preview status update email"
+              >
+                <Eye className="w-4 h-4" />
+                Preview Email
+              </button>
+              <button
                 onClick={handleSendUpdate}
                 disabled={sendingEmail}
                 className="btn btn-secondary gap-2"
@@ -1224,7 +1257,7 @@ export default function SubmissionDetail() {
                         onClick={() => setSelectedSport('All')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                           selectedSport === 'All'
-                            ? 'bg-brand-500 text-white'
+                            ? 'bg-brand-600 text-white shadow-md'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                       >
@@ -1236,7 +1269,7 @@ export default function SubmissionDetail() {
                           onClick={() => setSelectedSport(category)}
                           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                             selectedSport === category
-                              ? 'bg-brand-500 text-white'
+                              ? 'bg-brand-600 text-white shadow-md'
                               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                           }`}
                         >
@@ -1882,6 +1915,76 @@ export default function SubmissionDetail() {
                   )}
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Test Email Modal */}
+      {showTestEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Mail className="w-6 h-6 text-blue-600" />
+                Preview Status Update Email
+              </h3>
+              <button
+                onClick={() => {
+                  setShowTestEmailModal(false);
+                  setTestEmail('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <p className="text-gray-600 mb-4">
+              Send a test status update email to preview how it will look. This will include the current submission status and progress.
+            </p>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Test Email Address
+              </label>
+              <input
+                type="email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleSendTestEmail}
+                disabled={sendingTestEmail || !testEmail}
+                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {sendingTestEmail ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    Send Test Email
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setShowTestEmailModal(false);
+                  setTestEmail('');
+                }}
+                className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

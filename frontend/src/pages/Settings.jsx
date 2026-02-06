@@ -787,7 +787,7 @@ export default function Settings() {
 
               <div className="border-2 border-brand-500 rounded-lg p-4 relative">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                  <span className="px-3 py-1 bg-brand-500 text-white rounded-full text-xs font-medium">Most Popular</span>
+                  <span className="px-3 py-1 bg-brand-600 text-white rounded-full text-xs font-medium">Most Popular</span>
                 </div>
                 <h4 className="font-semibold text-gray-900 mb-1">Professional</h4>
                 <div className="text-2xl font-bold text-gray-900 mb-2">$79<span className="text-sm font-normal text-gray-500">/mo</span></div>

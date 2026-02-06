@@ -144,6 +144,9 @@ function SubmissionRow({ submission, onRefresh, onDelete, isSelected, onToggleSe
   const [refreshing, setRefreshing] = useState(false);
   const [showCustomersModal, setShowCustomersModal] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [showTestEmailModal, setShowTestEmailModal] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [sendingTestEmail, setSendingTestEmail] = useState(false);
   const [editingServiceLevel, setEditingServiceLevel] = useState(false);
   const [newServiceLevel, setNewServiceLevel] = useState(submission.service_level || '');
   const navigate = useNavigate();
@@ -214,6 +217,32 @@ function SubmissionRow({ submission, onRefresh, onDelete, isSelected, onToggleSe
       alert(error.response?.data?.error || 'Failed to send status update');
     } finally {
       setSendingEmail(false);
+    }
+  };
+
+  const handlePreviewEmail = (e) => {
+    e.stopPropagation();
+    setMenuOpen(false);
+    setShowTestEmailModal(true);
+  };
+
+  const handleSendTestEmail = async () => {
+    if (!testEmail || !testEmail.includes('@')) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    setSendingTestEmail(true);
+    try {
+      await emailTemplates.sendTestSubmissionUpdate(testEmail, submission.id);
+      alert(`Test status update email sent to ${testEmail}!\n\nCheck your inbox to preview the email.`);
+      setShowTestEmailModal(false);
+      setTestEmail('');
+    } catch (error) {
+      console.error('Send test email failed:', error);
+      alert(error.response?.data?.error || 'Failed to send test email');
+    } finally {
+      setSendingTestEmail(false);
     }
   };
 
@@ -326,6 +355,13 @@ function SubmissionRow({ submission, onRefresh, onDelete, isSelected, onToggleSe
                   Refresh from PSA
                 </button>
                 <button
+                  onClick={handlePreviewEmail}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <Eye className="w-4 h-4" />
+                  Preview Email
+                </button>
+                <button
                   onClick={handleSendUpdate}
                   disabled={sendingEmail}
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
@@ -413,6 +449,77 @@ function SubmissionRow({ submission, onRefresh, onDelete, isSelected, onToggleSe
           </div>
         </div>
       )}
+
+      {/* Test Email Modal */}
+      {showTestEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Mail className="w-6 h-6 text-blue-600" />
+                Preview Status Update Email
+              </h3>
+              <button
+                onClick={() => {
+                  setShowTestEmailModal(false);
+                  setTestEmail('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <p className="text-gray-600 mb-4">
+              Send a test status update email to preview how it will look for this submission.
+            </p>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Test Email Address
+              </label>
+              <input
+                type="email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                autoFocus
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleSendTestEmail}
+                disabled={sendingTestEmail || !testEmail}
+                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {sendingTestEmail ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    Send Test Email
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setShowTestEmailModal(false);
+                  setTestEmail('');
+                }}
+                className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -424,6 +531,9 @@ export default function Submissions() {
   const [refreshingAll, setRefreshingAll] = useState(false);
   const [refreshProgress, setRefreshProgress] = useState({ total: 0, current: 0, updated: 0, errors: 0 });
   const [sendingBulk, setSendingBulk] = useState(false);
+  const [showBulkTestEmailModal, setShowBulkTestEmailModal] = useState(false);
+  const [bulkTestEmail, setBulkTestEmail] = useState('');
+  const [sendingBulkTestEmail, setSendingBulkTestEmail] = useState(false);
   const [normalizing, setNormalizing] = useState(false);
   const [filter, setFilter] = useState('all'); // 'all', 'active', 'shipped', 'problems'
   const [serviceLevelFilter, setServiceLevelFilter] = useState('all'); // 'all', or specific service level
@@ -602,6 +712,26 @@ export default function Submissions() {
       alert(error.response?.data?.error || 'Failed to send bulk emails');
     } finally {
       setSendingBulk(false);
+    }
+  };
+
+  const handleSendBulkTestEmail = async () => {
+    if (!bulkTestEmail || !bulkTestEmail.includes('@')) {
+      alert('Please enter a valid email address');
+      return;
+    }
+
+    setSendingBulkTestEmail(true);
+    try {
+      await emailTemplates.sendTestSubmissionUpdate(bulkTestEmail, null);
+      alert(`Test bulk status update email sent to ${bulkTestEmail}!\n\nCheck your inbox to preview the email with sample data.`);
+      setShowBulkTestEmailModal(false);
+      setBulkTestEmail('');
+    } catch (error) {
+      console.error('Send bulk test email failed:', error);
+      alert(error.response?.data?.error || 'Failed to send test email');
+    } finally {
+      setSendingBulkTestEmail(false);
     }
   };
 
@@ -889,6 +1019,13 @@ export default function Submissions() {
             <span className="hidden sm:inline">Import PSA CSV</span>
           </button>
           <button
+            onClick={() => setShowBulkTestEmailModal(true)}
+            className="btn btn-secondary gap-2"
+          >
+            <Eye className="w-4 h-4" />
+            <span className="hidden sm:inline">Preview Email</span>
+          </button>
+          <button
             onClick={handleBulkEmail}
             disabled={sendingBulk}
             className="btn btn-secondary gap-2"
@@ -1015,7 +1152,7 @@ export default function Submissions() {
               onClick={() => setFilter('all')}
               className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
                 filter === 'all'
-                  ? 'bg-brand-500 text-white border-b-2 border-brand-600'
+                  ? 'bg-brand-600 text-white border-b-2 border-brand-700 shadow-md'
                   : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -1101,7 +1238,7 @@ export default function Submissions() {
                     onClick={() => setServiceLevelFilter(level)}
                     className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
                       serviceLevelFilter === level
-                        ? (colors ? `${colors.activeBg} ${colors.activeText}` : 'bg-brand-500 text-white')
+                        ? (colors ? `${colors.activeBg} ${colors.activeText}` : 'bg-brand-600 text-white shadow-md')
                         : (colors ? `${colors.bg} ${colors.text} hover:${colors.border}` : 'bg-white text-gray-600 hover:bg-gray-100')
                     }`}
                   >
@@ -1535,6 +1672,76 @@ export default function Submissions() {
                 onClick={() => setShowCsvImport(false)}
                 disabled={importing}
                 className="btn btn-secondary w-full disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Test Email Modal */}
+      {showBulkTestEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Mail className="w-6 h-6 text-blue-600" />
+                Preview Bulk Status Update Email
+              </h3>
+              <button
+                onClick={() => {
+                  setShowBulkTestEmailModal(false);
+                  setBulkTestEmail('');
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <p className="text-gray-600 mb-4">
+              Send a test email to preview how bulk status update emails will look. This will use sample submission data.
+            </p>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Test Email Address
+              </label>
+              <input
+                type="email"
+                value={bulkTestEmail}
+                onChange={(e) => setBulkTestEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                autoFocus
+              />
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={handleSendBulkTestEmail}
+                disabled={sendingBulkTestEmail || !bulkTestEmail}
+                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {sendingBulkTestEmail ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    Send Test Email
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setShowBulkTestEmailModal(false);
+                  setBulkTestEmail('');
+                }}
+                className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
               >
                 Cancel
               </button>

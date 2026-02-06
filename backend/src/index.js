@@ -26,6 +26,7 @@ const psaImportRoutes = require("./routes/psa-import");
 const runMigrationRoutes = require("./routes/run-migration");
 const pickupRoutes = require("./routes/pickup");
 const invoiceRoutes = require("./routes/invoices");
+const dashyRoutes = require("./routes/dashy");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -158,6 +159,7 @@ app.use("/api/psa-import", psaImportRoutes);
 app.use("/api/migration", runMigrationRoutes);
 app.use("/api/pickup", pickupRoutes);
 app.use("/api/invoices", invoiceRoutes);
+app.use("/api/dashy", dashyRoutes);
 
 /* -------------------- 404 HANDLER -------------------- */
 

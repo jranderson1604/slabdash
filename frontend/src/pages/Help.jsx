@@ -33,7 +33,7 @@ function StepCard({ number, title, description, icon: Icon }) {
   return (
     <div className="flex gap-4 p-4 bg-gray-50 rounded-lg">
       <div className="flex-shrink-0">
-        <div className="w-10 h-10 bg-brand-500 text-white rounded-full flex items-center justify-center font-bold">
+        <div className="w-10 h-10 bg-brand-600 text-white rounded-full flex items-center justify-center font-bold">
           {number}
         </div>
       </div>
