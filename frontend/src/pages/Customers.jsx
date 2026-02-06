@@ -114,7 +114,7 @@ function CustomerRow({ customer, onDelete, onSendPortalLink, selected, onSelect 
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 z-20 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 fade-in">
+              <div className="absolute right-0 z-20 mt-1 w-48 bg-brand-50 rounded-lg shadow-lg border border-gray-200 py-1 fade-in">
                 <Link
                   to={`/customers/${customer.id}`}
                   className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -596,7 +596,7 @@ export default function Customers() {
       {/* Add to Submission Modal */}
       {showAddToSubmissionModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Package className="w-6 h-6 text-brand-600" />
@@ -699,7 +699,7 @@ export default function Customers() {
       {/* Test Introduction Email Modal */}
       {showTestEmailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Mail className="w-6 h-6 text-blue-600" />
@@ -773,7 +773,7 @@ export default function Customers() {
       {/* Email Progress Modal */}
       {showEmailProgressModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
             <div className="text-center">
               <div className="mb-4">
                 <Mail className="w-12 h-12 text-blue-600 mx-auto animate-pulse" />
@@ -801,7 +801,7 @@ export default function Customers() {
                 >
                   {/* DASHY character moving along the bar */}
                   <div className="absolute -right-6 -top-6 transform transition-all duration-500">
-                    <div className="relative w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
+                    <div className="relative w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center shadow-lg">
                       <img
                         src="/images/1F004F9D-A4EB-4BE1-B59B-3E94343B0A5B.png"
                         alt="Dashy"

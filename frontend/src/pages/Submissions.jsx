@@ -390,7 +390,7 @@ function SubmissionRow({ submission, onRefresh, onDelete, isSelected, onToggleSe
       {/* Customers Modal */}
       {showCustomersModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
@@ -453,7 +453,7 @@ function SubmissionRow({ submission, onRefresh, onDelete, isSelected, onToggleSe
       {/* Test Email Modal */}
       {showTestEmailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={(e) => e.stopPropagation()}>
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Mail className="w-6 h-6 text-blue-600" />
@@ -1146,14 +1146,14 @@ export default function Submissions() {
 
       {/* Completion Status Tabs */}
       <div className="card">
-        <div className="border-b border-gray-200">
-          <div className="flex bg-gray-50">
+        <div className="border-b border-brand-200">
+          <div className="flex overflow-x-auto bg-brand-50 scrollbar-hide">
             <button
               onClick={() => setFilter('all')}
-              className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
+              className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
                 filter === 'all'
                   ? 'bg-brand-600 text-white border-b-2 border-brand-700 shadow-md'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
+                  : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
               }`}
             >
               All Submissions
@@ -1167,10 +1167,10 @@ export default function Submissions() {
             </button>
             <button
               onClick={() => setFilter('active')}
-              className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
+              className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
                 filter === 'active'
                   ? 'bg-blue-500 text-white border-b-2 border-blue-600'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
+                  : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
               }`}
             >
               Active (At PSA)
@@ -1184,10 +1184,10 @@ export default function Submissions() {
             </button>
             <button
               onClick={() => setFilter('completed')}
-              className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
+              className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
                 filter === 'completed'
                   ? 'bg-green-500 text-white border-b-2 border-green-600'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
+                  : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
               }`}
             >
               Completed
@@ -1201,10 +1201,10 @@ export default function Submissions() {
             </button>
             <button
               onClick={() => setFilter('problems')}
-              className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
+              className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
                 filter === 'problems'
                   ? 'bg-red-500 text-white border-b-2 border-red-600'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
+                  : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
               }`}
             >
               Problems
@@ -1512,7 +1512,7 @@ export default function Submissions() {
       {/* PSA CSV Import Modal */}
       {showCsvImport && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full">
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-2xl w-full">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
@@ -1683,7 +1683,7 @@ export default function Submissions() {
       {/* Bulk Test Email Modal */}
       {showBulkTestEmailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Mail className="w-6 h-6 text-blue-600" />

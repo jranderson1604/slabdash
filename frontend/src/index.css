@@ -19,9 +19,10 @@
   --dark: 28 28 33;           /* #1c1c21 */
 
   /* Customizable colors */
-  --bg-color: 255 255 255;    /* Clean white background (Wix-style) */
-  --sidebar-color: 255 255 255;  /* White sidebar */
-  --section-alt-bg: 250 250 251; /* Very light gray for alternating sections */
+  --bg-color: 255 250 248;    /* Tan background (brand-50) */
+  --sidebar-color: 255 250 248;  /* Tan sidebar (brand-50) */
+  --section-alt-bg: 255 240 236; /* Tan alternating sections (brand-100) */
+  --card-bg: 255 240 236;     /* Tan card background (brand-100) */
 
   /* Auto-calculated contrasting text colors */
   --brand-text: 255 255 255;  /* Text color on brand backgrounds */
@@ -128,10 +129,11 @@
     box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2), 0 2px 4px 0 rgba(220, 38, 38, 0.25);
   }
   .input {
-    @apply w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent;
+    @apply w-full px-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:border-transparent text-gray-900 placeholder-gray-500;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 2px 6px 0 rgba(0, 0, 0, 0.04);
     font-size: 1rem;
+    background-color: white;
   }
   .input:hover {
     border-color: rgb(var(--brand-300));
@@ -143,7 +145,8 @@
     box-shadow: 0 0 0 4px rgba(255, 129, 112, 0.12), 0 2px 8px 0 rgba(0, 0, 0, 0.08);
   }
   .card {
-    @apply bg-white rounded-2xl border border-gray-100;
+    @apply rounded-2xl border border-brand-200;
+    background-color: rgb(var(--card-bg));
     box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.04), 0 2px 8px 0 rgba(0, 0, 0, 0.02);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -176,7 +179,7 @@
     @apply min-w-full divide-y divide-gray-200;
   }
   thead {
-    @apply bg-white;
+    background-color: rgb(var(--card-bg));
   }
   th {
     @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
@@ -197,6 +200,13 @@
   }
   .link:hover {
     color: rgb(var(--brand-600));
+  }
+
+  /* SlabDash branding style for nav labels */
+  .slabdash-label {
+    @apply uppercase font-bold tracking-wide;
+    letter-spacing: 0.08em;
+    font-size: 0.813rem;
   }
 }
 
@@ -306,5 +316,16 @@
 
   .animation-delay-300 {
     animation-delay: 300ms;
+  }
+
+  /* Hide scrollbar for Chrome, Safari and Opera */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Hide scrollbar for IE, Edge and Firefox */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
   }
 }

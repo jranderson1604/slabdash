@@ -269,7 +269,7 @@ export default function CustomerDetail() {
 
                 {/* Dropdown results */}
                 {showSubmissionDropdown && submissionSearchQuery && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-10 w-full mt-1 bg-brand-50 border border-brand-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {submissionList
                       .filter(sub =>
                         !customer.recent_submissions?.some(rs => rs.id === sub.id) &&
@@ -470,7 +470,7 @@ export default function CustomerDetail() {
       {/* Test Email Modal */}
       {showTestEmailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Mail className="w-6 h-6 text-blue-600" />
