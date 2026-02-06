@@ -9,6 +9,7 @@
     "migrate": "node run-migrations.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.73.0",
     "@google-cloud/vision": "^5.3.4",
     "@sendgrid/mail": "^8.1.6",
     "axios": "^1.6.2",
