@@ -2,13 +2,17 @@ export default function EmptyState({ title, description, icon: Icon, children })
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4">
       {/* DASHY mascot */}
-      <div className="mb-6 opacity-30">
+      <div className="mb-6 opacity-30 flex items-center justify-center">
         <img
           src="/images/dashy.png"
           alt="Dashy"
           className="w-32 h-32"
           style={{
             filter: 'grayscale(40%)'
+          }}
+          onError={(e) => {
+            e.target.style.display = 'none';
+            e.target.parentElement.innerHTML = '<div class="text-gray-300 text-6xl">📭</div>';
           }}
         />
       </div>
