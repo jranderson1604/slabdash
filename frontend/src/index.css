@@ -40,9 +40,35 @@
     background-color: rgb(var(--bg-color));
     color: rgb(var(--bg-text));
     font-family: 'Raleway', system-ui, -apple-system, sans-serif;
-    font-weight: 600;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Admin UI gets bold styling, landing page stays normal */
+  body:not(.landing-page) {
+    font-weight: 600;
+  }
+
+  body:not(.landing-page) h1,
+  body:not(.landing-page) h2,
+  body:not(.landing-page) h3,
+  body:not(.landing-page) h4,
+  body:not(.landing-page) h5,
+  body:not(.landing-page) h6 {
+    letter-spacing: 0.02em;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+
+  body:not(.landing-page) p,
+  body:not(.landing-page) span,
+  body:not(.landing-page) div,
+  body:not(.landing-page) button,
+  body:not(.landing-page) input,
+  body:not(.landing-page) textarea,
+  body:not(.landing-page) select,
+  body:not(.landing-page) label {
+    font-weight: 600;
   }
 
   /* Wix-style section spacing */
@@ -51,9 +77,8 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    letter-spacing: 0.02em;
-    font-weight: 800;
-    text-transform: uppercase;
+    letter-spacing: -0.02em;
+    font-weight: 700;
   }
 
   h1 {
@@ -69,11 +94,6 @@
   h3 {
     font-size: 1.875rem;
     line-height: 1.3;
-  }
-
-  /* Make all text bolder by default */
-  p, span, div, button, input, textarea, select, label {
-    font-weight: 600;
   }
 }
 

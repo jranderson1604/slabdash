@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Package,
@@ -15,12 +15,25 @@ import {
   FileText,
   DollarSign,
   Lock,
-  Upload
+  Upload,
+  HelpCircle,
+  X,
+  PlayCircle,
+  ChevronRight
 } from 'lucide-react';
 
 export default function Landing() {
   const navigate = useNavigate();
   const [selectedPlan, setSelectedPlan] = useState('pro');
+  const [showFAQ, setShowFAQ] = useState(false);
+  const [showDemo, setShowDemo] = useState(false);
+  const [demoStep, setDemoStep] = useState(0);
+
+  // Add landing-page class to body to prevent bold font styling
+  useEffect(() => {
+    document.body.classList.add('landing-page');
+    return () => document.body.classList.remove('landing-page');
+  }, []);
 
   const features = [
     {
@@ -148,6 +161,72 @@ export default function Landing() {
     }
   ];
 
+  const faqs = [
+    {
+      question: "How do I add a new PSA submission?",
+      answer: "Click '+ New Submission' at the top of the Submissions page, enter your PSA submission number, select a service level, and add your customer. You can add cards individually or import them from a PSA CSV file."
+    },
+    {
+      question: "Can customers track their own cards?",
+      answer: "Yes! Each customer gets a unique portal link. Send them an introduction email or generate a portal link from their customer detail page. They can track all their submissions in real-time without logging in."
+    },
+    {
+      question: "How do I import cards from PSA?",
+      answer: "Download the CSV from PSA, go to your submission detail page, and click 'Import PSA CSV'. SlabDash will automatically match and update all cards with grades and cert numbers."
+    },
+    {
+      question: "Can I send bulk email updates?",
+      answer: "Absolutely! Use the 'Email All' button to send status updates to all customers at once. You can also preview emails before sending to make sure everything looks perfect."
+    },
+    {
+      question: "How do I assign multiple customers to one submission?",
+      answer: "Go to the Customers page, select multiple customers, click 'Add to Submission', and search for the submission number. This is perfect for group orders where multiple people share one PSA submission."
+    },
+    {
+      question: "What's the difference between service levels?",
+      answer: "PSA offers different service levels (Bulk, Regular, Express, etc.) with different processing times and costs. SlabDash tracks all of them and shows you expected timelines for each."
+    }
+  ];
+
+  const demoSteps = [
+    {
+      title: "Step 1: Create Your First Submission",
+      description: "Let's start by creating a new PSA submission. You'll enter the PSA submission number and service level.",
+      image: "📦",
+      action: "Create Submission"
+    },
+    {
+      title: "Step 2: Add Customer Information",
+      description: "Now we'll add a customer to this submission. You can add their name, email, and phone number.",
+      image: "👤",
+      action: "Add Customer"
+    },
+    {
+      title: "Step 3: Import Cards from PSA",
+      description: "Download your CSV from PSA and import it here. SlabDash will automatically populate all card details.",
+      image: "📥",
+      action: "Import CSV"
+    },
+    {
+      title: "Step 4: Send Customer Portal Link",
+      description: "Generate a unique tracking link for your customer. They can bookmark it and check their card status anytime!",
+      image: "🔗",
+      action: "Generate Link"
+    },
+    {
+      title: "Step 5: Send Status Updates",
+      description: "When cards are graded, send automatic email updates to all customers with progress bars and grades!",
+      image: "📧",
+      action: "Send Email"
+    },
+    {
+      title: "You're All Set!",
+      description: "That's how easy it is to manage PSA submissions with SlabDash. Your customers will love the transparency!",
+      image: "🎉",
+      action: "Start Your Free Trial"
+    }
+  ];
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
       {/* Navigation */}
@@ -171,13 +250,20 @@ export default function Landing() {
               <a href="#pricing" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
                 Pricing
               </a>
+              <a href="#faq" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
+                FAQ
+              </a>
+              <button
+                onClick={() => setShowDemo(true)}
+                className="text-brand-600 hover:text-brand-700 font-medium transition-colors flex items-center gap-2"
+              >
+                <PlayCircle className="w-4 h-4" />
+                Demo
+              </button>
               <Link to="/portal" className="text-gray-600 hover:text-[#FF8170] font-medium transition-colors flex items-center gap-2">
                 <Package className="w-4 h-4" />
                 Track My Cards
               </Link>
-              <a href="#contact" className="text-gray-600 hover:text-gray-900 font-medium transition-colors">
-                Contact
-              </a>
             </div>
 
             <div className="flex items-center gap-4">
@@ -448,6 +534,60 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* FAQ Section with DASHY */}
+      <section id="faq" className="section-wix bg-gradient-to-b from-white to-brand-50/30">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-16">
+            <div className="flex justify-center mb-8">
+              <div className="relative">
+                <img
+                  src="/images/DASHY.png"
+                  alt="Dashy"
+                  className="h-32 w-32 animate-bounce"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.parentElement.innerHTML = '<div class="text-6xl animate-bounce">💬</div>';
+                  }}
+                />
+              </div>
+            </div>
+            <h2 className="text-5xl font-extrabold text-gray-900 mb-6">
+              Got Questions? DASHY Has Answers!
+            </h2>
+            <p className="text-xl text-gray-600 font-medium">
+              Here are the most common questions about using SlabDash
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {faqs.map((faq, index) => (
+              <details
+                key={index}
+                className="group bg-white rounded-2xl border border-gray-200 shadow-md hover:shadow-lg transition-all overflow-hidden"
+              >
+                <summary className="flex items-center justify-between p-6 cursor-pointer list-none">
+                  <h3 className="text-lg font-bold text-gray-900 pr-4">{faq.question}</h3>
+                  <ChevronRight className="w-6 h-6 text-brand-500 transition-transform group-open:rotate-90" />
+                </summary>
+                <div className="px-6 pb-6">
+                  <p className="text-gray-700 leading-relaxed">{faq.answer}</p>
+                </div>
+              </details>
+            ))}
+          </div>
+
+          <div className="mt-12 text-center">
+            <button
+              onClick={() => setShowDemo(true)}
+              className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 text-white rounded-xl font-bold text-lg shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-1"
+            >
+              <PlayCircle className="w-6 h-6" />
+              Watch Interactive Demo
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section id="contact" className="section-wix-lg bg-gray-900 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-black to-gray-900"></div>
@@ -523,6 +663,181 @@ export default function Landing() {
           </div>
         </div>
       </footer>
+
+      {/* Floating DASHY - Idle Animation */}
+      <div className="fixed bottom-8 right-8 z-40 group">
+        <div className="relative">
+          <div className="absolute inset-0 bg-brand-500 opacity-30 blur-2xl rounded-full animate-pulse"></div>
+          <button
+            onClick={() => setShowFAQ(true)}
+            className="relative w-24 h-24 bg-gradient-to-br from-brand-400 to-brand-600 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform duration-300"
+          >
+            <img
+              src="/images/DASHY.png"
+              alt="Dashy"
+              className="w-20 h-20 animate-bounce"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.parentElement.innerHTML = '<div class="text-white text-4xl font-bold animate-bounce">💬</div>';
+              }}
+            />
+          </button>
+          <div className="absolute -top-2 -right-2 w-8 h-8 bg-green-500 rounded-full border-4 border-white flex items-center justify-center">
+            <HelpCircle className="w-4 h-4 text-white" />
+          </div>
+        </div>
+        <div className="absolute bottom-full mb-4 right-0 bg-white px-4 py-2 rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 whitespace-nowrap">
+          <p className="text-sm font-semibold text-gray-900">Need help? Click me!</p>
+        </div>
+      </div>
+
+      {/* FAQ Modal */}
+      {showFAQ && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[80vh] overflow-y-auto shadow-2xl">
+            <div className="sticky top-0 bg-gradient-to-r from-brand-600 to-brand-700 p-6 rounded-t-2xl flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <img
+                  src="/images/DASHY.png"
+                  alt="Dashy"
+                  className="w-16 h-16"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.parentElement.innerHTML = '<div class="text-white text-4xl">💬</div>';
+                  }}
+                />
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Frequently Asked Questions</h2>
+                  <p className="text-white/90">DASHY is here to help!</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowFAQ(false)}
+                className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              {faqs.map((faq, index) => (
+                <details
+                  key={index}
+                  className="group bg-brand-50 rounded-xl border border-brand-200 overflow-hidden"
+                >
+                  <summary className="flex items-center justify-between p-4 cursor-pointer list-none">
+                    <h3 className="font-bold text-gray-900">{faq.question}</h3>
+                    <ChevronRight className="w-5 h-5 text-brand-500 transition-transform group-open:rotate-90" />
+                  </summary>
+                  <div className="px-4 pb-4">
+                    <p className="text-gray-700">{faq.answer}</p>
+                  </div>
+                </details>
+              ))}
+              <div className="pt-4 text-center">
+                <button
+                  onClick={() => {
+                    setShowFAQ(false);
+                    setShowDemo(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-brand-500 to-brand-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all"
+                >
+                  <PlayCircle className="w-5 h-5" />
+                  Watch Interactive Demo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Demo Modal */}
+      {showDemo && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden">
+            <div className="bg-gradient-to-r from-brand-600 to-brand-700 p-6 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <img
+                  src="/images/DASHY.png"
+                  alt="Dashy"
+                  className="w-16 h-16 animate-bounce"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.parentElement.innerHTML = '<div class="text-white text-4xl">🎬</div>';
+                  }}
+                />
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Interactive Demo Tour</h2>
+                  <p className="text-white/90">Follow DASHY through a complete submission</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDemo(false);
+                  setDemoStep(0);
+                }}
+                className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-8">
+              {/* Demo Step */}
+              <div className="text-center mb-8">
+                <div className="text-8xl mb-6">{demoSteps[demoStep].image}</div>
+                <h3 className="text-3xl font-bold text-gray-900 mb-4">{demoSteps[demoStep].title}</h3>
+                <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+                  {demoSteps[demoStep].description}
+                </p>
+              </div>
+
+              {/* Progress Indicator */}
+              <div className="flex items-center justify-center gap-2 mb-8">
+                {demoSteps.map((_, index) => (
+                  <div
+                    key={index}
+                    className={`h-2 rounded-full transition-all ${
+                      index === demoStep
+                        ? 'w-12 bg-brand-600'
+                        : index < demoStep
+                        ? 'w-8 bg-brand-400'
+                        : 'w-8 bg-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* Navigation Buttons */}
+              <div className="flex items-center justify-between">
+                <button
+                  onClick={() => setDemoStep(Math.max(0, demoStep - 1))}
+                  disabled={demoStep === 0}
+                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 transition-colors"
+                >
+                  Previous
+                </button>
+                {demoStep < demoSteps.length - 1 ? (
+                  <button
+                    onClick={() => setDemoStep(demoStep + 1)}
+                    className="px-8 py-3 bg-gradient-to-r from-brand-500 to-brand-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                  >
+                    {demoSteps[demoStep].action}
+                    <ArrowRight className="w-5 h-5" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => navigate('/register')}
+                    className="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                  >
+                    {demoSteps[demoStep].action}
+                    <ArrowRight className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
