@@ -4,33 +4,27 @@
   "description": "Professional PSA card grading submission tracking for card shops",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FFF5F3",
+  "background_color": "#fffaf8",
   "theme_color": "#FF8170",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/images/SDapp-icon.png.png",
-      "sizes": "500x500",
-      "type": "image/png",
+      "src": "/images/logo-icon-alt.png.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any"
     },
     {
       "src": "/images/SDapp-icon.png.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     },
     {
       "src": "/images/SDapp-icon.png.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    },
-    {
-      "src": "/images/logo-icon-alt.png.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
     }
   ]
 }

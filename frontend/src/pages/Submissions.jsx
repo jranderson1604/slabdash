@@ -1159,7 +1159,7 @@ export default function Submissions() {
               All Submissions
               <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 filter === 'all'
-                  ? 'bg-white bg-opacity-30 text-white'
+                  ? 'bg-brand-800 text-white'
                   : 'bg-gray-200 text-gray-700'
               }`}>
                 {subs.length}
@@ -1176,7 +1176,7 @@ export default function Submissions() {
               Active (At PSA)
               <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 filter === 'active'
-                  ? 'bg-white bg-opacity-30 text-white'
+                  ? 'bg-blue-700 text-white'
                   : 'bg-gray-200 text-gray-700'
               }`}>
                 {subs.filter(s => s.progress_percent < 100 && !s.shipped).length}
@@ -1193,7 +1193,7 @@ export default function Submissions() {
               Completed
               <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 filter === 'completed'
-                  ? 'bg-white bg-opacity-30 text-white'
+                  ? 'bg-green-700 text-white'
                   : 'bg-gray-200 text-gray-700'
               }`}>
                 {subs.filter(s => s.progress_percent >= 100 || s.shipped).length}
@@ -1210,7 +1210,7 @@ export default function Submissions() {
               Problems
               <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 filter === 'problems'
-                  ? 'bg-white bg-opacity-30 text-white'
+                  ? 'bg-red-700 text-white'
                   : 'bg-gray-200 text-gray-700'
               }`}>
                 {subs.filter(s => s.problem_order).length}
@@ -1245,7 +1245,7 @@ export default function Submissions() {
                     {displayName}
                     <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                       serviceLevelFilter === level
-                        ? 'bg-white bg-opacity-30 text-white'
+                        ? 'bg-gray-900 bg-opacity-30 text-white'
                         : 'bg-gray-800 bg-opacity-10'
                     }`}>
                       {count}

@@ -212,7 +212,7 @@ export default function Portal() {
                     </button>
                     <button
                       onClick={() => handleOfferResponse(offer.id, 'rejected')}
-                      className="flex-1 bg-white/20 text-white px-4 py-2 rounded-lg font-semibold hover:bg-white/30 transition-colors flex items-center justify-center gap-2"
+                      className="flex-1 bg-gray-900/30 text-white px-4 py-2 rounded-lg font-semibold hover:bg-gray-900/40 transition-colors flex items-center justify-center gap-2"
                     >
                       <X className="w-4 h-4" />
                       Decline
