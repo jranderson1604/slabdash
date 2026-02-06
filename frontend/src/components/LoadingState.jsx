@@ -4,11 +4,15 @@ export default function LoadingState({ message = 'Loading...' }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4">
       {/* DASHY mascot with bounce animation */}
-      <div className="mb-6 animate-bounce">
+      <div className="mb-6 animate-bounce flex items-center justify-center">
         <img
-          src="/images/dashy.png"
+          src="/images/1F004F9D-A4EB-4BE1-B59B-3E94343B0A5B.png"
           alt="Dashy"
           className="w-32 h-32"
+          onError={(e) => {
+            e.target.style.display = 'none';
+            e.target.parentElement.innerHTML = '<div class="text-brand-500 text-6xl animate-bounce">⏳</div>';
+          }}
         />
       </div>
 

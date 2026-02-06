@@ -792,7 +792,7 @@ export default function Customers() {
               {/* Progress Bar with DASHY */}
               <div className="w-full bg-gray-200 rounded-full h-4 mb-4 overflow-visible relative">
                 <div
-                  className="bg-gradient-to-r from-brand-500 to-brand-600 h-full rounded-full transition-all duration-500 ease-out relative"
+                  className="bg-gradient-to-r from-brand-600 to-brand-700 h-full rounded-full transition-all duration-500 ease-out relative"
                   style={{
                     width: emailProgress.total > 0
                       ? `${(emailProgress.sent / emailProgress.total) * 100}%`
@@ -801,14 +801,17 @@ export default function Customers() {
                 >
                   {/* DASHY character moving along the bar */}
                   <div className="absolute -right-6 -top-6 transform transition-all duration-500">
-                    <img
-                      src="/images/dashy.png"
-                      alt="Dashy"
-                      className="w-12 h-12 animate-bounce"
-                      style={{
-                        filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.2))'
-                      }}
-                    />
+                    <div className="relative w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg">
+                      <img
+                        src="/images/1F004F9D-A4EB-4BE1-B59B-3E94343B0A5B.png"
+                        alt="Dashy"
+                        className="w-10 h-10 animate-bounce rounded-full"
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.parentElement.innerHTML = '<div class="text-brand-600 text-2xl font-bold animate-bounce">📧</div>';
+                        }}
+                      />
+                    </div>
                   </div>
                   {emailProgress.total > 0 && emailProgress.sent === emailProgress.total && (
                     <div className="absolute -right-2 top-1/2 -translate-y-1/2">

@@ -37,12 +37,13 @@ export default function DashyAssistant() {
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const messageText = input.trim();
     setInput('');
     setIsLoading(true);
 
     try {
-      const response = await api.post('/api/dashy/chat', {
-        message: input.trim(),
+      const response = await api.post('/dashy/chat', {
+        message: messageText,
         history: messages.slice(-10) // Send last 10 messages for context
       });
 
@@ -86,14 +87,20 @@ export default function DashyAssistant() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 w-16 h-16 bg-brand-500 hover:bg-brand-600 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 z-50 group"
+          className="fixed bottom-6 right-6 w-16 h-16 bg-brand-600 hover:bg-brand-700 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 z-50 group"
           aria-label="Open Dashy Assistant"
         >
-          <img
-            src="/images/dashy.png"
-            alt="Dashy"
-            className="w-12 h-12 animate-bounce"
-          />
+          <div className="relative w-12 h-12 flex items-center justify-center">
+            <img
+              src="/images/1F004F9D-A4EB-4BE1-B59B-3E94343B0A5B.png"
+              alt="Dashy"
+              className="w-12 h-12 animate-bounce"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.parentElement.innerHTML = '<div class="text-white text-2xl font-bold animate-bounce">💬</div>';
+              }}
+            />
+          </div>
           <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
             <MessageCircle className="w-3 h-3 text-white" />
           </div>
@@ -104,15 +111,21 @@ export default function DashyAssistant() {
       {isOpen && (
         <div className="fixed bottom-6 right-6 w-96 h-[600px] bg-white rounded-2xl shadow-2xl flex flex-col z-50 border border-gray-200">
           {/* Header */}
-          <div className="bg-gradient-to-r from-brand-500 to-brand-600 text-white p-4 rounded-t-2xl flex items-center justify-between">
+          <div className="bg-gradient-to-r from-brand-600 to-brand-700 text-white p-4 rounded-t-2xl flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <img
-                src="/images/dashy.png"
-                alt="Dashy"
-                className="w-10 h-10"
-              />
+              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+                <img
+                  src="/images/1F004F9D-A4EB-4BE1-B59B-3E94343B0A5B.png"
+                  alt="Dashy"
+                  className="w-10 h-10 rounded-full"
+                  onError={(e) => {
+                    e.target.style.display = 'none';
+                    e.target.parentElement.innerHTML = '<div class="text-white text-2xl font-bold">💬</div>';
+                  }}
+                />
+              </div>
               <div>
-                <h3 className="font-bold text-lg">Dashy</h3>
+                <h3 className="font-bold text-lg text-white">Dashy</h3>
                 <p className="text-xs text-white/90">Your SlabDash Assistant</p>
               </div>
             </div>
@@ -132,16 +145,22 @@ export default function DashyAssistant() {
                 className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
               >
                 {msg.role === 'assistant' && (
-                  <img
-                    src="/images/dashy.png"
-                    alt="Dashy"
-                    className="w-8 h-8 flex-shrink-0"
-                  />
+                  <div className="w-8 h-8 flex-shrink-0 bg-brand-100 rounded-full flex items-center justify-center">
+                    <img
+                      src="/images/1F004F9D-A4EB-4BE1-B59B-3E94343B0A5B.png"
+                      alt="Dashy"
+                      className="w-8 h-8 rounded-full"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.parentElement.innerHTML = '<div class="text-brand-600 text-xl font-bold">D</div>';
+                      }}
+                    />
+                  </div>
                 )}
                 <div
                   className={`max-w-[80%] rounded-2xl px-4 py-2 ${
                     msg.role === 'user'
-                      ? 'bg-brand-500 text-white'
+                      ? 'bg-brand-600 text-white'
                       : 'bg-white border border-gray-200 text-gray-900'
                   }`}
                 >
@@ -152,11 +171,17 @@ export default function DashyAssistant() {
 
             {isLoading && (
               <div className="flex gap-3">
-                <img
-                  src="/images/dashy.png"
-                  alt="Dashy"
-                  className="w-8 h-8 flex-shrink-0 animate-bounce"
-                />
+                <div className="w-8 h-8 flex-shrink-0 bg-brand-100 rounded-full flex items-center justify-center">
+                  <img
+                    src="/images/1F004F9D-A4EB-4BE1-B59B-3E94343B0A5B.png"
+                    alt="Dashy"
+                    className="w-8 h-8 rounded-full animate-bounce"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.parentElement.innerHTML = '<div class="text-brand-600 text-xl font-bold animate-bounce">💬</div>';
+                    }}
+                  />
+                </div>
                 <div className="bg-white border border-gray-200 rounded-2xl px-4 py-2">
                   <Loader2 className="w-4 h-4 text-brand-500 animate-spin" />
                 </div>
