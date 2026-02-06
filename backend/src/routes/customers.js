@@ -666,8 +666,8 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
                     results.push({ customer: customer.email, success: false, error: result.error });
                 }
 
-                // Small delay to avoid rate limiting
-                await new Promise(resolve => setTimeout(resolve, 100));
+                // Delay to avoid rate limiting (Mailgun free tier: 1000/hour = ~2 seconds between emails)
+                await new Promise(resolve => setTimeout(resolve, 2000));
             } catch (error) {
                 failCount++;
                 results.push({ customer: customer.email, success: false, error: error.message });
