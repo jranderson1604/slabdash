@@ -4,6 +4,14 @@ const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { v4: uuidv4 } = require('uuid');
 
+// Helper function to validate email addresses
+const isValidEmail = (email) => {
+    if (!email) return false;
+    // Basic email validation regex
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+};
+
 // List customers
 router.get('/', authenticate, async (req, res) => {
     try {
@@ -355,6 +363,10 @@ router.post('/:id/send-introduction-email', authenticate, async (req, res) => {
             return res.status(400).json({ error: 'Customer has no email address' });
         }
 
+        if (!isValidEmail(customer.email)) {
+            return res.status(400).json({ error: `Invalid email address: ${customer.email}` });
+        }
+
         // Get company details
         const companyResult = await db.query(
             'SELECT name, email, phone FROM companies WHERE id = $1',
@@ -518,18 +530,35 @@ router.post('/send-test-introduction-email', authenticate, async (req, res) => {
 // Send introduction emails to all customers in active submissions
 router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => {
     try {
-        // Get all customers who have submissions
+        // Get ALL customers who are connected to submissions in ANY way
         const customersResult = await db.query(
             `SELECT DISTINCT c.id, c.name, c.email, c.portal_access_token
              FROM customers c
-             INNER JOIN submission_customers sc ON c.id = sc.customer_id
-             INNER JOIN submissions s ON sc.submission_id = s.id
-             WHERE c.company_id = $1 AND c.email IS NOT NULL
-             AND s.company_id = $1`,
+             WHERE c.company_id = $1
+             AND c.email IS NOT NULL
+             AND (
+                 -- Customers linked via submission_customers table
+                 c.id IN (
+                     SELECT DISTINCT customer_id
+                     FROM submission_customers
+                     WHERE submission_id IN (SELECT id FROM submissions WHERE company_id = $1)
+                 )
+                 OR
+                 -- Customers who have cards in submissions
+                 c.id IN (
+                     SELECT DISTINCT customer_id
+                     FROM cards
+                     WHERE customer_id IS NOT NULL
+                     AND submission_id IN (SELECT id FROM submissions WHERE company_id = $1)
+                 )
+             )`,
             [req.companyId]
         );
 
         const customers = customersResult.rows;
+
+        console.log(`📊 Found ${customers.length} customers with submissions`);
+        console.log('Customer emails:', customers.map(c => c.email).join(', '));
 
         if (customers.length === 0) {
             return res.json({
@@ -542,6 +571,7 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
         const results = [];
         let successCount = 0;
         let failCount = 0;
+        let skippedCount = 0;
 
         // Get company details once
         const companyResult = await db.query(
@@ -552,6 +582,20 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
 
         for (const customer of customers) {
             try {
+                // Skip invalid email addresses
+                if (!isValidEmail(customer.email)) {
+                    skippedCount++;
+                    results.push({
+                        customer: customer.email,
+                        name: customer.name,
+                        success: false,
+                        skipped: true,
+                        reason: 'Invalid email address'
+                    });
+                    console.log(`⚠ Skipping invalid email for ${customer.name}: ${customer.email}`);
+                    continue;
+                }
+
                 // Generate or get existing portal access token
                 let token = customer.portal_access_token;
                 if (!token) {
@@ -635,6 +679,7 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
             success: true,
             sent: successCount,
             failed: failCount,
+            skipped: skippedCount,
             total: customers.length,
             results: results
         });

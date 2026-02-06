@@ -293,10 +293,11 @@ export default function Customers() {
     setSendingIntroEmails(true);
     try {
       const res = await customers.sendBulkIntroductionEmails();
-      const { sent, failed, total } = res.data;
-      let message = `Successfully sent introduction emails!\n\n✓ Sent: ${sent}\n`;
+      const { sent, failed, skipped, total } = res.data;
+      let message = `Introduction email results:\n\n✓ Sent: ${sent}\n`;
+      if (skipped > 0) message += `⊘ Skipped (invalid emails): ${skipped}\n`;
       if (failed > 0) message += `✗ Failed: ${failed}\n`;
-      message += `Total: ${total}`;
+      message += `\nTotal customers: ${total}`;
       alert(message);
     } catch (error) {
       console.error('Send bulk intro emails failed:', error);
