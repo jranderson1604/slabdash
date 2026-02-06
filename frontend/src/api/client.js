@@ -120,7 +120,8 @@ export const emailTemplates = {
   logs: (params) => api.get('/email-templates/logs', { params }),
   createDefaults: () => api.post('/email-setup/create-default-templates'),
   sendBulkStatusUpdate: () => api.post('/email-setup/send-bulk-status-update'),
-  sendSubmissionUpdate: (submissionId) => api.post(`/email-setup/send-submission-update/${submissionId}`)
+  sendSubmissionUpdate: (submissionId) => api.post(`/email-setup/send-submission-update/${submissionId}`),
+  sendTestSubmissionUpdate: (testEmail, submissionId = null) => api.post('/email-setup/send-test-submission-update', { testEmail, submissionId })
 };
 
 export const psaImport = {

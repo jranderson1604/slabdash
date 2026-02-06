@@ -546,4 +546,143 @@ router.post('/send-bulk-status-update', authenticate, requireRole('owner', 'admi
     }
 });
 
+// Send test submission update email
+router.post('/send-test-submission-update', authenticate, async (req, res) => {
+    try {
+        const { testEmail, submissionId } = req.body;
+        const companyId = req.user.company_id;
+
+        if (!testEmail || !testEmail.includes('@')) {
+            return res.status(400).json({ error: 'Valid test email address required' });
+        }
+
+        // Get submission details (or use sample data if no submissionId provided)
+        let submission;
+        if (submissionId) {
+            const submissionResult = await db.query(
+                `SELECT s.*, s.psa_status, s.progress_percent
+                 FROM submissions s
+                 WHERE s.id = $1 AND s.company_id = $2`,
+                [submissionId, companyId]
+            );
+            if (submissionResult.rows.length === 0) {
+                return res.status(404).json({ error: 'Submission not found' });
+            }
+            submission = submissionResult.rows[0];
+        } else {
+            // Use sample data
+            submission = {
+                psa_submission_number: '12345678',
+                internal_id: 'SUB-001',
+                psa_status: 'Grading',
+                progress_percent: 65,
+                service_level: 'Regular'
+            };
+        }
+
+        // Get company configuration
+        const companyResult = await db.query(
+            `SELECT from_email, from_name, email_notifications_enabled, use_custom_smtp,
+                    smtp_host, smtp_port, smtp_secure, smtp_user, smtp_password, company_logo_url
+             FROM companies WHERE id = $1`,
+            [companyId]
+        );
+
+        if (companyResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Company not found' });
+        }
+
+        const config = companyResult.rows[0];
+
+        // Get default email config
+        const getDefaultEmailConfig = () => {
+            return {
+                mailgun_api_key: process.env.DEFAULT_MAILGUN_API_KEY || process.env.DEFAULT_SMTP_PASSWORD || '',
+                mailgun_domain: process.env.DEFAULT_MAILGUN_DOMAIN || 'slabdash.app',
+                from_email: process.env.DEFAULT_FROM_EMAIL || 'slabdashllc@slabdash.app',
+                from_name: process.env.DEFAULT_FROM_NAME || 'SlabDash'
+            };
+        };
+
+        const subNumber = submission.psa_submission_number || submission.internal_id || 'N/A';
+        const status = submission.psa_status || 'Pending';
+        const progress = submission.progress_percent || 0;
+
+        const subject = `[TEST PREVIEW] Update on Your PSA Submission ${subNumber}`;
+
+        const bodyHtml = `
+            <html>
+            <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+                ${config.company_logo_url ? `<img src="${config.company_logo_url}" alt="Company Logo" style="max-width: 200px; margin-bottom: 20px;">` : ''}
+                <h2 style="color: rgb(255, 107, 86);">Submission Status Update</h2>
+                <p>Hi [Customer Name],</p>
+                <p>Here's the current status of your PSA submission:</p>
+                <div style="margin: 20px 0; padding: 15px; background: #f9fafb; border-left: 3px solid rgb(255, 107, 86); border-radius: 4px;">
+                    <strong>Submission:</strong> ${subNumber}<br>
+                    <strong>Current Step:</strong> ${status}<br>
+                    <strong>Progress:</strong> ${progress}%<br>
+                    ${submission.service_level ? `<strong>Service Level:</strong> ${submission.service_level}` : ''}
+                </div>
+                <p>We'll continue to keep you updated as your cards progress through the grading process!</p>
+                <p style="margin-top: 20px;">Best regards,<br><strong>${config.from_name || 'SlabDash'}</strong></p>
+            </body>
+            </html>
+        `;
+
+        const bodyText = `Hi [Customer Name],\n\nHere's the current status of your PSA submission:\n\nSubmission: ${subNumber}\nCurrent Step: ${status}\nProgress: ${progress}%\n${submission.service_level ? `Service Level: ${submission.service_level}\n` : ''}\nWe'll continue to keep you updated as your cards progress through the grading process!\n\nBest regards,\n${config.from_name || 'SlabDash'}`;
+
+        let fromAddress;
+
+        if (!config.use_custom_smtp) {
+            // Use Mailgun HTTP API
+            const defaultConfig = getDefaultEmailConfig();
+            fromAddress = `${config.from_name || defaultConfig.from_name} <${defaultConfig.from_email}>`;
+
+            const mg = mailgun.client({
+                username: 'api',
+                key: defaultConfig.mailgun_api_key
+            });
+
+            await mg.messages.create(defaultConfig.mailgun_domain, {
+                from: fromAddress,
+                to: [testEmail],
+                subject: subject,
+                text: bodyText,
+                html: bodyHtml
+            });
+        } else {
+            // Use custom SMTP
+            const nodemailer = require('nodemailer');
+            fromAddress = `${config.from_name || 'SlabDash'} <${config.from_email}>`;
+
+            const transporter = nodemailer.createTransport({
+                host: config.smtp_host,
+                port: config.smtp_port || 587,
+                secure: config.smtp_secure || false,
+                auth: {
+                    user: config.smtp_user,
+                    pass: config.smtp_password
+                }
+            });
+
+            await transporter.sendMail({
+                from: fromAddress,
+                to: testEmail,
+                subject: subject,
+                html: bodyHtml,
+                text: bodyText
+            });
+        }
+
+        console.log(`✅ Test submission update email sent to: ${testEmail}`);
+        res.json({ success: true, message: 'Test email sent successfully' });
+    } catch (error) {
+        console.error('Test submission update error:', error);
+        res.status(500).json({
+            error: 'Failed to send test email',
+            details: error.message
+        });
+    }
+});
+
 module.exports = router;
