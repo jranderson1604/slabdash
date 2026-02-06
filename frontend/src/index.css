@@ -40,6 +40,7 @@
     background-color: rgb(var(--bg-color));
     color: rgb(var(--bg-text));
     font-family: 'Raleway', system-ui, -apple-system, sans-serif;
+    font-weight: 600;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -50,8 +51,9 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    letter-spacing: -0.02em;
-    font-weight: 700;
+    letter-spacing: 0.02em;
+    font-weight: 800;
+    text-transform: uppercase;
   }
 
   h1 {
@@ -67,6 +69,11 @@
   h3 {
     font-size: 1.875rem;
     line-height: 1.3;
+  }
+
+  /* Make all text bolder by default */
+  p, span, div, button, input, textarea, select, label {
+    font-weight: 600;
   }
 }
 
@@ -203,11 +210,24 @@
     color: rgb(var(--brand-600));
   }
 
-  /* SlabDash branding style for nav labels */
+  /* SlabDash branding style for nav labels and all text */
   .slabdash-label {
-    @apply uppercase font-bold tracking-wide;
-    letter-spacing: 0.08em;
-    font-size: 0.813rem;
+    @apply uppercase tracking-wide;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    font-size: 0.875rem;
+  }
+
+  /* Apply SlabDash font style to common elements */
+  button, .btn {
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+
+  label, th {
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 }
 

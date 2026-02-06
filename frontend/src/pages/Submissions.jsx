@@ -984,13 +984,13 @@ export default function Submissions() {
   // Service level colors
   const getServiceColor = (level) => {
     const levelLower = level?.toLowerCase() || '';
-    if (levelLower.includes('bulk')) return { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300', activeBg: 'bg-purple-500', activeText: 'text-white' };
-    if (levelLower.includes('plus')) return { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', activeBg: 'bg-blue-500', activeText: 'text-white' };
-    if (levelLower.includes('regular') || levelLower.includes('standard')) return { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300', activeBg: 'bg-green-500', activeText: 'text-white' };
-    if (levelLower.includes('express')) return { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300', activeBg: 'bg-orange-500', activeText: 'text-white' };
-    if (levelLower.includes('specialty') || levelLower.includes('reholder')) return { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-300', activeBg: 'bg-pink-500', activeText: 'text-white' };
-    if (levelLower.includes('walk')) return { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300', activeBg: 'bg-red-500', activeText: 'text-white' };
-    return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300', activeBg: 'bg-gray-500', activeText: 'text-white' };
+    if (levelLower.includes('bulk')) return { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300', activeBg: 'bg-purple-300', activeText: 'text-gray-900' };
+    if (levelLower.includes('plus')) return { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', activeBg: 'bg-blue-300', activeText: 'text-gray-900' };
+    if (levelLower.includes('regular') || levelLower.includes('standard')) return { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300', activeBg: 'bg-green-300', activeText: 'text-gray-900' };
+    if (levelLower.includes('express')) return { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300', activeBg: 'bg-orange-300', activeText: 'text-gray-900' };
+    if (levelLower.includes('specialty') || levelLower.includes('reholder')) return { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-300', activeBg: 'bg-pink-300', activeText: 'text-gray-900' };
+    if (levelLower.includes('walk')) return { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300', activeBg: 'bg-red-300', activeText: 'text-gray-900' };
+    return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300', activeBg: 'bg-gray-300', activeText: 'text-gray-900' };
   };
 
   return (
@@ -1152,14 +1152,14 @@ export default function Submissions() {
               onClick={() => setFilter('all')}
               className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
                 filter === 'all'
-                  ? 'bg-brand-600 text-white border-b-2 border-brand-700 shadow-md'
+                  ? 'bg-brand-400 text-gray-900 border-b-4 border-brand-700 shadow-md'
                   : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
               }`}
             >
               All Submissions
               <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 filter === 'all'
-                  ? 'bg-brand-800 text-white'
+                  ? 'bg-brand-800 text-brand-50'
                   : 'bg-gray-200 text-gray-700'
               }`}>
                 {subs.length}
@@ -1169,14 +1169,14 @@ export default function Submissions() {
               onClick={() => setFilter('active')}
               className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
                 filter === 'active'
-                  ? 'bg-blue-500 text-white border-b-2 border-blue-600'
+                  ? 'bg-blue-400 text-gray-900 border-b-4 border-blue-700'
                   : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
               }`}
             >
               Active (At PSA)
               <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 filter === 'active'
-                  ? 'bg-blue-700 text-white'
+                  ? 'bg-blue-800 text-blue-50'
                   : 'bg-gray-200 text-gray-700'
               }`}>
                 {subs.filter(s => s.progress_percent < 100 && !s.shipped).length}
@@ -1186,14 +1186,14 @@ export default function Submissions() {
               onClick={() => setFilter('completed')}
               className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
                 filter === 'completed'
-                  ? 'bg-green-500 text-white border-b-2 border-green-600'
+                  ? 'bg-green-400 text-gray-900 border-b-4 border-green-700'
                   : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
               }`}
             >
               Completed
               <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 filter === 'completed'
-                  ? 'bg-green-700 text-white'
+                  ? 'bg-green-800 text-green-50'
                   : 'bg-gray-200 text-gray-700'
               }`}>
                 {subs.filter(s => s.progress_percent >= 100 || s.shipped).length}
@@ -1203,14 +1203,14 @@ export default function Submissions() {
               onClick={() => setFilter('problems')}
               className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
                 filter === 'problems'
-                  ? 'bg-red-500 text-white border-b-2 border-red-600'
+                  ? 'bg-red-400 text-gray-900 border-b-4 border-red-700'
                   : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
               }`}
             >
               Problems
               <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 filter === 'problems'
-                  ? 'bg-red-700 text-white'
+                  ? 'bg-red-800 text-red-50'
                   : 'bg-gray-200 text-gray-700'
               }`}>
                 {subs.filter(s => s.problem_order).length}
@@ -1238,14 +1238,14 @@ export default function Submissions() {
                     onClick={() => setServiceLevelFilter(level)}
                     className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
                       serviceLevelFilter === level
-                        ? (colors ? `${colors.activeBg} ${colors.activeText}` : 'bg-brand-600 text-white shadow-md')
-                        : (colors ? `${colors.bg} ${colors.text} hover:${colors.border}` : 'bg-white text-gray-600 hover:bg-gray-100')
+                        ? (colors ? `${colors.activeBg} ${colors.activeText}` : 'bg-brand-400 text-gray-900 shadow-md')
+                        : (colors ? `${colors.bg} ${colors.text} hover:${colors.border}` : 'bg-brand-100 text-gray-600 hover:bg-brand-200')
                     }`}
                   >
                     {displayName}
                     <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                       serviceLevelFilter === level
-                        ? 'bg-gray-900 bg-opacity-30 text-white'
+                        ? 'bg-gray-800 text-gray-100'
                         : 'bg-gray-800 bg-opacity-10'
                     }`}>
                       {count}
