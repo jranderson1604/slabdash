@@ -1224,7 +1224,7 @@ export default function SubmissionDetail() {
                         onClick={() => setSelectedSport('All')}
                         className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                           selectedSport === 'All'
-                            ? 'bg-brand-500 text-white'
+                            ? 'bg-brand-600 text-white shadow-md'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                         }`}
                       >
@@ -1236,7 +1236,7 @@ export default function SubmissionDetail() {
                           onClick={() => setSelectedSport(category)}
                           className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                             selectedSport === category
-                              ? 'bg-brand-500 text-white'
+                              ? 'bg-brand-600 text-white shadow-md'
                               : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                           }`}
                         >

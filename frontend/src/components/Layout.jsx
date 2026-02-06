@@ -153,7 +153,7 @@ export default function Layout({ children }) {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top header */}
-        <header className="sticky top-0 z-30 bg-brand-500 border-b border-brand-600">
+        <header className="bg-brand-600 border-b border-brand-700">
           <div className="flex items-center justify-between h-16 px-4 sm:px-6">
             {/* Mobile menu button */}
             <button

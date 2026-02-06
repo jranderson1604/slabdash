@@ -1015,7 +1015,7 @@ export default function Submissions() {
               onClick={() => setFilter('all')}
               className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
                 filter === 'all'
-                  ? 'bg-brand-500 text-white border-b-2 border-brand-600'
+                  ? 'bg-brand-600 text-white border-b-2 border-brand-700 shadow-md'
                   : 'bg-white text-gray-700 hover:bg-gray-100'
               }`}
             >
@@ -1101,7 +1101,7 @@ export default function Submissions() {
                     onClick={() => setServiceLevelFilter(level)}
                     className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
                       serviceLevelFilter === level
-                        ? (colors ? `${colors.activeBg} ${colors.activeText}` : 'bg-brand-500 text-white')
+                        ? (colors ? `${colors.activeBg} ${colors.activeText}` : 'bg-brand-600 text-white shadow-md')
                         : (colors ? `${colors.bg} ${colors.text} hover:${colors.border}` : 'bg-white text-gray-600 hover:bg-gray-100')
                     }`}
                   >
