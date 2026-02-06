@@ -92,7 +92,7 @@ export default function DashyAssistant() {
         >
           <div className="relative w-12 h-12 flex items-center justify-center">
             <img
-              src="/images/dashy.png"
+              src="/images/1F004F9D-A4EB-4BE1-B59B-3E94343B0A5B.png"
               alt="Dashy"
               className="w-12 h-12 animate-bounce"
               onError={(e) => {
@@ -115,7 +115,7 @@ export default function DashyAssistant() {
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
                 <img
-                  src="/images/dashy.png"
+                  src="/images/1F004F9D-A4EB-4BE1-B59B-3E94343B0A5B.png"
                   alt="Dashy"
                   className="w-10 h-10 rounded-full"
                   onError={(e) => {
@@ -147,7 +147,7 @@ export default function DashyAssistant() {
                 {msg.role === 'assistant' && (
                   <div className="w-8 h-8 flex-shrink-0 bg-brand-100 rounded-full flex items-center justify-center">
                     <img
-                      src="/images/dashy.png"
+                      src="/images/1F004F9D-A4EB-4BE1-B59B-3E94343B0A5B.png"
                       alt="Dashy"
                       className="w-8 h-8 rounded-full"
                       onError={(e) => {
@@ -173,7 +173,7 @@ export default function DashyAssistant() {
               <div className="flex gap-3">
                 <div className="w-8 h-8 flex-shrink-0 bg-brand-100 rounded-full flex items-center justify-center">
                   <img
-                    src="/images/dashy.png"
+                    src="/images/1F004F9D-A4EB-4BE1-B59B-3E94343B0A5B.png"
                     alt="Dashy"
                     className="w-8 h-8 rounded-full animate-bounce"
                     onError={(e) => {

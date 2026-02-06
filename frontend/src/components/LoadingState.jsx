@@ -6,7 +6,7 @@ export default function LoadingState({ message = 'Loading...' }) {
       {/* DASHY mascot with bounce animation */}
       <div className="mb-6 animate-bounce flex items-center justify-center">
         <img
-          src="/images/dashy.png"
+          src="/images/1F004F9D-A4EB-4BE1-B59B-3E94343B0A5B.png"
           alt="Dashy"
           className="w-32 h-32"
           onError={(e) => {
