@@ -1,12 +1,15 @@
 export default function EmptyState({ title, description, icon: Icon, children }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4">
-      {/* SlabDash S Logo */}
-      <div className="mb-6 opacity-20">
+      {/* DASHY mascot */}
+      <div className="mb-6 opacity-30">
         <img
-          src="/images/logo-icon-alt.png.svg"
-          alt="SlabDash"
-          className="w-24 h-24"
+          src="/images/dashy.png"
+          alt="Dashy"
+          className="w-32 h-32"
+          style={{
+            filter: 'grayscale(40%)'
+          }}
         />
       </div>
 

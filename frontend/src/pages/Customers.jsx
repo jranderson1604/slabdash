@@ -789,18 +789,31 @@ export default function Customers() {
                 )}
               </p>
 
-              {/* Progress Bar */}
-              <div className="w-full bg-gray-200 rounded-full h-3 mb-4 overflow-hidden">
+              {/* Progress Bar with DASHY */}
+              <div className="w-full bg-gray-200 rounded-full h-4 mb-4 overflow-visible relative">
                 <div
-                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-full rounded-full transition-all duration-500 ease-out flex items-center justify-end"
+                  className="bg-gradient-to-r from-brand-500 to-brand-600 h-full rounded-full transition-all duration-500 ease-out relative"
                   style={{
                     width: emailProgress.total > 0
                       ? `${(emailProgress.sent / emailProgress.total) * 100}%`
                       : '100%'
                   }}
                 >
+                  {/* DASHY character moving along the bar */}
+                  <div className="absolute -right-6 -top-6 transform transition-all duration-500">
+                    <img
+                      src="/images/dashy.png"
+                      alt="Dashy"
+                      className="w-12 h-12 animate-bounce"
+                      style={{
+                        filter: 'drop-shadow(2px 2px 4px rgba(0,0,0,0.2))'
+                      }}
+                    />
+                  </div>
                   {emailProgress.total > 0 && emailProgress.sent === emailProgress.total && (
-                    <span className="text-xs text-white font-medium mr-2">✓</span>
+                    <div className="absolute -right-2 top-1/2 -translate-y-1/2">
+                      <span className="text-lg">🎉</span>
+                    </div>
                   )}
                 </div>
               </div>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import DashyAssistant from './DashyAssistant';
 import {
   LayoutDashboard,
   Package,
@@ -229,6 +230,9 @@ export default function Layout({ children }) {
           {children}
         </main>
       </div>
+
+      {/* Dashy AI Assistant - floating button on all pages */}
+      <DashyAssistant />
     </div>
   );
 }

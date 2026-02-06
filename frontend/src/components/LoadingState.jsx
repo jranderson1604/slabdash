@@ -3,12 +3,12 @@ import { Loader2 } from 'lucide-react';
 export default function LoadingState({ message = 'Loading...' }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4">
-      {/* SlabDash S Logo with pulse animation */}
-      <div className="mb-6 animate-pulse">
+      {/* DASHY mascot with bounce animation */}
+      <div className="mb-6 animate-bounce">
         <img
-          src="/images/logo-icon-alt.png.svg"
-          alt="SlabDash"
-          className="w-24 h-24 opacity-30"
+          src="/images/dashy.png"
+          alt="Dashy"
+          className="w-32 h-32"
         />
       </div>
 
@@ -16,7 +16,7 @@ export default function LoadingState({ message = 'Loading...' }) {
       <Loader2 className="w-8 h-8 text-brand-500 animate-spin mb-4" />
 
       {/* Loading message */}
-      <p className="text-gray-600 text-center">
+      <p className="text-gray-600 text-center font-medium">
         {message}
       </p>
     </div>
