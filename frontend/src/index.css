@@ -145,8 +145,9 @@
     box-shadow: 0 0 0 4px rgba(255, 129, 112, 0.12), 0 2px 8px 0 rgba(0, 0, 0, 0.08);
   }
   .card {
-    @apply rounded-2xl border border-brand-200;
+    @apply rounded-2xl border;
     background-color: rgb(var(--card-bg));
+    border-color: rgb(var(--brand-200));
     box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.04), 0 2px 8px 0 rgba(0, 0, 0, 0.02);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
