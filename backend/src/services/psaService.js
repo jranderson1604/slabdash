@@ -176,12 +176,12 @@ const parseProgressData = (data) => {
 const updateSubmissionFromPsa = async (submissionId, psaData) => {
     const parsed = parseProgressData(psaData);
 
-    // Get current step before update to detect changes
+    // Get current state before update to detect changes
     const currentResult = await db.query(
-        'SELECT current_step FROM submissions WHERE id = $1',
+        'SELECT psa_submission_number, current_step, progress_percent, grades_ready, shipped, problem_order FROM submissions WHERE id = $1',
         [submissionId]
     );
-    const previousStep = currentResult.rows[0]?.current_step;
+    const previousState = currentResult.rows[0];
 
     await db.query(`
         UPDATE submissions SET
@@ -201,8 +201,44 @@ const updateSubmissionFromPsa = async (submissionId, psaData) => {
         );
     }
 
+    // Track what changed
+    const changes = {
+        submissionNumber: previousState.psa_submission_number,
+        hadChanges: false,
+        stepChanged: false,
+        progressChanged: false,
+        statusChanged: false,
+        previousStep: previousState.current_step,
+        newStep: parsed.currentStep,
+        previousProgress: previousState.progress_percent,
+        newProgress: parsed.progressPercent,
+        previousGradesReady: previousState.grades_ready,
+        newGradesReady: parsed.gradesReady,
+        previousShipped: previousState.shipped,
+        newShipped: parsed.shipped,
+        previousProblem: previousState.problem_order,
+        newProblem: parsed.problemOrder
+    };
+
+    // Detect what changed
+    if (previousState.current_step !== parsed.currentStep) {
+        changes.hadChanges = true;
+        changes.stepChanged = true;
+    }
+    if (previousState.progress_percent !== parsed.progressPercent) {
+        changes.hadChanges = true;
+        changes.progressChanged = true;
+        changes.progressDelta = parsed.progressPercent - previousState.progress_percent;
+    }
+    if (previousState.grades_ready !== parsed.gradesReady ||
+        previousState.shipped !== parsed.shipped ||
+        previousState.problem_order !== parsed.problemOrder) {
+        changes.hadChanges = true;
+        changes.statusChanged = true;
+    }
+
     // Send email notification if step changed
-    if (previousStep !== parsed.currentStep && parsed.currentStep) {
+    if (previousState.current_step !== parsed.currentStep && parsed.currentStep) {
         try {
             const { sendSubmissionUpdateEmail } = require('./emailService');
             await sendSubmissionUpdateEmail(submissionId, parsed.currentStep, parsed.progressPercent);
@@ -212,7 +248,7 @@ const updateSubmissionFromPsa = async (submissionId, psaData) => {
         }
     }
 
-    return parsed;
+    return { parsed, changes };
 };
 
 const refreshAllSubmissions = async () => {

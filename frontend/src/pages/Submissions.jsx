@@ -29,6 +29,8 @@ import {
   Send,
   Upload,
   Truck,
+  Download,
+  FileText,
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -531,7 +533,14 @@ export default function Submissions() {
                 });
                 await loadSubmissions();
 
-                let message = `✓ Refresh Complete!\n\nUpdated: ${data.updated}\nFailed: ${data.errors}`;
+                let message = `✓ Refresh Complete!\n\nUpdated: ${data.updated}`;
+                if (data.changedCount !== undefined) {
+                  message += `\nChanged: ${data.changedCount}\nUnchanged: ${data.noChangeCount}`;
+                }
+                message += `\nFailed: ${data.errors}`;
+                if (data.changeLogAvailable) {
+                  message += '\n\n📊 Download CSV Report button available above to see detailed changes.';
+                }
                 if (data.errors > 0) {
                   message += '\n\nℹ️ Some submissions failed due to PSA rate limiting.\nYou can try refreshing individual submissions later.';
                 }
@@ -551,6 +560,56 @@ export default function Submissions() {
       alert(`Refresh failed: ${errorMsg}\n\nPlease check your PSA API key in Company Settings.`);
     } finally {
       setRefreshingAll(false);
+    }
+  };
+
+  const handleDownloadChangeReport = async () => {
+    try {
+      const token = localStorage.getItem('slabdash_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+      // First get the latest log ID
+      const logResponse = await fetch(`${API_URL}/psa/refresh-log/latest`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!logResponse.ok) {
+        throw new Error('Failed to fetch refresh log');
+      }
+
+      const logData = await logResponse.json();
+
+      if (!logData.hasLog) {
+        alert('No refresh logs available. Please run a refresh first.');
+        return;
+      }
+
+      // Download the CSV
+      const csvResponse = await fetch(`${API_URL}/psa/refresh-log/${logData.log.id}/csv`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!csvResponse.ok) {
+        throw new Error('Failed to download CSV');
+      }
+
+      // Create download link
+      const blob = await csvResponse.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `psa-refresh-report-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Failed to download change report:', error);
+      alert('Failed to download change report. Please try again.');
     }
   };
 
@@ -960,6 +1019,14 @@ export default function Submissions() {
               >
                 <RefreshCw className={`w-4 h-4 ${refreshingAll ? 'animate-spin' : ''}`} />
                 <span className="hidden sm:inline">{refreshingAll ? 'Refreshing...' : 'Refresh All'}</span>
+              </button>
+              <button
+                onClick={handleDownloadChangeReport}
+                className="btn btn-secondary gap-2"
+                title="Download CSV report of the most recent refresh showing what changed"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">CSV Report</span>
               </button>
             </>
           )}
