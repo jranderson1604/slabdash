@@ -390,7 +390,7 @@ function SubmissionRow({ submission, onRefresh, onDelete, isSelected, onToggleSe
       {/* Customers Modal */}
       {showCustomersModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
@@ -453,7 +453,7 @@ function SubmissionRow({ submission, onRefresh, onDelete, isSelected, onToggleSe
       {/* Test Email Modal */}
       {showTestEmailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={(e) => e.stopPropagation()}>
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Mail className="w-6 h-6 text-blue-600" />
@@ -984,64 +984,69 @@ export default function Submissions() {
   // Service level colors
   const getServiceColor = (level) => {
     const levelLower = level?.toLowerCase() || '';
-    if (levelLower.includes('bulk')) return { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300', activeBg: 'bg-purple-500', activeText: 'text-white' };
-    if (levelLower.includes('plus')) return { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', activeBg: 'bg-blue-500', activeText: 'text-white' };
-    if (levelLower.includes('regular') || levelLower.includes('standard')) return { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300', activeBg: 'bg-green-500', activeText: 'text-white' };
-    if (levelLower.includes('express')) return { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300', activeBg: 'bg-orange-500', activeText: 'text-white' };
-    if (levelLower.includes('specialty') || levelLower.includes('reholder')) return { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-300', activeBg: 'bg-pink-500', activeText: 'text-white' };
-    if (levelLower.includes('walk')) return { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300', activeBg: 'bg-red-500', activeText: 'text-white' };
-    return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300', activeBg: 'bg-gray-500', activeText: 'text-white' };
+    if (levelLower.includes('bulk')) return { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300', activeBg: 'bg-purple-300', activeText: 'text-gray-900' };
+    if (levelLower.includes('plus')) return { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', activeBg: 'bg-blue-300', activeText: 'text-gray-900' };
+    if (levelLower.includes('regular') || levelLower.includes('standard')) return { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300', activeBg: 'bg-green-300', activeText: 'text-gray-900' };
+    if (levelLower.includes('express')) return { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300', activeBg: 'bg-orange-300', activeText: 'text-gray-900' };
+    if (levelLower.includes('specialty') || levelLower.includes('reholder')) return { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-300', activeBg: 'bg-pink-300', activeText: 'text-gray-900' };
+    if (levelLower.includes('walk')) return { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300', activeBg: 'bg-red-300', activeText: 'text-gray-900' };
+    return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300', activeBg: 'bg-gray-300', activeText: 'text-gray-900' };
   };
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Submissions</h1>
-            <p className="text-gray-500 mt-1">Track and manage PSA orders</p>
-          </div>
-          <button
-            onClick={() => setShowHelp(!showHelp)}
-            className="p-2 rounded-lg hover:bg-gray-100 text-brand-500"
-            title="Show help"
-          >
-            <HelpCircle className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowCsvImport(true)}
-            className="btn btn-secondary gap-2"
-          >
-            <Upload className="w-4 h-4" />
-            <span className="hidden sm:inline">Import PSA CSV</span>
-          </button>
-          <button
-            onClick={() => setShowBulkTestEmailModal(true)}
-            className="btn btn-secondary gap-2"
-          >
-            <Eye className="w-4 h-4" />
-            <span className="hidden sm:inline">Preview Email</span>
-          </button>
-          <button
-            onClick={handleBulkEmail}
-            disabled={sendingBulk}
-            className="btn btn-secondary gap-2"
-          >
-            <Mail className={`w-4 h-4 ${sendingBulk ? 'animate-pulse' : ''}`} />
-            <span className="hidden sm:inline">{sendingBulk ? 'Sending...' : 'Email All'}</span>
-          </button>
-          {selectedSubmissions.length > 0 && (
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
+        {/* Decorative circles */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">SUBMISSIONS</h1>
+              <p className="text-white/90 text-lg font-semibold">Track and manage PSA orders</p>
+            </div>
             <button
-              onClick={handleBulkDelete}
-              className="btn btn-secondary gap-2 bg-red-50 text-red-700 hover:bg-red-100 border-red-200"
+              onClick={() => setShowHelp(!showHelp)}
+              className="p-2 rounded-lg hover:bg-white/20 text-white backdrop-blur-sm transition-all"
+              title="Show help"
             >
-              <Trash2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Delete ({selectedSubmissions.length})</span>
+              <HelpCircle className="w-5 h-5" />
             </button>
-          )}
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => setShowCsvImport(true)}
+              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="hidden sm:inline">Import CSV</span>
+            </button>
+            <button
+              onClick={() => setShowBulkTestEmailModal(true)}
+              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+            >
+              <Eye className="w-4 h-4" />
+              <span className="hidden sm:inline">Preview</span>
+            </button>
+            <button
+              onClick={handleBulkEmail}
+              disabled={sendingBulk}
+              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg disabled:opacity-50"
+            >
+              <Mail className={`w-4 h-4 ${sendingBulk ? 'animate-pulse' : ''}`} />
+              <span className="hidden sm:inline">{sendingBulk ? 'Sending...' : 'Email All'}</span>
+            </button>
+            {selectedSubmissions.length > 0 && (
+              <button
+                onClick={handleBulkDelete}
+                className="bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-red-400 shadow-lg"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Delete ({selectedSubmissions.length})</span>
+              </button>
+            )}
           {company?.hasPsaKey && (
             <>
               <button
@@ -1070,6 +1075,7 @@ export default function Submissions() {
             <span className="hidden sm:inline">New Submission</span>
           </Link>
         </div>
+      </div>
       </div>
 
       {/* Refresh Progress Bar */}
@@ -1146,20 +1152,20 @@ export default function Submissions() {
 
       {/* Completion Status Tabs */}
       <div className="card">
-        <div className="border-b border-gray-200">
-          <div className="flex bg-gray-50">
+        <div className="border-b border-brand-200">
+          <div className="flex overflow-x-auto bg-brand-50 scrollbar-hide">
             <button
               onClick={() => setFilter('all')}
-              className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
+              className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
                 filter === 'all'
-                  ? 'bg-brand-600 text-white border-b-2 border-brand-700 shadow-md'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
+                  ? 'bg-brand-400 text-gray-900 border-b-4 border-brand-700 shadow-md'
+                  : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
               }`}
             >
               All Submissions
               <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 filter === 'all'
-                  ? 'bg-white bg-opacity-30 text-white'
+                  ? 'bg-brand-800 text-brand-50'
                   : 'bg-gray-200 text-gray-700'
               }`}>
                 {subs.length}
@@ -1167,16 +1173,16 @@ export default function Submissions() {
             </button>
             <button
               onClick={() => setFilter('active')}
-              className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
+              className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
                 filter === 'active'
-                  ? 'bg-blue-500 text-white border-b-2 border-blue-600'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
+                  ? 'bg-blue-400 text-gray-900 border-b-4 border-blue-700'
+                  : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
               }`}
             >
               Active (At PSA)
               <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 filter === 'active'
-                  ? 'bg-white bg-opacity-30 text-white'
+                  ? 'bg-blue-800 text-blue-50'
                   : 'bg-gray-200 text-gray-700'
               }`}>
                 {subs.filter(s => s.progress_percent < 100 && !s.shipped).length}
@@ -1184,16 +1190,16 @@ export default function Submissions() {
             </button>
             <button
               onClick={() => setFilter('completed')}
-              className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
+              className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
                 filter === 'completed'
-                  ? 'bg-green-500 text-white border-b-2 border-green-600'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
+                  ? 'bg-green-400 text-gray-900 border-b-4 border-green-700'
+                  : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
               }`}
             >
               Completed
               <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 filter === 'completed'
-                  ? 'bg-white bg-opacity-30 text-white'
+                  ? 'bg-green-800 text-green-50'
                   : 'bg-gray-200 text-gray-700'
               }`}>
                 {subs.filter(s => s.progress_percent >= 100 || s.shipped).length}
@@ -1201,16 +1207,16 @@ export default function Submissions() {
             </button>
             <button
               onClick={() => setFilter('problems')}
-              className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
+              className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
                 filter === 'problems'
-                  ? 'bg-red-500 text-white border-b-2 border-red-600'
-                  : 'bg-white text-gray-700 hover:bg-gray-100'
+                  ? 'bg-red-400 text-gray-900 border-b-4 border-red-700'
+                  : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
               }`}
             >
               Problems
               <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                 filter === 'problems'
-                  ? 'bg-white bg-opacity-30 text-white'
+                  ? 'bg-red-800 text-red-50'
                   : 'bg-gray-200 text-gray-700'
               }`}>
                 {subs.filter(s => s.problem_order).length}
@@ -1238,14 +1244,14 @@ export default function Submissions() {
                     onClick={() => setServiceLevelFilter(level)}
                     className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
                       serviceLevelFilter === level
-                        ? (colors ? `${colors.activeBg} ${colors.activeText}` : 'bg-brand-600 text-white shadow-md')
-                        : (colors ? `${colors.bg} ${colors.text} hover:${colors.border}` : 'bg-white text-gray-600 hover:bg-gray-100')
+                        ? (colors ? `${colors.activeBg} ${colors.activeText}` : 'bg-brand-400 text-gray-900 shadow-md')
+                        : (colors ? `${colors.bg} ${colors.text} hover:${colors.border}` : 'bg-brand-100 text-gray-600 hover:bg-brand-200')
                     }`}
                   >
                     {displayName}
                     <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                       serviceLevelFilter === level
-                        ? 'bg-white bg-opacity-30 text-white'
+                        ? 'bg-gray-800 text-gray-100'
                         : 'bg-gray-800 bg-opacity-10'
                     }`}>
                       {count}
@@ -1512,7 +1518,7 @@ export default function Submissions() {
       {/* PSA CSV Import Modal */}
       {showCsvImport && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full">
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-2xl w-full">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
@@ -1683,7 +1689,7 @@ export default function Submissions() {
       {/* Bulk Test Email Modal */}
       {showBulkTestEmailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Mail className="w-6 h-6 text-blue-600" />

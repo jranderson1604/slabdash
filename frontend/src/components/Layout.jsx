@@ -101,14 +101,14 @@ export default function Layout({ children }) {
                 key={item.name}
                 to={item.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
                   isActive
-                    ? 'bg-purple-600 text-white'
+                    ? 'bg-purple-600 text-white shadow-lg'
                     : 'text-purple-700 hover:text-purple-900 hover:bg-purple-50 border border-purple-200'
                 }`}
               >
-                <item.icon className="w-5 h-5" />
-                {item.name}
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                <span className="slabdash-label">{item.name}</span>
               </Link>
             );
           })}
@@ -127,14 +127,14 @@ export default function Layout({ children }) {
                 key={item.name}
                 to={item.href}
                 onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
                   isActive
-                    ? 'bg-brand-500 text-white'
-                    : 'text-gray-700 hover:text-gray-900 hover:bg-brand-100'
+                    ? 'bg-brand-600 text-white shadow-lg'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-brand-50'
                 }`}
               >
-                <item.icon className="w-5 h-5" />
-                {item.name}
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                <span className="slabdash-label">{item.name}</span>
               </Link>
             );
           })}
@@ -166,7 +166,7 @@ export default function Layout({ children }) {
 
             {/* Page title (shows on desktop) */}
             <div className="hidden lg:block">
-              <h1 className="text-lg font-semibold text-white">
+              <h1 className="text-lg text-white slabdash-label">
                 {navigation.find(n =>
                   n.href === location.pathname ||
                   (n.href !== '/dashboard' && n.href !== '/' && location.pathname.startsWith(n.href))
@@ -198,15 +198,15 @@ export default function Layout({ children }) {
                       className="fixed inset-0 z-10"
                       onClick={() => setUserMenuOpen(false)}
                     />
-                    <div className="absolute right-0 z-20 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 fade-in">
-                      <div className="px-4 py-2 border-b border-gray-100">
+                    <div className="absolute right-0 z-20 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-300 py-1 fade-in">
+                      <div className="px-4 py-2 border-b border-gray-200">
                         <p className="text-sm font-medium text-gray-900">{user?.name}</p>
                         <p className="text-xs text-gray-500">{user?.email}</p>
                       </div>
                       <Link
                         to="/settings"
                         onClick={() => setUserMenuOpen(false)}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >
                         Settings
                       </Link>

@@ -194,31 +194,51 @@ export default function CustomerDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link to="/customers" className="p-2 hover:bg-gray-100 rounded-lg"><ArrowLeft className="w-5 h-5 text-gray-500" /></Link>
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center">
-              <span className="text-lg font-bold text-brand-600">{customer.name.charAt(0).toUpperCase()}</span>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{customer.name}</h1>
-              <p className="text-gray-500">{customer.email}</p>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-6 shadow-xl">
+        {/* Decorative circles */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Link to="/customers" className="p-2 hover:bg-white/20 backdrop-blur-sm rounded-lg transition-all">
+              <ArrowLeft className="w-5 h-5 text-white" />
+            </Link>
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm border-2 border-white/50">
+                <span className="text-lg font-bold text-white">{customer.name.charAt(0).toUpperCase()}</span>
+              </div>
+              <div>
+                <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-lg">{customer.name}</h1>
+                <p className="text-white/90 text-lg font-semibold mt-1">{customer.email}</p>
+              </div>
             </div>
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {!editing ? (
-            <>
-              <button onClick={() => setEditing(true)} className="btn btn-secondary gap-2"><Edit2 className="w-4 h-4" />Edit</button>
-              <button onClick={handleDelete} className="btn btn-danger gap-2"><Trash2 className="w-4 h-4" />Delete</button>
-            </>
-          ) : (
-            <>
-              <button onClick={() => setEditing(false)} className="btn btn-secondary gap-2"><X className="w-4 h-4" />Cancel</button>
-              <button onClick={handleSave} disabled={saving} className="btn btn-primary gap-2">{saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Save</button>
-            </>
-          )}
+          <div className="flex items-center gap-3">
+            {!editing ? (
+              <>
+                <button onClick={() => setEditing(true)} className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg">
+                  <Edit2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Edit</span>
+                </button>
+                <button onClick={handleDelete} className="bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-red-400 shadow-lg">
+                  <Trash2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Delete</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => setEditing(false)} className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg">
+                  <X className="w-4 h-4" />
+                  <span className="hidden sm:inline">Cancel</span>
+                </button>
+                <button onClick={handleSave} disabled={saving} className="bg-white text-brand-600 px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  <span className="hidden sm:inline">Save</span>
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -269,7 +289,7 @@ export default function CustomerDetail() {
 
                 {/* Dropdown results */}
                 {showSubmissionDropdown && submissionSearchQuery && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-10 w-full mt-1 bg-brand-50 border border-brand-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                     {submissionList
                       .filter(sub =>
                         !customer.recent_submissions?.some(rs => rs.id === sub.id) &&
@@ -470,7 +490,7 @@ export default function CustomerDetail() {
       {/* Test Email Modal */}
       {showTestEmailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Mail className="w-6 h-6 text-blue-600" />

@@ -970,126 +970,132 @@ export default function SubmissionDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link to="/submissions" className="p-2 hover:bg-gray-100 rounded-lg">
-            <ArrowLeft className="w-5 h-5 text-gray-500" />
-          </Link>
-          <div className="flex-1">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-6 shadow-xl">
+        {/* Decorative circles */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Link to="/submissions" className="p-2 hover:bg-white/20 backdrop-blur-sm rounded-lg transition-all">
+              <ArrowLeft className="w-5 h-5 text-white" />
+            </Link>
+            <div className="flex-1">
+              {editing ? (
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-xs text-white/80 font-bold uppercase">PSA Submission #</label>
+                    <input
+                      type="text"
+                      value={editForm.psa_submission_number}
+                      onChange={(e) => setEditForm({ ...editForm, psa_submission_number: e.target.value })}
+                      className="input text-xl font-bold mt-1"
+                      placeholder="PSA Submission Number"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-white/80 font-bold uppercase">PSA Order #</label>
+                    <input
+                      type="text"
+                      value={editForm.psa_order_number}
+                      onChange={(e) => setEditForm({ ...editForm, psa_order_number: e.target.value })}
+                      className="input mt-1"
+                      placeholder="PSA Order Number"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-white/80 font-bold uppercase">Internal ID</label>
+                    <input
+                      type="text"
+                      value={editForm.internal_id}
+                      onChange={(e) => setEditForm({ ...editForm, internal_id: e.target.value })}
+                      className="input mt-1"
+                      placeholder="Internal ID"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-lg">
+                    {submission.psa_submission_number || submission.internal_id || 'SUBMISSION'}
+                  </h1>
+                  {submission.psa_order_number && (
+                    <p className="text-white/90 text-lg font-semibold mt-1">Order #{submission.psa_order_number}</p>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
             {editing ? (
-              <div className="space-y-2">
-                <div>
-                  <label className="text-xs text-gray-500">PSA Submission #</label>
-                  <input
-                    type="text"
-                    value={editForm.psa_submission_number}
-                    onChange={(e) => setEditForm({ ...editForm, psa_submission_number: e.target.value })}
-                    className="input text-xl font-bold"
-                    placeholder="PSA Submission Number"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500">PSA Order #</label>
-                  <input
-                    type="text"
-                    value={editForm.psa_order_number}
-                    onChange={(e) => setEditForm({ ...editForm, psa_order_number: e.target.value })}
-                    className="input"
-                    placeholder="PSA Order Number"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500">Internal ID</label>
-                  <input
-                    type="text"
-                    value={editForm.internal_id}
-                    onChange={(e) => setEditForm({ ...editForm, internal_id: e.target.value })}
-                    className="input"
-                    placeholder="Internal ID"
-                  />
-                </div>
-              </div>
+              <>
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={saving}
+                  className="bg-white text-brand-600 px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105"
+                >
+                  {saving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  <span className="hidden sm:inline">Save Changes</span>
+                </button>
+                <button
+                  onClick={handleCancelEdit}
+                  disabled={saving}
+                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+                >
+                  <X className="w-4 h-4" />
+                  <span className="hidden sm:inline">Cancel</span>
+                </button>
+              </>
             ) : (
               <>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  {submission.psa_submission_number || submission.internal_id || 'Submission'}
-                </h1>
-                {submission.psa_order_number && (
-                  <p className="text-gray-500">Order #{submission.psa_order_number}</p>
+                <button
+                  onClick={handleEdit}
+                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+                >
+                  <Edit2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Edit</span>
+                </button>
+                <button
+                  onClick={() => setShowTestEmailModal(true)}
+                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+                  title="Preview status update email"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span className="hidden sm:inline">Preview</span>
+                </button>
+                <button
+                  onClick={handleSendUpdate}
+                  disabled={sendingEmail}
+                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg disabled:opacity-50"
+                >
+                  {sendingEmail ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                  <span className="hidden sm:inline">{sendingEmail ? 'Sending...' : 'Send Update'}</span>
+                </button>
+                {company?.hasPsaKey && submission.psa_submission_number && (
+                  <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                    <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+                  </button>
                 )}
+                <button onClick={handleDelete} className="bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-red-400 shadow-lg">
+                  <Trash2 className="w-4 h-4" />
+                  <span className="hidden sm:inline">Delete</span>
+                </button>
               </>
             )}
           </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {editing ? (
-            <>
-              <button
-                onClick={handleSaveEdit}
-                disabled={saving}
-                className="btn btn-primary gap-2"
-              >
-                {saving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                Save Changes
-              </button>
-              <button
-                onClick={handleCancelEdit}
-                disabled={saving}
-                className="btn btn-secondary gap-2"
-              >
-                <X className="w-4 h-4" />
-                Cancel
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={handleEdit}
-                className="btn btn-secondary gap-2"
-              >
-                <Edit2 className="w-4 h-4" />
-                Edit
-              </button>
-              <button
-                onClick={() => setShowTestEmailModal(true)}
-                className="btn btn-secondary gap-2"
-                title="Preview status update email"
-              >
-                <Eye className="w-4 h-4" />
-                Preview Email
-              </button>
-              <button
-                onClick={handleSendUpdate}
-                disabled={sendingEmail}
-                className="btn btn-secondary gap-2"
-              >
-                {sendingEmail ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-                Send Update
-              </button>
-              {company?.hasPsaKey && submission.psa_submission_number && (
-                <button
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  className="btn btn-secondary gap-2"
-                >
-                  <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                  Refresh
-                </button>
-              )}
-              <button onClick={handleDelete} className="btn btn-danger gap-2">
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
-            </>
-          )}
         </div>
       </div>
 
@@ -1697,7 +1703,7 @@ export default function SubmissionDetail() {
       {/* Customer List Modal */}
       {showCustomerListModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
@@ -1805,7 +1811,7 @@ export default function SubmissionDetail() {
       {/* Bulk Assign Modal */}
       {showBulkAssignModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold text-gray-900">Bulk Assign Cards to Customers</h2>
@@ -1923,7 +1929,7 @@ export default function SubmissionDetail() {
       {/* Test Email Modal */}
       {showTestEmailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Mail className="w-6 h-6 text-blue-600" />
