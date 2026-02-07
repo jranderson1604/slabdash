@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { format } from 'date-fns';
 import BeforePhotoUpload from '../components/BeforePhotoUpload';
+import CompLookup from '../components/CompLookup';
 import {
   Package, Loader2, AlertTriangle, CheckCircle2, Clock, DollarSign,
   ChevronDown, ChevronUp, Key, Sparkles, Image as ImageIcon, Upload, X, Search, Grid,
@@ -320,6 +321,18 @@ function SubmissionCard({ submission, onExpand, isExpanded }) {
                             }}
                           />
                         </div>
+
+                        {/* Price Comps Section */}
+                        <CompLookup
+                          cardId={card.id}
+                          token={searchParams.get('token')}
+                          initialCard={card}
+                          onUpdate={(updatedCard) => {
+                            // Refresh the portal data to show updated price
+                            loadPortalData();
+                          }}
+                          readOnly={true}
+                        />
                       </div>
                     </div>
                   ))}

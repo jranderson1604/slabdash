@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { cards } from '../api/client';
+import CompLookup from '../components/CompLookup';
 import {
   ArrowLeft,
   Upload,
@@ -418,6 +419,18 @@ export default function CardDetail() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Price Comps Section */}
+      <div className="mt-6">
+        <CompLookup
+          cardId={card.id}
+          initialCard={card}
+          onUpdate={(updatedCard) => {
+            setCard(updatedCard);
+          }}
+          readOnly={false}
+        />
       </div>
     </div>
   );

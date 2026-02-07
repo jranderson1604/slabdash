@@ -77,7 +77,9 @@ export const cards = {
     }),
   deleteImage: (id, imageIndex) => api.delete(`/cards/${id}/images/${imageIndex}`),
   bulkAssign: (csvData, submissionId) => api.post('/cards/bulk-assign', { csvData, submissionId }),
-  autoDetectSports: (submissionId) => api.post('/cards/auto-detect-sports', { submissionId })
+  autoDetectSports: (submissionId) => api.post('/cards/auto-detect-sports', { submissionId }),
+  lookupPrice: (id, force = false) => api.post(`/cards/${id}/lookup-price?force=${force}`),
+  getComps: (id) => api.get(`/cards/${id}/comps`)
 };
 
 export const psa = {
