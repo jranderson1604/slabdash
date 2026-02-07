@@ -3,6 +3,10 @@ import { Link } from 'react-router-dom';
 import { submissions, customers, psa } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import AdminWalkthrough from '../components/AdminWalkthrough';
+import StatCard from '../components/StatCard';
+import ProgressBar from '../components/ProgressBar';
+import StatusBadge from '../components/StatusBadge';
+import PageHeader from '../components/PageHeader';
 import {
   Package,
   Users,
@@ -18,69 +22,7 @@ import {
   PlayCircle,
 } from 'lucide-react';
 
-function StatCard({ icon: Icon, label, value, subtext, color = 'brand', link }) {
-  const colors = {
-    brand: 'bg-brand-50 text-brand-600',
-    green: 'bg-green-50 text-green-600',
-    yellow: 'bg-yellow-50 text-yellow-600',
-    blue: 'bg-blue-50 text-blue-600',
-  };
-
-  const content = (
-    <div className="flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colors[color]}`}>
-        <Icon className="w-6 h-6" />
-      </div>
-      <div>
-        <p className="text-2xl font-bold text-gray-900">{value}</p>
-        <p className="text-sm text-gray-500">{label}</p>
-        {subtext && <p className="text-xs text-gray-400 mt-0.5">{subtext}</p>}
-      </div>
-    </div>
-  );
-
-  if (link) {
-    return (
-      <Link to={link} className="card p-6 hover:border-brand-500 hover:shadow-lg transition-all cursor-pointer">
-        {content}
-      </Link>
-    );
-  }
-
-  return <div className="card p-6">{content}</div>;
-}
-
-function ProgressBar({ percent, showLabel = true }) {
-  const getColor = (p) => {
-    if (p >= 100) return 'bg-green-500';
-    if (p >= 75) return 'bg-blue-500';
-    if (p >= 50) return 'bg-yellow-500';
-    return 'bg-brand-500';
-  };
-
-  return (
-    <div className="flex items-center gap-3">
-      <div className="flex-1 progress-bar">
-        <div
-          className={`progress-bar-fill ${getColor(percent)}`}
-          style={{ width: `${Math.min(percent, 100)}%` }}
-        />
-      </div>
-      {showLabel && (
-        <span className="text-sm font-medium text-gray-600 w-10 text-right">{percent}%</span>
-      )}
-    </div>
-  );
-}
-
 function RecentSubmissionRow({ submission }) {
-  const getStatusBadge = (sub) => {
-    if (sub.shipped) return <span className="badge badge-green">Shipped</span>;
-    if (sub.problem_order) return <span className="badge badge-red">Problem</span>;
-    if (sub.grades_ready) return <span className="badge badge-blue">Grades Ready</span>;
-    return <span className="badge badge-yellow">{sub.current_step || 'In Progress'}</span>;
-  };
-
   return (
     <tr>
       <td>
@@ -92,7 +34,9 @@ function RecentSubmissionRow({ submission }) {
       <td>
         <ProgressBar percent={submission.progress_percent || 0} />
       </td>
-      <td>{getStatusBadge(submission)}</td>
+      <td>
+        <StatusBadge submission={submission} showTooltip={false} />
+      </td>
       <td className="text-gray-500">{submission.card_count || 0} cards</td>
     </tr>
   );
@@ -167,21 +111,12 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       {/* Header with refresh button */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
-
-        <div className="relative flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">
-              DASHBOARD
-            </h1>
-            <p className="text-white/90 text-lg font-semibold">
-              Overview of your PSA submissions
-            </p>
-          </div>
-          <div className="flex items-center gap-3">
+      <PageHeader
+        title="Dashboard"
+        subtitle="Overview of your PSA submissions"
+        variant="large"
+        actions={
+          <>
             <button
               onClick={() => setShowWalkthrough(true)}
               className="bg-gradient-to-br from-purple-500 to-purple-700 hover:from-purple-600 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap"
@@ -199,9 +134,9 @@ export default function Dashboard() {
                 <span>{refreshing ? 'Refreshing...' : 'Refresh All'}</span>
               </button>
             )}
-          </div>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {/* PSA API Warning */}
       {!company?.hasPsaKey && (

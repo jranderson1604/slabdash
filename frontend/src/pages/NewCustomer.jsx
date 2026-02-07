@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { customers } from '../api/client';
 import { ArrowLeft, Loader2 } from 'lucide-react';
+import PageHeader from '../components/PageHeader';
 
 export default function NewCustomer() {
   const navigate = useNavigate();
@@ -40,21 +41,11 @@ export default function NewCustomer() {
   return (
     <div className="max-w-2xl mx-auto">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-6 shadow-xl mb-6">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
-
-        <div className="relative flex items-center gap-4">
-          <Link to="/customers" className="p-2 hover:bg-white/20 backdrop-blur-sm rounded-lg transition-all">
-            <ArrowLeft className="w-5 h-5 text-white" />
-          </Link>
-          <div>
-            <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-lg">ADD CUSTOMER</h1>
-            <p className="text-white/90 text-lg font-semibold mt-1">Create a new customer record</p>
-          </div>
-        </div>
-      </div>
+      <PageHeader
+        title="Add Customer"
+        subtitle="Create a new customer record"
+        backLink="/customers"
+      />
 
       <form onSubmit={handleSubmit} className="card p-6 space-y-6">
         {error && (

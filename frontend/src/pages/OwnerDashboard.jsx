@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Navigate } from 'react-router-dom';
+import StatCard from '../components/StatCard';
 import {
   Building2,
   Users,
@@ -16,29 +17,6 @@ import {
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
-
-function StatCard({ icon: Icon, label, value, subtext, color = 'blue' }) {
-  const colors = {
-    blue: 'bg-blue-500',
-    green: 'bg-green-500',
-    purple: 'bg-purple-500',
-    orange: 'bg-orange-500',
-    pink: 'bg-pink-500'
-  };
-
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 hover:shadow-lg transition-shadow">
-      <div className="flex items-center justify-between mb-4">
-        <div className={`w-12 h-12 ${colors[color]} rounded-lg flex items-center justify-center`}>
-          <Icon className="w-6 h-6 text-white" />
-        </div>
-      </div>
-      <h3 className="text-3xl font-bold text-gray-900 mb-1">{value}</h3>
-      <p className="text-sm font-medium text-gray-600">{label}</p>
-      {subtext && <p className="text-xs text-gray-500 mt-1">{subtext}</p>}
-    </div>
-  );
-}
 
 export default function OwnerDashboard() {
   const { user } = useAuth();
@@ -162,6 +140,7 @@ export default function OwnerDashboard() {
           value={stats?.total_shops || 0}
           subtext={`${stats?.new_shops_30d || 0} new this month`}
           color="blue"
+          variant="solid"
         />
         <StatCard
           icon={Crown}
@@ -169,6 +148,7 @@ export default function OwnerDashboard() {
           value={stats?.enterprise_shops || 0}
           subtext="Premium clients"
           color="purple"
+          variant="solid"
         />
         <StatCard
           icon={Zap}
@@ -176,6 +156,7 @@ export default function OwnerDashboard() {
           value={stats?.pro_shops || 0}
           subtext="Active subscriptions"
           color="orange"
+          variant="solid"
         />
         <StatCard
           icon={Package}
@@ -183,6 +164,7 @@ export default function OwnerDashboard() {
           value={stats?.total_submissions || 0}
           subtext={`${stats?.submissions_7d || 0} this week`}
           color="green"
+          variant="solid"
         />
         <StatCard
           icon={Users}
@@ -190,6 +172,7 @@ export default function OwnerDashboard() {
           value={stats?.total_users || 0}
           subtext="Active accounts"
           color="blue"
+          variant="solid"
         />
       </div>
 
