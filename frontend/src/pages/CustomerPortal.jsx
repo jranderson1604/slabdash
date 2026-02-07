@@ -2,9 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { format } from 'date-fns';
+import BeforePhotoUpload from '../components/BeforePhotoUpload';
 import {
   Package, Loader2, AlertTriangle, CheckCircle2, Clock, DollarSign,
-  ChevronDown, ChevronUp, Key, Sparkles, Image as ImageIcon, Upload, X, Search, Grid
+  ChevronDown, ChevronUp, Key, Sparkles, Image as ImageIcon, Upload, X, Search, Grid,
+  FileText, MessageSquare, Camera
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -202,31 +204,123 @@ function SubmissionCard({ submission, onExpand, isExpanded }) {
               </div>
             )}
 
+            {/* Admin Notes for Submission */}
+            {(submission.admin_notes || submission.prep_notes) && (
+              <div className="space-y-4">
+                {submission.admin_notes && (
+                  <div className="bg-blue-50 border-l-4 border-blue-500 rounded-r-xl p-6">
+                    <div className="flex items-start gap-3">
+                      <MessageSquare className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+                      <div className="flex-1">
+                        <h4 className="text-lg font-bold text-blue-900 mb-2">Admin Notes</h4>
+                        <p className="text-blue-800 whitespace-pre-wrap">{submission.admin_notes}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {submission.prep_notes && (
+                  <div className="bg-amber-50 border-l-4 border-amber-500 rounded-r-xl p-6">
+                    <div className="flex items-start gap-3">
+                      <FileText className="w-6 h-6 text-amber-600 flex-shrink-0 mt-1" />
+                      <div className="flex-1">
+                        <h4 className="text-lg font-bold text-amber-900 mb-2">Prep Review Notes</h4>
+                        <p className="text-amber-800 whitespace-pre-wrap">{submission.prep_notes}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Cards */}
             {submission.cards?.length > 0 && (
               <div>
                 <h4 className="text-xl font-bold text-gray-900 mb-5">
                   Cards <span className="text-gray-400">({submission.cards.length})</span>
                 </h4>
-                <div className="grid gap-3">
+                <div className="grid gap-6">
                   {submission.cards.map((card) => (
-                    <div key={card.id} className="flex items-center justify-between p-5 bg-white rounded-xl border border-gray-200 hover:border-brand-300 hover:shadow-md transition-all">
-                      <div>
-                        <p className="font-semibold text-gray-900 text-lg">
-                          {card.player_name || card.description || 'Card'}
-                        </p>
-                        {card.psa_cert_number && (
-                          <p className="text-sm text-gray-500 mt-1">Cert #{card.psa_cert_number}</p>
+                    <div key={card.id} className="bg-white rounded-2xl border-2 border-gray-200 hover:border-brand-300 hover:shadow-xl transition-all overflow-hidden">
+                      {/* Card Header */}
+                      <div className="flex items-start justify-between p-6 bg-gradient-to-r from-gray-50 to-white">
+                        <div className="flex-1">
+                          <h5 className="text-xl font-bold text-gray-900 mb-2">
+                            {card.player_name || card.description || 'Card'}
+                          </h5>
+                          {(card.year || card.brand) && (
+                            <p className="text-gray-600 font-medium">
+                              {card.year} {card.brand} {card.card_number ? `#${card.card_number}` : ''}
+                            </p>
+                          )}
+                          {card.psa_cert_number && (
+                            <p className="text-sm text-gray-500 mt-1">Cert #{card.psa_cert_number}</p>
+                          )}
+                          {card.price_estimate && (
+                            <div className="mt-3 inline-flex items-center gap-2 bg-green-50 text-green-700 px-3 py-1.5 rounded-full border border-green-200">
+                              <DollarSign className="w-4 h-4" />
+                              <span className="font-bold">${parseFloat(card.price_estimate).toFixed(2)}</span>
+                              <span className="text-sm">est. value</span>
+                            </div>
+                          )}
+                        </div>
+                        {card.grade && (
+                          <div className="text-right">
+                            <div className="text-4xl font-black bg-gradient-to-r from-emerald-600 to-green-500 bg-clip-text text-transparent">
+                              {card.grade}
+                            </div>
+                            <div className="text-xs text-gray-500 font-medium">PSA GRADE</div>
+                          </div>
                         )}
                       </div>
-                      {card.grade && (
-                        <div className="text-right">
-                          <div className="text-3xl font-black bg-gradient-to-r from-emerald-600 to-green-500 bg-clip-text text-transparent">
-                            {card.grade}
+
+                      {/* Card Content */}
+                      <div className="p-6 space-y-6">
+                        {/* Admin Notes for this Card */}
+                        {card.admin_notes && (
+                          <div className="bg-blue-50 border-l-4 border-blue-500 rounded-r-xl p-4">
+                            <div className="flex items-start gap-2">
+                              <MessageSquare className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                              <div>
+                                <h6 className="font-bold text-blue-900 mb-1">Admin Notes</h6>
+                                <p className="text-blue-800 text-sm whitespace-pre-wrap">{card.admin_notes}</p>
+                              </div>
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-500 font-medium">PSA GRADE</div>
+                        )}
+
+                        {/* Prep Notes for this Card */}
+                        {card.prep_notes && (
+                          <div className="bg-amber-50 border-l-4 border-amber-500 rounded-r-xl p-4">
+                            <div className="flex items-start gap-2">
+                              <FileText className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                              <div>
+                                <h6 className="font-bold text-amber-900 mb-1">Prep Review</h6>
+                                <p className="text-amber-800 text-sm whitespace-pre-wrap">{card.prep_notes}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Before Photos Section */}
+                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-5 border border-purple-200">
+                          <div className="flex items-center gap-2 mb-4">
+                            <Camera className="w-5 h-5 text-purple-600" />
+                            <h6 className="font-bold text-purple-900">Before Photos</h6>
+                            <span className="text-sm text-purple-600">
+                              {card.before_photos?.length || 0} photo{card.before_photos?.length !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          <BeforePhotoUpload
+                            cardId={card.id}
+                            token={searchParams.get('token')}
+                            existingPhotos={card.before_photos || []}
+                            onUploadComplete={(updatedCard) => {
+                              // Refresh the portal data to show the new photo
+                              loadPortalData();
+                            }}
+                          />
                         </div>
-                      )}
+                      </div>
                     </div>
                   ))}
                 </div>

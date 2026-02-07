@@ -36,13 +36,20 @@ router.get('/access', async (req, res) => {
             `SELECT
                 s.id, s.internal_id, s.psa_submission_number, s.service_level,
                 s.current_step, s.progress_percent, s.grades_ready, s.shipped,
-                s.problem_order, s.date_sent, s.return_tracking,
+                s.problem_order, s.date_sent, s.return_tracking, s.admin_notes, s.prep_notes,
                 (SELECT COUNT(*) FROM cards WHERE submission_id = s.id) as card_count,
                 (SELECT json_agg(json_build_object(
                     'id', c.id,
                     'description', c.description,
+                    'player_name', c.player_name,
+                    'brand', c.brand,
+                    'year', c.year,
                     'grade', c.grade,
-                    'psa_cert_number', c.psa_cert_number
+                    'psa_cert_number', c.psa_cert_number,
+                    'before_photos', c.before_photos,
+                    'admin_notes', c.admin_notes,
+                    'prep_notes', c.prep_notes,
+                    'price_estimate', c.price_estimate
                 )) FROM cards c WHERE c.submission_id = s.id) as cards
              FROM submissions s
              WHERE s.customer_id = $1 OR s.id IN (
@@ -506,6 +513,155 @@ router.post('/buyback-offers/:id/respond', async (req, res) => {
     } catch (error) {
         console.error('Respond to buyback offer error:', error);
         res.status(500).json({ error: 'Failed to respond to buyback offer' });
+    }
+});
+
+// Upload before photo for a card (customer-facing portal)
+router.post('/cards/:cardId/before-photo', upload.single('photo'), async (req, res) => {
+    try {
+        const token = req.query.token;
+        const { cardId } = req.params;
+
+        if (!token) {
+            return res.status(400).json({ error: 'Token required' });
+        }
+
+        // Verify portal access
+        const customerResult = await db.query(
+            `SELECT c.id, c.company_id
+             FROM customers c
+             WHERE c.portal_access_token = $1 AND c.portal_access_enabled = true`,
+            [token]
+        );
+
+        if (customerResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid portal token' });
+        }
+
+        const customer = customerResult.rows[0];
+
+        // Verify card belongs to this customer's submissions
+        const cardCheck = await db.query(
+            `SELECT c.id, c.before_photos, c.player_name, c.description, s.company_id
+             FROM cards c
+             JOIN submissions s ON c.submission_id = s.id
+             WHERE c.id = $1
+             AND (s.customer_id = $2 OR s.id IN (
+                 SELECT submission_id FROM submission_customers WHERE customer_id = $2
+             ))`,
+            [cardId, customer.id]
+        );
+
+        if (cardCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Card not found or access denied' });
+        }
+
+        const card = cardCheck.rows[0];
+
+        // Upload to Cloudinary
+        const uploadStream = cloudinary.uploader.upload_stream(
+            {
+                folder: `slabdash/${card.company_id}/cards/before`,
+                transformation: [
+                    { width: 1200, height: 1200, crop: 'limit', quality: 'auto:good' }
+                ],
+                format: 'jpg'
+            },
+            async (error, result) => {
+                if (error) {
+                    console.error('Cloudinary upload error:', error);
+                    return res.status(500).json({ error: 'Failed to upload photo' });
+                }
+
+                try {
+                    // Get current before_photos array
+                    const currentPhotos = card.before_photos || [];
+                    const newPhotos = [...currentPhotos, {
+                        url: result.secure_url,
+                        public_id: result.public_id,
+                        uploaded_at: new Date().toISOString()
+                    }];
+
+                    // Update card with new photo
+                    const updated = await db.query(
+                        `UPDATE cards
+                         SET before_photos = $1, updated_at = NOW()
+                         WHERE id = $2
+                         RETURNING id, before_photos, player_name, description, admin_notes, prep_notes`,
+                        [JSON.stringify(newPhotos), cardId]
+                    );
+
+                    res.json({
+                        success: true,
+                        card: updated.rows[0],
+                        photo: {
+                            url: result.secure_url,
+                            public_id: result.public_id
+                        }
+                    });
+                } catch (dbError) {
+                    console.error('Database update error:', dbError);
+                    res.status(500).json({ error: 'Failed to save photo reference' });
+                }
+            }
+        );
+
+        uploadStream.end(req.file.buffer);
+    } catch (error) {
+        console.error('Upload before photo error:', error);
+        res.status(500).json({ error: 'Failed to upload before photo' });
+    }
+});
+
+// Get enhanced card data including before photos and admin notes
+router.get('/cards/:cardId', async (req, res) => {
+    try {
+        const token = req.query.token;
+        const { cardId } = req.params;
+
+        if (!token) {
+            return res.status(400).json({ error: 'Token required' });
+        }
+
+        // Verify portal access
+        const customerResult = await db.query(
+            `SELECT c.id
+             FROM customers c
+             WHERE c.portal_access_token = $1 AND c.portal_access_enabled = true`,
+            [token]
+        );
+
+        if (customerResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid portal token' });
+        }
+
+        const customer = customerResult.rows[0];
+
+        // Get card with all details
+        const cardResult = await db.query(
+            `SELECT
+                c.id, c.player_name, c.description, c.brand, c.year, c.card_number,
+                c.grade, c.psa_cert_number, c.declared_value, c.price_estimate,
+                c.before_photos, c.admin_notes, c.prep_notes, c.last_comp_check,
+                c.created_at, c.updated_at,
+                s.psa_submission_number, s.internal_id, s.service_level
+             FROM cards c
+             JOIN submissions s ON c.submission_id = s.id
+             WHERE c.id = $1
+             AND (s.customer_id = $2 OR s.id IN (
+                 SELECT submission_id FROM submission_customers WHERE customer_id = $2
+             ))`,
+            [cardId, customer.id]
+        );
+
+        if (cardResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Card not found or access denied' });
+        }
+
+        res.json(cardResult.rows[0]);
+    } catch (error) {
+        console.error('Get card error:', error);
+        res.status(500).json({ error: 'Failed to get card details' });
     }
 });
 
