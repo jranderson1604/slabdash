@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { emailTemplates } from '../api/client';
 import {
   Plus,
@@ -13,8 +13,42 @@ import {
   ArrowLeft,
   X,
   Copy,
-  Send
+  Send,
+  FileText,
+  Settings as SettingsIcon
 } from 'lucide-react';
+
+// Email Navigation Tabs Component
+function EmailNav() {
+  const location = useLocation();
+  const tabs = [
+    { name: 'Settings', path: '/email-settings', icon: SettingsIcon },
+    { name: 'Templates', path: '/email-templates', icon: FileText },
+    { name: 'Send Emails', path: '/email-sender', icon: Send },
+  ];
+
+  return (
+    <div className="mb-6 flex gap-2 border-b border-gray-200">
+      {tabs.map((tab) => {
+        const isActive = location.pathname === tab.path;
+        return (
+          <Link
+            key={tab.path}
+            to={tab.path}
+            className={`flex items-center gap-2 px-4 py-3 font-semibold transition-colors border-b-2 ${
+              isActive
+                ? 'border-brand-500 text-brand-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+            }`}
+          >
+            <tab.icon className="w-4 h-4" />
+            {tab.name}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
 
 const PSA_STEPS = [
   'Arrived',
@@ -353,6 +387,7 @@ export default function EmailTemplates() {
 
   return (
     <div className="space-y-6">
+      <EmailNav />
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
         {/* Decorative circles */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
