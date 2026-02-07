@@ -1,0 +1,27 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient -->
+  <rect width="512" height="512" rx="128" fill="url(#gradient)"/>
+
+  <!-- Card/Slab icon -->
+  <rect x="96" y="128" width="320" height="256" rx="16" fill="white" opacity="0.95"/>
+
+  <!-- PSA Shield/Badge -->
+  <path d="M256 160 L320 192 L320 288 L256 320 L192 288 L192 192 Z" fill="#FF8170" stroke="white" stroke-width="8"/>
+
+  <!-- Checkmark -->
+  <path d="M224 240 L240 260 L288 212" stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+  <!-- Stars -->
+  <circle cx="140" cy="180" r="8" fill="#FFD700"/>
+  <circle cx="372" cy="180" r="8" fill="#FFD700"/>
+  <circle cx="140" cy="332" r="8" fill="#FFD700"/>
+  <circle cx="372" cy="332" r="8" fill="#FFD700"/>
+
+  <!-- Gradient definition -->
+  <defs>
+    <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FF8170;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#FF6B5A;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+</svg>
