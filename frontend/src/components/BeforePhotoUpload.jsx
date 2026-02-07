@@ -209,12 +209,12 @@ export default function BeforePhotoUpload({ cardId, token, existingPhotos = [], 
                   {scanning && selectedPhotoForScan === photo.url ? (
                     <>
                       <Loader2 className="w-5 h-5 animate-spin" />
-                      <span>Dashy's analyzing... 🔍</span>
+                      <span>SAM's analyzing... 🔍</span>
                     </>
                   ) : (
                     <>
                       <Sparkles className="w-5 h-5" />
-                      <span>Ask Dashy</span>
+                      <span>Ask SAM</span>
                     </>
                   )}
                 </button>
@@ -245,7 +245,7 @@ export default function BeforePhotoUpload({ cardId, token, existingPhotos = [], 
                     🤖
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold">Dashy's Analysis</h3>
+                    <h3 className="text-xl font-bold">SAM's Analysis</h3>
                     <p className="text-sm opacity-90">Let me tell you what I found!</p>
                   </div>
                 </div>
@@ -411,7 +411,7 @@ export default function BeforePhotoUpload({ cardId, token, existingPhotos = [], 
                       <span className="text-2xl flex-shrink-0">🤖</span>
                       <div>
                         <p className="text-sm text-gray-800 font-medium">
-                          <strong className="text-[#FF8170]">Dashy's Tip:</strong> Click any copy button to grab that info! You can paste it anywhere you need. Just trying to make your life easier! 😊
+                          <strong className="text-[#FF8170]">SAM's Tip:</strong> Click any copy button to grab that info! You can paste it anywhere you need. Just trying to make your life easier! 😊
                         </p>
                       </div>
                     </div>
