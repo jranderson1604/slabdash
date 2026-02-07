@@ -1076,6 +1076,7 @@ export default function Submissions() {
           </Link>
         </div>
       </div>
+      </div>
 
       {/* Refresh Progress Bar */}
       {refreshingAll && (
