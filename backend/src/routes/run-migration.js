@@ -300,4 +300,199 @@ router.get('/check-invoice-status', authenticate, async (req, res) => {
     }
 });
 
+/**
+ * Portal Enhancements Migration
+ * Adds before photos, admin notes, price comps, and auto-refresh scheduling
+ */
+router.post('/add-portal-enhancements', authenticate, requireRole('owner', 'admin'), async (req, res) => {
+    try {
+        console.log('Running portal enhancements migration...');
+        const results = [];
+
+        // Migration 019: Portal enhancements (before photos, notes, price estimates)
+        try {
+            await db.query(`
+                -- Add before_photos column to cards (JSON array of photo URLs)
+                ALTER TABLE cards ADD COLUMN IF NOT EXISTS before_photos JSONB DEFAULT '[]'::jsonb;
+
+                -- Add admin_notes column to cards (visible to customers in portal)
+                ALTER TABLE cards ADD COLUMN IF NOT EXISTS admin_notes TEXT;
+
+                -- Add prep_notes column to cards (admin review/condition notes)
+                ALTER TABLE cards ADD COLUMN IF NOT EXISTS prep_notes TEXT;
+
+                -- Add price_estimate column for comp lookups
+                ALTER TABLE cards ADD COLUMN IF NOT EXISTS price_estimate DECIMAL(10,2);
+
+                -- Add last_comp_check timestamp
+                ALTER TABLE cards ADD COLUMN IF NOT EXISTS last_comp_check TIMESTAMP WITH TIME ZONE;
+
+                -- Add submission-level admin notes (general notes for the whole submission)
+                ALTER TABLE submissions ADD COLUMN IF NOT EXISTS admin_notes TEXT;
+
+                -- Add submission-level prep notes
+                ALTER TABLE submissions ADD COLUMN IF NOT EXISTS prep_notes TEXT;
+            `);
+            results.push('✓ Added before photos, admin notes, and price estimate columns');
+        } catch (error) {
+            results.push(`✗ Portal enhancements (019): ${error.message}`);
+        }
+
+        // Create indexes for better performance
+        try {
+            await db.query(`
+                CREATE INDEX IF NOT EXISTS idx_cards_before_photos ON cards USING GIN (before_photos);
+            `);
+            results.push('✓ Created index on before_photos for faster queries');
+        } catch (error) {
+            results.push(`✗ Before photos index: ${error.message}`);
+        }
+
+        // Migration 020: Comp lookups
+        try {
+            await db.query(`
+                ALTER TABLE cards ADD COLUMN IF NOT EXISTS comp_lookups JSONB DEFAULT '[]'::jsonb;
+            `);
+            results.push('✓ Added comp_lookups column for price history tracking');
+        } catch (error) {
+            results.push(`✗ Comp lookups (020): ${error.message}`);
+        }
+
+        try {
+            await db.query(`
+                CREATE INDEX IF NOT EXISTS idx_cards_comp_lookups ON cards USING GIN (comp_lookups);
+            `);
+            results.push('✓ Created index on comp_lookups for faster queries');
+        } catch (error) {
+            results.push(`✗ Comp lookups index: ${error.message}`);
+        }
+
+        // Migration 021: Auto-refresh scheduling
+        try {
+            await db.query(`
+                ALTER TABLE companies ADD COLUMN IF NOT EXISTS auto_refresh_enabled BOOLEAN DEFAULT FALSE;
+                ALTER TABLE companies ADD COLUMN IF NOT EXISTS auto_refresh_schedule VARCHAR(50) DEFAULT 'weekly';
+                ALTER TABLE companies ADD COLUMN IF NOT EXISTS auto_refresh_day_of_week INTEGER DEFAULT 1;
+                ALTER TABLE companies ADD COLUMN IF NOT EXISTS auto_refresh_hour INTEGER DEFAULT 9;
+                ALTER TABLE companies ADD COLUMN IF NOT EXISTS auto_refresh_email TEXT;
+                ALTER TABLE companies ADD COLUMN IF NOT EXISTS last_auto_refresh TIMESTAMP WITH TIME ZONE;
+            `);
+            results.push('✓ Added auto-refresh scheduling settings');
+        } catch (error) {
+            results.push(`✗ Auto-refresh (021): ${error.message}`);
+        }
+
+        console.log('✓ Portal enhancements migration complete');
+
+        res.json({
+            success: true,
+            message: 'Portal enhancements migration completed! You can now use before photos, price comps, card scanner, and auto-refresh features.',
+            results: results
+        });
+
+    } catch (error) {
+        console.error('Migration error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to run portal enhancements migration',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * Check portal enhancements migration status
+ */
+router.get('/check-portal-status', authenticate, async (req, res) => {
+    try {
+        const checks = [];
+
+        // Check cards.before_photos
+        const beforePhotosCheck = await db.query(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'cards'
+            AND column_name = 'before_photos'
+        `);
+        checks.push({
+            check: 'Before Photos Upload',
+            status: beforePhotosCheck.rows.length > 0 ? '✓ Ready' : '✗ Need Migration',
+            critical: true
+        });
+
+        // Check cards.admin_notes
+        const adminNotesCheck = await db.query(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'cards'
+            AND column_name = 'admin_notes'
+        `);
+        checks.push({
+            check: 'Admin Notes',
+            status: adminNotesCheck.rows.length > 0 ? '✓ Ready' : '✗ Need Migration',
+            critical: true
+        });
+
+        // Check submissions.admin_notes
+        const submissionNotesCheck = await db.query(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'submissions'
+            AND column_name = 'admin_notes'
+        `);
+        checks.push({
+            check: 'Submission-Level Notes',
+            status: submissionNotesCheck.rows.length > 0 ? '✓ Ready' : '✗ Need Migration',
+            critical: true
+        });
+
+        // Check cards.comp_lookups
+        const compLookupsCheck = await db.query(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'cards'
+            AND column_name = 'comp_lookups'
+        `);
+        checks.push({
+            check: 'Price Comp Lookups',
+            status: compLookupsCheck.rows.length > 0 ? '✓ Ready' : '✗ Need Migration',
+            critical: false
+        });
+
+        // Check companies.auto_refresh_enabled
+        const autoRefreshCheck = await db.query(`
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_name = 'companies'
+            AND column_name = 'auto_refresh_enabled'
+        `);
+        checks.push({
+            check: 'Automatic PSA Refreshes',
+            status: autoRefreshCheck.rows.length > 0 ? '✓ Ready' : '✗ Need Migration',
+            critical: false
+        });
+
+        const allCritical = checks.filter(c => c.critical).every(c => c.status.includes('✓'));
+        const allChecks = checks.every(c => c.status.includes('✓'));
+
+        res.json({
+            success: true,
+            migration_needed: !allChecks,
+            checks: checks,
+            summary: allChecks
+                ? '✓ All portal features are ready!'
+                : allCritical
+                    ? '⚠ Core portal features ready - run migration to enable price comps and auto-refresh'
+                    : '❌ Migration required - customer portal features will not work until migration is run'
+        });
+
+    } catch (error) {
+        console.error('Check migration error:', error);
+        res.status(500).json({
+            error: 'Failed to check migration status',
+            details: error.message
+        });
+    }
+});
+
 module.exports = router;
