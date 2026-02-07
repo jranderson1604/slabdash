@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { submissions, customers } from '../api/client';
 import { ArrowLeft, Loader2, Plus, Camera } from 'lucide-react';
 import Scanner from '../components/Scanner';
+import PageHeader from '../components/PageHeader';
 
 export default function NewSubmission() {
   const navigate = useNavigate();
@@ -78,19 +79,11 @@ export default function NewSubmission() {
   return (
     <div className="max-w-2xl mx-auto">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-6 shadow-xl mb-6">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
-
-        <div className="relative flex items-center gap-4">
-          <Link to="/submissions" className="p-2 hover:bg-white/20 backdrop-blur-sm rounded-lg transition-all">
-            <ArrowLeft className="w-5 h-5 text-white" />
-          </Link>
-          <div className="flex-1">
-            <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-lg">NEW SUBMISSION</h1>
-            <p className="text-white/90 text-lg font-semibold mt-1">Track a new PSA order</p>
-          </div>
+      <PageHeader
+        title="New Submission"
+        subtitle="Track a new PSA order"
+        backLink="/submissions"
+        actions={
           <button
             type="button"
             onClick={() => setShowScanner(!showScanner)}
@@ -99,8 +92,8 @@ export default function NewSubmission() {
             <Camera className="w-4 h-4" />
             <span className="hidden sm:inline">{showScanner ? 'Hide Scanner' : 'Scan Form'}</span>
           </button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Scanner Section */}
       {showScanner && (

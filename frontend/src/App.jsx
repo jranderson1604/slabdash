@@ -20,6 +20,7 @@ import NewBuybackOffer from './pages/NewBuybackOffer';
 import Settings from './pages/Settings';
 import EmailSettings from './pages/EmailSettings';
 import EmailTemplates from './pages/EmailTemplates';
+import EmailSender from './pages/EmailSender';
 import Portal from './pages/Portal';
 import OwnerDashboard from './pages/OwnerDashboard';
 import Help from './pages/Help';
@@ -68,6 +69,7 @@ function AppRoutes() {
       <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
       <Route path="/email-settings" element={<ProtectedRoute><EmailSettings /></ProtectedRoute>} />
       <Route path="/email-templates" element={<ProtectedRoute><EmailTemplates /></ProtectedRoute>} />
+      <Route path="/email-sender" element={<ProtectedRoute><EmailSender /></ProtectedRoute>} />
       <Route path="/owner" element={<ProtectedRoute><OwnerDashboard /></ProtectedRoute>} />
       <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />

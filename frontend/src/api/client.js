@@ -121,7 +121,11 @@ export const emailTemplates = {
   createDefaults: () => api.post('/email-setup/create-default-templates'),
   sendBulkStatusUpdate: () => api.post('/email-setup/send-bulk-status-update'),
   sendSubmissionUpdate: (submissionId) => api.post(`/email-setup/send-submission-update/${submissionId}`),
-  sendTestSubmissionUpdate: (testEmail, submissionId = null) => api.post('/email-setup/send-test-submission-update', { testEmail, submissionId })
+  sendTestSubmissionUpdate: (testEmail, submissionId = null) => api.post('/email-setup/send-test-submission-update', { testEmail, submissionId }),
+  // Custom email sender endpoints
+  sendToCustomer: (customerId, emailData) => api.post(`/email-sender/customer/${customerId}`, emailData),
+  sendToSubmission: (submissionId, emailData) => api.post(`/email-sender/submission/${submissionId}`, emailData),
+  sendBulkCustomEmail: (emailData) => api.post('/email-sender/bulk-active', emailData)
 };
 
 export const psaImport = {

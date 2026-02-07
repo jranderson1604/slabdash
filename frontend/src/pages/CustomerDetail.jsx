@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { customers, submissions } from '../api/client';
+import PageHeader from '../components/PageHeader';
+import StatusBadge from '../components/StatusBadge';
+import ProgressBar from '../components/ProgressBar';
 import {
   ArrowLeft,
   Edit2,
