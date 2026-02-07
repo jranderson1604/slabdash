@@ -290,9 +290,15 @@ export default function Settings() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="text-gray-500 mt-1">Manage your SlabDash configuration</p>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
+        {/* Decorative circles */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+
+        <div className="relative">
+          <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">SETTINGS</h1>
+          <p className="text-white/90 text-lg font-semibold">Manage your SlabDash configuration</p>
+        </div>
       </div>
 
       {/* PSA API Settings */}

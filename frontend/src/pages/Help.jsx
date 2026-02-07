@@ -51,14 +51,20 @@ function StepCard({ number, title, description, icon: Icon }) {
 export default function Help() {
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-          <HelpCircle className="w-10 h-10 text-brand-500" />
-          Help & Instructions
-        </h1>
-        <p className="text-xl text-gray-600">
-          Everything you need to know about using SlabDash
-        </p>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl mb-8">
+        {/* Decorative circles */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+
+        <div className="relative">
+          <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg flex items-center gap-3">
+            <HelpCircle className="w-10 h-10" />
+            HELP & INSTRUCTIONS
+          </h1>
+          <p className="text-white/90 text-lg font-semibold">
+            Everything you need to know about using SlabDash
+          </p>
+        </div>
       </div>
 
       <Section title="Getting Started" icon={Package}>

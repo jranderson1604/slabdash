@@ -125,18 +125,24 @@ export default function Cards() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cards Database</h1>
-          <p className="text-gray-500 mt-1">Search and manage all cards across submissions</p>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
+        {/* Decorative circles */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+
+        <div className="relative flex items-center justify-between">
+          <div>
+            <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">CARDS</h1>
+            <p className="text-white/90 text-lg font-semibold">Search and manage all cards across submissions</p>
+          </div>
+          <button
+            onClick={() => setShowHelp(!showHelp)}
+            className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg hover:shadow-xl hover:scale-105"
+          >
+            <Info className="w-5 h-5" />
+            {showHelp ? 'Hide' : 'Show'} Help
+          </button>
         </div>
-        <button
-          onClick={() => setShowHelp(!showHelp)}
-          className="btn btn-secondary gap-2"
-        >
-          <Info className="w-4 h-4" />
-          {showHelp ? 'Hide' : 'Show'} Help
-        </button>
       </div>
 
       {/* Help Section */}

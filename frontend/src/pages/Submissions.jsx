@@ -996,52 +996,57 @@ export default function Submissions() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Submissions</h1>
-            <p className="text-gray-500 mt-1">Track and manage PSA orders</p>
-          </div>
-          <button
-            onClick={() => setShowHelp(!showHelp)}
-            className="p-2 rounded-lg hover:bg-gray-100 text-brand-500"
-            title="Show help"
-          >
-            <HelpCircle className="w-5 h-5" />
-          </button>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowCsvImport(true)}
-            className="btn btn-secondary gap-2"
-          >
-            <Upload className="w-4 h-4" />
-            <span className="hidden sm:inline">Import PSA CSV</span>
-          </button>
-          <button
-            onClick={() => setShowBulkTestEmailModal(true)}
-            className="btn btn-secondary gap-2"
-          >
-            <Eye className="w-4 h-4" />
-            <span className="hidden sm:inline">Preview Email</span>
-          </button>
-          <button
-            onClick={handleBulkEmail}
-            disabled={sendingBulk}
-            className="btn btn-secondary gap-2"
-          >
-            <Mail className={`w-4 h-4 ${sendingBulk ? 'animate-pulse' : ''}`} />
-            <span className="hidden sm:inline">{sendingBulk ? 'Sending...' : 'Email All'}</span>
-          </button>
-          {selectedSubmissions.length > 0 && (
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
+        {/* Decorative circles */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div>
+              <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">SUBMISSIONS</h1>
+              <p className="text-white/90 text-lg font-semibold">Track and manage PSA orders</p>
+            </div>
             <button
-              onClick={handleBulkDelete}
-              className="btn btn-secondary gap-2 bg-red-50 text-red-700 hover:bg-red-100 border-red-200"
+              onClick={() => setShowHelp(!showHelp)}
+              className="p-2 rounded-lg hover:bg-white/20 text-white backdrop-blur-sm transition-all"
+              title="Show help"
             >
-              <Trash2 className="w-4 h-4" />
-              <span className="hidden sm:inline">Delete ({selectedSubmissions.length})</span>
+              <HelpCircle className="w-5 h-5" />
             </button>
-          )}
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => setShowCsvImport(true)}
+              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="hidden sm:inline">Import CSV</span>
+            </button>
+            <button
+              onClick={() => setShowBulkTestEmailModal(true)}
+              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+            >
+              <Eye className="w-4 h-4" />
+              <span className="hidden sm:inline">Preview</span>
+            </button>
+            <button
+              onClick={handleBulkEmail}
+              disabled={sendingBulk}
+              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg disabled:opacity-50"
+            >
+              <Mail className={`w-4 h-4 ${sendingBulk ? 'animate-pulse' : ''}`} />
+              <span className="hidden sm:inline">{sendingBulk ? 'Sending...' : 'Email All'}</span>
+            </button>
+            {selectedSubmissions.length > 0 && (
+              <button
+                onClick={handleBulkDelete}
+                className="bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-red-400 shadow-lg"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Delete ({selectedSubmissions.length})</span>
+              </button>
+            )}
           {company?.hasPsaKey && (
             <>
               <button
