@@ -3,6 +3,8 @@ const router = express.Router();
 const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 const psaService = require('../services/psaService');
+const priceCompService = require('../services/priceCompService');
+const cardScannerService = require('../services/cardScannerService');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const upload = multer({ storage: multer.memoryStorage() });
@@ -432,6 +434,134 @@ router.delete('/:id', authenticate, async (req, res) => {
         res.json({ message: 'Card deleted' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to delete card' });
+    }
+});
+
+// Lookup price comps for a card
+router.post('/:id/lookup-price', authenticate, async (req, res) => {
+    try {
+        // Get card with full details
+        const cardResult = await db.query(
+            'SELECT * FROM cards WHERE id = $1 AND company_id = $2',
+            [req.params.id, req.companyId]
+        );
+
+        if (cardResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Card not found' });
+        }
+
+        const card = cardResult.rows[0];
+
+        // Check if comp data is recent (optional - can force refresh with force=true query param)
+        const forceRefresh = req.query.force === 'true';
+        if (!forceRefresh && card.last_comp_check) {
+            const isStale = priceCompService.isCompDataStale(card.last_comp_check, 7);
+            if (!isStale) {
+                return res.json({
+                    message: 'Comp data is recent (less than 7 days old)',
+                    cached: true,
+                    card: {
+                        id: card.id,
+                        price_estimate: card.price_estimate,
+                        last_comp_check: card.last_comp_check,
+                        comp_lookups: card.comp_lookups
+                    }
+                });
+            }
+        }
+
+        // Fetch comp data from all sources
+        const compResult = await priceCompService.fetchAllComps(card);
+
+        // Store comp result in comp_lookups array (keep last 10 lookups)
+        const existingLookups = card.comp_lookups || [];
+        const updatedLookups = [compResult, ...existingLookups].slice(0, 10);
+
+        // Update card with new price estimate and comp data
+        await db.query(
+            `UPDATE cards
+             SET price_estimate = $1,
+                 last_comp_check = NOW(),
+                 comp_lookups = $2
+             WHERE id = $3`,
+            [compResult.priceEstimate, JSON.stringify(updatedLookups), card.id]
+        );
+
+        // Return updated card
+        const updatedCard = await db.query('SELECT * FROM cards WHERE id = $1', [card.id]);
+
+        res.json({
+            success: true,
+            message: `Found ${compResult.totalListings} comps across ${Object.keys(compResult.sources).filter(k => compResult.sources[k].available && compResult.sources[k].count > 0).length} sources`,
+            card: updatedCard.rows[0],
+            compResult
+        });
+    } catch (error) {
+        console.error('Price comp lookup error:', error);
+        res.status(500).json({ error: 'Failed to lookup price comps', details: error.message });
+    }
+});
+
+// Get comp lookup history for a card
+router.get('/:id/comps', authenticate, async (req, res) => {
+    try {
+        const cardResult = await db.query(
+            'SELECT id, description, player_name, year, brand, grade, price_estimate, last_comp_check, comp_lookups FROM cards WHERE id = $1 AND company_id = $2',
+            [req.params.id, req.companyId]
+        );
+
+        if (cardResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Card not found' });
+        }
+
+        const card = cardResult.rows[0];
+
+        res.json({
+            card: {
+                id: card.id,
+                description: card.description,
+                player_name: card.player_name,
+                year: card.year,
+                brand: card.brand,
+                grade: card.grade,
+                price_estimate: card.price_estimate,
+                last_comp_check: card.last_comp_check
+            },
+            comps: card.comp_lookups || [],
+            isStale: priceCompService.isCompDataStale(card.last_comp_check, 7)
+        });
+    } catch (error) {
+        console.error('Get comps error:', error);
+        res.status(500).json({ error: 'Failed to get comp data' });
+    }
+});
+
+// Scan card image to extract information (admin)
+router.post('/:id/scan-image', authenticate, async (req, res) => {
+    try {
+        const { imageUrl } = req.body;
+
+        if (!imageUrl) {
+            return res.status(400).json({ error: 'Image URL required' });
+        }
+
+        // Verify card belongs to company
+        const cardResult = await db.query(
+            'SELECT id FROM cards WHERE id = $1 AND company_id = $2',
+            [req.params.id, req.companyId]
+        );
+
+        if (cardResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Card not found' });
+        }
+
+        // Scan the card image
+        const scanResult = await cardScannerService.scanCard(imageUrl);
+
+        res.json(scanResult);
+    } catch (error) {
+        console.error('Scan image error:', error);
+        res.status(500).json({ error: 'Failed to scan image' });
     }
 });
 

@@ -108,6 +108,7 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
     const total = submissions.rows.length;
     let updated = 0;
     let errors = 0;
+    const changeLog = []; // Track all changes for CSV report
 
     // Send initial progress
     res.write(`data: ${JSON.stringify({ type: 'start', total, updated: 0, errors: 0 })}\n\n`);
@@ -149,10 +150,40 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
 
         if (result.success && result.data) {
           // Update submission with latest data (this also triggers email notifications)
-          await updateSubmissionFromPsa(submission.id, result.data);
+          const updateResult = await updateSubmissionFromPsa(submission.id, result.data);
+          const { changes } = updateResult;
+
+          // Log all changes for the report
+          if (changes.hadChanges) {
+            changeLog.push({
+              submissionNumber: changes.submissionNumber,
+              stepChanged: changes.stepChanged,
+              previousStep: changes.previousStep,
+              newStep: changes.newStep,
+              progressChanged: changes.progressChanged,
+              previousProgress: changes.previousProgress,
+              newProgress: changes.newProgress,
+              progressDelta: changes.progressDelta || 0,
+              statusChanged: changes.statusChanged,
+              gradesReady: changes.newGradesReady,
+              shipped: changes.newShipped,
+              problem: changes.newProblem,
+              timestamp: new Date().toISOString()
+            });
+          } else {
+            // Log no change
+            changeLog.push({
+              submissionNumber: changes.submissionNumber,
+              noChange: true,
+              currentStep: changes.newStep,
+              currentProgress: changes.newProgress,
+              timestamp: new Date().toISOString()
+            });
+          }
+
           updated++;
 
-          // Send progress update
+          // Send progress update with change info
           res.write(`data: ${JSON.stringify({
             type: 'progress',
             total,
@@ -160,10 +191,20 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
             updated,
             errors,
             submissionNumber: submission.psa_submission_number,
-            status: 'success'
+            status: 'success',
+            hadChanges: changes.hadChanges,
+            stepChanged: changes.stepChanged,
+            progressDelta: changes.progressDelta
           })}\n\n`);
         } else {
           errors++;
+
+          changeLog.push({
+            submissionNumber: submission.psa_submission_number,
+            error: true,
+            errorMessage: result.error || 'Unknown error',
+            timestamp: new Date().toISOString()
+          });
 
           // Send error update
           res.write(`data: ${JSON.stringify({
@@ -185,6 +226,13 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
         console.error(`Failed to refresh submission ${submission.psa_submission_number}:`, err.message);
         errors++;
 
+        changeLog.push({
+          submissionNumber: submission.psa_submission_number,
+          error: true,
+          errorMessage: err.message,
+          timestamp: new Date().toISOString()
+        });
+
         // Send error update
         res.write(`data: ${JSON.stringify({
           type: 'progress',
@@ -202,13 +250,30 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
       }
     }
 
-    // Send completion
+    // Store change log in the database for later retrieval
+    try {
+      await db.query(
+        `INSERT INTO psa_refresh_logs (company_id, total_submissions, updated_count, error_count, change_log, created_by)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [req.user.company_id, total, updated, errors, JSON.stringify(changeLog), req.user.id]
+      );
+    } catch (dbError) {
+      console.error('Failed to save refresh log:', dbError);
+      // Don't fail the whole refresh if logging fails
+    }
+
+    // Send completion with change summary
+    const changedCount = changeLog.filter(c => c.hadChanges).length;
+    const noChangeCount = changeLog.filter(c => c.noChange).length;
     res.write(`data: ${JSON.stringify({
       type: 'complete',
       total,
       updated,
       errors,
-      message: `Refresh completed: ${updated} updated, ${errors} errors`
+      changedCount,
+      noChangeCount,
+      message: `Refresh completed: ${changedCount} changed, ${noChangeCount} unchanged, ${errors} errors`,
+      changeLogAvailable: true
     })}\n\n`);
 
     res.end();
@@ -254,6 +319,118 @@ router.post("/normalize-service-levels", authenticate, requireRole("owner", "adm
     console.error("Normalize service levels error:", error);
     res.status(500).json({
       error: "Failed to normalize service levels",
+      details: error.message
+    });
+  }
+});
+
+// Get latest refresh log
+router.get("/refresh-log/latest", authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT id, total_submissions, updated_count, error_count, change_log, created_at
+       FROM psa_refresh_logs
+       WHERE company_id = $1
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [req.user.company_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json({ hasLog: false, message: 'No refresh logs found' });
+    }
+
+    res.json({ hasLog: true, log: result.rows[0] });
+  } catch (error) {
+    console.error("Get refresh log error:", error);
+    res.status(500).json({
+      error: "Failed to get refresh log",
+      details: error.message
+    });
+  }
+});
+
+// Export refresh log as CSV
+router.get("/refresh-log/:id/csv", authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT change_log, created_at FROM psa_refresh_logs WHERE id = $1 AND company_id = $2`,
+      [req.params.id, req.user.company_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Refresh log not found' });
+    }
+
+    const changeLog = result.rows[0].change_log;
+    const timestamp = result.rows[0].created_at;
+
+    // Generate CSV
+    const csvRows = [];
+    csvRows.push('Submission Number,Status,Previous Step,New Step,Step Changed,Previous Progress %,New Progress %,Progress Delta,Grades Ready,Shipped,Problem,Error Message,Timestamp');
+
+    for (const change of changeLog) {
+      if (change.error) {
+        csvRows.push([
+          change.submissionNumber,
+          'Error',
+          '',
+          '',
+          'No',
+          '',
+          '',
+          '',
+          '',
+          '',
+          '',
+          change.errorMessage || '',
+          change.timestamp
+        ].join(','));
+      } else if (change.noChange) {
+        csvRows.push([
+          change.submissionNumber,
+          'No Change',
+          change.currentStep || '',
+          change.currentStep || '',
+          'No',
+          change.currentProgress || '',
+          change.currentProgress || '',
+          '0',
+          '',
+          '',
+          '',
+          '',
+          change.timestamp
+        ].join(','));
+      } else {
+        csvRows.push([
+          change.submissionNumber,
+          change.hadChanges ? 'Changed' : 'No Change',
+          change.previousStep || '',
+          change.newStep || '',
+          change.stepChanged ? 'Yes' : 'No',
+          change.previousProgress || '',
+          change.newProgress || '',
+          change.progressDelta || '0',
+          change.gradesReady ? 'Yes' : 'No',
+          change.shipped ? 'Yes' : 'No',
+          change.problem ? 'Yes' : 'No',
+          '',
+          change.timestamp
+        ].join(','));
+      }
+    }
+
+    const csv = csvRows.join('\n');
+    const filename = `psa-refresh-${new Date(timestamp).toISOString().split('T')[0]}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
+  } catch (error) {
+    console.error("Export CSV error:", error);
+    res.status(500).json({
+      error: "Failed to export CSV",
       details: error.message
     });
   }

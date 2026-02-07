@@ -4,6 +4,7 @@ const cors = require("cors");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 const db = require("./db");
+const { initializeScheduler } = require("./scheduler");
 
 // route modules
 const authRoutes = require("./routes/auth");
@@ -228,6 +229,14 @@ async function startServer() {
     } catch (migrationError) {
       // Don't fail startup if migration has issues, just log it
       console.warn("⚠ Migration warning:", migrationError.message);
+    }
+
+    // Initialize scheduled tasks (cron jobs)
+    try {
+      initializeScheduler();
+      console.log("✓ Scheduler initialized");
+    } catch (schedulerError) {
+      console.warn("⚠ Scheduler initialization warning:", schedulerError.message);
     }
 
     app.listen(PORT, () => {
