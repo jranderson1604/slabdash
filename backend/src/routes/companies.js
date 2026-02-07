@@ -130,4 +130,99 @@ router.get('/stats', authenticate, async (req, res) => {
     }
 });
 
+// Get auto-refresh settings
+router.get('/auto-refresh-settings', authenticate, async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT auto_refresh_enabled, auto_refresh_schedule, auto_refresh_day_of_week,
+                    auto_refresh_hour, auto_refresh_email, last_auto_refresh
+             FROM companies WHERE id = $1`,
+            [req.user.company_id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Company not found' });
+        }
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Get auto-refresh settings error:', error);
+        res.status(500).json({ error: 'Failed to get auto-refresh settings' });
+    }
+});
+
+// Update auto-refresh settings
+router.patch('/auto-refresh-settings', authenticate, async (req, res) => {
+    try {
+        const {
+            auto_refresh_enabled,
+            auto_refresh_schedule,
+            auto_refresh_day_of_week,
+            auto_refresh_hour,
+            auto_refresh_email
+        } = req.body;
+
+        // Validate schedule if provided
+        if (auto_refresh_schedule && !['daily', 'weekly', 'biweekly'].includes(auto_refresh_schedule)) {
+            return res.status(400).json({ error: 'Invalid schedule. Must be: daily, weekly, or biweekly' });
+        }
+
+        // Validate day of week if provided
+        if (auto_refresh_day_of_week !== undefined && (auto_refresh_day_of_week < 0 || auto_refresh_day_of_week > 6)) {
+            return res.status(400).json({ error: 'Invalid day of week. Must be 0-6 (0=Sunday)' });
+        }
+
+        // Validate hour if provided
+        if (auto_refresh_hour !== undefined && (auto_refresh_hour < 0 || auto_refresh_hour > 23)) {
+            return res.status(400).json({ error: 'Invalid hour. Must be 0-23' });
+        }
+
+        const updates = [];
+        const values = [];
+        let i = 1;
+
+        if (auto_refresh_enabled !== undefined) {
+            updates.push(`auto_refresh_enabled = $${i++}`);
+            values.push(auto_refresh_enabled);
+        }
+
+        if (auto_refresh_schedule) {
+            updates.push(`auto_refresh_schedule = $${i++}`);
+            values.push(auto_refresh_schedule);
+        }
+
+        if (auto_refresh_day_of_week !== undefined) {
+            updates.push(`auto_refresh_day_of_week = $${i++}`);
+            values.push(auto_refresh_day_of_week);
+        }
+
+        if (auto_refresh_hour !== undefined) {
+            updates.push(`auto_refresh_hour = $${i++}`);
+            values.push(auto_refresh_hour);
+        }
+
+        if (auto_refresh_email !== undefined) {
+            updates.push(`auto_refresh_email = $${i++}`);
+            values.push(auto_refresh_email || null);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'No valid fields to update' });
+        }
+
+        values.push(req.user.company_id);
+        const result = await db.query(
+            `UPDATE companies SET ${updates.join(', ')} WHERE id = $${i}
+             RETURNING auto_refresh_enabled, auto_refresh_schedule, auto_refresh_day_of_week,
+                       auto_refresh_hour, auto_refresh_email, last_auto_refresh`,
+            values
+        );
+
+        res.json(result.rows[0]);
+    } catch (error) {
+        console.error('Update auto-refresh settings error:', error);
+        res.status(500).json({ error: 'Failed to update auto-refresh settings' });
+    }
+});
+
 module.exports = router;
