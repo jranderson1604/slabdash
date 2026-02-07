@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authenticate } = require('../middleware/auth');
+const Anthropic = require('@anthropic-ai/sdk');
 
 // SlabDash knowledge base for SAM (Submission Assistant Manager)
 const SLABDASH_KNOWLEDGE = `
@@ -203,6 +204,61 @@ function generateSAMResponse(userMessage, context) {
   return '🤔 **Great question!** I can help you with:\n\n• **Submissions** - Create, edit, track, refresh\n• **Emails** - Send updates, previews, welcome emails\n• **Customers** - Add, manage, portal access\n• **Cards** - Import CSV, add cards, grades\n• **PSA Integration** - API setup, auto-refresh\n• **Settings** - Email config, subscriptions\n\n**Try asking:**\n• "How do I add a submission?"\n• "How do I send email updates?"\n• "How do customers track their cards?"\n• "How do I import cards from PSA?"\n• "How do I set up PSA API?"\n\nWhat specific task do you need help with? 😊';
 }
 
+/**
+ * Generate AI-powered response using Anthropic Claude
+ * Falls back to rule-based responses if API key not configured
+ */
+async function generateAIResponse(message, history) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+
+  // If no API key, use rule-based responses
+  if (!apiKey) {
+    console.log('Using rule-based SAM (no Anthropic API key configured)');
+    return generateSAMResponse(message, history);
+  }
+
+  try {
+    const anthropic = new Anthropic({ apiKey });
+
+    // Convert history to Anthropic format
+    const conversationHistory = (history || [])
+      .filter(msg => msg.role && msg.content)
+      .slice(-10) // Keep last 10 messages for context
+      .map(msg => ({
+        role: msg.role === 'assistant' ? 'assistant' : 'user',
+        content: msg.content
+      }));
+
+    // Call Anthropic API
+    const response = await anthropic.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 1024,
+      system: SLABDASH_KNOWLEDGE,
+      messages: [
+        ...conversationHistory,
+        {
+          role: 'user',
+          content: message
+        }
+      ]
+    });
+
+    // Extract text from response
+    const aiMessage = response.content[0].text;
+
+    console.log(`SAM AI response generated (${response.usage.input_tokens} in, ${response.usage.output_tokens} out)`);
+
+    return aiMessage;
+
+  } catch (error) {
+    console.error('Anthropic API error:', error.message);
+
+    // Fallback to rule-based on API error
+    console.log('Falling back to rule-based SAM due to API error');
+    return generateSAMResponse(message, history);
+  }
+}
+
 // Chat endpoint
 router.post('/chat', authenticate, async (req, res) => {
   try {
@@ -212,12 +268,13 @@ router.post('/chat', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Generate response
-    const responseMessage = generateSAMResponse(message, history);
+    // Generate AI-powered response (with fallback to rule-based)
+    const responseMessage = await generateAIResponse(message, history);
 
     res.json({
       message: responseMessage,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      ai_powered: !!process.env.ANTHROPIC_API_KEY
     });
 
   } catch (error) {
