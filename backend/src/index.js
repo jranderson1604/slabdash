@@ -29,6 +29,7 @@ const runMigrationRoutes = require("./routes/run-migration");
 const pickupRoutes = require("./routes/pickup");
 const invoiceRoutes = require("./routes/invoices");
 const dashyRoutes = require("./routes/dashy");
+const samRoutes = require("./routes/sam");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -163,6 +164,7 @@ app.use("/api/migration", runMigrationRoutes);
 app.use("/api/pickup", pickupRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/dashy", dashyRoutes);
+app.use("/api/sam", samRoutes);
 
 /* -------------------- 404 HANDLER -------------------- */
 

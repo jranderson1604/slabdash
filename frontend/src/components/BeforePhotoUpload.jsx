@@ -199,22 +199,22 @@ export default function BeforePhotoUpload({ cardId, token, existingPhotos = [], 
                 />
               </div>
 
-              {/* Scan Button (hover overlay) */}
+              {/* Scan Button (hover overlay) - Dashy Themed */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
                 <button
                   onClick={() => handleScanCard(photo.url)}
                   disabled={scanning}
-                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg font-semibold flex items-center gap-2 hover:from-purple-700 hover:to-indigo-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 hover:from-[#FF6B5A] hover:to-[#FF5544] transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
                 >
                   {scanning && selectedPhotoForScan === photo.url ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Scanning...</span>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>SAM's analyzing... 🔍</span>
                     </>
                   ) : (
                     <>
-                      <Scan className="w-4 h-4" />
-                      <span>Scan Card</span>
+                      <Sparkles className="w-5 h-5" />
+                      <span>Ask SAM</span>
                     </>
                   )}
                 </button>
@@ -233,16 +233,21 @@ export default function BeforePhotoUpload({ cardId, token, existingPhotos = [], 
         </div>
       )}
 
-      {/* Scan Results Modal */}
+      {/* Scan Results Modal - Dashy Themed */}
       {scanResults && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="sticky top-0 bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 rounded-t-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-4 border-[#FF8170]">
+            {/* Header - Dashy Themed */}
+            <div className="sticky top-0 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] text-white p-6 rounded-t-2xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Sparkles className="w-6 h-6" />
-                  <h3 className="text-xl font-bold">Card Scan Results</h3>
+                  <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-2xl animate-bounce">
+                    🤖
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold">SAM's Analysis</h3>
+                    <p className="text-sm opacity-90">Let me tell you what I found!</p>
+                  </div>
                 </div>
                 <button
                   onClick={closeScanResults}
@@ -252,13 +257,16 @@ export default function BeforePhotoUpload({ cardId, token, existingPhotos = [], 
                 </button>
               </div>
               {scanResults.confidence && (
-                <div className="mt-3">
-                  <span className={`inline-block px-3 py-1 rounded-full text-sm font-semibold ${
+                <div className="mt-4 flex items-center gap-2">
+                  <span className="text-sm opacity-90">Confidence Level:</span>
+                  <span className={`inline-block px-4 py-1.5 rounded-full text-sm font-bold shadow-lg ${
                     scanResults.confidence === 'high' ? 'bg-green-500' :
                     scanResults.confidence === 'medium' ? 'bg-yellow-500' :
                     'bg-orange-500'
                   }`}>
-                    {scanResults.confidence.toUpperCase()} Confidence
+                    {scanResults.confidence === 'high' ? '🎯 HIGH' :
+                     scanResults.confidence === 'medium' ? '👍 MEDIUM' :
+                     '🤔 LOW'}
                   </span>
                 </div>
               )}
@@ -268,131 +276,173 @@ export default function BeforePhotoUpload({ cardId, token, existingPhotos = [], 
             <div className="p-6 space-y-4">
               {scanResults.success ? (
                 <>
+                  {/* Intro Message from Dashy */}
+                  <div className="bg-gradient-to-r from-[#FFF5F3] to-[#FFE8E5] border-2 border-[#FF8170] rounded-xl p-4">
+                    <p className="text-gray-800 font-medium">
+                      <span className="text-2xl mr-2">👋</span>
+                      Hey! I scanned your card and here's what I discovered:
+                    </p>
+                  </div>
+
                   {/* Detected Information */}
                   <div className="space-y-3">
                     {scanResults.year && (
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#FFF5F3] to-white rounded-xl border-2 border-[#FFE8E5] hover:border-[#FF8170] transition-colors">
                         <div>
-                          <p className="text-xs text-gray-500 uppercase">Year</p>
-                          <p className="text-lg font-bold text-gray-900">{scanResults.year}</p>
+                          <p className="text-xs text-[#FF8170] uppercase font-bold tracking-wider">Year</p>
+                          <p className="text-xl font-black text-gray-900 mt-1">{scanResults.year}</p>
                         </div>
                         <button
                           onClick={() => copyToClipboard(scanResults.year, 'year')}
-                          className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                          className="p-2 hover:bg-[#FF8170] hover:text-white rounded-lg transition-colors bg-white border-2 border-[#FFE8E5]"
+                          title="Copy to clipboard"
                         >
                           {copiedField === 'year' ? (
-                            <CheckCheck className="w-4 h-4 text-green-600" />
+                            <CheckCheck className="w-5 h-5 text-green-600" />
                           ) : (
-                            <Copy className="w-4 h-4 text-gray-600" />
+                            <Copy className="w-5 h-5 text-[#FF8170]" />
                           )}
                         </button>
                       </div>
                     )}
 
                     {scanResults.brand && (
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#FFF5F3] to-white rounded-xl border-2 border-[#FFE8E5] hover:border-[#FF8170] transition-colors">
                         <div>
-                          <p className="text-xs text-gray-500 uppercase">Brand</p>
-                          <p className="text-lg font-bold text-gray-900">{scanResults.brand}</p>
+                          <p className="text-xs text-[#FF8170] uppercase font-bold tracking-wider">Brand</p>
+                          <p className="text-xl font-black text-gray-900 mt-1">{scanResults.brand}</p>
                         </div>
                         <button
                           onClick={() => copyToClipboard(scanResults.brand, 'brand')}
-                          className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                          className="p-2 hover:bg-[#FF8170] hover:text-white rounded-lg transition-colors bg-white border-2 border-[#FFE8E5]"
+                          title="Copy to clipboard"
                         >
                           {copiedField === 'brand' ? (
-                            <CheckCheck className="w-4 h-4 text-green-600" />
+                            <CheckCheck className="w-5 h-5 text-green-600" />
                           ) : (
-                            <Copy className="w-4 h-4 text-gray-600" />
+                            <Copy className="w-5 h-5 text-[#FF8170]" />
                           )}
                         </button>
                       </div>
                     )}
 
                     {scanResults.player_name && (
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#FFF5F3] to-white rounded-xl border-2 border-[#FFE8E5] hover:border-[#FF8170] transition-colors">
                         <div>
-                          <p className="text-xs text-gray-500 uppercase">Player Name</p>
-                          <p className="text-lg font-bold text-gray-900">{scanResults.player_name}</p>
+                          <p className="text-xs text-[#FF8170] uppercase font-bold tracking-wider">Player Name</p>
+                          <p className="text-xl font-black text-gray-900 mt-1">{scanResults.player_name}</p>
                         </div>
                         <button
                           onClick={() => copyToClipboard(scanResults.player_name, 'player')}
-                          className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                          className="p-2 hover:bg-[#FF8170] hover:text-white rounded-lg transition-colors bg-white border-2 border-[#FFE8E5]"
+                          title="Copy to clipboard"
                         >
                           {copiedField === 'player' ? (
-                            <CheckCheck className="w-4 h-4 text-green-600" />
+                            <CheckCheck className="w-5 h-5 text-green-600" />
                           ) : (
-                            <Copy className="w-4 h-4 text-gray-600" />
+                            <Copy className="w-5 h-5 text-[#FF8170]" />
                           )}
                         </button>
                       </div>
                     )}
 
                     {scanResults.card_number && (
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#FFF5F3] to-white rounded-xl border-2 border-[#FFE8E5] hover:border-[#FF8170] transition-colors">
                         <div>
-                          <p className="text-xs text-gray-500 uppercase">Card Number</p>
-                          <p className="text-lg font-bold text-gray-900">{scanResults.card_number}</p>
+                          <p className="text-xs text-[#FF8170] uppercase font-bold tracking-wider">Card Number</p>
+                          <p className="text-xl font-black text-gray-900 mt-1">{scanResults.card_number}</p>
                         </div>
                         <button
                           onClick={() => copyToClipboard(scanResults.card_number, 'number')}
-                          className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                          className="p-2 hover:bg-[#FF8170] hover:text-white rounded-lg transition-colors bg-white border-2 border-[#FFE8E5]"
+                          title="Copy to clipboard"
                         >
                           {copiedField === 'number' ? (
-                            <CheckCheck className="w-4 h-4 text-green-600" />
+                            <CheckCheck className="w-5 h-5 text-green-600" />
                           ) : (
-                            <Copy className="w-4 h-4 text-gray-600" />
+                            <Copy className="w-5 h-5 text-[#FF8170]" />
                           )}
                         </button>
                       </div>
                     )}
 
                     {scanResults.sport && (
-                      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#FFF5F3] to-white rounded-xl border-2 border-[#FFE8E5] hover:border-[#FF8170] transition-colors">
                         <div>
-                          <p className="text-xs text-gray-500 uppercase">Sport/Category</p>
-                          <p className="text-lg font-bold text-gray-900 capitalize">{scanResults.sport}</p>
+                          <p className="text-xs text-[#FF8170] uppercase font-bold tracking-wider">Sport/Category</p>
+                          <p className="text-xl font-black text-gray-900 mt-1 capitalize">{scanResults.sport}</p>
                         </div>
                         <button
                           onClick={() => copyToClipboard(scanResults.sport, 'sport')}
-                          className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+                          className="p-2 hover:bg-[#FF8170] hover:text-white rounded-lg transition-colors bg-white border-2 border-[#FFE8E5]"
+                          title="Copy to clipboard"
                         >
                           {copiedField === 'sport' ? (
-                            <CheckCheck className="w-4 h-4 text-green-600" />
+                            <CheckCheck className="w-5 h-5 text-green-600" />
                           ) : (
-                            <Copy className="w-4 h-4 text-gray-600" />
+                            <Copy className="w-5 h-5 text-[#FF8170]" />
                           )}
                         </button>
                       </div>
                     )}
                   </div>
 
-                  {/* Suggestions */}
+                  {/* Suggestions - Dashy Style */}
                   {scanResults.suggestions && scanResults.suggestions.length > 0 && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                      <h4 className="font-bold text-blue-900 mb-2">Detected Information</h4>
-                      <ul className="text-sm text-blue-800 space-y-1">
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-2xl">💡</span>
+                        <h4 className="font-bold text-blue-900 text-lg">What I Found</h4>
+                      </div>
+                      <ul className="text-sm text-blue-900 space-y-2">
                         {scanResults.suggestions.map((suggestion, idx) => (
-                          <li key={idx}>• {suggestion}</li>
+                          <li key={idx} className="flex items-start gap-2">
+                            <span className="text-blue-600 font-bold">✓</span>
+                            <span>{suggestion}</span>
+                          </li>
                         ))}
                       </ul>
                     </div>
                   )}
 
-                  {/* Help Text */}
-                  <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-                    <p className="text-sm text-purple-800">
-                      <strong>Tip:</strong> Click the copy icon next to any value to copy it to your clipboard. You can then use this information when providing card details to your admin.
-                    </p>
+                  {/* Help Text - Dashy Personality */}
+                  <div className="bg-gradient-to-r from-[#FFF5F3] to-[#FFE8E5] border-2 border-[#FF8170] rounded-xl p-5">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl flex-shrink-0">🤖</span>
+                      <div>
+                        <p className="text-sm text-gray-800 font-medium">
+                          <strong className="text-[#FF8170]">SAM's Tip:</strong> Click any copy button to grab that info! You can paste it anywhere you need. Just trying to make your life easier! 😊
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </>
               ) : (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
-                  <p className="text-amber-900 font-semibold mb-2">
-                    {scanResults.message || 'Could not scan card'}
-                  </p>
-                  <p className="text-sm text-amber-700">
-                    {scanResults.error || 'Please ensure the image is clear and well-lit, then try again.'}
-                  </p>
+                <div className="space-y-4">
+                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-6 text-center">
+                    <div className="text-4xl mb-3">😅</div>
+                    <p className="text-amber-900 font-bold text-lg mb-2">
+                      Oops! I had trouble reading this card
+                    </p>
+                    <p className="text-sm text-amber-800 mb-4">
+                      {scanResults.message || scanResults.error || 'The image might be a bit blurry or dark for me to read clearly.'}
+                    </p>
+                  </div>
+                  <div className="bg-gradient-to-r from-[#FFF5F3] to-[#FFE8E5] border-2 border-[#FF8170] rounded-xl p-5">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl flex-shrink-0">💭</span>
+                      <div className="text-sm text-gray-800">
+                        <p className="font-bold text-[#FF8170] mb-2">Here's what helps me see better:</p>
+                        <ul className="space-y-1 text-gray-700">
+                          <li>• Good lighting (natural light works great!)</li>
+                          <li>• Clear, focused photo</li>
+                          <li>• Card fills most of the frame</li>
+                          <li>• No glare or shadows on the text</li>
+                        </ul>
+                        <p className="mt-3 font-medium">Try taking another photo and I'll give it my best shot! 📸</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
