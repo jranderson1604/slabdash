@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const { authenticateCustomer } = require('../middleware/auth');
 const stripeService = require('../services/stripe');
+const cardScannerService = require('../services/cardScannerService');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const upload = multer({ storage: multer.memoryStorage() });
@@ -610,6 +611,61 @@ router.post('/cards/:cardId/before-photo', upload.single('photo'), async (req, r
     } catch (error) {
         console.error('Upload before photo error:', error);
         res.status(500).json({ error: 'Failed to upload before photo' });
+    }
+});
+
+// Scan a before photo to extract card information (customer-facing portal)
+router.post('/cards/:cardId/scan-photo', async (req, res) => {
+    try {
+        const token = req.query.token;
+        const { cardId } = req.params;
+        const { photoUrl } = req.body;
+
+        if (!token) {
+            return res.status(400).json({ error: 'Token required' });
+        }
+
+        if (!photoUrl) {
+            return res.status(400).json({ error: 'Photo URL required' });
+        }
+
+        // Verify portal access
+        const customerResult = await db.query(
+            `SELECT c.id, c.company_id
+             FROM customers c
+             WHERE c.portal_access_token = $1 AND c.portal_access_enabled = true`,
+            [token]
+        );
+
+        if (customerResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid portal token' });
+        }
+
+        const customer = customerResult.rows[0];
+
+        // Verify card belongs to this customer's submissions
+        const cardCheck = await db.query(
+            `SELECT c.id
+             FROM cards c
+             JOIN submissions s ON c.submission_id = s.id
+             WHERE c.id = $1
+             AND (s.customer_id = $2 OR s.id IN (
+                 SELECT submission_id FROM submission_customers WHERE customer_id = $2
+             ))`,
+            [cardId, customer.id]
+        );
+
+        if (cardCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Card not found or access denied' });
+        }
+
+        // Scan the card photo
+        const scanResult = await cardScannerService.scanCard(photoUrl);
+
+        res.json(scanResult);
+    } catch (error) {
+        console.error('Scan photo error:', error);
+        res.status(500).json({ error: 'Failed to scan photo' });
     }
 });
 

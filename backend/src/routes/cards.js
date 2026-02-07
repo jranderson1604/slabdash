@@ -4,6 +4,7 @@ const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 const psaService = require('../services/psaService');
 const priceCompService = require('../services/priceCompService');
+const cardScannerService = require('../services/cardScannerService');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const upload = multer({ storage: multer.memoryStorage() });
@@ -532,6 +533,35 @@ router.get('/:id/comps', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Get comps error:', error);
         res.status(500).json({ error: 'Failed to get comp data' });
+    }
+});
+
+// Scan card image to extract information (admin)
+router.post('/:id/scan-image', authenticate, async (req, res) => {
+    try {
+        const { imageUrl } = req.body;
+
+        if (!imageUrl) {
+            return res.status(400).json({ error: 'Image URL required' });
+        }
+
+        // Verify card belongs to company
+        const cardResult = await db.query(
+            'SELECT id FROM cards WHERE id = $1 AND company_id = $2',
+            [req.params.id, req.companyId]
+        );
+
+        if (cardResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Card not found' });
+        }
+
+        // Scan the card image
+        const scanResult = await cardScannerService.scanCard(imageUrl);
+
+        res.json(scanResult);
+    } catch (error) {
+        console.error('Scan image error:', error);
+        res.status(500).json({ error: 'Failed to scan image' });
     }
 });
 
