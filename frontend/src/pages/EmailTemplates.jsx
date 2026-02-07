@@ -353,30 +353,36 @@ export default function EmailTemplates() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Email Templates</h1>
-          <p className="text-gray-500 mt-1">Customize email notifications for each PSA step</p>
-        </div>
-        <div className="flex gap-2">
-          {missingSteps.length > 0 && (
-            <button
-              onClick={handleCreateDefaults}
-              disabled={creatingDefaults}
-              className="btn btn-secondary gap-2"
-            >
-              {creatingDefaults ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <CheckCircle className="w-4 h-4" />
-              )}
-              Create Default Templates
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
+        {/* Decorative circles */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">EMAIL TEMPLATES</h1>
+            <p className="text-white/90 text-lg font-semibold">Customize email notifications for each PSA step</p>
+          </div>
+          <div className="flex gap-3 flex-wrap">
+            {missingSteps.length > 0 && (
+              <button
+                onClick={handleCreateDefaults}
+                disabled={creatingDefaults}
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg disabled:opacity-50"
+              >
+                {creatingDefaults ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckCircle className="w-4 h-4" />
+                )}
+                <span className="hidden sm:inline">Create Defaults</span>
+              </button>
+            )}
+            <button onClick={handleNew} className="bg-white text-brand-600 px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">New Template</span>
             </button>
-          )}
-          <button onClick={handleNew} className="btn btn-primary gap-2">
-            <Plus className="w-4 h-4" />
-            New Template
-          </button>
+          </div>
         </div>
       </div>
 

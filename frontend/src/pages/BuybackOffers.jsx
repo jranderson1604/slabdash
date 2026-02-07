@@ -83,9 +83,15 @@ export default function BuybackOffers() {
 
   return (
     <div className="container py-8">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Buyback Offers</h1>
-        <p className="text-gray-600">Manage purchase offers for customer cards</p>
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl mb-8">
+        {/* Decorative circles */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+
+        <div className="relative">
+          <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">BUYBACK OFFERS</h1>
+          <p className="text-white/90 text-lg font-semibold">Manage purchase offers for customer cards</p>
+        </div>
       </div>
 
       {/* Stats */}
