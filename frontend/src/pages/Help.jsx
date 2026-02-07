@@ -274,13 +274,13 @@ export default function Help() {
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <a
             href="mailto:support@slabdash.app"
-            className="px-6 py-3 bg-white text-brand-600 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
+            className="px-6 py-3 bg-white text-brand-700 rounded-lg font-bold hover:bg-gray-100 transition-colors shadow-lg"
           >
             Email Support
           </a>
           <a
             href="#settings"
-            className="px-6 py-3 bg-brand-700 text-white rounded-lg font-semibold hover:bg-brand-800 transition-colors"
+            className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white border-2 border-white/50 rounded-lg font-bold hover:bg-white/30 transition-colors"
           >
             View Settings
           </a>

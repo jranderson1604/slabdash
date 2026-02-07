@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { submissions, customers, psa } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import AdminWalkthrough from '../components/AdminWalkthrough';
 import {
   Package,
   Users,
@@ -14,6 +15,7 @@ import {
   Loader2,
   DollarSign,
   Bell,
+  PlayCircle,
 } from 'lucide-react';
 
 function StatCard({ icon: Icon, label, value, subtext, color = 'brand', link }) {
@@ -102,6 +104,7 @@ export default function Dashboard() {
   const [recentSubs, setRecentSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showWalkthrough, setShowWalkthrough] = useState(false);
 
   const loadData = async () => {
     try {
@@ -178,16 +181,25 @@ export default function Dashboard() {
               Overview of your PSA submissions
             </p>
           </div>
-          {company?.hasPsaKey && (
+          <div className="flex items-center gap-3">
             <button
-              onClick={handleRefreshAll}
-              disabled={refreshing}
-              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg hover:shadow-xl hover:scale-105"
+              onClick={() => setShowWalkthrough(true)}
+              className="bg-gradient-to-br from-purple-500 to-purple-700 hover:from-purple-600 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap"
             >
-              <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Refreshing...' : 'Refresh All'}
+              <PlayCircle className="w-5 h-5" />
+              <span>Tutorial</span>
             </button>
-          )}
+            {company?.hasPsaKey && (
+              <button
+                onClick={handleRefreshAll}
+                disabled={refreshing}
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap"
+              >
+                <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+                <span>{refreshing ? 'Refreshing...' : 'Refresh All'}</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -354,6 +366,32 @@ export default function Dashboard() {
         )}
       </div>
 
+      {/* Interactive Tutorial Banner */}
+      <div className="card overflow-hidden">
+        <div className="bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 p-6 relative">
+          <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+          <div className="relative flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
+                <PlayCircle className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h3 className="text-xl font-black text-white mb-1">Interactive Admin Tutorial</h3>
+                <p className="text-white/90 text-sm font-semibold">
+                  Children's museum style walkthrough • Learn CSV upload, customer management, order completion & emails
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowWalkthrough(true)}
+              className="bg-white text-purple-700 px-6 py-3 rounded-xl font-bold hover:bg-purple-50 transition-all shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap"
+            >
+              Launch Tutorial
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link
@@ -401,6 +439,11 @@ export default function Dashboard() {
           </div>
         </Link>
       </div>
+
+      {/* Walkthrough Modal */}
+      {showWalkthrough && (
+        <AdminWalkthrough onClose={() => setShowWalkthrough(false)} />
+      )}
     </div>
   );
 }

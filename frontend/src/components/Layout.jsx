@@ -198,15 +198,15 @@ export default function Layout({ children }) {
                       className="fixed inset-0 z-10"
                       onClick={() => setUserMenuOpen(false)}
                     />
-                    <div className="absolute right-0 z-20 mt-2 w-48 bg-brand-50 rounded-lg shadow-lg border border-brand-200 py-1 fade-in">
-                      <div className="px-4 py-2 border-b border-gray-100">
+                    <div className="absolute right-0 z-20 mt-2 w-48 bg-white rounded-lg shadow-xl border border-gray-300 py-1 fade-in">
+                      <div className="px-4 py-2 border-b border-gray-200">
                         <p className="text-sm font-medium text-gray-900">{user?.name}</p>
                         <p className="text-xs text-gray-500">{user?.email}</p>
                       </div>
                       <Link
                         to="/settings"
                         onClick={() => setUserMenuOpen(false)}
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-brand-100"
+                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                       >
                         Settings
                       </Link>
