@@ -1,67 +1,114 @@
-# Card Scanner Pricing - Ultra Simple
+# Card Scanner Pricing - Crystal Clear
 
-## The 3 Tiers
+## What Customers Actually Pay
 
-| Plan | Price | What You Get | Who It's For |
-|------|-------|-------------|--------------|
-| **Free** | $0 | 10 scans/month | Try it out |
-| **Pro** | $15/mo | 500 scans/month | Collectors |
-| **Business** | $50/mo | Unlimited scans | Card shops |
+### Option 1: Scanner as Add-On to SlabDash
 
-That's it. Keep it simple.
+**Your customers already pay for SlabDash (let's say $50-100/month)**
 
----
+They pay EXTRA for the scanner:
 
-## Why These Prices?
-
-**Free = Hook them**
-- Let people try it
-- Then they'll want more
-
-**Pro = Collectors**
-- $15 feels cheap
-- Affordable for hobbyists
-- They'll upgrade to Business later
-
-**Business = Your money maker**
-- Card shops NEED this
-- Saves them $450/month in labor
-- $50 is a no-brainer
+| Add-On | Extra Cost | Total Bill |
+|--------|-----------|------------|
+| **No Scanner** | +$0 | $50/mo (just SlabDash) |
+| **Pro Scanner** | +$15/mo | $65/mo (SlabDash + scanner) |
+| **Business Scanner** | +$50/mo | $100/mo (SlabDash + unlimited scanner) |
 
 ---
 
-## The Math
+### Option 2: Standalone Scanner (Separate Product)
 
-### Get 100 card shops paying $50/month:
-**= $60,000/year**
+**For people who DON'T use SlabDash:**
 
-### Get 200 collectors paying $15/month:
-**= $36,000/year**
+| Plan | Monthly Price | What They Get |
+|------|--------------|---------------|
+| **Free** | $0 | 10 scans/month (try it) |
+| **Pro** | $15/mo | 500 scans/month |
+| **Business** | $50/mo | Unlimited scans |
 
-### Total Year 1:
-**= $96,000/year**
+---
+
+## Which Option Makes More Money?
+
+### Option 1 (Add-On):
+If 30 card shops add unlimited scanner:
+- 30 × $50/month = **$1,500/month extra** on top of SlabDash revenue
+
+### Option 2 (Standalone):
+If 100 card shops buy standalone:
+- 100 × $50/month = **$5,000/month** new revenue
+
+### Best Answer: Do BOTH
+- SlabDash users get 10% discount: Scanner for $45/mo instead of $50
+- New customers pay full price: $50/mo standalone
+- You make money from existing AND new customers
+
+---
+
+## The Real Math - Year 1
+
+### Scenario A: Just Add-On to SlabDash
+You already have 100 card shops paying for SlabDash.
+If 30 of them (30%) add unlimited scanner at +$50/mo:
+
+**30 shops × $50/mo = $1,500/month**
+**= $18,000/year in NEW revenue**
+
+### Scenario B: Standalone Product
+You attract 100 NEW customers who don't use SlabDash:
+- 100 shops × $50/mo = $5,000/month
+- 200 collectors × $15/mo = $3,000/month
+
+**= $8,000/month = $96,000/year**
+
+### Scenario C: Both (Recommended)
+Do BOTH add-on AND standalone:
+
+**Add-on revenue:** $18,000/year (from existing customers)
+**Standalone revenue:** $96,000/year (from new customers)
+**Total: $114,000/year**
 
 Cost to build: $5,000
 Cost to run: $6,000/year
 
-**Profit = $85,000**
+**Profit = $103,000**
 
 ---
 
-## What Each Tier Includes
+## Example: Card Shop Customer
 
-### Free
+**Joe's Card Shop currently pays:**
+- SlabDash subscription: $50/month
+- **Total: $50/month**
+
+**Joe adds unlimited scanner:**
+- SlabDash subscription: $50/month
+- Business Scanner add-on: $50/month
+- **New total: $100/month**
+
+**What Joe gets for that extra $50:**
+- Scans 1,000 cards per month
+- Saves 33 hours of manual typing
+- Saves $495/month in labor costs ($15/hr × 33hrs)
+
+**Joe pays $50 extra, saves $495. Easy decision.**
+
+---
+
+## What Each Scanner Tier Includes
+
+### Free (No Charge)
 - 10 scans per month
 - Basic accuracy (70%)
 - Manual price lookup
 
-### Pro - $15/month
+### Pro (+$15/month)
 - 500 scans per month
 - Good accuracy (85%)
 - Auto pricing from eBay
 - Export to CSV
 
-### Business - $50/month
+### Business (+$50/month)
 - **Unlimited scans**
 - Best accuracy (90%+)
 - Multi-source pricing
@@ -71,15 +118,13 @@ Cost to run: $6,000/year
 
 ---
 
-## Don't Overcomplicate It
+## Bottom Line
 
-**3 tiers. Simple prices. Clear value.**
+**$50/month is just for the SCANNER.**
 
-CardLadder charges $10/month for basic features.
-You charge $50/month because you have:
-- PSA integration
-- Bulk scanning
-- Better accuracy
-- Built for businesses
+If they also use SlabDash, they're paying:
+- SlabDash: $50-100/month
+- Scanner: $50/month
+- **Total bill: $100-150/month**
 
-Card shops will pay. Trust me.
+But the scanner saves them $450+/month in labor, so it's a no-brainer.
