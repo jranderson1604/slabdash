@@ -795,7 +795,7 @@ export default function Customers() {
                 )}
               </p>
 
-              {/* Progress Bar with DASHY */}
+              {/* Progress Bar with SAM */}
               <div className="w-full bg-gray-200 rounded-full h-4 mb-4 overflow-visible relative">
                 <div
                   className="bg-gradient-to-r from-brand-600 to-brand-700 h-full rounded-full transition-all duration-500 ease-out relative"
@@ -805,12 +805,12 @@ export default function Customers() {
                       : '100%'
                   }}
                 >
-                  {/* DASHY character moving along the bar */}
+                  {/* SAM character moving along the bar */}
                   <div className="absolute -right-6 -top-6 transform transition-all duration-500">
                     <div className="relative w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center shadow-lg">
                       <img
-                        src="/images/DASHY.png"
-                        alt="Dashy"
+                        src="/images/SAM_V2.png"
+                        alt="SAM"
                         className="w-10 h-10 animate-bounce rounded-full"
                         onError={(e) => {
                           e.target.style.display = 'none';

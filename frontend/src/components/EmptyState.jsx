@@ -1,11 +1,11 @@
 export default function EmptyState({ title, description, icon: Icon, children }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4">
-      {/* DASHY mascot */}
+      {/* SAM mascot */}
       <div className="mb-6 opacity-30 flex items-center justify-center">
         <img
-          src="/images/DASHY.png"
-          alt="Dashy"
+          src="/images/SAM_V2.png"
+          alt="SAM"
           className="w-32 h-32"
           style={{
             filter: 'grayscale(40%)'
