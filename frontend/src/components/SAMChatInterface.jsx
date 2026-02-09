@@ -292,82 +292,33 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-full bg-gradient-to-br from-[#F5F5DC] via-[#FFF8F0] to-[#F5F5DC]">
-      {/* SAM Character Panel - Left Side on Desktop, Top on Mobile */}
-      <div className="w-full lg:w-80 bg-gradient-to-br from-[#FF8170] via-[#FF9580] to-[#FF8170] flex flex-col items-center justify-center p-6 lg:p-8 border-r border-[#FF6B5A] lg:min-h-screen">
-        <div className="text-center mb-6">
-          <h2 className="text-3xl lg:text-4xl font-black text-gray-900 mb-2">SAM</h2>
-          <p className="text-gray-800 text-sm lg:text-base font-bold">PSA Grading Expert</p>
-        </div>
-
-        {/* Animated SAM Character */}
-        <div className="relative w-48 h-48 lg:w-64 lg:h-64 mb-6">
-          <div className="absolute inset-0 bg-white/10 rounded-3xl backdrop-blur-sm"></div>
-          <div className="relative w-full h-full p-4 flex items-center justify-center">
-            {ANIMATIONS[currentAnimation]?.endsWith('.mp4') ? (
-              <video
-                key={currentAnimation}
-                src={ANIMATIONS[currentAnimation]}
-                autoPlay
-                loop={currentAnimation.startsWith('idle') || currentAnimation === 'typing'}
-                muted
-                playsInline
-                className="w-full h-full object-contain drop-shadow-2xl"
-                onError={(e) => {
-                  // Fallback to static image
-                  e.target.style.display = 'none';
-                  const img = document.createElement('img');
-                  img.src = ANIMATIONS.static;
-                  img.className = 'w-full h-full object-contain drop-shadow-2xl animate-pulse';
-                  img.alt = 'SAM';
-                  e.target.parentElement.appendChild(img);
-                }}
-              />
-            ) : (
-              <img
-                src={ANIMATIONS.static}
-                alt="SAM"
-                className="w-full h-full object-contain drop-shadow-2xl"
-              />
-            )}
-          </div>
-        </div>
-
-        {/* Status Badge */}
-        <div className="flex items-center gap-2 bg-gray-900/20 backdrop-blur-sm px-4 py-2 rounded-full border border-gray-800/30">
-          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-          <span className="text-gray-900 text-sm font-bold">
-            {isLoading ? 'Thinking...' : scanning ? 'Scanning...' : 'Ready to help'}
-          </span>
-        </div>
-
-        {/* Animation State Debug (remove in production) */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="mt-4 text-xs text-gray-800 font-mono">
-            Animation: {currentAnimation}
-          </div>
-        )}
-      </div>
-
-      {/* Chat Panel - Right Side */}
-      <div className="flex-1 flex flex-col bg-[#FFF8F0]">
-        {/* Chat Header */}
-        <div className="bg-[#F5F5DC] border-b border-[#E8DCC0] px-4 lg:px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[#FF8170] rounded-full flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-gray-900" />
+    <div className="flex flex-col h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+      {/* Modern Header - ChatGPT Style */}
+      <div className="bg-gradient-to-r from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border-b border-white/10 px-4 lg:px-6 py-4 shadow-2xl">
+        <div className="max-w-5xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {/* Small SAM Avatar with glow */}
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl blur-lg opacity-75 animate-pulse"></div>
+              <div className="relative w-12 h-12 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-2xl border border-white/20">
+                <span className="text-2xl font-black text-white drop-shadow-lg">S</span>
+              </div>
             </div>
             <div>
-              <h3 className="font-bold text-gray-900">Chat with SAM</h3>
-              <p className="text-xs text-gray-700">Your PSA grading assistant</p>
+              <h1 className="text-2xl font-black bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent drop-shadow-lg">
+                SAM
+              </h1>
+              <p className="text-sm text-gray-400 font-semibold">PSA Grading Expert</p>
             </div>
           </div>
-          {/* Upload Card Button */}
+
+          {/* Upload Button - Desktop */}
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="hidden lg:flex items-center gap-2 px-4 py-2 bg-[#FF8170] hover:bg-[#FF6B5A] text-gray-900 rounded-xl font-bold transition-colors"
+            disabled={isLoading || scanning}
+            className="hidden lg:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-2xl font-bold transition-all shadow-2xl hover:shadow-purple-500/50 border border-white/20 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Camera className="w-4 h-4" />
+            <Camera className="w-5 h-5" />
             <span>Scan Card</span>
           </button>
           <input
@@ -379,55 +330,71 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
             className="hidden"
           />
         </div>
+      </div>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4 lg:space-y-6">
+      {/* Messages Area - ChatGPT Style */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6 lg:py-8 space-y-6">
           {messages.map((msg, index) => (
             <div
               key={index}
-              className={`flex gap-3 lg:gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+              className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
             >
+              {/* Avatar */}
               {msg.role === 'assistant' && (
-                <div className="w-8 h-8 flex-shrink-0 bg-[#FF8170] rounded-full flex items-center justify-center">
-                  <span className="text-gray-900 text-sm font-bold">S</span>
+                <div className="relative flex-shrink-0">
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl blur opacity-50"></div>
+                  <div className="relative w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg border border-white/20">
+                    <span className="text-white text-sm font-black">S</span>
+                  </div>
                 </div>
               )}
               {msg.role === 'user' && (
-                <div className="w-8 h-8 flex-shrink-0 bg-gray-700 rounded-full flex items-center justify-center">
-                  <span className="text-[#FFF8F0] text-sm font-bold">U</span>
+                <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center shadow-lg border border-white/20">
+                  <span className="text-white text-sm font-black">U</span>
                 </div>
               )}
+
+              {/* Message Bubble */}
               <div
-                className={`max-w-[85%] lg:max-w-[70%] ${
+                className={`max-w-[85%] lg:max-w-[75%] ${
                   msg.role === 'user'
-                    ? 'bg-gray-800 text-gray-100 rounded-2xl rounded-tr-sm'
-                    : 'bg-[#F5F5DC] text-gray-900 rounded-2xl rounded-tl-sm border-2 border-[#E8DCC0]'
-                } px-4 lg:px-5 py-3`}
+                    ? 'bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-2xl shadow-emerald-500/20'
+                    : 'bg-gradient-to-br from-gray-800 to-gray-900 text-gray-100 shadow-2xl shadow-black/50'
+                } rounded-3xl px-6 py-4 border border-white/10 backdrop-blur-xl`}
               >
                 {msg.image && (
                   <img
                     src={msg.image}
                     alt="Uploaded card"
-                    className="w-full max-w-xs rounded-lg mb-3 border-2 border-gray-300"
+                    className="w-full max-w-sm rounded-2xl mb-4 border-2 border-white/20 shadow-xl"
                   />
                 )}
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                <p className="text-base leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>
                 {msg.scanResults && (
-                  <div className="mt-3 pt-3 border-t border-gray-300 space-y-2 text-sm">
+                  <div className="mt-4 pt-4 border-t border-white/10 space-y-2 text-sm">
                     {msg.scanResults.gradable !== undefined && (
-                      <p className="font-bold">
-                        {msg.scanResults.gradable ? '✅ Worth Grading!' : '❌ Not Recommended for Grading'}
-                      </p>
+                      <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold ${
+                        msg.scanResults.gradable
+                          ? 'bg-green-500/20 text-green-300 border border-green-500/30'
+                          : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                      }`}>
+                        {msg.scanResults.gradable ? '✅ Worth Grading!' : '❌ Not Recommended'}
+                      </div>
                     )}
                     {msg.scanResults.estimatedGrade && (
-                      <p>Estimated Grade: <strong>{msg.scanResults.estimatedGrade}</strong></p>
+                      <p className="text-purple-300 font-semibold">
+                        Estimated Grade: <span className="text-white">{msg.scanResults.estimatedGrade}</span>
+                      </p>
                     )}
                     {msg.scanResults.condition && (
-                      <p>Condition: {msg.scanResults.condition}</p>
+                      <p className="text-blue-300 font-semibold">
+                        Condition: <span className="text-white">{msg.scanResults.condition}</span>
+                      </p>
                     )}
                   </div>
                 )}
-                <p className="text-xs mt-2 opacity-60">
+                <p className="text-xs mt-3 opacity-50 font-medium">
                   {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
@@ -436,23 +403,28 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
 
           {(isLoading || scanning) && (
             <div className="flex gap-4">
-              <div className="w-8 h-8 flex-shrink-0 bg-[#FF8170] rounded-full flex items-center justify-center">
-                <span className="text-gray-900 text-sm font-bold">S</span>
+              <div className="relative flex-shrink-0">
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl blur opacity-50 animate-pulse"></div>
+                <div className="relative w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg border border-white/20">
+                  <span className="text-white text-sm font-black">S</span>
+                </div>
               </div>
-              <div className="bg-[#F5F5DC] border-2 border-[#E8DCC0] rounded-2xl rounded-tl-sm px-5 py-3">
-                <Loader2 className="w-5 h-5 text-[#FF8170] animate-spin" />
+              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl px-6 py-4 border border-white/10 backdrop-blur-xl shadow-2xl shadow-black/50">
+                <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
               </div>
             </div>
           )}
 
           <div ref={messagesEndRef} />
         </div>
+      </div>
 
-        {/* Quick Questions */}
-        {messages.length === 1 && (
-          <div className="px-4 lg:px-6 py-4 border-t border-[#E8DCC0] bg-[#F5F5DC]">
-            <p className="text-sm font-bold text-gray-900 mb-3">Quick questions:</p>
-            <div className="flex flex-wrap gap-2">
+      {/* Quick Questions - Only show at start */}
+      {messages.length === 1 && (
+        <div className="border-t border-white/10 bg-gray-900/50 backdrop-blur-xl">
+          <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6">
+            <p className="text-sm font-bold text-gray-300 mb-4">Quick questions:</p>
+            <div className="flex flex-wrap gap-3">
               {quickQuestions.map((question, index) => (
                 <button
                   key={index}
@@ -463,59 +435,64 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
                       handleQuickQuestion(question);
                     }
                   }}
-                  className="text-sm bg-[#FFF8F0] hover:bg-[#FF8170] text-gray-900 hover:text-gray-900 px-4 py-2 rounded-full border-2 border-[#E8DCC0] hover:border-[#FF8170] transition-all font-bold"
+                  className="px-5 py-3 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-purple-600 hover:to-blue-600 text-gray-300 hover:text-white rounded-2xl border border-white/10 hover:border-white/30 transition-all font-semibold shadow-lg hover:shadow-purple-500/30 text-sm backdrop-blur-xl"
                 >
                   {question}
                 </button>
               ))}
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Input Area - Mobile Optimized */}
-        <div className="bg-[#F5F5DC] border-t border-[#E8DCC0] px-3 lg:px-6 py-3 lg:py-4 sticky bottom-0">
-          <div className="flex gap-2 lg:gap-3 items-end">
+      {/* Input Area - Modern Glass Design */}
+      <div className="border-t border-white/10 bg-gray-900/95 backdrop-blur-xl shadow-2xl sticky bottom-0">
+        <div className="max-w-5xl mx-auto px-4 lg:px-6 py-4 lg:py-6">
+          <div className="flex gap-3 items-end">
             {/* Upload Button - Mobile */}
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isLoading || scanning}
-              className="lg:hidden flex-shrink-0 p-3 bg-[#FF8170] hover:bg-[#FF6B5A] text-gray-900 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="lg:hidden flex-shrink-0 p-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-2xl hover:shadow-purple-500/50 border border-white/20"
               aria-label="Upload card image"
             >
-              <Camera className="w-5 h-5" />
+              <Camera className="w-6 h-6" />
             </button>
 
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              placeholder="Ask SAM anything about PSA grading..."
-              className="flex-1 px-4 py-3 bg-[#FFF8F0] border-2 border-[#E8DCC0] rounded-2xl focus:ring-2 focus:ring-[#FF8170] focus:border-[#FF8170] text-gray-900 placeholder-gray-600 font-medium resize-none touch-manipulation"
-              disabled={isLoading || scanning}
-              rows={1}
-              style={{
-                minHeight: '48px',
-                maxHeight: '120px',
-                fontSize: '16px' // Prevents iOS zoom on focus
-              }}
-              onInput={(e) => {
-                e.target.style.height = 'auto';
-                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
-              }}
-            />
+            <div className="flex-1 relative">
+              <textarea
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                placeholder="Ask SAM anything about PSA grading..."
+                className="w-full px-6 py-4 bg-gradient-to-br from-gray-800 to-gray-900 border-2 border-white/10 focus:border-purple-500/50 rounded-3xl focus:ring-4 focus:ring-purple-500/20 text-white placeholder-gray-500 font-medium resize-none touch-manipulation shadow-2xl backdrop-blur-xl transition-all"
+                disabled={isLoading || scanning}
+                rows={1}
+                style={{
+                  minHeight: '56px',
+                  maxHeight: '160px',
+                  fontSize: '16px'
+                }}
+                onInput={(e) => {
+                  e.target.style.height = 'auto';
+                  e.target.style.height = Math.min(e.target.scrollHeight, 160) + 'px';
+                }}
+              />
+            </div>
+
             <button
               onClick={handleSend}
               disabled={!input.trim() || isLoading || scanning}
-              className="flex-shrink-0 p-3 bg-[#FF8170] hover:bg-[#FF6B5A] text-gray-900 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg hover:shadow-xl"
+              className="flex-shrink-0 p-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-2xl hover:shadow-purple-500/50 border border-white/20 hover:scale-105"
               aria-label="Send message"
             >
-              <Send className="w-5 h-5" />
+              <Send className="w-6 h-6" />
             </button>
           </div>
         </div>
