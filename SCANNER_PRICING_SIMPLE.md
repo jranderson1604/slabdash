@@ -72,11 +72,28 @@ Cost to run: $6,000/year
 
 ---
 
-## Example: Card Shop Customer
+## Example Use Cases
 
-**Real scenario at Joe's Card Shop:**
+### Scenario 1: Customer Scans At Home (Customer Portal)
+**John has a stack of 50 cards at home:**
 
-Customer walks in: "Should I grade this Ronald Acuña Jr. card?"
+**Without scanner:**
+- Brings all 50 cards to shop
+- Shop spends 30 minutes checking each one
+- Half aren't worth grading
+- Wasted time for everyone
+
+**With scanner (customer portal):**
+- John scans all 50 cards at home
+- Sees which 12 cards are worth grading
+- Arrives at shop with only the 12 good ones
+- Shop processes them quickly
+- **Everyone saves time!**
+
+### Scenario 2: In-Store Scanning (Shop Dashboard)
+**Customer walks into Joe's Card Shop:**
+
+"Should I grade this Ronald Acuña Jr. card?"
 
 **Without scanner:**
 - Employee guesses: "Uh, maybe? Let me look it up..."
@@ -101,9 +118,9 @@ Customer walks in: "Should I grade this Ronald Acuña Jr. card?"
 
 **This is NOT a bulk scanning tool.**
 
-**This IS a pre-submission decision tool:**
+**This IS a pre-submission decision tool for SHOPS AND CUSTOMERS:**
 
-### When customer brings in a card:
+### For Card Shop Staff (in dashboard):
 1. **Scan it** (take a photo with phone/tablet)
 2. **Get instant data:**
    - PSA Population (how many graded at each level)
@@ -111,6 +128,23 @@ Customer walks in: "Should I grade this Ronald Acuña Jr. card?"
    - Service level recommendation (Economy vs Express)
    - Profit potential (expected value - grading fee)
 3. **Make informed decision** (worth grading or not?)
+
+### For End Customers (in customer portal):
+1. **Scan their own cards at home** before coming to the shop
+2. **See the same data:**
+   - PSA Population reports
+   - Prices by grade (10, 9, 8, Raw)
+   - Service recommendations
+   - ROI calculator
+3. **Decide what to submit** before visiting the shop
+4. **Arrive prepared** with cards worth grading
+
+**Benefits for shops:**
+- ✅ Customers pre-screen their own cards
+- ✅ Less "should I grade this?" questions
+- ✅ Customers arrive with quality cards
+- ✅ Fewer wasted submissions
+- ✅ More educated customers = better experience
 
 ### Free Tier
 - 10 scans per month
@@ -133,15 +167,50 @@ Customer walks in: "Should I grade this Ronald Acuña Jr. card?"
 
 **"Should I grade this card?" - Know in 10 seconds.**
 
-The scanner helps card shops:
-- Make smart grading decisions
-- Choose correct service level (save money on fees)
-- Set customer expectations
-- Look professional with instant data
-- Increase submission volume (customers trust the data)
+### For Card Shops:
+- ✅ Make smart grading decisions quickly
+- ✅ Choose correct service level (save on fees)
+- ✅ Set customer expectations professionally
+- ✅ Look professional with instant data
+- ✅ Increase submission volume (data builds trust)
+- ✅ Less time answering "should I grade this?"
 
-**Not for bulk processing. For quick decision-making.**
+### For Customers:
+- ✅ Scan cards at home before visiting shop
+- ✅ Know what's worth grading BEFORE paying fees
+- ✅ Make informed decisions with real data
+- ✅ Save time - only bring quality cards
+- ✅ Avoid grading mistakes (submitting worthless cards)
+- ✅ Trust the process (data-driven, not guessing)
+
+**Not for bulk processing. For quick decision-making by shops AND customers.**
 
 SlabDash: $120/month
 Scanner add-on: $35/month
 Total: $155/month
+
+---
+
+## Where The Scanner Lives
+
+### Two Places:
+
+**1. Card Shop Dashboard** (for staff)
+- Scan customer cards in-store
+- Quick lookups during consultations
+- Professional tool for recommendations
+- Part of SlabDash admin interface
+
+**2. Customer Portal** (for end customers)
+- Customers scan their own cards at home
+- Check cards before bringing to shop
+- Self-service decision tool
+- Accessible via customer tracking portal link
+
+**Same scanner, two interfaces = maximum value!**
+
+This means:
+- Shops can scan in-store (instant answers)
+- Customers can scan at home (pre-screening)
+- Everyone uses the same data source
+- Less back-and-forth, more submissions
