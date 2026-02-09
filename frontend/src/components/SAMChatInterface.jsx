@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Sparkles, TrendingUp, Calculator, HelpCircle, Lightbulb, ThumbsUp, Brain } from 'lucide-react';
+import { Send, Loader2, Sparkles, TrendingUp, Calculator, HelpCircle, Lightbulb, ThumbsUp, Brain, Camera, Upload } from 'lucide-react';
 import api from '../api/client';
 
 // Animation trigger keywords - maps keywords to animation types
@@ -33,8 +33,8 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
     {
       role: 'assistant',
       content: isCustomerPortal
-        ? '👋 Hey there! I\'m SAM, your PSA grading expert! I can help you understand card grades, calculate ROI, and choose the right service level. What questions do you have?'
-        : '👋 Hey there! I\'m SAM (Submission Assistant Manager), your ultimate PSA grading expert! Ask me anything about PSA grading standards, service levels, ROI calculations, or managing your submissions!',
+        ? '👋 Hey there! I\'m SAM, your PSA grading expert! I can help you understand card grades, calculate ROI, choose the right service level, and even scan your cards to determine if they\'re worth grading. What questions do you have?'
+        : '👋 Hey there! I\'m SAM (Submission Assistant Manager), your ultimate PSA grading expert! Ask me anything about PSA grading standards, service levels, ROI calculations, managing submissions, or upload a card photo for me to analyze!',
       timestamp: new Date(),
       animation: 'greeting'
     }
@@ -43,8 +43,11 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
   const [isLoading, setIsLoading] = useState(false);
   const [currentAnimation, setCurrentAnimation] = useState('idle_1');
   const [idleAnimationIndex, setIdleAnimationIndex] = useState(1);
+  const [uploadedImage, setUploadedImage] = useState(null);
+  const [scanning, setScanning] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
+  const fileInputRef = useRef(null);
   const animationTimeoutRef = useRef(null);
   const idleIntervalRef = useRef(null);
 
@@ -132,6 +135,70 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
     };
   }, []);
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setScanning(true);
+    playAnimation('thinking');
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const imageUrl = event.target.result;
+      setUploadedImage(imageUrl);
+
+      // Add user message with image
+      const userMessage = {
+        role: 'user',
+        content: '📸 [Uploaded card image for analysis]',
+        timestamp: new Date(),
+        image: imageUrl
+      };
+      setMessages(prev => [...prev, userMessage]);
+
+      try {
+        // Send image to SAM for analysis
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const endpoint = isCustomerPortal
+          ? `/portal/sam/scan?token=${token}`
+          : '/sam/scan';
+
+        const response = await api.post(endpoint, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
+
+        const analysisMessage = {
+          role: 'assistant',
+          content: response.data.message || response.data.analysis,
+          timestamp: new Date(),
+          scanResults: response.data
+        };
+
+        playAnimation('grading');
+        setMessages(prev => [...prev, analysisMessage]);
+      } catch (error) {
+        console.error('SAM scan error:', error);
+        playAnimation('confused');
+
+        const errorMessage = {
+          role: 'assistant',
+          content: '😅 Hmm, I\'m having trouble analyzing that image. Make sure it\'s a clear photo of the card! Try again?',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      } finally {
+        setScanning(false);
+        setUploadedImage(null);
+        startIdleCycle();
+      }
+    };
+
+    reader.readAsDataURL(file);
+  };
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
@@ -211,7 +278,7 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
     'What makes a PSA 10?',
     'Which service level should I use?',
     'How do I calculate grading ROI?',
-    'What\'s the difference between PSA 9 and 10?'
+    'Scan a card to check gradability'
   ];
 
   const handleQuickQuestion = (question) => {
@@ -220,12 +287,12 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
   };
 
   return (
-    <div className="flex flex-col lg:flex-row h-full bg-gradient-to-br from-gray-50 via-white to-gray-50">
+    <div className="flex flex-col lg:flex-row h-full bg-gradient-to-br from-[#F5F5DC] via-[#FFF8F0] to-[#F5F5DC]">
       {/* SAM Character Panel - Left Side on Desktop, Top on Mobile */}
-      <div className="w-full lg:w-80 bg-gradient-to-br from-brand-600 via-brand-500 to-brand-600 flex flex-col items-center justify-center p-6 lg:p-8 border-r border-brand-700 lg:min-h-screen">
+      <div className="w-full lg:w-80 bg-gradient-to-br from-[#FF8170] via-[#FF9580] to-[#FF8170] flex flex-col items-center justify-center p-6 lg:p-8 border-r border-[#FF6B5A] lg:min-h-screen">
         <div className="text-center mb-6">
-          <h2 className="text-3xl lg:text-4xl font-black text-white mb-2">SAM</h2>
-          <p className="text-brand-100 text-sm lg:text-base font-medium">PSA Grading Expert</p>
+          <h2 className="text-3xl lg:text-4xl font-black text-gray-900 mb-2">SAM</h2>
+          <p className="text-gray-800 text-sm lg:text-base font-bold">PSA Grading Expert</p>
         </div>
 
         {/* Animated SAM Character */}
@@ -262,61 +329,99 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
         </div>
 
         {/* Status Badge */}
-        <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full border border-white/30">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-          <span className="text-white text-sm font-medium">
-            {isLoading ? 'Thinking...' : 'Ready to help'}
+        <div className="flex items-center gap-2 bg-gray-900/20 backdrop-blur-sm px-4 py-2 rounded-full border border-gray-800/30">
+          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+          <span className="text-gray-900 text-sm font-bold">
+            {isLoading ? 'Thinking...' : scanning ? 'Scanning...' : 'Ready to help'}
           </span>
         </div>
 
         {/* Animation State Debug (remove in production) */}
         {process.env.NODE_ENV === 'development' && (
-          <div className="mt-4 text-xs text-white/60 font-mono">
+          <div className="mt-4 text-xs text-gray-800 font-mono">
             Animation: {currentAnimation}
           </div>
         )}
       </div>
 
       {/* Chat Panel - Right Side */}
-      <div className="flex-1 flex flex-col bg-white">
+      <div className="flex-1 flex flex-col bg-[#FFF8F0]">
         {/* Chat Header */}
-        <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="bg-[#F5F5DC] border-b border-[#E8DCC0] px-4 lg:px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-brand-100 rounded-full flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-brand-600" />
+            <div className="w-10 h-10 bg-[#FF8170] rounded-full flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-gray-900" />
             </div>
             <div>
               <h3 className="font-bold text-gray-900">Chat with SAM</h3>
-              <p className="text-xs text-gray-500">Your PSA grading assistant</p>
+              <p className="text-xs text-gray-700">Your PSA grading assistant</p>
             </div>
           </div>
+          {/* Upload Card Button */}
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            className="hidden lg:flex items-center gap-2 px-4 py-2 bg-[#FF8170] hover:bg-[#FF6B5A] text-gray-900 rounded-xl font-bold transition-colors"
+          >
+            <Camera className="w-4 h-4" />
+            <span>Scan Card</span>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleImageUpload}
+            className="hidden"
+          />
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 lg:p-6 space-y-4 lg:space-y-6">
           {messages.map((msg, index) => (
             <div
               key={index}
-              className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+              className={`flex gap-3 lg:gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
             >
               {msg.role === 'assistant' && (
-                <div className="w-8 h-8 flex-shrink-0 bg-brand-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-bold">S</span>
+                <div className="w-8 h-8 flex-shrink-0 bg-[#FF8170] rounded-full flex items-center justify-center">
+                  <span className="text-gray-900 text-sm font-bold">S</span>
                 </div>
               )}
               {msg.role === 'user' && (
                 <div className="w-8 h-8 flex-shrink-0 bg-gray-700 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-bold">You</span>
+                  <span className="text-[#FFF8F0] text-sm font-bold">U</span>
                 </div>
               )}
               <div
-                className={`max-w-[70%] ${
+                className={`max-w-[85%] lg:max-w-[70%] ${
                   msg.role === 'user'
-                    ? 'bg-gray-900 text-white rounded-2xl rounded-tr-sm'
-                    : 'bg-gray-100 text-gray-900 rounded-2xl rounded-tl-sm'
-                } px-5 py-3`}
+                    ? 'bg-gray-800 text-gray-100 rounded-2xl rounded-tr-sm'
+                    : 'bg-[#F5F5DC] text-gray-900 rounded-2xl rounded-tl-sm border-2 border-[#E8DCC0]'
+                } px-4 lg:px-5 py-3`}
               >
+                {msg.image && (
+                  <img
+                    src={msg.image}
+                    alt="Uploaded card"
+                    className="w-full max-w-xs rounded-lg mb-3 border-2 border-gray-300"
+                  />
+                )}
                 <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                {msg.scanResults && (
+                  <div className="mt-3 pt-3 border-t border-gray-300 space-y-2 text-sm">
+                    {msg.scanResults.gradable !== undefined && (
+                      <p className="font-bold">
+                        {msg.scanResults.gradable ? '✅ Worth Grading!' : '❌ Not Recommended for Grading'}
+                      </p>
+                    )}
+                    {msg.scanResults.estimatedGrade && (
+                      <p>Estimated Grade: <strong>{msg.scanResults.estimatedGrade}</strong></p>
+                    )}
+                    {msg.scanResults.condition && (
+                      <p>Condition: {msg.scanResults.condition}</p>
+                    )}
+                  </div>
+                )}
                 <p className="text-xs mt-2 opacity-60">
                   {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
@@ -324,13 +429,13 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
             </div>
           ))}
 
-          {isLoading && (
+          {(isLoading || scanning) && (
             <div className="flex gap-4">
-              <div className="w-8 h-8 flex-shrink-0 bg-brand-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-bold">S</span>
+              <div className="w-8 h-8 flex-shrink-0 bg-[#FF8170] rounded-full flex items-center justify-center">
+                <span className="text-gray-900 text-sm font-bold">S</span>
               </div>
-              <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-5 py-3">
-                <Loader2 className="w-5 h-5 text-brand-500 animate-spin" />
+              <div className="bg-[#F5F5DC] border-2 border-[#E8DCC0] rounded-2xl rounded-tl-sm px-5 py-3">
+                <Loader2 className="w-5 h-5 text-[#FF8170] animate-spin" />
               </div>
             </div>
           )}
@@ -340,14 +445,20 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
 
         {/* Quick Questions */}
         {messages.length === 1 && (
-          <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-            <p className="text-sm font-medium text-gray-700 mb-3">Quick questions:</p>
+          <div className="px-4 lg:px-6 py-4 border-t border-[#E8DCC0] bg-[#F5F5DC]">
+            <p className="text-sm font-bold text-gray-900 mb-3">Quick questions:</p>
             <div className="flex flex-wrap gap-2">
               {quickQuestions.map((question, index) => (
                 <button
                   key={index}
-                  onClick={() => handleQuickQuestion(question)}
-                  className="text-sm bg-white hover:bg-brand-50 text-gray-700 hover:text-brand-700 px-4 py-2 rounded-full border border-gray-200 hover:border-brand-300 transition-all font-medium"
+                  onClick={() => {
+                    if (question.toLowerCase().includes('scan')) {
+                      fileInputRef.current?.click();
+                    } else {
+                      handleQuickQuestion(question);
+                    }
+                  }}
+                  className="text-sm bg-[#FFF8F0] hover:bg-[#FF8170] text-gray-900 hover:text-gray-900 px-4 py-2 rounded-full border-2 border-[#E8DCC0] hover:border-[#FF8170] transition-all font-bold"
                 >
                   {question}
                 </button>
@@ -356,19 +467,38 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
           </div>
         )}
 
-        {/* Input Area */}
-        <div className="bg-white border-t border-gray-200 px-6 py-4">
-          <div className="flex gap-3 items-end">
+        {/* Input Area - Mobile Optimized */}
+        <div className="bg-[#F5F5DC] border-t border-[#E8DCC0] px-3 lg:px-6 py-3 lg:py-4 sticky bottom-0">
+          <div className="flex gap-2 lg:gap-3 items-end">
+            {/* Upload Button - Mobile */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading || scanning}
+              className="lg:hidden flex-shrink-0 p-3 bg-[#FF8170] hover:bg-[#FF6B5A] text-gray-900 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              aria-label="Upload card image"
+            >
+              <Camera className="w-5 h-5" />
+            </button>
+
             <textarea
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
               placeholder="Ask SAM anything about PSA grading..."
-              className="flex-1 px-4 py-3 bg-gray-100 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-gray-900 placeholder-gray-500 font-medium resize-none"
-              disabled={isLoading}
+              className="flex-1 px-4 py-3 bg-[#FFF8F0] border-2 border-[#E8DCC0] rounded-2xl focus:ring-2 focus:ring-[#FF8170] focus:border-[#FF8170] text-gray-900 placeholder-gray-600 font-medium resize-none touch-manipulation"
+              disabled={isLoading || scanning}
               rows={1}
-              style={{ minHeight: '48px', maxHeight: '120px' }}
+              style={{
+                minHeight: '48px',
+                maxHeight: '120px',
+                fontSize: '16px' // Prevents iOS zoom on focus
+              }}
               onInput={(e) => {
                 e.target.style.height = 'auto';
                 e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
@@ -376,8 +506,9 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
             />
             <button
               onClick={handleSend}
-              disabled={!input.trim() || isLoading}
-              className="p-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg hover:shadow-xl transform hover:scale-105"
+              disabled={!input.trim() || isLoading || scanning}
+              className="flex-shrink-0 p-3 bg-[#FF8170] hover:bg-[#FF6B5A] text-gray-900 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg hover:shadow-xl"
+              aria-label="Send message"
             >
               <Send className="w-5 h-5" />
             </button>
