@@ -1,7 +1,23 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const { authenticate } = require('../middleware/auth');
 const Anthropic = require('@anthropic-ai/sdk');
+
+// Configure multer for memory storage (images stored in buffer)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024 // 10MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    // Accept images only
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed'), false);
+    }
+    cb(null, true);
+  }
+});
 
 // SlabDash knowledge base for SAM (Submission Assistant Manager)
 const SLABDASH_KNOWLEDGE = `
@@ -687,6 +703,112 @@ router.post('/chat', authenticate, async (req, res) => {
     console.error('SAM chat error:', error);
     res.status(500).json({
       error: 'Failed to process chat message',
+      details: error.message
+    });
+  }
+});
+
+// Card scanning endpoint - analyze card image for gradability
+router.post('/scan', authenticate, upload.single('image'), async (req, res) => {
+  try {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+
+    if (!apiKey) {
+      return res.status(503).json({
+        error: 'Card scanning requires Anthropic API key',
+        message: '📷 Card scanning is temporarily unavailable. Please ask me questions about grading instead!'
+      });
+    }
+
+    // Check if image was uploaded
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file uploaded' });
+    }
+
+    const imageFile = req.file;
+    const imageBase64 = imageFile.buffer.toString('base64');
+    const mediaType = imageFile.mimetype || 'image/jpeg';
+
+    const anthropic = new Anthropic({ apiKey });
+
+    // Analyze card image with Claude's vision capabilities
+    const response = await anthropic.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 2048,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: {
+                type: 'base64',
+                media_type: mediaType,
+                data: imageBase64
+              }
+            },
+            {
+              type: 'text',
+              text: `You are SAM, the PSA grading expert. Analyze this trading card image and provide:
+
+1. **Gradability Assessment**: Is this card worth grading? (Yes/No)
+2. **Estimated PSA Grade**: What grade would you estimate (1-10)?
+3. **Centering Analysis**: Check left-right and top-bottom centering ratios
+4. **Corner Condition**: Are corners sharp or showing wear?
+5. **Edge Quality**: Any chipping or edge wear visible?
+6. **Surface Condition**: Scratches, print defects, or damage?
+7. **Recommendation**: Should the owner grade this card? Which service level?
+
+Be specific about what you see. Use PSA grading standards:
+- PSA 10: 55/45 centering, sharp corners, clean edges, flawless surface
+- PSA 9: 60/40 centering, 1 corner can have slight wear
+- PSA 8: 65/35 centering, minor corner/edge wear acceptable
+
+Provide your analysis in a friendly, conversational way. Start with whether it's worth grading, then explain why.`
+            }
+          ]
+        }
+      ]
+    });
+
+    const analysis = response.content[0].text;
+
+    // Try to extract structured data from the analysis
+    const gradable = analysis.toLowerCase().includes('worth grading') && !analysis.toLowerCase().includes('not worth grading');
+
+    // Try to extract estimated grade
+    let estimatedGrade = null;
+    const gradeMatch = analysis.match(/PSA\s*(\d+(?:-\d+)?)/i);
+    if (gradeMatch) {
+      estimatedGrade = `PSA ${gradeMatch[1]}`;
+    }
+
+    // Determine condition summary
+    let condition = 'Unknown';
+    if (analysis.toLowerCase().includes('gem mint') || analysis.toLowerCase().includes('psa 10')) {
+      condition = 'Gem Mint (PSA 10 candidate)';
+    } else if (analysis.toLowerCase().includes('mint') || analysis.toLowerCase().includes('psa 9')) {
+      condition = 'Mint (PSA 9 likely)';
+    } else if (analysis.toLowerCase().includes('near mint') || analysis.toLowerCase().includes('psa 8')) {
+      condition = 'Near Mint (PSA 8 likely)';
+    } else if (analysis.toLowerCase().includes('psa 7')) {
+      condition = 'Near Mint (PSA 7 likely)';
+    }
+
+    res.json({
+      message: analysis,
+      analysis: analysis,
+      gradable: gradable,
+      estimatedGrade: estimatedGrade,
+      condition: condition,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('SAM scan error:', error);
+    res.status(500).json({
+      error: 'Failed to analyze card image',
+      message: '😅 Hmm, I\'m having trouble analyzing that image. Make sure it\'s a clear photo of the card! Try again?',
       details: error.message
     });
   }
