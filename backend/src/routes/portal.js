@@ -20,7 +20,7 @@ router.get('/access', async (req, res) => {
 
         // Find customer by portal access token
         const customerResult = await db.query(
-            `SELECT c.*, co.name as company_name, co.slug as company_slug, co.primary_color, co.logo_url
+            `SELECT c.*, co.name as company_name, co.slug as company_slug, co.primary_color, co.logo_url, co.sam_enabled
              FROM customers c JOIN companies co ON c.company_id = co.id
              WHERE c.portal_access_token = $1 AND c.portal_access_enabled = true`,
             [token]
@@ -86,7 +86,8 @@ router.get('/access', async (req, res) => {
                 name: customer.company_name,
                 slug: customer.company_slug,
                 primaryColor: customer.primary_color,
-                logo_url: customer.logo_url
+                logo_url: customer.logo_url,
+                sam_enabled: customer.sam_enabled || false
             },
             submissions: submissionsResult.rows.map(sub => ({
                 ...sub,
@@ -718,6 +719,173 @@ router.get('/cards/:cardId', async (req, res) => {
     } catch (error) {
         console.error('Get card error:', error);
         res.status(500).json({ error: 'Failed to get card details' });
+    }
+});
+
+// SAM Chat endpoint for customer portal (token-based)
+router.post('/sam/chat', async (req, res) => {
+    try {
+        const token = req.query.token;
+        const { message, history } = req.body;
+
+        if (!token) {
+            return res.status(401).json({ error: 'Token is required' });
+        }
+
+        if (!message) {
+            return res.status(400).json({ error: 'Message is required' });
+        }
+
+        // Verify portal token and check SAM access
+        const customerResult = await db.query(
+            `SELECT c.id, c.name, c.email, c.company_id, co.sam_enabled
+             FROM customers c
+             JOIN companies co ON c.company_id = co.id
+             WHERE c.portal_access_token = $1
+             AND c.portal_access_enabled = true
+             AND (c.portal_token_expires IS NULL OR c.portal_token_expires > NOW())`,
+            [token]
+        );
+
+        if (customerResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid or expired token' });
+        }
+
+        const customer = customerResult.rows[0];
+
+        // Check if company has SAM enabled
+        if (!customer.sam_enabled) {
+            return res.status(403).json({
+                error: 'SAM Assistant is not available',
+                message: 'Your shop has not enabled the SAM AI assistant feature. Contact your shop to learn more!'
+            });
+        }
+
+        // Import SAM service (same as admin SAM)
+        const { Anthropic } = require('@anthropic-ai/sdk');
+        const anthropic = new Anthropic({
+            apiKey: process.env.ANTHROPIC_API_KEY
+        });
+
+        // SAM knowledge base (same as admin, but customer-focused)
+        const SAM_KNOWLEDGE = `
+You are SAM (Submission Assistant Manager), the ULTIMATE PSA card grading expert and AI assistant for SlabDash.
+
+You're currently helping a CUSTOMER through their card shop's customer portal. Focus on:
+- Explaining PSA grading standards in simple terms
+- Helping them understand their card values
+- Explaining service level options
+- Calculating ROI (Return on Investment) for grading
+- Answering questions about the grading process
+- Being friendly, enthusiastic, and educational
+
+IMPORTANT: You're talking to an END CUSTOMER, not the card shop staff. Keep explanations simple and encouraging.
+
+PSA GRADING SCALE (1-10):
+• PSA 10 (GEM MINT) - Perfect card. Sharp corners, 50/50 centering, no print defects
+• PSA 9 (MINT) - Near perfect. Minor centering issues allowed (60/40), sharp corners
+• PSA 8 (NM-MT) - Slight wear on corners, 65/35 centering max
+• PSA 7 (NM) - Minor corner/edge wear, 70/30 centering, slight surface wear
+• PSA 6 (EX-MT) - Visible wear, 75/25 centering, minor creasing possible
+• PSA 5 and below - Increasing levels of wear, centering issues, creases, stains
+
+THE 4 GRADING PILLARS:
+1. CENTERING - How balanced the image is on the card
+   - PSA 10: 50/50 front, 55/45 back
+   - PSA 9: 60/40 front, 65/35 back
+   - PSA 8: 65/35 front, 70/30 back
+
+2. CORNERS - Sharpness of card corners
+   - PSA 10: Razor sharp, no wear
+   - PSA 9: Minor rounding on 1-2 corners
+   - PSA 8: Slight wear visible
+
+3. EDGES - Condition of card edges
+   - PSA 10: Perfectly smooth, no chipping
+   - PSA 9: Minor roughness barely visible
+   - PSA 8: Slight fraying or wear
+
+4. SURFACE - Card surface quality
+   - PSA 10: No print defects, scratches, or stains
+   - PSA 9: Minor print line or surface issue
+   - PSA 8: Slight surface wear acceptable
+
+PSA SERVICE LEVELS:
+1. BULK ($16-25/card) - 65 business days, for cards under $499 value
+2. VALUE ($25-40/card) - 40 business days, cards under $2,499
+3. REGULAR ($50-75/card) - 20 business days, cards under $9,999
+4. EXPRESS ($150+/card) - 5-10 business days, cards under $49,999
+5. WALK-THROUGH ($600+/card) - 1-2 business days, any value
+
+SERVICE LEVEL SELECTION FORMULA:
+Graded card value ÷ Grading fee = ROI multiple
+• 20x or higher = Great ROI, use Bulk
+• 10-20x = Good ROI, use Value/Regular
+• 5-10x = Okay ROI, consider if sentimental value
+• Below 5x = Poor ROI, probably not worth grading
+
+EXAMPLE ROI CALCULATION:
+Card: 2018 Luka Doncic Prizm PSA 10 = $800
+- Bulk service ($20): $800 ÷ $20 = 40x ROI ✅ EXCELLENT
+- Regular service ($60): $800 ÷ $60 = 13.3x ROI ✅ GOOD
+- Express service ($150): $800 ÷ $150 = 5.3x ROI ⚠️ Marginal
+
+KEY TIPS FOR CUSTOMERS:
+• Modern cards (2010+): Very hard to get PSA 10, even fresh from pack
+• Vintage cards (pre-1980): More forgiving grading, PSA 8 is excellent
+• Centering is often the killer - use ruler or app to check before submitting
+• Never submit cards "just to see" - check comps first
+• Raw card value vs PSA 10 value should be 5x+ difference minimum
+• Population matters - if there are 10,000 PSA 10s, value is low
+
+Be encouraging, educational, and help customers make smart decisions about which cards to grade!
+`;
+
+        // Build conversation history
+        const messages = [
+            {
+                role: 'user',
+                content: `${SAM_KNOWLEDGE}\n\nCustomer name: ${customer.name}\n\nCustomer question: ${message}`
+            }
+        ];
+
+        // Add recent history for context
+        if (history && Array.isArray(history)) {
+            const recentHistory = history.slice(-5);
+            messages.unshift(...recentHistory.map(msg => ({
+                role: msg.role,
+                content: msg.content
+            })));
+        }
+
+        // Call Claude API
+        const response = await anthropic.messages.create({
+            model: 'claude-3-5-sonnet-20241022',
+            max_tokens: 1024,
+            messages: messages
+        });
+
+        const assistantMessage = response.content[0].text;
+
+        res.json({
+            message: assistantMessage,
+            model: 'claude-3-5-sonnet'
+        });
+    } catch (error) {
+        console.error('Customer portal SAM chat error:', error);
+
+        // Check if Anthropic API key is missing
+        if (error.message?.includes('API key')) {
+            return res.status(500).json({
+                error: 'SAM is not configured yet',
+                message: 'The AI assistant is being set up. Please try again later!'
+            });
+        }
+
+        res.status(500).json({
+            error: 'Failed to get response from SAM',
+            message: 'Oops! SAM is having trouble right now. Please try again in a moment!'
+        });
     }
 });
 
