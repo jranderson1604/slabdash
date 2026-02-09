@@ -24,6 +24,7 @@ import EmailSender from './pages/EmailSender';
 import Portal from './pages/Portal';
 import OwnerDashboard from './pages/OwnerDashboard';
 import Help from './pages/Help';
+import SAMAI from './pages/SAMAI';
 import { Loader2 } from 'lucide-react';
 
 function ProtectedRoute({ children }) {
@@ -55,6 +56,7 @@ function AppRoutes() {
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />
       <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/sam" element={<ProtectedRoute><SAMAI /></ProtectedRoute>} />
       <Route path="/submissions" element={<ProtectedRoute><Submissions /></ProtectedRoute>} />
       <Route path="/submissions/new" element={<ProtectedRoute><NewSubmission /></ProtectedRoute>} />
       <Route path="/submissions/:id" element={<ProtectedRoute><SubmissionDetail /></ProtectedRoute>} />

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import DashyAssistant from './DashyAssistant';
+import SAMAssistant from './SAMAssistant';
 import {
   LayoutDashboard,
   Package,
@@ -18,6 +18,7 @@ import {
   Shield,
   HelpCircle,
   Mail,
+  Brain,
 } from 'lucide-react';
 
 export default function Layout({ children }) {
@@ -35,6 +36,7 @@ export default function Layout({ children }) {
   // Build regular navigation based on user role
   const navigation = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'SAM AI', href: '/sam', icon: Brain, highlight: true },
     { name: 'Submissions', href: '/submissions', icon: Package },
     { name: 'Customers', href: '/customers', icon: Users },
     { name: 'Cards', href: '/cards', icon: CreditCard },
@@ -122,6 +124,27 @@ export default function Layout({ children }) {
           {navigation.map((item) => {
             const isActive = location.pathname === item.href ||
               (item.href !== '/dashboard' && item.href !== '/' && location.pathname.startsWith(item.href));
+
+            // Special styling for SAM AI (highlighted)
+            if (item.highlight) {
+              return (
+                <Link
+                  key={item.name}
+                  to={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${
+                    isActive
+                      ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-xl scale-105'
+                      : 'bg-gradient-to-r from-purple-500 to-blue-500 text-white hover:from-purple-600 hover:to-blue-600 shadow-lg hover:scale-105'
+                  }`}
+                >
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  <span className="slabdash-label font-bold">{item.name}</span>
+                  <span className="ml-auto text-xs bg-white/20 px-2 py-0.5 rounded-full">AI</span>
+                </Link>
+              );
+            }
+
             return (
               <Link
                 key={item.name}
@@ -231,8 +254,8 @@ export default function Layout({ children }) {
         </main>
       </div>
 
-      {/* Dashy AI Assistant - floating button on all pages */}
-      <DashyAssistant />
+      {/* SAM AI Assistant - floating button on all pages */}
+      <SAMAssistant />
     </div>
   );
 }

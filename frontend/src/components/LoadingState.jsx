@@ -3,11 +3,11 @@ import { Loader2 } from 'lucide-react';
 export default function LoadingState({ message = 'Loading...' }) {
   return (
     <div className="flex flex-col items-center justify-center py-12 px-4">
-      {/* DASHY mascot with bounce animation */}
+      {/* SAM mascot with bounce animation */}
       <div className="mb-6 animate-bounce flex items-center justify-center">
         <img
-          src="/images/DASHY.png"
-          alt="Dashy"
+          src="/images/SAM_V2.png"
+          alt="SAM"
           className="w-32 h-32"
           onError={(e) => {
             e.target.style.display = 'none';

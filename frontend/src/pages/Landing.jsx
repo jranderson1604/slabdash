@@ -534,25 +534,25 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* FAQ Section with DASHY */}
+      {/* FAQ Section with SAM */}
       <section id="faq" className="section-wix bg-gradient-to-b from-white to-brand-50/30">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <div className="flex justify-center mb-8">
               <div className="relative">
                 <img
-                  src="/images/DASHY.png"
-                  alt="Dashy"
+                  src="/images/SAM_V2.png"
+                  alt="SAM"
                   className="h-32 w-32 animate-bounce"
                   onError={(e) => {
                     e.target.style.display = 'none';
-                    e.target.parentElement.innerHTML = '<div class="text-6xl animate-bounce">💬</div>';
+                    e.target.parentElement.innerHTML = '<div class="text-6xl animate-bounce">🤖</div>';
                   }}
                 />
               </div>
             </div>
             <h2 className="text-5xl font-extrabold text-gray-900 mb-6">
-              Got Questions? DASHY Has Answers!
+              Got Questions? SAM Has Answers!
             </h2>
             <p className="text-xl text-gray-600 font-medium">
               Here are the most common questions about using SlabDash
@@ -664,7 +664,7 @@ export default function Landing() {
         </div>
       </footer>
 
-      {/* Floating DASHY - Idle Animation */}
+      {/* Floating SAM - Idle Animation */}
       <div className="fixed bottom-8 right-8 z-40 group">
         <div className="relative">
           <div className="absolute inset-0 bg-brand-500 opacity-30 blur-2xl rounded-full animate-pulse"></div>
@@ -673,12 +673,12 @@ export default function Landing() {
             className="relative w-24 h-24 bg-gradient-to-br from-brand-400 to-brand-600 rounded-full shadow-2xl flex items-center justify-center hover:scale-110 transition-transform duration-300"
           >
             <img
-              src="/images/DASHY.png"
-              alt="Dashy"
+              src="/images/SAM_V2.png"
+              alt="SAM"
               className="w-20 h-20 animate-bounce"
               onError={(e) => {
                 e.target.style.display = 'none';
-                e.target.parentElement.innerHTML = '<div class="text-white text-4xl font-bold animate-bounce">💬</div>';
+                e.target.parentElement.innerHTML = '<div class="text-white text-4xl font-bold animate-bounce">🤖</div>';
               }}
             />
           </button>
@@ -698,17 +698,17 @@ export default function Landing() {
             <div className="sticky top-0 bg-gradient-to-r from-brand-600 to-brand-700 p-6 rounded-t-2xl flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <img
-                  src="/images/DASHY.png"
-                  alt="Dashy"
+                  src="/images/SAM_V2.png"
+                  alt="SAM"
                   className="w-16 h-16"
                   onError={(e) => {
                     e.target.style.display = 'none';
-                    e.target.parentElement.innerHTML = '<div class="text-white text-4xl">💬</div>';
+                    e.target.parentElement.innerHTML = '<div class="text-white text-4xl">🤖</div>';
                   }}
                 />
                 <div>
                   <h2 className="text-2xl font-bold text-white">Frequently Asked Questions</h2>
-                  <p className="text-white/90">DASHY is here to help!</p>
+                  <p className="text-white/90">SAM is here to help!</p>
                 </div>
               </div>
               <button
@@ -757,8 +757,8 @@ export default function Landing() {
             <div className="bg-gradient-to-r from-brand-600 to-brand-700 p-6 flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <img
-                  src="/images/DASHY.png"
-                  alt="Dashy"
+                  src="/images/SAM_V2.png"
+                  alt="SAM"
                   className="w-16 h-16 animate-bounce"
                   onError={(e) => {
                     e.target.style.display = 'none';
@@ -767,7 +767,7 @@ export default function Landing() {
                 />
                 <div>
                   <h2 className="text-2xl font-bold text-white">Interactive Demo Tour</h2>
-                  <p className="text-white/90">Follow DASHY through a complete submission</p>
+                  <p className="text-white/90">Follow SAM through a complete submission</p>
                 </div>
               </div>
               <button

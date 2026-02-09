@@ -199,7 +199,7 @@ export default function BeforePhotoUpload({ cardId, token, existingPhotos = [], 
                 />
               </div>
 
-              {/* Scan Button (hover overlay) - Dashy Themed */}
+              {/* Scan Button (hover overlay) - SAM Themed */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
                 <button
                   onClick={() => handleScanCard(photo.url)}
@@ -233,11 +233,11 @@ export default function BeforePhotoUpload({ cardId, token, existingPhotos = [], 
         </div>
       )}
 
-      {/* Scan Results Modal - Dashy Themed */}
+      {/* Scan Results Modal - SAM Themed */}
       {scanResults && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border-4 border-[#FF8170]">
-            {/* Header - Dashy Themed */}
+            {/* Header - SAM Themed */}
             <div className="sticky top-0 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] text-white p-6 rounded-t-2xl">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -276,7 +276,7 @@ export default function BeforePhotoUpload({ cardId, token, existingPhotos = [], 
             <div className="p-6 space-y-4">
               {scanResults.success ? (
                 <>
-                  {/* Intro Message from Dashy */}
+                  {/* Intro Message from SAM */}
                   <div className="bg-gradient-to-r from-[#FFF5F3] to-[#FFE8E5] border-2 border-[#FF8170] rounded-xl p-4">
                     <p className="text-gray-800 font-medium">
                       <span className="text-2xl mr-2">👋</span>
@@ -387,7 +387,7 @@ export default function BeforePhotoUpload({ cardId, token, existingPhotos = [], 
                     )}
                   </div>
 
-                  {/* Suggestions - Dashy Style */}
+                  {/* Suggestions - SAM Style */}
                   {scanResults.suggestions && scanResults.suggestions.length > 0 && (
                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl p-5">
                       <div className="flex items-center gap-2 mb-3">
@@ -405,7 +405,7 @@ export default function BeforePhotoUpload({ cardId, token, existingPhotos = [], 
                     </div>
                   )}
 
-                  {/* Help Text - Dashy Personality */}
+                  {/* Help Text - SAM Personality */}
                   <div className="bg-gradient-to-r from-[#FFF5F3] to-[#FFE8E5] border-2 border-[#FF8170] rounded-xl p-5">
                     <div className="flex items-start gap-3">
                       <span className="text-2xl flex-shrink-0">🤖</span>
