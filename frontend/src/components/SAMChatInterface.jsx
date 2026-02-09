@@ -292,23 +292,23 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <div className="flex flex-col h-full bg-gradient-to-br from-[#2C2416] via-[#3D3020] to-[#2C2416]">
       {/* Modern Header - ChatGPT Style */}
-      <div className="bg-gradient-to-r from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border-b border-white/10 px-4 lg:px-6 py-4 shadow-2xl">
+      <div className="bg-gradient-to-r from-[#2C2416]/95 via-[#3D3020]/95 to-[#2C2416]/95 backdrop-blur-xl border-b border-[#FF8170]/20 px-4 lg:px-6 py-4 shadow-2xl">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {/* Small SAM Avatar with glow */}
+            {/* Small SAM Avatar with coral glow */}
             <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-blue-500 rounded-2xl blur-lg opacity-75 animate-pulse"></div>
-              <div className="relative w-12 h-12 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-2xl border border-white/20">
-                <span className="text-2xl font-black text-white drop-shadow-lg">S</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-[#FF8170] to-[#FF9580] rounded-2xl blur-lg opacity-75 animate-pulse"></div>
+              <div className="relative w-12 h-12 bg-gradient-to-br from-[#FF8170] to-[#FF6B5A] rounded-2xl flex items-center justify-center shadow-2xl border border-[#FFF8F0]/20">
+                <span className="text-2xl font-black text-[#FFF8F0] drop-shadow-lg">S</span>
               </div>
             </div>
             <div>
-              <h1 className="text-2xl font-black bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent drop-shadow-lg">
+              <h1 className="text-2xl font-black bg-gradient-to-r from-[#FF8170] via-[#FF9580] to-[#FFB8A8] bg-clip-text text-transparent drop-shadow-lg">
                 SAM
               </h1>
-              <p className="text-sm text-gray-400 font-semibold">PSA Grading Expert</p>
+              <p className="text-sm text-[#E8DCC0] font-semibold">PSA Grading Expert</p>
             </div>
           </div>
 
@@ -316,7 +316,7 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading || scanning}
-            className="hidden lg:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-2xl font-bold transition-all shadow-2xl hover:shadow-purple-500/50 border border-white/20 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="hidden lg:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] hover:from-[#FF9580] hover:to-[#FF8170] text-[#2C2416] rounded-2xl font-bold transition-all shadow-2xl hover:shadow-[#FF8170]/50 border border-[#FFF8F0]/20 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Camera className="w-5 h-5" />
             <span>Scan Card</span>
@@ -343,15 +343,15 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
               {/* Avatar */}
               {msg.role === 'assistant' && (
                 <div className="relative flex-shrink-0">
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl blur opacity-50"></div>
-                  <div className="relative w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg border border-white/20">
-                    <span className="text-white text-sm font-black">S</span>
+                  <div className="absolute inset-0 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] rounded-xl blur opacity-50"></div>
+                  <div className="relative w-10 h-10 bg-gradient-to-br from-[#FF8170] to-[#FF6B5A] rounded-xl flex items-center justify-center shadow-lg border border-[#FFF8F0]/20">
+                    <span className="text-[#FFF8F0] text-sm font-black">S</span>
                   </div>
                 </div>
               )}
               {msg.role === 'user' && (
-                <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-emerald-600 to-teal-600 rounded-xl flex items-center justify-center shadow-lg border border-white/20">
-                  <span className="text-white text-sm font-black">U</span>
+                <div className="flex-shrink-0 w-10 h-10 bg-gradient-to-br from-[#8B7355] to-[#6B5A42] rounded-xl flex items-center justify-center shadow-lg border border-[#FFF8F0]/20">
+                  <span className="text-[#FFF8F0] text-sm font-black">U</span>
                 </div>
               )}
 
@@ -359,37 +359,37 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
               <div
                 className={`max-w-[85%] lg:max-w-[75%] ${
                   msg.role === 'user'
-                    ? 'bg-gradient-to-br from-emerald-600 to-teal-600 text-white shadow-2xl shadow-emerald-500/20'
-                    : 'bg-gradient-to-br from-gray-800 to-gray-900 text-gray-100 shadow-2xl shadow-black/50'
-                } rounded-3xl px-6 py-4 border border-white/10 backdrop-blur-xl`}
+                    ? 'bg-gradient-to-br from-[#8B7355] to-[#6B5A42] text-[#FFF8F0] shadow-2xl shadow-[#8B7355]/20'
+                    : 'bg-gradient-to-br from-[#F5F5DC] to-[#E8DCC0] text-[#2C2416] shadow-2xl shadow-black/30'
+                } rounded-3xl px-6 py-4 border border-[#FFF8F0]/20 backdrop-blur-xl`}
               >
                 {msg.image && (
                   <img
                     src={msg.image}
                     alt="Uploaded card"
-                    className="w-full max-w-sm rounded-2xl mb-4 border-2 border-white/20 shadow-xl"
+                    className="w-full max-w-sm rounded-2xl mb-4 border-2 border-[#FF8170]/30 shadow-xl"
                   />
                 )}
                 <p className="text-base leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>
                 {msg.scanResults && (
-                  <div className="mt-4 pt-4 border-t border-white/10 space-y-2 text-sm">
+                  <div className="mt-4 pt-4 border-t border-[#2C2416]/10 space-y-2 text-sm">
                     {msg.scanResults.gradable !== undefined && (
                       <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold ${
                         msg.scanResults.gradable
-                          ? 'bg-green-500/20 text-green-300 border border-green-500/30'
-                          : 'bg-red-500/20 text-red-300 border border-red-500/30'
+                          ? 'bg-green-600/20 text-green-800 border border-green-600/30'
+                          : 'bg-red-600/20 text-red-800 border border-red-600/30'
                       }`}>
                         {msg.scanResults.gradable ? '✅ Worth Grading!' : '❌ Not Recommended'}
                       </div>
                     )}
                     {msg.scanResults.estimatedGrade && (
-                      <p className="text-purple-300 font-semibold">
-                        Estimated Grade: <span className="text-white">{msg.scanResults.estimatedGrade}</span>
+                      <p className="text-[#FF8170] font-semibold">
+                        Estimated Grade: <span className="text-[#2C2416]">{msg.scanResults.estimatedGrade}</span>
                       </p>
                     )}
                     {msg.scanResults.condition && (
-                      <p className="text-blue-300 font-semibold">
-                        Condition: <span className="text-white">{msg.scanResults.condition}</span>
+                      <p className="text-[#8B7355] font-semibold">
+                        Condition: <span className="text-[#2C2416]">{msg.scanResults.condition}</span>
                       </p>
                     )}
                   </div>
@@ -404,13 +404,13 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
           {(isLoading || scanning) && (
             <div className="flex gap-4">
               <div className="relative flex-shrink-0">
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl blur opacity-50 animate-pulse"></div>
-                <div className="relative w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-xl flex items-center justify-center shadow-lg border border-white/20">
-                  <span className="text-white text-sm font-black">S</span>
+                <div className="absolute inset-0 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] rounded-xl blur opacity-50 animate-pulse"></div>
+                <div className="relative w-10 h-10 bg-gradient-to-br from-[#FF8170] to-[#FF6B5A] rounded-xl flex items-center justify-center shadow-lg border border-[#FFF8F0]/20">
+                  <span className="text-[#FFF8F0] text-sm font-black">S</span>
                 </div>
               </div>
-              <div className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-3xl px-6 py-4 border border-white/10 backdrop-blur-xl shadow-2xl shadow-black/50">
-                <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+              <div className="bg-gradient-to-br from-[#F5F5DC] to-[#E8DCC0] rounded-3xl px-6 py-4 border border-[#FFF8F0]/20 backdrop-blur-xl shadow-2xl shadow-black/30">
+                <Loader2 className="w-6 h-6 text-[#FF8170] animate-spin" />
               </div>
             </div>
           )}
@@ -421,9 +421,9 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
 
       {/* Quick Questions - Only show at start */}
       {messages.length === 1 && (
-        <div className="border-t border-white/10 bg-gray-900/50 backdrop-blur-xl">
+        <div className="border-t border-[#FF8170]/20 bg-[#2C2416]/50 backdrop-blur-xl">
           <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6">
-            <p className="text-sm font-bold text-gray-300 mb-4">Quick questions:</p>
+            <p className="text-sm font-bold text-[#E8DCC0] mb-4">Quick questions:</p>
             <div className="flex flex-wrap gap-3">
               {quickQuestions.map((question, index) => (
                 <button
@@ -435,7 +435,7 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
                       handleQuickQuestion(question);
                     }
                   }}
-                  className="px-5 py-3 bg-gradient-to-r from-gray-800 to-gray-900 hover:from-purple-600 hover:to-blue-600 text-gray-300 hover:text-white rounded-2xl border border-white/10 hover:border-white/30 transition-all font-semibold shadow-lg hover:shadow-purple-500/30 text-sm backdrop-blur-xl"
+                  className="px-5 py-3 bg-gradient-to-r from-[#3D3020] to-[#2C2416] hover:from-[#FF8170] hover:to-[#FF6B5A] text-[#E8DCC0] hover:text-[#FFF8F0] rounded-2xl border border-[#FFF8F0]/10 hover:border-[#FF8170]/30 transition-all font-semibold shadow-lg hover:shadow-[#FF8170]/30 text-sm backdrop-blur-xl"
                 >
                   {question}
                 </button>
@@ -446,14 +446,14 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
       )}
 
       {/* Input Area - Modern Glass Design */}
-      <div className="border-t border-white/10 bg-gray-900/95 backdrop-blur-xl shadow-2xl sticky bottom-0">
+      <div className="border-t border-[#FF8170]/20 bg-[#2C2416]/95 backdrop-blur-xl shadow-2xl sticky bottom-0">
         <div className="max-w-5xl mx-auto px-4 lg:px-6 py-4 lg:py-6">
           <div className="flex gap-3 items-end">
             {/* Upload Button - Mobile */}
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isLoading || scanning}
-              className="lg:hidden flex-shrink-0 p-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-2xl hover:shadow-purple-500/50 border border-white/20"
+              className="lg:hidden flex-shrink-0 p-4 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] hover:from-[#FF9580] hover:to-[#FF8170] text-[#FFF8F0] rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-2xl hover:shadow-[#FF8170]/50 border border-[#FFF8F0]/20"
               aria-label="Upload card image"
             >
               <Camera className="w-6 h-6" />
@@ -471,7 +471,7 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
                   }
                 }}
                 placeholder="Ask SAM anything about PSA grading..."
-                className="w-full px-6 py-4 bg-gradient-to-br from-gray-800 to-gray-900 border-2 border-white/10 focus:border-purple-500/50 rounded-3xl focus:ring-4 focus:ring-purple-500/20 text-white placeholder-gray-500 font-medium resize-none touch-manipulation shadow-2xl backdrop-blur-xl transition-all"
+                className="w-full px-6 py-4 bg-gradient-to-br from-[#3D3020] to-[#2C2416] border-2 border-[#FFF8F0]/10 focus:border-[#FF8170]/50 rounded-3xl focus:ring-4 focus:ring-[#FF8170]/20 text-[#FFF8F0] placeholder-[#8B7355] font-medium resize-none touch-manipulation shadow-2xl backdrop-blur-xl transition-all"
                 disabled={isLoading || scanning}
                 rows={1}
                 style={{
@@ -489,7 +489,7 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
             <button
               onClick={handleSend}
               disabled={!input.trim() || isLoading || scanning}
-              className="flex-shrink-0 p-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-2xl hover:shadow-purple-500/50 border border-white/20 hover:scale-105"
+              className="flex-shrink-0 p-4 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] hover:from-[#FF9580] hover:to-[#FF8170] text-[#FFF8F0] rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-2xl hover:shadow-[#FF8170]/50 border border-[#FFF8F0]/20 hover:scale-105"
               aria-label="Send message"
             >
               <Send className="w-6 h-6" />
