@@ -74,51 +74,74 @@ Cost to run: $6,000/year
 
 ## Example: Card Shop Customer
 
-**Joe's Card Shop currently pays:**
-- SlabDash subscription: $120/month
-- **Total: $120/month**
+**Real scenario at Joe's Card Shop:**
 
-**Joe adds unlimited scanner:**
-- SlabDash subscription: $120/month
-- Scanner add-on: $35/month
-- **New total: $155/month**
+Customer walks in: "Should I grade this Ronald Acuña Jr. card?"
 
-**What Joe gets for that extra $35:**
-- Scans 1,000 cards per month
-- Saves 33 hours of manual typing
-- Saves $495/month in labor costs ($15/hr × 33hrs)
+**Without scanner:**
+- Employee guesses: "Uh, maybe? Let me look it up..."
+- Checks eBay manually (5 minutes)
+- Guesses at PSA population
+- Customer unsure, maybe doesn't submit
 
-**Joe pays $35 extra, saves $495. ROI = 1,414%**
+**With scanner:**
+- Employee scans card (10 seconds)
+- Shows customer:
+  - PSA 10: $180 (421 graded)
+  - PSA 9: $45 (1,204 graded)
+  - Raw: $15
+  - Recommendation: Submit Economy, likely PSA 9, $20 profit
+- Customer: "Let's do it!"
+
+**Result:** More submissions, professional service, happy customers.
 
 ---
 
-## What The Scanner Includes
+## What The Scanner Actually Does
+
+**This is NOT a bulk scanning tool.**
+
+**This IS a pre-submission decision tool:**
+
+### When customer brings in a card:
+1. **Scan it** (take a photo with phone/tablet)
+2. **Get instant data:**
+   - PSA Population (how many graded at each level)
+   - Average prices (PSA 10, 9, 8, Raw)
+   - Service level recommendation (Economy vs Express)
+   - Profit potential (expected value - grading fee)
+3. **Make informed decision** (worth grading or not?)
 
 ### Free Tier
 - 10 scans per month
-- Basic accuracy (70%)
-- Manual price lookup
+- PSA populations
+- Basic pricing data
 - Try before you buy
 
 ### Paid Tier - $35/month
 - **Unlimited scans**
-- Best accuracy (90%+)
-- Multi-source pricing (eBay, PWCC, etc)
-- Bulk upload (100+ cards at once)
-- API access
-- Priority support
-- Export to CSV
+- PSA population reports
+- Price by grade (10, 9, 8, raw)
+- Service level recommendations
+- Profit calculator
+- Mobile-friendly
+- Fast lookups
 
 ---
 
 ## Bottom Line
 
-**$35/month for unlimited scanning.**
+**"Should I grade this card?" - Know in 10 seconds.**
 
-If they use SlabDash too:
-- SlabDash: $120/month
-- Scanner: $35/month
-- **Total: $155/month**
+The scanner helps card shops:
+- Make smart grading decisions
+- Choose correct service level (save money on fees)
+- Set customer expectations
+- Look professional with instant data
+- Increase submission volume (customers trust the data)
 
-The scanner saves them $460/month in labor.
-**Pay $35, save $460. No-brainer.**
+**Not for bulk processing. For quick decision-making.**
+
+SlabDash: $120/month
+Scanner add-on: $35/month
+Total: $155/month
