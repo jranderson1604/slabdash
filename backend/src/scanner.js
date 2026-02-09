@@ -8,12 +8,30 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }
 });
 
-const client = new vision.ImageAnnotatorClient({
-  credentials: JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS)
-});
+// Initialize Google Cloud Vision client with error handling
+let client;
+try {
+  if (!process.env.GOOGLE_CLOUD_CREDENTIALS) {
+    console.warn('⚠️  GOOGLE_CLOUD_CREDENTIALS not set - scanner will not work');
+    client = null;
+  } else {
+    const credentials = JSON.parse(process.env.GOOGLE_CLOUD_CREDENTIALS);
+    client = new vision.ImageAnnotatorClient({ credentials });
+  }
+} catch (error) {
+  console.error('❌ Failed to initialize Google Cloud Vision:', error.message);
+  console.warn('⚠️  Scanner functionality will be disabled');
+  client = null;
+}
 
 router.post('/scan', upload.single('image'), async (req, res) => {
   try {
+    if (!client) {
+      return res.status(503).json({
+        error: 'Scanner not configured',
+        message: 'Google Cloud Vision API credentials not set'
+      });
+    }
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
     }
