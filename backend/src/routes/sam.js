@@ -683,18 +683,25 @@ router.post('/chat', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
+    console.log(`\n🔵 SAM Chat Request: "${message.substring(0, 50)}..."`);
+    console.log(`📊 API Key Status: ${process.env.ANTHROPIC_API_KEY ? '✅ SET' : '❌ NOT SET'}`);
+
     // Generate AI-powered response (with fallback to rule-based)
     const responseMessage = await generateAIResponse(message, history);
+
+    const mode = process.env.ANTHROPIC_API_KEY ? 'AI (Claude)' : 'Rule-based fallback';
+    console.log(`📤 Response Mode: ${mode}`);
+    console.log(`📝 Response Preview: "${responseMessage.substring(0, 100)}..."\n`);
 
     res.json({
       message: responseMessage,
       timestamp: new Date().toISOString(),
       ai_powered: !!process.env.ANTHROPIC_API_KEY,
-      mode: process.env.ANTHROPIC_API_KEY ? 'AI (Claude)' : 'Rule-based fallback'
+      mode: mode
     });
 
   } catch (error) {
-    console.error('SAM chat error:', error);
+    console.error('❌ SAM chat error:', error);
     res.status(500).json({
       error: 'Failed to process chat message',
       details: error.message

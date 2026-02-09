@@ -233,9 +233,11 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
       });
 
       // Log AI mode for debugging
-      if (response.data.mode) {
-        console.log(`🤖 SAM Response Mode: ${response.data.mode}`);
-      }
+      console.log('═══════════════════════════════════');
+      console.log(`🤖 SAM Response Mode: ${response.data.mode || 'Unknown'}`);
+      console.log(`🔑 AI Powered: ${response.data.ai_powered ? 'YES' : 'NO'}`);
+      console.log(`📝 Response: ${response.data.message.substring(0, 150)}...`);
+      console.log('═══════════════════════════════════');
 
       const assistantMessage = {
         role: 'assistant',
