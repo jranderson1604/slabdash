@@ -4,10 +4,11 @@ import { QRCodeSVG } from 'qrcode.react';
 import { format } from 'date-fns';
 import BeforePhotoUpload from '../components/BeforePhotoUpload';
 import CompLookup from '../components/CompLookup';
+import SAMChatInterface from '../components/SAMChatInterface';
 import {
   Package, Loader2, AlertTriangle, CheckCircle2, Clock, DollarSign,
   ChevronDown, ChevronUp, Key, Sparkles, Image as ImageIcon, Upload, X, Search, Grid,
-  FileText, MessageSquare, Camera
+  FileText, MessageSquare, Camera, Bot
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -614,6 +615,8 @@ export default function CustomerPortal() {
   const [cards, setCards] = useState([]);
   const [expandedSubmission, setExpandedSubmission] = useState(null);
   const [cardSearch, setCardSearch] = useState('');
+  const [activeTab, setActiveTab] = useState('submissions'); // 'submissions', 'sam', 'cards'
+  const [hasSAMAccess, setHasSAMAccess] = useState(false);
 
   const token = searchParams.get('token');
 
@@ -629,6 +632,11 @@ export default function CustomerPortal() {
       if (!response.ok) throw new Error(result.error || 'Failed to load portal');
 
       setData(result);
+
+      // Check if customer has SAM access (based on company subscription)
+      if (result.company?.has_sam_addon || result.company?.sam_enabled) {
+        setHasSAMAccess(true);
+      }
 
       // Load cards separately
       try {
@@ -730,64 +738,74 @@ export default function CustomerPortal() {
         </div>
       </div>
 
+      {/* Tab Navigation */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex gap-1">
+            <button
+              onClick={() => setActiveTab('submissions')}
+              className={`px-6 py-4 font-bold text-lg transition-all border-b-4 ${
+                activeTab === 'submissions'
+                  ? 'border-brand-600 text-brand-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Package className="w-5 h-5" />
+                <span>My Submissions</span>
+              </div>
+            </button>
+
+            {hasSAMAccess && (
+              <button
+                onClick={() => setActiveTab('sam')}
+                className={`px-6 py-4 font-bold text-lg transition-all border-b-4 relative ${
+                  activeTab === 'sam'
+                    ? 'border-brand-600 text-brand-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Bot className="w-5 h-5" />
+                  <span>Ask SAM</span>
+                  <span className="ml-2 px-2 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold rounded-full">
+                    AI
+                  </span>
+                </div>
+              </button>
+            )}
+
+            {hasCards && (
+              <button
+                onClick={() => setActiveTab('cards')}
+                className={`px-6 py-4 font-bold text-lg transition-all border-b-4 ${
+                  activeTab === 'cards'
+                    ? 'border-brand-600 text-brand-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Grid className="w-5 h-5" />
+                  <span>My Cards</span>
+                  <span className="ml-2 text-sm text-gray-400">({cards.length})</span>
+                </div>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Content */}
       <div className="max-w-7xl mx-auto px-6 py-20 space-y-24">
-        {/* Active Submissions */}
-        <section className="slide-up">
-          <div className="flex items-center gap-5 mb-12">
-            <div className="w-20 h-20 bg-gradient-to-br from-brand-500 to-brand-600 rounded-3xl flex items-center justify-center shadow-wix">
-              <Package className="w-10 h-10 text-white" />
-            </div>
-            <div>
-              <h2 className="text-5xl font-black text-gray-900 leading-tight">My Submissions</h2>
-              {activeSubmissions.length > 0 && (
-                <p className="text-gray-600 text-xl mt-2 font-medium">{activeSubmissions.length} active</p>
-              )}
-            </div>
+        {/* SAM Assistant Tab */}
+        {activeTab === 'sam' && hasSAMAccess && (
+          <div className="h-[calc(100vh-300px)] min-h-[600px] bg-white rounded-3xl shadow-2xl overflow-hidden border-2 border-gray-200">
+            <SAMChatInterface isCustomerPortal={true} token={token} />
           </div>
-
-          {activeSubmissions.length === 0 ? (
-            <div className="bg-gradient-to-br from-gray-50 to-white rounded-3xl border-2 border-dashed border-gray-200 p-20 text-center shadow-sm">
-              <Package className="w-32 h-32 text-gray-300 mx-auto mb-8" />
-              <h3 className="text-4xl font-black text-gray-900 mb-4">No Active Submissions</h3>
-              <p className="text-gray-600 text-xl font-medium">Your submissions will appear here once you drop off cards</p>
-            </div>
-          ) : (
-            <div className="space-y-8">
-              {activeSubmissions.map((submission) => (
-                <SubmissionCard
-                  key={submission.id}
-                  submission={submission}
-                  isExpanded={expandedSubmission === submission.id}
-                  onExpand={() => setExpandedSubmission(expandedSubmission === submission.id ? null : submission.id)}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Buyback Offers */}
-        {pendingOffers.length > 0 && (
-          <section>
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <DollarSign className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h2 className="text-4xl font-black text-gray-900">Buyback Offers</h2>
-                <p className="text-gray-500 text-lg mt-1">{pendingOffers.length} pending</p>
-              </div>
-            </div>
-            <div className="grid gap-6">
-              {pendingOffers.map((offer) => (
-                <BuybackCard key={offer.id} offer={offer} onRespond={handleBuybackResponse} />
-              ))}
-            </div>
-          </section>
         )}
 
-        {/* My Cards Gallery */}
-        {hasCards && (
+        {/* My Cards Tab */}
+        {activeTab === 'cards' && hasCards && (
           <section>
             <div className="flex items-center gap-4 mb-6">
               <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
@@ -850,6 +868,62 @@ export default function CustomerPortal() {
           </section>
         )}
 
+        {/* Submissions Tab - Active Submissions */}
+        {activeTab === 'submissions' && (
+          <>
+        <section className="slide-up">
+          <div className="flex items-center gap-5 mb-12">
+            <div className="w-20 h-20 bg-gradient-to-br from-brand-500 to-brand-600 rounded-3xl flex items-center justify-center shadow-wix">
+              <Package className="w-10 h-10 text-white" />
+            </div>
+            <div>
+              <h2 className="text-5xl font-black text-gray-900 leading-tight">My Submissions</h2>
+              {activeSubmissions.length > 0 && (
+                <p className="text-gray-600 text-xl mt-2 font-medium">{activeSubmissions.length} active</p>
+              )}
+            </div>
+          </div>
+
+          {activeSubmissions.length === 0 ? (
+            <div className="bg-gradient-to-br from-gray-50 to-white rounded-3xl border-2 border-dashed border-gray-200 p-20 text-center shadow-sm">
+              <Package className="w-32 h-32 text-gray-300 mx-auto mb-8" />
+              <h3 className="text-4xl font-black text-gray-900 mb-4">No Active Submissions</h3>
+              <p className="text-gray-600 text-xl font-medium">Your submissions will appear here once you drop off cards</p>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {activeSubmissions.map((submission) => (
+                <SubmissionCard
+                  key={submission.id}
+                  submission={submission}
+                  isExpanded={expandedSubmission === submission.id}
+                  onExpand={() => setExpandedSubmission(expandedSubmission === submission.id ? null : submission.id)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Buyback Offers */}
+        {pendingOffers.length > 0 && (
+          <section>
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-green-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <DollarSign className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h2 className="text-4xl font-black text-gray-900">Buyback Offers</h2>
+                <p className="text-gray-500 text-lg mt-1">{pendingOffers.length} pending</p>
+              </div>
+            </div>
+            <div className="grid gap-6">
+              {pendingOffers.map((offer) => (
+                <BuybackCard key={offer.id} offer={offer} onRespond={handleBuybackResponse} />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* Completed */}
         {completedSubmissions.length > 0 && (
           <section>
@@ -873,6 +947,8 @@ export default function CustomerPortal() {
               ))}
             </div>
           </section>
+        )}
+          </>
         )}
       </div>
 
