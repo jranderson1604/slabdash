@@ -29,12 +29,17 @@ function SettingsSection({ icon: Icon, title, description, children }) {
   return (
     <div className="card p-6">
       <div className="flex items-start gap-4 mb-6">
-        <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-          <Icon className="w-5 h-5 text-gray-600" />
+        <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
+          style={{
+            background: 'rgba(255, 129, 112, 0.1)',
+            border: '1px solid rgba(255, 129, 112, 0.12)',
+          }}
+        >
+          <Icon className="w-5 h-5" style={{ color: '#E8543D' }} />
         </div>
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
-          <p className="text-sm text-gray-500">{description}</p>
+          <h2 className="text-lg font-bold" style={{ color: 'rgb(var(--dark))' }}>{title}</h2>
+          <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>{description}</p>
         </div>
       </div>
       {children}

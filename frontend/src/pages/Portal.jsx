@@ -149,25 +149,33 @@ export default function Portal() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-gray-100 flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-red-500" /></div>;
-  if (error) return <div className="min-h-screen bg-gray-100 flex items-center justify-center"><div className="text-center"><AlertTriangle className="w-12 h-12 text-red-500 mx-auto mb-4" /><h1 className="text-xl font-bold mb-2">Access Error</h1><p className="text-gray-600">{error}</p></div></div>;
+  if (loading) return <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'rgb(var(--bg-color))' }}><Loader2 className="w-8 h-8 animate-spin" style={{ color: 'rgb(var(--brand-500))' }} /></div>;
+  if (error) return <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'rgb(var(--bg-color))' }}><div className="text-center"><AlertTriangle className="w-12 h-12 mx-auto mb-4" style={{ color: '#DC2626' }} /><h1 className="text-xl font-bold mb-2" style={{ color: 'rgb(var(--dark))' }}>Access Error</h1><p style={{ color: 'rgba(44, 36, 22, 0.5)' }}>{error}</p></div></div>;
 
   const filtered = data.submissions?.filter(s => 
     !search || s.psa_submission_number?.toLowerCase().includes(search.toLowerCase()) || s.internal_id?.toLowerCase().includes(search.toLowerCase())
   ) || [];
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
+    <div className="min-h-screen" style={{ backgroundColor: 'rgb(var(--bg-color))' }}>
+      <header className="sticky top-0 z-10"
+        style={{
+          background: 'rgba(255, 255, 255, 0.6)',
+          backdropFilter: 'blur(40px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+          borderBottom: '1px solid rgba(0, 0, 0, 0.04)',
+          boxShadow: '0 1px 8px rgba(0,0,0,0.02)',
+        }}
+      >
         <div className="max-w-6xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <img src="/images/logo-full.png.svg" alt="SlabDash" className="h-12 w-auto" />
             </div>
             <div className="text-right">
-              <p className="font-medium">{data.customer?.name}</p>
-              <p className="text-sm text-gray-500">{data.customer?.email}</p>
-              <p className="text-xs text-gray-400 mt-1">{data.company?.name || 'Card Shop'}</p>
+              <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>{data.customer?.name}</p>
+              <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>{data.customer?.email}</p>
+              <p className="text-xs mt-1" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>{data.company?.name || 'Card Shop'}</p>
             </div>
           </div>
         </div>
@@ -176,7 +184,13 @@ export default function Portal() {
       <main className="max-w-6xl mx-auto px-4 py-6">
         {/* Buyback Offers - Prominent Section */}
         {buybackOffers.filter(o => o.status === 'pending').length > 0 && (
-          <div className="mb-6 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl p-6 text-white shadow-lg">
+          <div className="mb-6 rounded-2xl p-6 text-white"
+            style={{
+              background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.9), rgba(5, 150, 105, 0.95))',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(52, 211, 153, 0.3)',
+              boxShadow: '0 8px 32px rgba(16, 185, 129, 0.2), inset 0 1px 0 rgba(110, 231, 183, 0.2)',
+            }}>
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center">
@@ -248,7 +262,7 @@ export default function Portal() {
         )}
       </main>
 
-      <footer className="text-center py-6 text-sm text-gray-500">
+      <footer className="text-center py-6 text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
         Powered by SlabDash
       </footer>
     </div>

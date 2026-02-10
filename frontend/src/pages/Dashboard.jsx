@@ -140,13 +140,19 @@ export default function Dashboard() {
 
       {/* PSA API Warning */}
       {!company?.hasPsaKey && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start gap-3">
-          <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+        <div className="rounded-2xl p-4 flex items-start gap-3"
+          style={{
+            background: 'rgba(245, 158, 11, 0.06)',
+            border: '1px solid rgba(245, 158, 11, 0.12)',
+            backdropFilter: 'blur(12px)',
+          }}
+        >
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#D97706' }} />
           <div>
-            <p className="font-medium text-yellow-800">PSA API not configured</p>
-            <p className="text-sm text-yellow-700 mt-1">
+            <p className="font-bold" style={{ color: '#92400E' }}>PSA API not configured</p>
+            <p className="text-sm font-medium mt-1" style={{ color: '#B45309' }}>
               Connect your PSA API key in{' '}
-              <Link to="/settings" className="underline hover:no-underline">
+              <Link to="/settings" className="underline hover:no-underline font-bold">
                 Settings
               </Link>{' '}
               to enable automatic status updates.
@@ -195,45 +201,49 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Notifications */}
         <div className="card">
-          <div className="p-4 border-b border-gray-200">
+          <div className="p-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                <Bell className="w-5 h-5 text-brand-500" />
+              <h2 className="text-base font-bold flex items-center gap-2" style={{ color: 'rgb(var(--dark))' }}>
+                <Bell className="w-5 h-5" style={{ color: 'rgb(var(--brand-500))' }} />
                 Recent Activity
               </h2>
             </div>
           </div>
           <div className="p-4 space-y-3">
             {stats?.gradesReady > 0 && (
-              <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg">
-                <CheckCircle2 className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 p-3 rounded-2xl"
+                style={{ background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.1)' }}
+              >
+                <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#2563EB' }} />
                 <div>
-                  <p className="text-sm font-medium text-blue-900">Grades Ready</p>
-                  <p className="text-xs text-blue-700">{stats.gradesReady} submission{stats.gradesReady !== 1 ? 's' : ''} ready for pickup</p>
+                  <p className="text-sm font-bold" style={{ color: '#1E3A8A' }}>Grades Ready</p>
+                  <p className="text-xs font-medium" style={{ color: '#1D4ED8' }}>{stats.gradesReady} submission{stats.gradesReady !== 1 ? 's' : ''} ready for pickup</p>
                 </div>
               </div>
             )}
             {stats?.problems > 0 && (
-              <div className="flex items-start gap-3 p-3 bg-yellow-50 rounded-lg">
-                <AlertTriangle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div className="flex items-start gap-3 p-3 rounded-2xl"
+                style={{ background: 'rgba(245, 158, 11, 0.06)', border: '1px solid rgba(245, 158, 11, 0.1)' }}
+              >
+                <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#D97706' }} />
                 <div>
-                  <p className="text-sm font-medium text-yellow-900">Attention Needed</p>
-                  <p className="text-xs text-yellow-700">{stats.problems} submission{stats.problems !== 1 ? 's' : ''} flagged with issues</p>
+                  <p className="text-sm font-bold" style={{ color: '#78350F' }}>Attention Needed</p>
+                  <p className="text-xs font-medium" style={{ color: '#B45309' }}>{stats.problems} submission{stats.problems !== 1 ? 's' : ''} flagged with issues</p>
                 </div>
               </div>
             )}
             {(!stats?.gradesReady && !stats?.problems) && (
-              <p className="text-sm text-gray-500 text-center py-4">No new notifications</p>
+              <p className="text-sm font-medium text-center py-4" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>No new notifications</p>
             )}
           </div>
         </div>
 
         {/* Recent Buyback Offers */}
         <div className="card">
-          <div className="p-4 border-b border-gray-200">
+          <div className="p-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-green-600" />
+              <h2 className="text-base font-bold flex items-center gap-2" style={{ color: 'rgb(var(--dark))' }}>
+                <DollarSign className="w-5 h-5" style={{ color: '#059669' }} />
                 Buyback Offers
               </h2>
               <Link
@@ -257,9 +267,9 @@ export default function Dashboard() {
 
       {/* Recent Submissions - Compact view */}
       <div className="card">
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
           <div className="flex items-center justify-between">
-            <h2 className="text-base font-semibold text-gray-900">Recent Submissions</h2>
+            <h2 className="text-base font-bold" style={{ color: 'rgb(var(--dark))' }}>Recent Submissions</h2>
             <Link
               to="/submissions"
               className="text-sm text-brand-500 hover:text-brand-600 font-medium flex items-center gap-1 transition-colors"
@@ -302,24 +312,43 @@ export default function Dashboard() {
       </div>
 
       {/* Interactive Tutorial Banner */}
-      <div className="card overflow-hidden">
-        <div className="bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 p-6 relative">
-          <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+      <div className="rounded-3xl overflow-hidden relative"
+        style={{
+          background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.85), rgba(124, 58, 237, 0.9), rgba(109, 40, 217, 0.95))',
+          backdropFilter: 'blur(40px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+          border: '1px solid rgba(196, 181, 253, 0.3)',
+          boxShadow: '0 8px 40px rgba(139, 92, 246, 0.2), inset 0 1px 0 rgba(196, 181, 253, 0.3)',
+        }}
+      >
+        <div className="p-6 relative">
+          <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"
+            style={{ background: 'rgba(196, 181, 253, 0.15)' }}
+          />
           <div className="relative flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-white/20 rounded-xl flex items-center justify-center">
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.15)' }}
+              >
                 <PlayCircle className="w-8 h-8 text-white" />
               </div>
               <div>
                 <h3 className="text-xl font-black text-white mb-1">Interactive Admin Tutorial</h3>
-                <p className="text-white/90 text-sm font-semibold">
-                  Children's museum style walkthrough • Learn CSV upload, customer management, order completion & emails
+                <p className="text-sm font-semibold" style={{ color: 'rgba(255, 255, 255, 0.85)' }}>
+                  Children's museum style walkthrough -- Learn CSV upload, customer management, order completion & emails
                 </p>
               </div>
             </div>
             <button
               onClick={() => setShowWalkthrough(true)}
-              className="bg-white text-purple-700 px-6 py-3 rounded-xl font-bold hover:bg-purple-50 transition-all shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap"
+              className="px-6 py-3 rounded-2xl font-bold transition-all whitespace-nowrap"
+              style={{
+                background: 'rgba(255,255,255,0.2)',
+                backdropFilter: 'blur(12px)',
+                color: '#FFF',
+                border: '1px solid rgba(255,255,255,0.2)',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.15)',
+              }}
             >
               Launch Tutorial
             </button>
@@ -329,47 +358,44 @@ export default function Dashboard() {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Link
-          to="/submissions/new"
-          className="card p-6 hover:border-brand-500 hover:shadow-lg transition-all group cursor-pointer"
-        >
+        <Link to="/submissions/new" className="card p-6 transition-all group cursor-pointer">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-brand-100 rounded-lg flex items-center justify-center group-hover:bg-brand-500 transition-colors">
-              <Package className="w-5 h-5 text-brand-600 group-hover:text-white transition-colors" />
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all"
+              style={{ background: 'rgba(255, 129, 112, 0.1)', border: '1px solid rgba(255, 129, 112, 0.12)' }}
+            >
+              <Package className="w-5 h-5" style={{ color: '#E8543D' }} />
             </div>
             <div>
-              <p className="font-bold text-black group-hover:text-brand-600 transition-colors">New Submission</p>
-              <p className="text-sm text-gray-700 font-medium">Track a new PSA order</p>
+              <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>New Submission</p>
+              <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Track a new PSA order</p>
             </div>
           </div>
         </Link>
 
-        <Link
-          to="/customers/new"
-          className="card p-6 hover:border-brand-500 hover:shadow-lg transition-all group cursor-pointer"
-        >
+        <Link to="/customers/new" className="card p-6 transition-all group cursor-pointer">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-brand-100 rounded-lg flex items-center justify-center group-hover:bg-brand-500 transition-colors">
-              <Users className="w-5 h-5 text-brand-600 group-hover:text-white transition-colors" />
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all"
+              style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.12)' }}
+            >
+              <Users className="w-5 h-5" style={{ color: '#059669' }} />
             </div>
             <div>
-              <p className="font-bold text-black group-hover:text-brand-600 transition-colors">Add Customer</p>
-              <p className="text-sm text-gray-700 font-medium">Create a new customer</p>
+              <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>Add Customer</p>
+              <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Create a new customer</p>
             </div>
           </div>
         </Link>
 
-        <Link
-          to="/settings"
-          className="card p-6 hover:border-brand-500 hover:shadow-lg transition-all group cursor-pointer"
-        >
+        <Link to="/settings" className="card p-6 transition-all group cursor-pointer">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-brand-100 rounded-lg flex items-center justify-center group-hover:bg-brand-500 transition-colors">
-              <TrendingUp className="w-5 h-5 text-brand-600 group-hover:text-white transition-colors" />
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all"
+              style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.12)' }}
+            >
+              <TrendingUp className="w-5 h-5" style={{ color: '#2563EB' }} />
             </div>
             <div>
-              <p className="font-bold text-black group-hover:text-brand-600 transition-colors">Connect PSA</p>
-              <p className="text-sm text-gray-700 font-medium">Set up API integration</p>
+              <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>Connect PSA</p>
+              <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Set up API integration</p>
             </div>
           </div>
         </Link>

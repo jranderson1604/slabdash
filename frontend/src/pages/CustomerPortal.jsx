@@ -55,7 +55,14 @@ function SubmissionCard({ submission, onExpand, isExpanded }) {
   const showPickupCode = submission.grades_ready && !submission.picked_up && submission.pickup_code;
 
   return (
-    <div className="group bg-white rounded-3xl shadow-wix hover:shadow-wix-lg transition-all duration-300 overflow-hidden border border-gray-100 transform hover:-translate-y-1">
+    <div className="group rounded-3xl transition-all duration-300 overflow-hidden transform hover:-translate-y-1"
+      style={{
+        background: 'rgba(255, 255, 255, 0.5)',
+        backdropFilter: 'blur(40px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+        border: '1px solid rgba(255, 255, 255, 0.4)',
+        boxShadow: '0 4px 32px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.7)',
+      }}>
       {/* Header */}
       <div
         className="p-10 cursor-pointer"
@@ -688,10 +695,10 @@ export default function CustomerPortal() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'rgb(var(--bg-color))' }}>
         <div className="text-center">
-          <Loader2 className="w-20 h-20 animate-spin text-brand-500 mx-auto mb-6" />
-          <p className="text-2xl font-semibold text-gray-600">Loading your portal...</p>
+          <Loader2 className="w-20 h-20 animate-spin mx-auto mb-6" style={{ color: 'rgb(var(--brand-500))' }} />
+          <p className="text-2xl font-bold" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Loading your portal...</p>
         </div>
       </div>
     );
@@ -699,12 +706,20 @@ export default function CustomerPortal() {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-3xl shadow-2xl p-12 max-w-md text-center">
-          <AlertTriangle className="w-24 h-24 text-red-500 mx-auto mb-6" />
-          <h2 className="text-4xl font-bold text-gray-900 mb-4">Invalid Link</h2>
-          <p className="text-gray-600 text-lg mb-2">This portal link is invalid or has expired.</p>
-          <p className="text-sm text-gray-500">Please contact the shop for a new link.</p>
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'rgb(var(--bg-color))' }}>
+        <div className="rounded-3xl p-12 max-w-md text-center"
+          style={{
+            background: 'rgba(255, 255, 255, 0.5)',
+            backdropFilter: 'blur(40px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+            border: '1px solid rgba(255, 255, 255, 0.4)',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.7)',
+          }}
+        >
+          <AlertTriangle className="w-24 h-24 mx-auto mb-6" style={{ color: '#DC2626' }} />
+          <h2 className="text-4xl font-bold mb-4" style={{ color: 'rgb(var(--dark))' }}>Invalid Link</h2>
+          <p className="text-lg mb-2" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>This portal link is invalid or has expired.</p>
+          <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>Please contact the shop for a new link.</p>
         </div>
       </div>
     );
@@ -716,39 +731,67 @@ export default function CustomerPortal() {
   const hasCards = filteredCards.length > 0;
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-brand-600 via-brand-500 to-brand-600 relative overflow-hidden shadow-wix-lg">
-        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent"></div>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-white opacity-10 rounded-full -mr-32 -mt-32"></div>
-        <div className="absolute bottom-0 left-0 w-96 h-96 bg-white opacity-10 rounded-full -ml-32 -mb-32"></div>
-        <div className="absolute top-1/2 left-1/2 w-64 h-64 bg-white opacity-5 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
+    <div className="min-h-screen" style={{ backgroundColor: 'rgb(var(--bg-color))' }}>
+      {/* Header - Liquid glass */}
+      <div className="relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.85) 0%, rgba(255, 107, 89, 0.9) 40%, rgba(232, 84, 61, 0.95) 100%)',
+          backdropFilter: 'blur(40px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+          boxShadow: '0 8px 40px rgba(255, 107, 89, 0.2), inset 0 1px 0 rgba(255, 216, 196, 0.3)',
+        }}
+      >
+        <div className="absolute top-0 right-0 w-96 h-96 rounded-full -mr-32 -mt-32 blur-3xl"
+          style={{ background: 'rgba(255, 216, 196, 0.2)' }}
+        />
+        <div className="absolute bottom-0 left-0 w-96 h-96 rounded-full -ml-32 -mb-32 blur-3xl"
+          style={{ background: 'rgba(255, 185, 160, 0.15)' }}
+        />
+        <div className="absolute top-0 left-0 right-0 h-px"
+          style={{ background: 'linear-gradient(90deg, transparent, rgba(255, 216, 196, 0.4), transparent)' }}
+        />
 
         <div className="relative max-w-7xl mx-auto px-6 py-20">
           <div className="text-center mb-10 fade-in">
             <h1 className="text-6xl sm:text-7xl font-black text-white mb-4 tracking-tight drop-shadow-lg">
               {data.company.name}
             </h1>
-            <p className="text-brand-50 text-2xl font-bold">Customer Portal</p>
+            <p className="text-2xl font-bold" style={{ color: 'rgba(255, 248, 240, 0.85)' }}>Customer Portal</p>
           </div>
-          <div className="max-w-lg mx-auto bg-white/20 backdrop-blur-xl rounded-3xl p-8 text-center border-2 border-white/30 shadow-wix-lg scale-in">
+          <div className="max-w-lg mx-auto rounded-3xl p-8 text-center scale-in"
+            style={{
+              background: 'rgba(255, 255, 255, 0.15)',
+              backdropFilter: 'blur(20px)',
+              WebkitBackdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.15)',
+            }}
+          >
             <p className="font-black text-white text-3xl mb-2">{data.customer.name}</p>
-            <p className="text-brand-50 text-xl font-medium">{data.customer.email}</p>
+            <p className="text-xl font-medium" style={{ color: 'rgba(255, 248, 240, 0.8)' }}>{data.customer.email}</p>
           </div>
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 shadow-sm">
+      {/* Tab Navigation - Liquid glass */}
+      <div className="sticky top-0 z-40"
+        style={{
+          background: 'rgba(255, 255, 255, 0.6)',
+          backdropFilter: 'blur(40px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+          borderBottom: '1px solid rgba(0, 0, 0, 0.04)',
+          boxShadow: '0 1px 8px rgba(0,0,0,0.02)',
+        }}
+      >
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex gap-1">
             <button
               onClick={() => setActiveTab('submissions')}
-              className={`px-6 py-4 font-bold text-lg transition-all border-b-4 ${
-                activeTab === 'submissions'
-                  ? 'border-brand-600 text-brand-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-              }`}
+              className="px-6 py-4 font-bold text-lg transition-all border-b-4"
+              style={{
+                borderColor: activeTab === 'submissions' ? 'rgb(var(--brand-600))' : 'transparent',
+                color: activeTab === 'submissions' ? 'rgb(var(--brand-600))' : 'rgba(44, 36, 22, 0.45)',
+              }}
             >
               <div className="flex items-center gap-2">
                 <Package className="w-5 h-5" />
@@ -759,16 +802,21 @@ export default function CustomerPortal() {
             {hasSAMAccess && (
               <button
                 onClick={() => setActiveTab('sam')}
-                className={`px-6 py-4 font-bold text-lg transition-all border-b-4 relative ${
-                  activeTab === 'sam'
-                    ? 'border-brand-600 text-brand-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className="px-6 py-4 font-bold text-lg transition-all border-b-4 relative"
+                style={{
+                  borderColor: activeTab === 'sam' ? 'rgb(var(--brand-600))' : 'transparent',
+                  color: activeTab === 'sam' ? 'rgb(var(--brand-600))' : 'rgba(44, 36, 22, 0.45)',
+                }}
               >
                 <div className="flex items-center gap-2">
                   <Bot className="w-5 h-5" />
                   <span>Ask SAM</span>
-                  <span className="ml-2 px-2 py-0.5 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold rounded-full">
+                  <span className="ml-2 px-2 py-0.5 text-xs font-bold rounded-full"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))',
+                      color: '#FFF8F0',
+                    }}
+                  >
                     AI
                   </span>
                 </div>
@@ -778,16 +826,16 @@ export default function CustomerPortal() {
             {hasCards && (
               <button
                 onClick={() => setActiveTab('cards')}
-                className={`px-6 py-4 font-bold text-lg transition-all border-b-4 ${
-                  activeTab === 'cards'
-                    ? 'border-brand-600 text-brand-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                className="px-6 py-4 font-bold text-lg transition-all border-b-4"
+                style={{
+                  borderColor: activeTab === 'cards' ? 'rgb(var(--brand-600))' : 'transparent',
+                  color: activeTab === 'cards' ? 'rgb(var(--brand-600))' : 'rgba(44, 36, 22, 0.45)',
+                }}
               >
                 <div className="flex items-center gap-2">
                   <Grid className="w-5 h-5" />
                   <span>My Cards</span>
-                  <span className="ml-2 text-sm text-gray-400">({cards.length})</span>
+                  <span className="ml-2 text-sm" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>({cards.length})</span>
                 </div>
               </button>
             )}
@@ -953,9 +1001,11 @@ export default function CustomerPortal() {
       </div>
 
       {/* Footer */}
-      <div className="bg-white border-t border-gray-200 mt-24">
+      <div className="mt-24" style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}>
         <div className="max-w-6xl mx-auto px-6 py-8 text-center">
-          <p className="text-gray-600">Questions? Contact <span className="font-semibold text-gray-900">{data.company.name}</span></p>
+          <p className="font-medium" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>
+            Questions? Contact <span className="font-bold" style={{ color: 'rgb(var(--dark))' }}>{data.company.name}</span>
+          </p>
         </div>
       </div>
     </div>

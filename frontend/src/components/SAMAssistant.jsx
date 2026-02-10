@@ -7,7 +7,7 @@ export default function SAMAssistant() {
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: '👋 Hey there! I\'m SAM (Submission Assistant Manager), your ultimate PSA grading expert! Ask me anything about PSA grading standards, service levels, ROI calculations, or managing your submissions!',
+      content: 'Hey there! I\'m SAM (Submission Assistant Manager), your ultimate PSA grading expert! Ask me anything about PSA grading standards, service levels, ROI calculations, or managing your submissions!',
       timestamp: new Date()
     }
   ]);
@@ -18,7 +18,7 @@ export default function SAMAssistant() {
 
   // SAM character image and animation
   const SAM_IMAGE = '/images/SAM_V2.png';
-  const SAM_ANIMATION = '/images/SAM_idle_animation.mp4'; // Your Sora animation
+  const SAM_ANIMATION = '/images/SAM_idle_animation.mp4';
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -48,7 +48,7 @@ export default function SAMAssistant() {
     try {
       const response = await api.post('/sam/chat', {
         message: messageText,
-        history: messages.slice(-10) // Send last 10 messages for context
+        history: messages.slice(-10)
       });
 
       const assistantMessage = {
@@ -62,7 +62,7 @@ export default function SAMAssistant() {
       console.error('SAM chat error:', error);
       const errorMessage = {
         role: 'assistant',
-        content: '😅 Oops! I\'m having trouble connecting right now. Please try again in a moment!',
+        content: 'Oops! I\'m having trouble connecting right now. Please try again in a moment!',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -87,87 +87,135 @@ export default function SAMAssistant() {
 
   return (
     <>
-      {/* Floating SAM Button */}
+      {/* Floating SAM Button - Liquid glass */}
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 w-20 h-20 bg-white hover:bg-gray-50 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 z-50 group border-4 border-brand-500"
+          className="fixed bottom-6 right-6 w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 z-50 group glass-glow"
+          style={{
+            background: 'rgba(255, 255, 255, 0.65)',
+            backdropFilter: 'blur(40px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+            border: '2px solid rgba(255, 129, 112, 0.35)',
+            boxShadow: '0 8px 32px rgba(255, 107, 89, 0.2), 0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.7)',
+          }}
           aria-label="Open SAM Assistant"
         >
           <div className="relative w-16 h-16 flex items-center justify-center">
             <img
               src={SAM_IMAGE}
               alt="SAM"
-              className="w-full h-full object-contain animate-bounce"
+              className="w-full h-full object-contain"
               onError={(e) => {
-                // Fallback to emoji if image not found
                 e.target.style.display = 'none';
-                e.target.parentElement.innerHTML = '<div class="text-4xl">🤖</div>';
+                e.target.parentElement.innerHTML = '<div class="text-4xl">S</div>';
               }}
             />
           </div>
-          <div className="absolute -top-2 -right-2 w-7 h-7 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
-            <MessageCircle className="w-4 h-4 text-white" />
+          <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
+            style={{
+              background: 'linear-gradient(135deg, #10B981, #059669)',
+              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
+              border: '2px solid rgba(255,255,255,0.8)',
+            }}
+          >
+            <MessageCircle className="w-3 h-3 text-white" />
           </div>
         </button>
       )}
 
-      {/* Chat Window */}
+      {/* Chat Window - Liquid glass */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-96 h-[600px] bg-white rounded-2xl shadow-2xl flex flex-col z-50 border-2 border-brand-200">
-          {/* Header */}
-          <div className="bg-gradient-to-r from-brand-600 to-brand-700 text-white p-4 rounded-t-2xl flex items-center justify-between">
+        <div className="fixed bottom-6 right-6 w-96 h-[600px] rounded-3xl flex flex-col z-50 scale-in"
+          style={{
+            background: 'rgba(255, 255, 255, 0.6)',
+            backdropFilter: 'blur(40px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+            border: '1px solid rgba(255, 255, 255, 0.4)',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.12), 0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.7)',
+          }}
+        >
+          {/* Header - glass brand */}
+          <div className="p-4 rounded-t-3xl flex items-center justify-between"
+            style={{
+              background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))',
+              borderBottom: '1px solid rgba(255, 185, 160, 0.3)',
+              boxShadow: 'inset 0 1px 0 rgba(255, 216, 196, 0.3)',
+            }}
+          >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center p-1">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center p-1"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.2)',
+                  backdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                }}
+              >
                 <img
                   src={SAM_IMAGE}
                   alt="SAM"
                   className="w-full h-full object-contain"
                   onError={(e) => {
                     e.target.style.display = 'none';
-                    e.target.parentElement.innerHTML = '<span class="text-2xl">🤖</span>';
+                    e.target.parentElement.innerHTML = '<span class="text-2xl">S</span>';
                   }}
                 />
               </div>
               <div>
                 <h3 className="font-bold text-lg text-white">SAM</h3>
-                <p className="text-xs text-white/90">PSA Grading Expert</p>
+                <p className="text-xs" style={{ color: 'rgba(255, 248, 240, 0.8)' }}>PSA Grading Expert</p>
               </div>
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+              className="p-2 rounded-xl transition-all"
+              style={{ background: 'rgba(255,255,255,0.1)' }}
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5 text-white" />
             </button>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-glass"
+            style={{ background: 'rgba(var(--bg-color), 0.4)' }}
+          >
             {messages.map((msg, index) => (
               <div
                 key={index}
                 className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
               >
                 {msg.role === 'assistant' && (
-                  <div className="w-8 h-8 flex-shrink-0 bg-white border-2 border-brand-200 rounded-full flex items-center justify-center p-0.5">
+                  <div className="w-8 h-8 flex-shrink-0 rounded-xl flex items-center justify-center p-0.5"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.6)',
+                      border: '1px solid rgba(255, 129, 112, 0.2)',
+                      backdropFilter: 'blur(12px)',
+                    }}
+                  >
                     <img
                       src={SAM_IMAGE}
                       alt="SAM"
                       className="w-full h-full object-contain"
                       onError={(e) => {
                         e.target.style.display = 'none';
-                        e.target.parentElement.innerHTML = '<span class="text-lg">🤖</span>';
+                        e.target.parentElement.innerHTML = '<span class="text-lg">S</span>';
                       }}
                     />
                   </div>
                 )}
                 <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-2 ${
-                    msg.role === 'user'
-                      ? 'bg-brand-600 text-white'
-                      : 'bg-white border border-brand-200 text-gray-900'
-                  }`}
+                  className="max-w-[80%] rounded-2xl px-4 py-2"
+                  style={msg.role === 'user' ? {
+                    background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))',
+                    color: '#FFF8F0',
+                    boxShadow: '0 2px 8px rgba(255, 107, 89, 0.2), inset 0 1px 0 rgba(255, 185, 160, 0.2)',
+                  } : {
+                    background: 'rgba(255, 255, 255, 0.6)',
+                    backdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(255, 255, 255, 0.4)',
+                    color: 'rgb(var(--dark))',
+                    boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5)',
+                  }}
                 >
                   <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
                 </div>
@@ -176,19 +224,29 @@ export default function SAMAssistant() {
 
             {isLoading && (
               <div className="flex gap-3">
-                <div className="w-8 h-8 flex-shrink-0 bg-white border-2 border-brand-200 rounded-full flex items-center justify-center p-0.5">
+                <div className="w-8 h-8 flex-shrink-0 rounded-xl flex items-center justify-center p-0.5"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.6)',
+                    border: '1px solid rgba(255, 129, 112, 0.2)',
+                  }}
+                >
                   <img
                     src={SAM_IMAGE}
                     alt="SAM"
                     className="w-full h-full object-contain animate-bounce"
                     onError={(e) => {
                       e.target.style.display = 'none';
-                      e.target.parentElement.innerHTML = '<span class="text-lg animate-bounce">🤖</span>';
+                      e.target.parentElement.innerHTML = '<span class="text-lg animate-bounce">S</span>';
                     }}
                   />
                 </div>
-                <div className="bg-white border border-brand-200 rounded-2xl px-4 py-2">
-                  <Loader2 className="w-4 h-4 text-brand-500 animate-spin" />
+                <div className="rounded-2xl px-4 py-2"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.6)',
+                    border: '1px solid rgba(255, 255, 255, 0.4)',
+                  }}
+                >
+                  <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'rgb(var(--brand-500))' }} />
                 </div>
               </div>
             )}
@@ -198,14 +256,19 @@ export default function SAMAssistant() {
 
           {/* Quick Questions */}
           {messages.length === 1 && (
-            <div className="px-4 py-2 border-t border-brand-200 bg-white">
-              <p className="text-xs text-gray-500 mb-2">Quick questions:</p>
+            <div className="px-4 py-2" style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+              <p className="text-xs mb-2" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>Quick questions:</p>
               <div className="flex flex-wrap gap-2">
                 {quickQuestions.map((question, index) => (
                   <button
                     key={index}
                     onClick={() => setInput(question)}
-                    className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded-full transition-colors"
+                    className="text-xs px-3 py-1 rounded-full transition-all"
+                    style={{
+                      background: 'rgba(255, 129, 112, 0.08)',
+                      color: 'rgb(var(--brand-700))',
+                      border: '1px solid rgba(255, 129, 112, 0.12)',
+                    }}
                   >
                     {question}
                   </button>
@@ -214,9 +277,11 @@ export default function SAMAssistant() {
             </div>
           )}
 
-          {/* SAM Idle Animation - Shows when not loading */}
+          {/* SAM Idle Animation */}
           {!isLoading && (
-            <div className="px-4 py-3 border-t border-brand-200 bg-gradient-to-b from-white to-gray-50 flex justify-center">
+            <div className="px-4 py-3 flex justify-center"
+              style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}
+            >
               <div className="w-24 h-24 relative">
                 <video
                   src={SAM_ANIMATION}
@@ -226,7 +291,6 @@ export default function SAMAssistant() {
                   playsInline
                   className="w-full h-full object-contain"
                   onError={(e) => {
-                    // Fallback to static image if video fails
                     e.target.style.display = 'none';
                     const img = document.createElement('img');
                     img.src = SAM_IMAGE;
@@ -239,8 +303,8 @@ export default function SAMAssistant() {
             </div>
           )}
 
-          {/* Input - FIXED: Solid white background, proper contrast */}
-          <div className="p-4 border-t border-brand-200 bg-white rounded-b-2xl">
+          {/* Input */}
+          <div className="p-4 rounded-b-3xl" style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}>
             <div className="flex gap-2">
               <input
                 ref={inputRef}
@@ -249,13 +313,18 @@ export default function SAMAssistant() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask SAM anything..."
-                className="flex-1 px-4 py-2 bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-brand-500 text-gray-900 placeholder-gray-500 font-medium"
+                className="input flex-1"
                 disabled={isLoading}
               />
               <button
                 onClick={handleSend}
                 disabled={!input.trim() || isLoading}
-                className="p-2 bg-brand-500 hover:bg-brand-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="p-3 rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                style={{
+                  background: 'linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-600)))',
+                  color: '#FFF8F0',
+                  boxShadow: '0 2px 8px rgba(255, 107, 89, 0.25), inset 0 1px 0 rgba(255, 185, 160, 0.3)',
+                }}
               >
                 <Send className="w-5 h-5" />
               </button>

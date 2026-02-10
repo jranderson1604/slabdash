@@ -15,14 +15,19 @@ import {
 
 function Section({ title, icon: Icon, children }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-      <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-3">
-        <div className="w-10 h-10 bg-brand-500 rounded-lg flex items-center justify-center">
+    <div className="card p-6 mb-6">
+      <h2 className="text-2xl font-bold mb-4 flex items-center gap-3" style={{ color: 'rgb(var(--dark))' }}>
+        <div className="w-10 h-10 rounded-2xl flex items-center justify-center"
+          style={{
+            background: 'linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-600)))',
+            boxShadow: '0 4px 12px rgba(255, 107, 89, 0.25), inset 0 1px 0 rgba(255, 185, 160, 0.3)',
+          }}
+        >
           <Icon className="w-6 h-6 text-white" />
         </div>
         {title}
       </h2>
-      <div className="text-gray-700 space-y-4">
+      <div className="space-y-4" style={{ color: 'rgba(44, 36, 22, 0.7)' }}>
         {children}
       </div>
     </div>
@@ -31,18 +36,26 @@ function Section({ title, icon: Icon, children }) {
 
 function StepCard({ number, title, description, icon: Icon }) {
   return (
-    <div className="flex gap-4 p-4 bg-gray-50 rounded-lg">
+    <div className="flex gap-4 p-4 rounded-2xl"
+      style={{ background: 'rgba(255, 248, 240, 0.6)', border: '1px solid rgba(0,0,0,0.03)' }}
+    >
       <div className="flex-shrink-0">
-        <div className="w-10 h-10 bg-brand-600 text-white rounded-full flex items-center justify-center font-bold">
+        <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold"
+          style={{
+            background: 'linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-600)))',
+            color: '#FFF8F0',
+            boxShadow: '0 2px 8px rgba(255, 107, 89, 0.25)',
+          }}
+        >
           {number}
         </div>
       </div>
       <div className="flex-1">
-        <h4 className="font-semibold text-gray-900 flex items-center gap-2 mb-1">
+        <h4 className="font-bold flex items-center gap-2 mb-1" style={{ color: 'rgb(var(--dark))' }}>
           {Icon && <Icon className="w-4 h-4" />}
           {title}
         </h4>
-        <p className="text-sm text-gray-600">{description}</p>
+        <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>{description}</p>
       </div>
     </div>
   );
@@ -51,17 +64,24 @@ function StepCard({ number, title, description, icon: Icon }) {
 export default function Help() {
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl mb-8">
+      <div className="relative overflow-hidden rounded-3xl page-header-glass p-8 mb-8">
         {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+        <div className="absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"
+          style={{ background: 'rgba(255, 216, 196, 0.25)' }}
+        />
+        <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"
+          style={{ background: 'rgba(255, 185, 160, 0.2)' }}
+        />
+        <div className="absolute top-0 left-0 right-0 h-px"
+          style={{ background: 'linear-gradient(90deg, transparent, rgba(255, 216, 196, 0.5), transparent)' }}
+        />
 
         <div className="relative">
           <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg flex items-center gap-3">
             <HelpCircle className="w-10 h-10" />
             HELP & INSTRUCTIONS
           </h1>
-          <p className="text-white/90 text-lg font-semibold">
+          <p className="text-lg font-semibold" style={{ color: 'rgba(255, 248, 240, 0.85)' }}>
             Everything you need to know about using SlabDash
           </p>
         </div>
