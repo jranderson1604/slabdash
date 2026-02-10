@@ -941,47 +941,41 @@ router.post('/scan', authenticate, upload.single('image'), async (req, res) => {
             },
             {
               type: 'text',
-              text: `You are SAM, the PSA grading expert. This is a photo of the FRONT of a trading card. Analyze what you can see and provide a thorough assessment.
+              text: `You are SAM, a card identification and pricing expert. Your PRIMARY job is to ACCURATELY identify this card. Getting the card identity right is critical — prices depend on it.
 
-FIRST — Identify the card:
-• Player name, year, brand/set, card number if visible
-• Sport (Baseball, Basketball, Football, Hockey, Soccer)
-• Note if it's a rookie card, refractor, auto, numbered, etc.
+STEP 1 — IDENTIFY THE CARD (most important):
+Read every visible detail carefully:
+• **Card Name / Player Name** — read the exact name printed on the card
+• **Year** — look for a year printed on the card or copyright line
+• **Brand / Set** — read the brand logo and set name (e.g., "Topps Chrome", "Pokemon Sword & Shield Evolving Skies", "Magic: The Gathering Modern Horizons 3")
+• **Card Number** — look for a number printed on the card (e.g., "#25/165", "RC-1", "SV049")
+• **Game / Sport** — is this Pokemon, Magic: The Gathering, Yu-Gi-Oh, Baseball, Basketball, Football, Hockey, etc.?
+• **Special attributes** — Rookie Card (RC), refractor, holographic, foil, autograph, numbered (/25, /99, etc.), first edition, shadowless, reverse holo, full art, alternate art, etc.
+• **Rarity** — common, uncommon, rare, ultra rare, secret rare, etc. Look for rarity symbols.
 
-THEN — Grade assessment based on what's visible on the front:
+Be precise. Read text on the card exactly as printed. Don't guess — if you can't read something clearly, say so.
 
-1. **Centering** (most important for high grades):
-   Estimate the left-to-right and top-to-bottom border ratios as precisely as possible.
-   • PSA 10 requires 55/45 or better both ways
-   • PSA 9 requires 60/40 or better
-   • PSA 8 requires 65/35 or better
-   Measure by comparing border widths on opposite sides. Be specific: "Left border looks ~2mm, right ~3mm, roughly 60/40."
+STEP 2 — QUICK CONDITION ASSESSMENT:
+• Brief centering check (L/R, T/B ratios)
+• Note any visible flaws (whitening, scratches, dents)
+• Give a quick PSA grade estimate (single number, e.g., PSA 9)
+• One sentence: worth grading or not?
 
-2. **Corners**: Zoom in on all 4 corners. Any white showing, softness, or dings? Sharp corners = PSA 10 territory. Any white = PSA 8 max.
+Keep Step 2 SHORT — just 3-4 lines total. The focus is identification and pricing.
 
-3. **Edges**: Check all 4 edges for chipping, roughness, or white showing.
+FORMAT YOUR RESPONSE LIKE THIS:
+**🔍 Card Identified:**
+[Card Name] — [Year] [Brand/Set] #[Number]
+[Game/Sport] | [Special attributes]
 
-4. **Surface**: Look for scratches, print lines, ink spots, fish eyes, wax stains, or gloss issues. Check under highlights/reflections in the photo.
-
-5. **Print Quality**: Any registration issues, color bleeding, focus problems, or factory defects?
-
-FINALLY — Give your verdict:
-• **Estimated PSA Grade**: Your best estimate (single number like PSA 9, not a range)
-• **Worth Grading?**: Yes or No — consider the card's likely value at this grade
-• **Confidence Level**: How confident are you given photo quality? Note if better photos would help.
-• **Service Level Recommendation**: Based on the card and likely grade
-
-IMPORTANT NOTES:
-- You can only see the front. Mention that back centering, back surface, and back edges can't be assessed from this photo.
-- If the photo is blurry, at an angle, or poor quality, say so and note how it limits your assessment.
-- Be honest — if it's clearly not a PSA 10 candidate, say so directly.
-- Be conversational and friendly, but specific with numbers.
+**📋 Quick Grade Check:**
+[Brief assessment — 3-4 lines max]
 
 AT THE VERY END of your response, output a JSON block with the card identification so we can look up pricing. Use this exact format on its own line:
-<!--CARD_ID:{"name":"Card Name","set":"Set Name","number":"123","year":"2024","game":"pokemon","sport":""}-->
+<!--CARD_ID:{"name":"Card Name","set":"Set Name","number":"123","year":"2024","game":"pokemon","sport":"","rarity":"rare","attributes":"holographic, full art"}-->
 For "game", use one of: pokemon, mtg, yugioh, disney-lorcana, one-piece-card-game, digimon-card-game, flesh-and-blood-tcg, dragon-ball-super-fusion-world, or "" if it's a sports card.
 For "sport", use: baseball, basketball, football, hockey, soccer, or "" if it's a TCG.
-Only include fields you can identify. This line will be hidden from the user.`
+Only include fields you can identify from the image. This line will be hidden from the user.`
             }
           ]
         }
@@ -1064,24 +1058,6 @@ Only include fields you can identify. This line will be hidden from the user.`
             pricing.priceEstimate = Math.round((medians.reduce((a, b) => a + b, 0) / medians.length) * 100) / 100;
           }
 
-          // Append pricing summary to the analysis
-          const priceSummary = [];
-          priceSummary.push('\n\n---\n**💰 Market Pricing**');
-          if (pricing.priceEstimate) {
-            priceSummary.push(`**Estimated Value: $${pricing.priceEstimate.toFixed(2)}**`);
-          }
-          for (const comp of availableComps) {
-            const src = comp.source === 'justtcg' ? 'JustTCG' : comp.source === 'ebay' ? 'eBay' : comp.source;
-            priceSummary.push(`• ${src}: ${comp.count} listings — Avg $${comp.stats.average.toFixed(2)}, Median $${comp.stats.median.toFixed(2)} (Range: $${comp.stats.min.toFixed(2)}–$${comp.stats.max.toFixed(2)})`);
-            if (comp.source === 'justtcg' && comp.listings?.[0]) {
-              const topListing = comp.listings[0];
-              if (topListing.priceChange7d) {
-                const dir = topListing.priceChange7d > 0 ? '📈' : topListing.priceChange7d < 0 ? '📉' : '➡️';
-                priceSummary.push(`  ${dir} 7-day trend: ${topListing.priceChange7d > 0 ? '+' : ''}$${topListing.priceChange7d.toFixed(2)}`);
-              }
-            }
-          }
-          analysis += priceSummary.join('\n');
           console.log(`💰 Found ${pricing.totalListings} comp listings, estimate: $${pricing.priceEstimate || 'N/A'}`);
         }
       } catch (compError) {
