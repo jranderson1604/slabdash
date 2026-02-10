@@ -8,6 +8,19 @@ const cardScannerService = require('../services/cardScannerService');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const upload = multer({ storage: multer.memoryStorage() });
+const { fetchJustTCGComps, fetchEbayComps } = require('../services/priceCompService');
+
+// Multer config for SAM card scanning (10MB, images only)
+const scanUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed'), false);
+    }
+    cb(null, true);
+  }
+});
 
 // Quick access endpoint for portal links (GET with token query param)
 router.get('/access', async (req, res) => {
@@ -767,109 +780,144 @@ router.post('/sam/chat', async (req, res) => {
             apiKey: process.env.ANTHROPIC_API_KEY
         });
 
-        // SAM knowledge base (same as admin, but customer-focused)
+        // SAM knowledge base (customer-focused, honest)
         const SAM_KNOWLEDGE = `
-You are SAM (Submission Assistant Manager), the ULTIMATE PSA card grading expert and AI assistant for SlabDash.
+You are SAM (Submission Assistant Manager), a PSA card grading expert and AI assistant for SlabDash.
 
-You're currently helping a CUSTOMER through their card shop's customer portal. Focus on:
-- Explaining PSA grading standards in simple terms
-- Helping them understand their card values
-- Explaining service level options
-- Calculating ROI (Return on Investment) for grading
-- Answering questions about the grading process
-- Being friendly, enthusiastic, and educational
+You're helping a CUSTOMER through their card shop's portal. Be friendly, knowledgeable, and HONEST.
 
-IMPORTANT: You're talking to an END CUSTOMER, not the card shop staff. Keep explanations simple and encouraging.
+IMPORTANT RULES:
+- You're talking to an END CUSTOMER, not shop staff. Keep explanations simple.
+- Be REALISTIC. Don't hype up cheap cards. If a card is worth $1-5 raw, grading costs $20+ and makes NO financial sense. Say so directly.
+- Only recommend grading if the graded value significantly exceeds the cost.
+- When you have LIVE PRICING DATA, cite specific numbers. Don't make up prices.
+- Keep responses concise (3-5 paragraphs max).
 
-PSA GRADING SCALE (1-10):
-• PSA 10 (GEM MINT) - Perfect card. Sharp corners, 50/50 centering, no print defects
-• PSA 9 (MINT) - Near perfect. Minor centering issues allowed (60/40), sharp corners
-• PSA 8 (NM-MT) - Slight wear on corners, 65/35 centering max
-• PSA 7 (NM) - Minor corner/edge wear, 70/30 centering, slight surface wear
-• PSA 6 (EX-MT) - Visible wear, 75/25 centering, minor creasing possible
-• PSA 5 and below - Increasing levels of wear, centering issues, creases, stains
+PSA GRADING SCALE:
+• PSA 10 (GEM MINT) — Perfect. 55/45 centering or better, razor sharp corners, no defects
+• PSA 9 (MINT) — Near perfect. 60/40 centering, 1 corner can have slight wear
+• PSA 8 (NM-MT) — Very nice. 65/35 centering, minor corner/edge wear
+• PSA 7 (NM) — Noticeable flaws. 70/30 centering, visible wear
+• PSA 6 and below — Increasing wear, centering issues, creases
 
-THE 4 GRADING PILLARS:
-1. CENTERING - How balanced the image is on the card
-   - PSA 10: 50/50 front, 55/45 back
-   - PSA 9: 60/40 front, 65/35 back
-   - PSA 8: 65/35 front, 70/30 back
-
-2. CORNERS - Sharpness of card corners
-   - PSA 10: Razor sharp, no wear
-   - PSA 9: Minor rounding on 1-2 corners
-   - PSA 8: Slight wear visible
-
-3. EDGES - Condition of card edges
-   - PSA 10: Perfectly smooth, no chipping
-   - PSA 9: Minor roughness barely visible
-   - PSA 8: Slight fraying or wear
-
-4. SURFACE - Card surface quality
-   - PSA 10: No print defects, scratches, or stains
-   - PSA 9: Minor print line or surface issue
-   - PSA 8: Slight surface wear acceptable
+4 GRADING PILLARS: Centering (most important for 10s), Corners, Edges, Surface
 
 PSA SERVICE LEVELS:
-1. BULK ($16-25/card) - 65 business days, for cards under $499 value
-2. VALUE ($25-40/card) - 40 business days, cards under $2,499
-3. REGULAR ($50-75/card) - 20 business days, cards under $9,999
-4. EXPRESS ($150+/card) - 5-10 business days, cards under $49,999
-5. WALK-THROUGH ($600+/card) - 1-2 business days, any value
+• Bulk ($19-25, 65+ days) — cards worth $100-500 graded
+• Regular ($75-100, 30+ days) — cards worth $500-1500
+• Express ($150-200, 15+ days) — cards worth $1000-3000
+• Super Express/Walk-Through ($300-600+, 1-10 days) — high-value cards
 
-SERVICE LEVEL SELECTION FORMULA:
-Graded card value ÷ Grading fee = ROI multiple
-• 20x or higher = Great ROI, use Bulk
-• 10-20x = Good ROI, use Value/Regular
-• 5-10x = Okay ROI, consider if sentimental value
-• Below 5x = Poor ROI, probably not worth grading
+ROI FORMULA: Graded value ÷ Grading fee = ROI multiple
+• 20x+ = Great, 10-20x = Good, 5-10x = Marginal, Under 5x = Don't grade
 
-EXAMPLE ROI CALCULATION:
-Card: 2018 Luka Doncic Prizm PSA 10 = $800
-- Bulk service ($20): $800 ÷ $20 = 40x ROI ✅ EXCELLENT
-- Regular service ($60): $800 ÷ $60 = 13.3x ROI ✅ GOOD
-- Express service ($150): $800 ÷ $150 = 5.3x ROI ⚠️ Marginal
+REALITY CHECK:
+• Grading costs $20+ minimum (bulk service). Add $10 shipping each way.
+• A $5 card graded PSA 10 might be worth $15. After $30+ in fees, you LOSE money.
+• Only grade if the PSA 10 value is at least 3-5x the total cost (grading + shipping).
+• Most modern cards don't get PSA 10 — expect PSA 9 as the realistic outcome.
 
-KEY TIPS FOR CUSTOMERS:
-• Modern cards (2010+): Very hard to get PSA 10, even fresh from pack
-• Vintage cards (pre-1980): More forgiving grading, PSA 8 is excellent
-• Centering is often the killer - use ruler or app to check before submitting
-• Never submit cards "just to see" - check comps first
-• Raw card value vs PSA 10 value should be 5x+ difference minimum
-• Population matters - if there are 10,000 PSA 10s, value is low
+PRICING: We pull live market data from JustTCG and eBay. When pricing data is provided in the conversation, use those real numbers.
 
-Be encouraging, educational, and help customers make smart decisions about which cards to grade!
+You can scan cards! Tell customers they can upload a card photo for instant ID, pricing, and gradability assessment.
 `;
 
-        // Build conversation history
-        const messages = [
-            {
-                role: 'user',
-                content: `${SAM_KNOWLEDGE}\n\nCustomer name: ${customer.name}\n\nCustomer question: ${message}`
-            }
-        ];
+        // Check if this is a pricing question and fetch comps
+        let pricingContext = null;
+        const pricingKeywords = ['price', 'value', 'worth', 'cost', 'comp', 'market', 'how much', 'what is', 'what\'s', 'selling for', 'going for'];
+        const hasPricingIntent = pricingKeywords.some(kw => message.toLowerCase().includes(kw));
 
-        // Add recent history for context
-        if (history && Array.isArray(history)) {
-            const recentHistory = history.slice(-5);
-            messages.unshift(...recentHistory.map(msg => ({
-                role: msg.role,
-                content: msg.content
-            })));
+        if (hasPricingIntent) {
+            try {
+                // Extract card name from message (strip pricing keywords)
+                let cardQuery = message;
+                const removePatterns = [
+                    /how much is/i, /what is/i, /what's/i, /what are/i,
+                    /worth\??/i, /value of/i, /price of/i, /price for/i,
+                    /comp for/i, /comps for/i, /market value/i, /selling for/i, /going for/i,
+                    /can you (look up|check|find|get)/i, /look up/i,
+                    /pokemon|pokémon|magic|mtg|yu-gi-oh|yugioh|lorcana|digimon|one piece/gi,
+                    /psa\s*\d+/gi, /a\s+/i, /the\s+/i, /\?/g
+                ];
+                for (const pattern of removePatterns) {
+                    cardQuery = cardQuery.replace(pattern, ' ');
+                }
+                cardQuery = cardQuery.replace(/\s+/g, ' ').trim();
+
+                if (cardQuery.length >= 2) {
+                    // Detect game type
+                    const lower = message.toLowerCase();
+                    let game = '';
+                    if (lower.includes('pokemon') || lower.includes('pokémon')) game = 'pokemon';
+                    else if (lower.includes('magic') || lower.includes('mtg')) game = 'mtg';
+                    else if (lower.includes('yu-gi-oh') || lower.includes('yugioh')) game = 'yugioh';
+                    else if (lower.includes('lorcana')) game = 'disney-lorcana';
+                    else if (lower.includes('one piece')) game = 'one-piece-card-game';
+                    else if (lower.includes('digimon')) game = 'digimon-card-game';
+
+                    const cardForLookup = {
+                        player_name: cardQuery,
+                        description: cardQuery,
+                        brand: game,
+                        sport: ''
+                    };
+
+                    const compResults = await fetchJustTCGComps(cardForLookup);
+                    if (compResults.available && compResults.count > 0) {
+                        const lines = ['LIVE PRICING DATA (include this in your response):'];
+                        lines.push(`JustTCG: ${compResults.count} listings — Avg $${compResults.stats.average.toFixed(2)}, Median $${compResults.stats.median.toFixed(2)} (Range: $${compResults.stats.min.toFixed(2)}–$${compResults.stats.max.toFixed(2)})`);
+                        if (compResults.listings?.length > 0) {
+                            for (const listing of compResults.listings.slice(0, 3)) {
+                                let detail = `  - ${listing.title}: $${listing.price.toFixed(2)}`;
+                                if (listing.condition) detail += ` (${listing.condition})`;
+                                if (listing.priceChange7d) detail += ` | 7d: ${listing.priceChange7d > 0 ? '+' : ''}$${listing.priceChange7d.toFixed(2)}`;
+                                lines.push(detail);
+                            }
+                        }
+                        pricingContext = lines.join('\n');
+                        console.log(`💰 Portal chat: Got pricing data for "${cardQuery}"`);
+                    }
+                }
+            } catch (pricingError) {
+                console.error('Portal pricing lookup error:', pricingError.message);
+            }
         }
 
-        // Call Claude API
+        // Build conversation history
+        const conversationHistory = (history || [])
+            .filter(msg => msg.role && msg.content)
+            .slice(-5)
+            .map(msg => ({
+                role: msg.role === 'assistant' ? 'assistant' : 'user',
+                content: msg.content
+            }));
+
+        // Enrich message with pricing data if available
+        const enrichedMessage = pricingContext
+            ? `${message}\n\n[SYSTEM: ${pricingContext}]`
+            : message;
+
+        // Call Claude API with system prompt
         const response = await anthropic.messages.create({
             model: 'claude-sonnet-4-5-20250929',
             max_tokens: 1024,
-            messages: messages
+            system: SAM_KNOWLEDGE + `\n\nCustomer name: ${customer.name}`,
+            messages: [
+                ...conversationHistory,
+                {
+                    role: 'user',
+                    content: enrichedMessage
+                }
+            ]
         });
 
         const assistantMessage = response.content[0].text;
 
         res.json({
             message: assistantMessage,
-            model: 'claude-3-5-sonnet'
+            model: 'claude-sonnet-4-5',
+            ai_powered: true,
+            mode: 'AI (Claude)'
         });
     } catch (error) {
         console.error('Customer portal SAM chat error:', error);
@@ -885,6 +933,248 @@ Be encouraging, educational, and help customers make smart decisions about which
         res.status(500).json({
             error: 'Failed to get response from SAM',
             message: 'Oops! SAM is having trouble right now. Please try again in a moment!'
+        });
+    }
+});
+
+// SAM Card Scan endpoint for customer portal (token-based)
+router.post('/sam/scan', scanUpload.single('image'), async (req, res) => {
+    try {
+        const token = req.query.token;
+
+        if (!token) {
+            return res.status(401).json({ error: 'Token is required' });
+        }
+
+        // Verify portal token and check SAM access
+        const customerResult = await db.query(
+            `SELECT c.id, c.name, c.email, c.company_id, co.sam_enabled
+             FROM customers c
+             JOIN companies co ON c.company_id = co.id
+             WHERE c.portal_access_token = $1
+             AND c.portal_access_enabled = true
+             AND (c.portal_token_expires IS NULL OR c.portal_token_expires > NOW())`,
+            [token]
+        );
+
+        if (customerResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid or expired token' });
+        }
+
+        const customer = customerResult.rows[0];
+
+        if (!customer.sam_enabled) {
+            return res.status(403).json({
+                error: 'SAM Assistant is not available',
+                message: 'Your shop has not enabled the SAM AI assistant feature.'
+            });
+        }
+
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) {
+            return res.status(503).json({
+                error: 'Card scanning requires Anthropic API key',
+                message: 'Card scanning is temporarily unavailable. Please try again later!'
+            });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ error: 'No image file uploaded' });
+        }
+
+        const imageFile = req.file;
+        const imageBase64 = imageFile.buffer.toString('base64');
+        const mediaType = imageFile.mimetype || 'image/jpeg';
+
+        const Anthropic = require('@anthropic-ai/sdk');
+        const anthropic = new Anthropic({ apiKey });
+
+        // Analyze card with Claude vision
+        const response = await anthropic.messages.create({
+            model: 'claude-sonnet-4-5-20250929',
+            max_tokens: 2048,
+            messages: [
+                {
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'image',
+                            source: {
+                                type: 'base64',
+                                media_type: mediaType,
+                                data: imageBase64
+                            }
+                        },
+                        {
+                            type: 'text',
+                            text: `You are SAM, a card identification expert. Your job is to ACCURATELY identify this card so we can pull the exact market price. Be honest and straightforward — never hype up a card.
+
+STEP 1 — IDENTIFY THE CARD (critical):
+Read every visible detail on the card:
+• **Card Name** — the exact name printed on the card
+• **Year** — printed year or copyright year
+• **Set** — the exact set name (e.g., "Crown Zenith", "Evolving Skies", "Modern Horizons 3"). Read the set logo/text carefully.
+• **Card Number** — the number printed on the card (e.g., "037/159", "SV049", "#25"). Include the full number with denominator if visible.
+• **Game** — Pokemon, Magic: The Gathering, Yu-Gi-Oh, etc.
+• **Sport** — Baseball, Basketball, Football, Hockey, etc.
+• **Attributes** — holo, reverse holo, full art, alt art, foil, refractor, RC, 1st edition, numbered (/25, /99), autograph, etc.
+• **Rarity** — look at rarity symbols on the card
+
+Be exact. Read text as printed. If you can't read something, say so — don't guess.
+
+STEP 2 — HONEST ASSESSMENT (2-3 lines max):
+• Quick centering + any visible flaws
+• Estimated PSA grade (single number)
+• Be REALISTIC about grading: if the card is worth less than $10-15 raw, grading costs $20+ and makes zero financial sense. Say that directly. Don't tell someone to grade a $1 card. Only recommend grading if the graded value would significantly exceed the cost.
+
+FORMAT:
+**Card:** [Name] — [Year] [Set] #[Number]
+[Game/Sport] | [Attributes] | [Rarity]
+
+**Condition:** [1-2 sentences. Estimated PSA grade. Honest grading recommendation based on card value — if it's a common card worth a few bucks, say "not worth the grading fee."]
+
+AT THE VERY END, output this hidden JSON on its own line (will be stripped from display):
+<!--CARD_ID:{"name":"Card Name","set":"Set Name","number":"037/159","year":"2023","game":"pokemon","sport":"","rarity":"Ultra Rare","attributes":"full art, holo"}-->
+For "game": pokemon, mtg, yugioh, disney-lorcana, one-piece-card-game, digimon-card-game, flesh-and-blood-tcg, dragon-ball-super-fusion-world, or "" for sports.
+For "sport": baseball, basketball, football, hockey, soccer, or "" for TCG.
+Include the FULL card number with denominator (e.g. "037/159" not just "37"). Only include fields you can read.`
+                        }
+                    ]
+                }
+            ]
+        });
+
+        const rawAnalysis = response.content[0].text;
+        console.log('📝 Portal scan response length:', rawAnalysis.length);
+
+        // Extract the hidden card ID JSON
+        let cardInfo = null;
+        let analysis = rawAnalysis;
+
+        const cardIdPatterns = [
+            /<!--CARD_ID:(.*?)-->/s,
+            /<!--CARD_ID:\s*(.*?)\s*-->/s,
+            /\[CARD_ID:(.*?)\]/s,
+        ];
+
+        for (const pattern of cardIdPatterns) {
+            const match = rawAnalysis.match(pattern);
+            if (match) {
+                try {
+                    let jsonStr = match[1] || match[0];
+                    jsonStr = jsonStr.replace(/```json\s*/, '').replace(/\s*```/, '').trim();
+                    cardInfo = JSON.parse(jsonStr);
+                    analysis = rawAnalysis.replace(match[0], '').trim();
+                    console.log('✅ Portal scan CARD_ID:', JSON.stringify(cardInfo));
+                    break;
+                } catch (e) {
+                    console.log('⚠️ Portal scan: Failed to parse CARD_ID:', e.message);
+                }
+            }
+        }
+
+        // Fallback: extract card info from text
+        if (!cardInfo) {
+            console.log('⚠️ Portal scan: No CARD_ID tag — extracting from text...');
+            cardInfo = {};
+            const lowerAnalysis = analysis.toLowerCase();
+            if (lowerAnalysis.includes('pokémon') || lowerAnalysis.includes('pokemon')) cardInfo.game = 'pokemon';
+            else if (lowerAnalysis.includes('magic') || lowerAnalysis.includes('mtg')) cardInfo.game = 'mtg';
+            else if (lowerAnalysis.includes('yu-gi-oh') || lowerAnalysis.includes('yugioh')) cardInfo.game = 'yugioh';
+            else if (lowerAnalysis.includes('lorcana')) cardInfo.game = 'disney-lorcana';
+
+            const numMatch = analysis.match(/#(\d+(?:\/\d+)?)/);
+            if (numMatch) cardInfo.number = numMatch[1];
+
+            const yearMatch = analysis.match(/\b(19\d{2}|20[0-2]\d)\b/);
+            if (yearMatch) cardInfo.year = yearMatch[1];
+
+            if (!cardInfo.game && !cardInfo.name) cardInfo = null;
+        }
+
+        // Extract grade and condition
+        const gradable = analysis.toLowerCase().includes('worth grading') && !analysis.toLowerCase().includes('not worth grading');
+        let estimatedGrade = null;
+        const gradeMatch = analysis.match(/PSA\s*(\d+)/i);
+        if (gradeMatch) estimatedGrade = `PSA ${gradeMatch[1]}`;
+
+        let condition = 'Unknown';
+        if (analysis.toLowerCase().includes('gem mint') || analysis.toLowerCase().includes('psa 10')) {
+            condition = 'Gem Mint (PSA 10 candidate)';
+        } else if (analysis.toLowerCase().includes('psa 9')) {
+            condition = 'Mint (PSA 9 likely)';
+        } else if (analysis.toLowerCase().includes('psa 8')) {
+            condition = 'Near Mint (PSA 8 likely)';
+        } else if (analysis.toLowerCase().includes('psa 7')) {
+            condition = 'Near Mint (PSA 7 likely)';
+        }
+
+        // Fetch price comps
+        let pricing = null;
+        if (cardInfo && (cardInfo.name || cardInfo.set || cardInfo.game)) {
+            console.log(`📊 Portal scan: Fetching comps for:`, JSON.stringify(cardInfo));
+            try {
+                const cardForLookup = {
+                    player_name: cardInfo.name || '',
+                    set_name: cardInfo.set || '',
+                    card_number: cardInfo.number || '',
+                    year: cardInfo.year || '',
+                    brand: cardInfo.game || cardInfo.sport || '',
+                    game: cardInfo.game || '',
+                    description: `${cardInfo.name || ''} ${cardInfo.set || ''}`.trim(),
+                    sport: cardInfo.sport || ''
+                };
+
+                const compPromises = [fetchJustTCGComps(cardForLookup)];
+                if (process.env.EBAY_APP_ID) {
+                    compPromises.push(fetchEbayComps(cardForLookup));
+                }
+
+                const compResults = await Promise.all(compPromises);
+                const availableComps = compResults.filter(c => c.available && c.count > 0);
+
+                if (availableComps.length > 0) {
+                    pricing = {
+                        sources: compResults.reduce((acc, c) => { acc[c.source] = c; return acc; }, {}),
+                        totalListings: compResults.reduce((sum, c) => sum + (c.count || 0), 0),
+                        priceEstimate: null
+                    };
+                    const medians = availableComps.filter(s => s.stats?.median).map(s => s.stats.median);
+                    if (medians.length > 0) {
+                        pricing.priceEstimate = Math.round((medians.reduce((a, b) => a + b, 0) / medians.length) * 100) / 100;
+                    }
+                    console.log(`💰 Portal scan: ${pricing.totalListings} comps, estimate: $${pricing.priceEstimate || 'N/A'}`);
+                } else {
+                    pricing = {
+                        sources: compResults.reduce((acc, c) => { acc[c.source] = c; return acc; }, {}),
+                        totalListings: 0,
+                        priceEstimate: null,
+                        noResults: true
+                    };
+                }
+            } catch (compError) {
+                console.error('❌ Portal scan comp error:', compError.message);
+                pricing = { error: compError.message, totalListings: 0, priceEstimate: null };
+            }
+        }
+
+        res.json({
+            message: analysis,
+            analysis: analysis,
+            gradable: gradable,
+            estimatedGrade: estimatedGrade,
+            condition: condition,
+            cardInfo: cardInfo,
+            pricing: pricing,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('Portal SAM scan error:', error);
+        res.status(500).json({
+            error: 'Failed to analyze card image',
+            message: 'Having trouble analyzing that image. Make sure it\'s a clear photo of the card and try again!',
+            details: error.message
         });
     }
 });
