@@ -217,14 +217,49 @@ async function fetchJustTCGComps(card) {
         include_price_history: false
       });
 
-      const cards = response.data || [];
-      console.log(`JustTCG: Got ${cards.length} card results for "${searchQuery}"`);
+      const allCards = response.data || [];
+      console.log(`JustTCG: Got ${allCards.length} card results for "${searchQuery}"`);
 
-      if (cards.length === 0) continue;
+      if (allCards.length === 0) continue;
 
-      // Flatten all variants across returned cards into listings
+      // Filter to EXACT card match — same name (case-insensitive) and preferably same set
+      const targetName = (card.player_name || '').toLowerCase().trim();
+      const targetSet = (card.set_name || '').toLowerCase().trim();
+      const targetNumber = (card.card_number || '').replace(/^0+/, '').toLowerCase().trim();
+
+      let matchedCards = allCards;
+
+      // If we have a name, filter to exact name matches first
+      if (targetName) {
+        const nameMatches = allCards.filter(c =>
+          c.name && c.name.toLowerCase().trim() === targetName
+        );
+        if (nameMatches.length > 0) matchedCards = nameMatches;
+      }
+
+      // If we have a set, narrow further
+      if (targetSet && matchedCards.length > 1) {
+        const setMatches = matchedCards.filter(c => {
+          const cardSet = (c.set_name || c.set || '').toLowerCase();
+          return cardSet.includes(targetSet) || targetSet.includes(cardSet);
+        });
+        if (setMatches.length > 0) matchedCards = setMatches;
+      }
+
+      // If we have a number, narrow to exact card
+      if (targetNumber && matchedCards.length > 1) {
+        const numMatches = matchedCards.filter(c => {
+          const cardNum = (c.number || '').replace(/^0+/, '').toLowerCase().split('/')[0].trim();
+          return cardNum === targetNumber.split('/')[0];
+        });
+        if (numMatches.length > 0) matchedCards = numMatches;
+      }
+
+      console.log(`JustTCG: Filtered ${allCards.length} → ${matchedCards.length} exact matches`);
+
+      // Flatten variants from MATCHED cards only
       const listings = [];
-      for (const tcgCard of cards) {
+      for (const tcgCard of matchedCards) {
         for (const variant of (tcgCard.variants || [])) {
           if (variant.price && variant.price > 0) {
             listings.push({
@@ -298,11 +333,19 @@ async function fetchJustTCGComps(card) {
       include_price_history: false
     });
 
-    const cards = response.data || [];
-    console.log(`JustTCG: No-filter got ${cards.length} results`);
+    const allCards = response.data || [];
+    console.log(`JustTCG: No-filter got ${allCards.length} results`);
+
+    // Filter to exact name match
+    const targetName = (card.player_name || '').toLowerCase().trim();
+    let matchedCards = allCards;
+    if (targetName) {
+      const nameMatches = allCards.filter(c => c.name && c.name.toLowerCase().trim() === targetName);
+      if (nameMatches.length > 0) matchedCards = nameMatches;
+    }
 
     const listings = [];
-    for (const tcgCard of cards) {
+    for (const tcgCard of matchedCards) {
       for (const variant of (tcgCard.variants || [])) {
         if (variant.price && variant.price > 0) {
           listings.push({

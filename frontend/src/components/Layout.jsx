@@ -261,10 +261,10 @@ export default function Layout({ children }) {
                 {userMenuOpen && (
                   <>
                     <div
-                      className="fixed inset-0 z-10"
+                      className="fixed inset-0 z-[60]"
                       onClick={() => setUserMenuOpen(false)}
                     />
-                    <div className="absolute right-0 z-20 mt-2 w-48 rounded-2xl py-1 fade-in"
+                    <div className="absolute right-0 z-[70] mt-2 w-48 rounded-2xl py-1 fade-in"
                       style={{
                         background: 'rgba(255, 255, 255, 0.85)',
                         backdropFilter: 'blur(20px)',

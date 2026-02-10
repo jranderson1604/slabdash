@@ -444,7 +444,14 @@ export default function Landing() {
               >
                 {plan.popular && (
                   <div className="absolute -top-6 left-1/2 -translate-x-1/2 w-auto whitespace-nowrap">
-                    <span className="inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-brand-600 to-brand-500 text-white rounded-full text-sm font-bold shadow-lg">
+                    <span className="inline-flex items-center gap-2 px-5 py-2 rounded-full text-sm font-bold shadow-lg"
+                      style={{
+                        background: 'linear-gradient(135deg, #1a1a2e, #2d2b55)',
+                        color: '#FF8170',
+                        border: '1px solid rgba(255, 129, 112, 0.3)',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.25), 0 0 0 1px rgba(255, 129, 112, 0.15)',
+                      }}
+                    >
                       <Star className="w-4 h-4 fill-current" />
                       Most Popular
                     </span>
