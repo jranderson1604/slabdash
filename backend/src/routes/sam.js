@@ -3,6 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const { authenticate } = require('../middleware/auth');
 const Anthropic = require('@anthropic-ai/sdk');
+const { fetchJustTCGComps, fetchEbayComps } = require('../services/priceCompService');
 
 // Configure multer for memory storage (images stored in buffer)
 const upload = multer({
@@ -668,6 +669,114 @@ function generateSAMResponse(userMessage, context) {
 }
 
 /**
+ * Detect if a chat message is asking about card pricing/value
+ * and extract card details for lookup
+ */
+function detectPricingQuery(message) {
+  const lower = message.toLowerCase();
+
+  // Check if the message is about pricing/value
+  const pricingKeywords = ['price', 'value', 'worth', 'cost', 'comp', 'market', 'how much', 'what is', 'what\'s', 'selling for', 'going for', 'what do', 'what does'];
+  const hasPricingIntent = pricingKeywords.some(kw => lower.includes(kw));
+  if (!hasPricingIntent) return null;
+
+  // Try to detect game type
+  let game = '';
+  let sport = '';
+  if (lower.includes('pokemon') || lower.includes('pokémon')) game = 'pokemon';
+  else if (lower.includes('magic') || lower.includes('mtg')) game = 'mtg';
+  else if (lower.includes('yu-gi-oh') || lower.includes('yugioh')) game = 'yugioh';
+  else if (lower.includes('lorcana')) game = 'disney-lorcana';
+  else if (lower.includes('one piece')) game = 'one-piece-card-game';
+  else if (lower.includes('digimon')) game = 'digimon-card-game';
+  else if (lower.includes('baseball')) sport = 'baseball';
+  else if (lower.includes('basketball')) sport = 'basketball';
+  else if (lower.includes('football')) sport = 'football';
+
+  // Extract card name — remove pricing keywords and game names to get the card description
+  let cardQuery = message;
+  const removePatterns = [
+    /how much is/i, /what is/i, /what's/i, /what are/i, /what do/i,
+    /worth\??/i, /value of/i, /price of/i, /price for/i, /price check/i,
+    /comp for/i, /comps for/i, /market value/i, /selling for/i, /going for/i,
+    /can you (look up|check|find|get)/i, /look up/i,
+    /pokemon|pokémon|magic|mtg|yu-gi-oh|yugioh|lorcana|digimon|one piece/gi,
+    /baseball|basketball|football|hockey|soccer/gi,
+    /psa\s*\d+/gi, /a\s+/i, /the\s+/i, /\?/g
+  ];
+  for (const pattern of removePatterns) {
+    cardQuery = cardQuery.replace(pattern, ' ');
+  }
+  cardQuery = cardQuery.replace(/\s+/g, ' ').trim();
+
+  if (cardQuery.length < 2) return null;
+
+  return {
+    query: cardQuery,
+    game,
+    sport,
+    brand: game || sport
+  };
+}
+
+/**
+ * Fetch comps for a chat pricing query
+ */
+async function fetchCompsForChat(parsedQuery) {
+  const cardForLookup = {
+    player_name: parsedQuery.query,
+    description: parsedQuery.query,
+    brand: parsedQuery.brand,
+    sport: parsedQuery.sport
+  };
+
+  try {
+    const compPromises = [fetchJustTCGComps(cardForLookup)];
+    if (process.env.EBAY_APP_ID) {
+      compPromises.push(fetchEbayComps(cardForLookup));
+    }
+
+    const results = await Promise.all(compPromises);
+    const available = results.filter(r => r.available && r.count > 0);
+
+    if (available.length === 0) return null;
+
+    // Build a pricing context string for SAM
+    const lines = ['LIVE PRICING DATA (include this in your response):'];
+    for (const comp of available) {
+      const src = comp.source === 'justtcg' ? 'JustTCG' : comp.source === 'ebay' ? 'eBay' : comp.source;
+      lines.push(`${src}: ${comp.count} listings — Avg $${comp.stats.average.toFixed(2)}, Median $${comp.stats.median.toFixed(2)} (Range: $${comp.stats.min.toFixed(2)}–$${comp.stats.max.toFixed(2)})`);
+
+      // Include top listings for context
+      if (comp.listings?.length > 0) {
+        const topListings = comp.listings.slice(0, 3);
+        for (const listing of topListings) {
+          let detail = `  - ${listing.title}: $${listing.price.toFixed(2)}`;
+          if (listing.condition) detail += ` (${listing.condition})`;
+          if (listing.printing) detail += ` [${listing.printing}]`;
+          if (listing.priceChange7d) {
+            detail += ` | 7d: ${listing.priceChange7d > 0 ? '+' : ''}$${listing.priceChange7d.toFixed(2)}`;
+          }
+          lines.push(detail);
+        }
+      }
+    }
+
+    // Calculate overall estimate
+    const medians = available.filter(s => s.stats?.median).map(s => s.stats.median);
+    if (medians.length > 0) {
+      const estimate = Math.round((medians.reduce((a, b) => a + b, 0) / medians.length) * 100) / 100;
+      lines.push(`Overall estimated value: $${estimate.toFixed(2)}`);
+    }
+
+    return lines.join('\n');
+  } catch (error) {
+    console.error('Error fetching comps for chat:', error.message);
+    return null;
+  }
+}
+
+/**
  * Generate AI-powered response using Anthropic Claude
  * Falls back to rule-based responses if API key not configured
  */
@@ -737,13 +846,28 @@ router.post('/chat', authenticate, async (req, res) => {
     console.log(`\n🔵 SAM Chat Request: "${message.substring(0, 50)}..."`);
     console.log(`📊 API Key Status: ${process.env.ANTHROPIC_API_KEY ? '✅ SET' : '❌ NOT SET'}`);
 
+    // Check if this is a pricing question and fetch comps in parallel
+    let pricingContext = null;
+    const pricingQuery = detectPricingQuery(message);
+    if (pricingQuery) {
+      console.log(`💰 Detected pricing query for: "${pricingQuery.query}" (game: ${pricingQuery.game || 'none'}, sport: ${pricingQuery.sport || 'none'})`);
+      pricingContext = await fetchCompsForChat(pricingQuery);
+      if (pricingContext) {
+        console.log(`📊 Got live pricing data to inject into SAM context`);
+      }
+    }
+
     // Generate AI-powered response (with fallback to rule-based)
     let responseMessage;
     let mode;
     let aiError = null;
 
     try {
-      responseMessage = await generateAIResponse(message, history);
+      // If we have pricing data, inject it into the message so SAM can reference it
+      const enrichedMessage = pricingContext
+        ? `${message}\n\n[SYSTEM: ${pricingContext}]`
+        : message;
+      responseMessage = await generateAIResponse(enrichedMessage, history);
       mode = 'AI (Claude)';
     } catch (error) {
       aiError = error.message;
@@ -851,14 +975,34 @@ IMPORTANT NOTES:
 - You can only see the front. Mention that back centering, back surface, and back edges can't be assessed from this photo.
 - If the photo is blurry, at an angle, or poor quality, say so and note how it limits your assessment.
 - Be honest — if it's clearly not a PSA 10 candidate, say so directly.
-- Be conversational and friendly, but specific with numbers.`
+- Be conversational and friendly, but specific with numbers.
+
+AT THE VERY END of your response, output a JSON block with the card identification so we can look up pricing. Use this exact format on its own line:
+<!--CARD_ID:{"name":"Card Name","set":"Set Name","number":"123","year":"2024","game":"pokemon","sport":""}-->
+For "game", use one of: pokemon, mtg, yugioh, disney-lorcana, one-piece-card-game, digimon-card-game, flesh-and-blood-tcg, dragon-ball-super-fusion-world, or "" if it's a sports card.
+For "sport", use: baseball, basketball, football, hockey, soccer, or "" if it's a TCG.
+Only include fields you can identify. This line will be hidden from the user.`
             }
           ]
         }
       ]
     });
 
-    const analysis = response.content[0].text;
+    const rawAnalysis = response.content[0].text;
+
+    // Extract the hidden card ID JSON from the analysis
+    let cardInfo = null;
+    let analysis = rawAnalysis;
+    const cardIdMatch = rawAnalysis.match(/<!--CARD_ID:(.*?)-->/);
+    if (cardIdMatch) {
+      try {
+        cardInfo = JSON.parse(cardIdMatch[1]);
+        // Remove the hidden tag from the displayed analysis
+        analysis = rawAnalysis.replace(/\n?<!--CARD_ID:.*?-->/, '').trim();
+      } catch (e) {
+        console.log('Could not parse card ID from scan:', e.message);
+      }
+    }
 
     // Try to extract structured data from the analysis
     const gradable = analysis.toLowerCase().includes('worth grading') && !analysis.toLowerCase().includes('not worth grading');
@@ -882,12 +1026,78 @@ IMPORTANT NOTES:
       condition = 'Near Mint (PSA 7 likely)';
     }
 
+    // Fetch price comps if we identified the card
+    let pricing = null;
+    if (cardInfo && (cardInfo.name || cardInfo.set)) {
+      console.log(`📊 Fetching comps for scanned card:`, cardInfo);
+      try {
+        const cardForLookup = {
+          player_name: cardInfo.name,
+          set_name: cardInfo.set,
+          card_number: cardInfo.number,
+          year: cardInfo.year,
+          brand: cardInfo.game || cardInfo.sport || '',
+          description: `${cardInfo.name || ''} ${cardInfo.set || ''}`.trim(),
+          sport: cardInfo.sport || ''
+        };
+
+        // Fetch from available sources in parallel
+        const compPromises = [fetchJustTCGComps(cardForLookup)];
+        // Also try eBay if configured
+        if (process.env.EBAY_APP_ID) {
+          compPromises.push(fetchEbayComps(cardForLookup));
+        }
+
+        const compResults = await Promise.all(compPromises);
+        const availableComps = compResults.filter(c => c.available && c.count > 0);
+
+        if (availableComps.length > 0) {
+          pricing = {
+            sources: compResults.reduce((acc, c) => { acc[c.source] = c; return acc; }, {}),
+            totalListings: compResults.reduce((sum, c) => sum + (c.count || 0), 0),
+            priceEstimate: null
+          };
+
+          // Calculate price estimate from medians
+          const medians = availableComps.filter(s => s.stats?.median).map(s => s.stats.median);
+          if (medians.length > 0) {
+            pricing.priceEstimate = Math.round((medians.reduce((a, b) => a + b, 0) / medians.length) * 100) / 100;
+          }
+
+          // Append pricing summary to the analysis
+          const priceSummary = [];
+          priceSummary.push('\n\n---\n**💰 Market Pricing**');
+          if (pricing.priceEstimate) {
+            priceSummary.push(`**Estimated Value: $${pricing.priceEstimate.toFixed(2)}**`);
+          }
+          for (const comp of availableComps) {
+            const src = comp.source === 'justtcg' ? 'JustTCG' : comp.source === 'ebay' ? 'eBay' : comp.source;
+            priceSummary.push(`• ${src}: ${comp.count} listings — Avg $${comp.stats.average.toFixed(2)}, Median $${comp.stats.median.toFixed(2)} (Range: $${comp.stats.min.toFixed(2)}–$${comp.stats.max.toFixed(2)})`);
+            if (comp.source === 'justtcg' && comp.listings?.[0]) {
+              const topListing = comp.listings[0];
+              if (topListing.priceChange7d) {
+                const dir = topListing.priceChange7d > 0 ? '📈' : topListing.priceChange7d < 0 ? '📉' : '➡️';
+                priceSummary.push(`  ${dir} 7-day trend: ${topListing.priceChange7d > 0 ? '+' : ''}$${topListing.priceChange7d.toFixed(2)}`);
+              }
+            }
+          }
+          analysis += priceSummary.join('\n');
+          console.log(`💰 Found ${pricing.totalListings} comp listings, estimate: $${pricing.priceEstimate || 'N/A'}`);
+        }
+      } catch (compError) {
+        console.error('Error fetching comps for scanned card:', compError.message);
+        // Don't fail the scan if comps fail — just skip pricing
+      }
+    }
+
     res.json({
       message: analysis,
       analysis: analysis,
       gradable: gradable,
       estimatedGrade: estimatedGrade,
       condition: condition,
+      cardInfo: cardInfo,
+      pricing: pricing,
       timestamp: new Date().toISOString()
     });
 
