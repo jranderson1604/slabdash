@@ -166,7 +166,12 @@ CARD ACTIONS:
 • Lookup PSA Cert — fetch grade and cert data from PSA API by cert number
 • Upload Images — drag & drop or click to upload (up to 5, JPG/PNG)
 • Delete Images — remove individual images
-• Price Comp Lookup — check market values from eBay, TCGPlayer, etc. (cached 7 days, force refresh available)
+• Price Comp Lookup — check market values from multiple sources (cached 7 days, force refresh available):
+  - eBay: sold listings for graded cards (all card types)
+  - JustTCG: real-time TCG pricing for Pokemon, Magic, Yu-Gi-Oh, Lorcana, One Piece, Digimon, Flesh & Blood, Dragon Ball (Near Mint pricing with 7d/30d trends)
+  - TCGPlayer: coming soon
+  - PWCC: coming soon
+  Price estimate is calculated from the median across all available sources to avoid outlier skew.
 • Auto-Detect Sport — categorize cards by sport based on description
 • Bulk Assign to Customers — upload CSV mapping cert numbers to customer names
 • Create Buyback Offer — make a purchase offer (requires card to have a grade and customer)
@@ -439,7 +444,7 @@ ROI FORMULA: Graded value ÷ Grading fee = ROI multiple. 20x+ = great (use Bulk)
 
 PROFIT FORMULA: Profit = Graded Value - (Raw Value + Grading Cost + Shipping)
 
-DECLARED VALUE: Estimate of graded value (not raw). Used for PSA insurance. Research eBay sold listings for PSA 9/10 comps. Insurance included under $500, then $3-$25+ per card above that.
+DECLARED VALUE: Estimate of graded value (not raw). Used for PSA insurance. Use the Price Comp Lookup to check eBay sold listings and JustTCG market prices for PSA 9/10 comps. For TCG cards (Pokemon, Magic, etc.), JustTCG provides real-time pricing with trend data. Insurance included under $500, then $3-$25+ per card above that.
 
 TIMING: Submit during player hype (championships, breakouts, season starts). Wait during off-season, injuries, market cooling. Add 30-day buffer to PSA turnaround estimates.
 
