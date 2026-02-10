@@ -33,7 +33,7 @@ router.get('/access', async (req, res) => {
 
         // Find customer by portal access token
         const customerResult = await db.query(
-            `SELECT c.*, c.email_opt_in, co.name as company_name, co.slug as company_slug, co.primary_color, co.logo_url, co.sam_enabled
+            `SELECT c.*, co.name as company_name, co.slug as company_slug, co.primary_color, co.logo_url, co.sam_enabled
              FROM customers c JOIN companies co ON c.company_id = co.id
              WHERE c.portal_access_token = $1 AND c.portal_access_enabled = true`,
             [token]
@@ -141,10 +141,24 @@ router.patch('/email-preference', async (req, res) => {
 
         const customerId = customerResult.rows[0].id;
 
-        await db.query(
-            'UPDATE customers SET email_opt_in = $1 WHERE id = $2',
-            [email_opt_in, customerId]
-        );
+        // Try to update — column may not exist yet if migration hasn't run
+        try {
+            await db.query(
+                'UPDATE customers SET email_opt_in = $1 WHERE id = $2',
+                [email_opt_in, customerId]
+            );
+        } catch (dbErr) {
+            if (dbErr.code === '42703') {
+                // Column doesn't exist yet — add it on the fly
+                await db.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS email_opt_in BOOLEAN DEFAULT TRUE');
+                await db.query(
+                    'UPDATE customers SET email_opt_in = $1 WHERE id = $2',
+                    [email_opt_in, customerId]
+                );
+            } else {
+                throw dbErr;
+            }
+        }
 
         res.json({ success: true, email_opt_in });
     } catch (error) {
