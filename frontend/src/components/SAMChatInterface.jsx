@@ -47,94 +47,7 @@ function ScanResultsCard({ scanResults }) {
 
   return (
     <div className="mt-4 space-y-3">
-      {/* Card ID + Grade Badge Row */}
-      {(cardInfo || estimatedGrade) && (
-        <div className="flex items-start gap-3">
-          {/* Grade Badge */}
-          {estimatedGrade && (
-            <div className="flex-shrink-0 relative">
-              <div className="absolute inset-0 rounded-2xl blur-md opacity-60"
-                style={{ background: 'linear-gradient(135deg, #FF8170, #FF6B5A)' }} />
-              <div className="relative w-16 h-16 rounded-2xl flex flex-col items-center justify-center"
-                style={{
-                  background: 'linear-gradient(135deg, #FF8170, #E8543D)',
-                  boxShadow: '0 4px 20px rgba(255, 107, 89, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
-                  border: '1px solid rgba(255, 185, 160, 0.3)',
-                }}>
-                <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider">PSA</span>
-                <span className="text-2xl font-black text-white leading-none">
-                  {estimatedGrade.replace(/PSA\s*/i, '')}
-                </span>
-              </div>
-            </div>
-          )}
-          {/* Card Info */}
-          {cardInfo && (
-            <div className="flex-1 min-w-0">
-              {cardInfo.name && (
-                <p className="font-black text-base text-[#2C2416] leading-tight">{cardInfo.name}</p>
-              )}
-              <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                {cardInfo.year && (
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold"
-                    style={{ background: 'rgba(44, 36, 22, 0.08)', color: '#8B7355' }}>
-                    {cardInfo.year}
-                  </span>
-                )}
-                {cardInfo.set && (
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold"
-                    style={{ background: 'rgba(255, 129, 112, 0.1)', color: '#E8543D' }}>
-                    {cardInfo.set}
-                  </span>
-                )}
-                {cardInfo.number && (
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold"
-                    style={{ background: 'rgba(44, 36, 22, 0.06)', color: '#8B7355' }}>
-                    #{cardInfo.number}
-                  </span>
-                )}
-                {cardInfo.game && (
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase"
-                    style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#6366F1' }}>
-                    {cardInfo.game}
-                  </span>
-                )}
-                {cardInfo.sport && (
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase"
-                    style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#059669' }}>
-                    {cardInfo.sport}
-                  </span>
-                )}
-                {cardInfo.rarity && (
-                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold"
-                    style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#D97706' }}>
-                    {cardInfo.rarity}
-                  </span>
-                )}
-              </div>
-              {cardInfo.attributes && (
-                <p className="text-[10px] text-[#8B7355] mt-1 font-medium">{cardInfo.attributes}</p>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Grading verdict pill */}
-      {gradable !== undefined && (
-        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-          gradable
-            ? 'text-emerald-700'
-            : 'text-red-700'
-        }`} style={{
-          background: gradable ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-          border: `1px solid ${gradable ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
-        }}>
-          {gradable ? '✓ Worth Grading' : '✗ Not Recommended'}
-        </div>
-      )}
-
-      {/* Pricing Card */}
+      {/* PRICING CARD — THE HERO */}
       {pricing && pricing.priceEstimate && (
         <div className="rounded-2xl overflow-hidden"
           style={{
@@ -276,15 +189,107 @@ function ScanResultsCard({ scanResults }) {
         </div>
       )}
 
-      {/* No pricing data fallback */}
-      {(!pricing || !pricing.priceEstimate) && cardInfo && (
-        <div className="rounded-xl px-3 py-2 text-xs font-medium"
+      {/* No pricing data / error state */}
+      {(!pricing || !pricing.priceEstimate) && (
+        <div className="rounded-2xl overflow-hidden"
           style={{
-            background: 'rgba(44, 36, 22, 0.06)',
-            color: '#8B7355',
-            border: '1px solid rgba(44, 36, 22, 0.08)',
+            background: 'linear-gradient(135deg, rgba(44, 36, 22, 0.9), rgba(61, 48, 32, 0.9))',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
           }}>
-          No market pricing found for this card. Try the Price Comp Lookup on the card detail page for more sources.
+          <div className="px-4 py-3">
+            <div className="flex items-center gap-2 mb-1">
+              <DollarSign className="w-3.5 h-3.5 text-[#FF8170]/50" />
+              <span className="text-[10px] font-bold text-[#E8DCC0]/40 uppercase tracking-widest">Market Value</span>
+            </div>
+            <p className="text-sm text-[#E8DCC0]/60 font-medium">
+              {pricing?.error
+                ? `Pricing error: ${pricing.error}`
+                : pricing?.noResults
+                  ? 'No listings found — the card may need a more specific name or set.'
+                  : !cardInfo
+                    ? 'Could not identify card from image. Try a clearer photo with the full card visible.'
+                    : 'Searching for pricing data...'}
+            </p>
+            {pricing?.sources && (
+              <div className="mt-2 space-y-1">
+                {Object.entries(pricing.sources).map(([key, source]) => (
+                  <p key={key} className="text-[10px] text-[#E8DCC0]/30">
+                    {key}: {source.error || `${source.count || 0} results`}
+                    {source.searchQuery && ` (searched: "${source.searchQuery}")`}
+                  </p>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Card ID + Grade Row — below pricing */}
+      {(cardInfo || estimatedGrade) && (
+        <div className="flex items-start gap-3 pt-1">
+          {/* Grade Badge */}
+          {estimatedGrade && (
+            <div className="flex-shrink-0 relative">
+              <div className="absolute inset-0 rounded-2xl blur-md opacity-60"
+                style={{ background: 'linear-gradient(135deg, #FF8170, #FF6B5A)' }} />
+              <div className="relative w-14 h-14 rounded-2xl flex flex-col items-center justify-center"
+                style={{
+                  background: 'linear-gradient(135deg, #FF8170, #E8543D)',
+                  boxShadow: '0 4px 20px rgba(255, 107, 89, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
+                  border: '1px solid rgba(255, 185, 160, 0.3)',
+                }}>
+                <span className="text-[9px] font-bold text-white/80 uppercase tracking-wider">PSA</span>
+                <span className="text-xl font-black text-white leading-none">
+                  {estimatedGrade.replace(/PSA\s*/i, '')}
+                </span>
+              </div>
+            </div>
+          )}
+          {/* Card Info */}
+          <div className="flex-1 min-w-0">
+            {cardInfo?.name && (
+              <p className="font-bold text-sm text-[#2C2416] leading-tight">{cardInfo.name}</p>
+            )}
+            <div className="flex flex-wrap items-center gap-1 mt-1">
+              {cardInfo?.year && (
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold"
+                  style={{ background: 'rgba(44, 36, 22, 0.08)', color: '#8B7355' }}>
+                  {cardInfo.year}
+                </span>
+              )}
+              {cardInfo?.set && (
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold"
+                  style={{ background: 'rgba(255, 129, 112, 0.1)', color: '#E8543D' }}>
+                  {cardInfo.set}
+                </span>
+              )}
+              {cardInfo?.number && (
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold"
+                  style={{ background: 'rgba(44, 36, 22, 0.06)', color: '#8B7355' }}>
+                  #{cardInfo.number}
+                </span>
+              )}
+              {cardInfo?.rarity && (
+                <span className="px-1.5 py-0.5 rounded text-[9px] font-bold"
+                  style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#D97706' }}>
+                  {cardInfo.rarity}
+                </span>
+              )}
+              {gradable !== undefined && (
+                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${
+                  gradable ? 'text-emerald-700' : 'text-red-700'
+                }`} style={{
+                  background: gradable ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                }}>
+                  {gradable ? '✓ Grade It' : '✗ Skip'}
+                </span>
+              )}
+            </div>
+            {cardInfo?.attributes && (
+              <p className="text-[9px] text-[#8B7355] mt-0.5 font-medium">{cardInfo.attributes}</p>
+            )}
+          </div>
         </div>
       )}
     </div>

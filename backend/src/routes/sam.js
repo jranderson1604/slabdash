@@ -983,18 +983,74 @@ Only include fields you can identify from the image. This line will be hidden fr
     });
 
     const rawAnalysis = response.content[0].text;
+    console.log('📝 Raw scan response length:', rawAnalysis.length);
 
     // Extract the hidden card ID JSON from the analysis
     let cardInfo = null;
     let analysis = rawAnalysis;
-    const cardIdMatch = rawAnalysis.match(/<!--CARD_ID:(.*?)-->/);
-    if (cardIdMatch) {
-      try {
-        cardInfo = JSON.parse(cardIdMatch[1]);
-        // Remove the hidden tag from the displayed analysis
-        analysis = rawAnalysis.replace(/\n?<!--CARD_ID:.*?-->/, '').trim();
-      } catch (e) {
-        console.log('Could not parse card ID from scan:', e.message);
+
+    // Try multiple patterns for CARD_ID extraction (model might format differently)
+    const cardIdPatterns = [
+      /<!--CARD_ID:(.*?)-->/s,
+      /<!--CARD_ID:\s*(.*?)\s*-->/s,
+      /\[CARD_ID:(.*?)\]/s,
+      /```json\s*\{[^}]*"name"[^}]*\}\s*```/s,
+    ];
+
+    for (const pattern of cardIdPatterns) {
+      const match = rawAnalysis.match(pattern);
+      if (match) {
+        try {
+          let jsonStr = match[1] || match[0];
+          // Clean up if it's wrapped in code blocks
+          jsonStr = jsonStr.replace(/```json\s*/, '').replace(/\s*```/, '').trim();
+          cardInfo = JSON.parse(jsonStr);
+          analysis = rawAnalysis.replace(match[0], '').trim();
+          console.log('✅ Parsed CARD_ID from scan:', JSON.stringify(cardInfo));
+          break;
+        } catch (e) {
+          console.log('⚠️ Failed to parse card ID pattern:', e.message, 'match:', match[0]?.substring(0, 100));
+        }
+      }
+    }
+
+    // FALLBACK: If CARD_ID tag wasn't found, try to extract card info from the analysis text
+    if (!cardInfo) {
+      console.log('⚠️ No CARD_ID tag found — extracting card info from text...');
+      cardInfo = {};
+
+      // Try to extract card name from "Card Identified:" section
+      const identMatch = analysis.match(/Card Identified[:\s]*\n?\*?\*?([^\n*—]+)/i);
+      if (identMatch) {
+        cardInfo.name = identMatch[1].replace(/^[\s\*]+|[\s\*]+$/g, '').trim();
+      }
+
+      // Try to detect game type from text
+      const lowerAnalysis = analysis.toLowerCase();
+      if (lowerAnalysis.includes('pokémon') || lowerAnalysis.includes('pokemon')) cardInfo.game = 'pokemon';
+      else if (lowerAnalysis.includes('magic: the gathering') || lowerAnalysis.includes('magic the gathering') || lowerAnalysis.includes('mtg')) cardInfo.game = 'mtg';
+      else if (lowerAnalysis.includes('yu-gi-oh') || lowerAnalysis.includes('yugioh')) cardInfo.game = 'yugioh';
+      else if (lowerAnalysis.includes('lorcana')) cardInfo.game = 'disney-lorcana';
+      else if (lowerAnalysis.includes('digimon')) cardInfo.game = 'digimon-card-game';
+      else if (lowerAnalysis.includes('one piece')) cardInfo.game = 'one-piece-card-game';
+
+      // Try to extract set name
+      const setMatch = analysis.match(/(?:set|expansion|series)[:\s]+([^\n,()]+)/i);
+      if (setMatch) cardInfo.set = setMatch[1].trim();
+
+      // Try to extract card number
+      const numMatch = analysis.match(/#(\d+(?:\/\d+)?)/);
+      if (numMatch) cardInfo.number = numMatch[1];
+
+      // Try to extract year
+      const yearMatch = analysis.match(/\b(19\d{2}|20[0-2]\d)\b/);
+      if (yearMatch) cardInfo.year = yearMatch[1];
+
+      if (cardInfo.name || cardInfo.game) {
+        console.log('📋 Fallback card info extracted:', JSON.stringify(cardInfo));
+      } else {
+        console.log('❌ Could not extract any card info from analysis text');
+        cardInfo = null;
       }
     }
 
@@ -1003,7 +1059,7 @@ Only include fields you can identify from the image. This line will be hidden fr
 
     // Try to extract estimated grade
     let estimatedGrade = null;
-    const gradeMatch = analysis.match(/PSA\s*(\d+(?:-\d+)?)/i);
+    const gradeMatch = analysis.match(/PSA\s*(\d+)/i);
     if (gradeMatch) {
       estimatedGrade = `PSA ${gradeMatch[1]}`;
     }
@@ -1022,27 +1078,33 @@ Only include fields you can identify from the image. This line will be hidden fr
 
     // Fetch price comps if we identified the card
     let pricing = null;
-    if (cardInfo && (cardInfo.name || cardInfo.set)) {
-      console.log(`📊 Fetching comps for scanned card:`, cardInfo);
+    if (cardInfo && (cardInfo.name || cardInfo.set || cardInfo.game)) {
+      console.log(`📊 Fetching comps for scanned card:`, JSON.stringify(cardInfo));
       try {
         const cardForLookup = {
-          player_name: cardInfo.name,
-          set_name: cardInfo.set,
-          card_number: cardInfo.number,
-          year: cardInfo.year,
+          player_name: cardInfo.name || '',
+          set_name: cardInfo.set || '',
+          card_number: cardInfo.number || '',
+          year: cardInfo.year || '',
           brand: cardInfo.game || cardInfo.sport || '',
+          game: cardInfo.game || '',
           description: `${cardInfo.name || ''} ${cardInfo.set || ''}`.trim(),
           sport: cardInfo.sport || ''
         };
 
         // Fetch from available sources in parallel
         const compPromises = [fetchJustTCGComps(cardForLookup)];
-        // Also try eBay if configured
         if (process.env.EBAY_APP_ID) {
           compPromises.push(fetchEbayComps(cardForLookup));
         }
 
         const compResults = await Promise.all(compPromises);
+
+        // Log ALL results for debugging
+        for (const r of compResults) {
+          console.log(`📊 ${r.source}: available=${r.available}, count=${r.count || 0}, error=${r.error || 'none'}`);
+        }
+
         const availableComps = compResults.filter(c => c.available && c.count > 0);
 
         if (availableComps.length > 0) {
@@ -1052,18 +1114,28 @@ Only include fields you can identify from the image. This line will be hidden fr
             priceEstimate: null
           };
 
-          // Calculate price estimate from medians
           const medians = availableComps.filter(s => s.stats?.median).map(s => s.stats.median);
           if (medians.length > 0) {
             pricing.priceEstimate = Math.round((medians.reduce((a, b) => a + b, 0) / medians.length) * 100) / 100;
           }
 
           console.log(`💰 Found ${pricing.totalListings} comp listings, estimate: $${pricing.priceEstimate || 'N/A'}`);
+        } else {
+          console.log('⚠️ No comp sources returned results');
+          // Still include sources info so frontend can show what was tried
+          pricing = {
+            sources: compResults.reduce((acc, c) => { acc[c.source] = c; return acc; }, {}),
+            totalListings: 0,
+            priceEstimate: null,
+            noResults: true
+          };
         }
       } catch (compError) {
-        console.error('Error fetching comps for scanned card:', compError.message);
-        // Don't fail the scan if comps fail — just skip pricing
+        console.error('❌ Error fetching comps for scanned card:', compError.message);
+        pricing = { error: compError.message, totalListings: 0, priceEstimate: null };
       }
+    } else {
+      console.log('⚠️ No card info available for comp lookup');
     }
 
     res.json({
