@@ -667,10 +667,10 @@ async function generateAIResponse(message, history) {
 
   } catch (error) {
     console.error('❌ Anthropic API error:', error.message);
+    console.error('❌ Full error details:', JSON.stringify({ status: error.status, type: error.type, code: error.code }, null, 2));
 
-    // Fallback to rule-based on API error
-    console.log('⚠️ Falling back to rule-based SAM due to API error');
-    return generateSAMResponse(message, history);
+    // Throw so the caller can include error info in response
+    throw error;
   }
 }
 
@@ -687,17 +687,33 @@ router.post('/chat', authenticate, async (req, res) => {
     console.log(`📊 API Key Status: ${process.env.ANTHROPIC_API_KEY ? '✅ SET' : '❌ NOT SET'}`);
 
     // Generate AI-powered response (with fallback to rule-based)
-    const responseMessage = await generateAIResponse(message, history);
+    let responseMessage;
+    let mode;
+    let aiError = null;
 
-    const mode = process.env.ANTHROPIC_API_KEY ? 'AI (Claude)' : 'Rule-based fallback';
+    try {
+      responseMessage = await generateAIResponse(message, history);
+      mode = 'AI (Claude)';
+    } catch (error) {
+      aiError = error.message;
+      console.log('⚠️ Falling back to rule-based SAM due to API error');
+      responseMessage = generateSAMResponse(message, history);
+      mode = 'Rule-based fallback';
+    }
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+      mode = 'Rule-based (no API key)';
+    }
+
     console.log(`📤 Response Mode: ${mode}`);
     console.log(`📝 Response Preview: "${responseMessage.substring(0, 100)}..."\n`);
 
     res.json({
       message: responseMessage,
       timestamp: new Date().toISOString(),
-      ai_powered: !!process.env.ANTHROPIC_API_KEY,
-      mode: mode
+      ai_powered: mode === 'AI (Claude)',
+      mode: mode,
+      ...(aiError && { ai_error: aiError })
     });
 
   } catch (error) {
