@@ -33,7 +33,7 @@ router.get('/access', async (req, res) => {
 
         // Find customer by portal access token
         const customerResult = await db.query(
-            `SELECT c.*, co.name as company_name, co.slug as company_slug, co.primary_color, co.logo_url, co.sam_enabled
+            `SELECT c.*, c.email_opt_in, co.name as company_name, co.slug as company_slug, co.primary_color, co.logo_url, co.sam_enabled
              FROM customers c JOIN companies co ON c.company_id = co.id
              WHERE c.portal_access_token = $1 AND c.portal_access_enabled = true`,
             [token]
@@ -93,7 +93,8 @@ router.get('/access', async (req, res) => {
             customer: {
                 id: customer.id,
                 name: customer.name,
-                email: customer.email
+                email: customer.email,
+                email_opt_in: customer.email_opt_in !== false // default true
             },
             company: {
                 name: customer.company_name,
@@ -111,6 +112,44 @@ router.get('/access', async (req, res) => {
     } catch (error) {
         console.error('Portal access error:', error);
         res.status(500).json({ error: 'Failed to load portal data' });
+    }
+});
+
+// Toggle email notification preference (token-based portal access)
+router.patch('/email-preference', async (req, res) => {
+    try {
+        const token = req.query.token;
+        const { email_opt_in } = req.body;
+
+        if (!token) {
+            return res.status(400).json({ error: 'Token required' });
+        }
+
+        if (typeof email_opt_in !== 'boolean') {
+            return res.status(400).json({ error: 'email_opt_in must be a boolean' });
+        }
+
+        // Verify portal access
+        const customerResult = await db.query(
+            'SELECT id FROM customers WHERE portal_access_token = $1 AND portal_access_enabled = true',
+            [token]
+        );
+
+        if (customerResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid or expired portal link' });
+        }
+
+        const customerId = customerResult.rows[0].id;
+
+        await db.query(
+            'UPDATE customers SET email_opt_in = $1 WHERE id = $2',
+            [email_opt_in, customerId]
+        );
+
+        res.json({ success: true, email_opt_in });
+    } catch (error) {
+        console.error('Email preference update error:', error);
+        res.status(500).json({ error: 'Failed to update email preference' });
     }
 });
 
