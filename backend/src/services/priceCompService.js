@@ -4,6 +4,7 @@
  */
 
 const axios = require('axios');
+const { JustTCG } = require('justtcg-js');
 
 /**
  * Build search query for a card
@@ -168,7 +169,7 @@ function mapToJustTCGGame(card) {
 }
 
 /**
- * Fetch comps from JustTCG API
+ * Fetch comps from JustTCG API using official SDK
  * TCG pricing for Pokemon, Magic, Yu-Gi-Oh, etc.
  * Requires JUSTTCG_API_KEY from environment
  * Uses progressive search: tries specific query first, then broader fallbacks
@@ -188,69 +189,43 @@ async function fetchJustTCGComps(card) {
     return { source: 'justtcg', available: false, error: 'Card type not supported by JustTCG', count: 0 };
   }
 
+  // Initialize SDK client
+  const client = new JustTCG({ apiKey });
+
   // Build search queries from most specific to broadest
   const searchQueries = [];
-
-  // 1. Just the card name (most effective for JustTCG text search)
-  if (card.player_name) {
-    searchQueries.push(card.player_name);
-  }
-
-  // 2. Card name + set (if different from name)
-  if (card.player_name && card.set_name) {
-    searchQueries.push(`${card.player_name} ${card.set_name}`);
-  }
-
-  // 3. Just set + number (for when name search gets too many results)
-  if (card.set_name && card.card_number) {
-    searchQueries.push(`${card.set_name} ${card.card_number}`);
-  }
-
-  // 4. Description fallback
-  if (searchQueries.length === 0 && card.description) {
-    searchQueries.push(card.description);
-  }
+  if (card.player_name) searchQueries.push(card.player_name);
+  if (card.player_name && card.set_name) searchQueries.push(`${card.player_name} ${card.set_name}`);
+  if (card.set_name && card.card_number) searchQueries.push(`${card.set_name} ${card.card_number}`);
+  if (searchQueries.length === 0 && card.description) searchQueries.push(card.description);
 
   if (searchQueries.length === 0) {
     console.log('JustTCG: No search terms available');
     return { source: 'justtcg', available: true, count: 0, listings: [], error: 'No search terms' };
   }
 
-  const url = 'https://api.justtcg.com/v1/cards';
-
   // Try each search query until we get results
   for (let i = 0; i < searchQueries.length; i++) {
     const searchQuery = searchQueries[i];
 
     try {
-      console.log(`JustTCG: Search attempt ${i + 1}/${searchQueries.length} — q="${searchQuery}" game=${game}`);
+      console.log(`JustTCG: Search attempt ${i + 1}/${searchQueries.length} — query="${searchQuery}" game=${game}`);
 
-      const params = {
-        q: searchQuery,
+      const response = await client.v1.cards.search(searchQuery, {
         game: game,
-        include_price_history: false,
-        limit: 25
-      };
-
-      const response = await axios.get(url, {
-        params,
-        headers: { 'x-api-key': apiKey },
-        timeout: 10000
+        limit: 25,
+        include_price_history: false
       });
 
-      const cards = response.data?.data || [];
+      const cards = response.data || [];
       console.log(`JustTCG: Got ${cards.length} card results for "${searchQuery}"`);
 
-      if (cards.length === 0) {
-        // Try next query
-        continue;
-      }
+      if (cards.length === 0) continue;
 
       // Flatten all variants across returned cards into listings
       const listings = [];
       for (const tcgCard of cards) {
-        const variants = tcgCard.variants || [];
-        for (const variant of variants) {
+        for (const variant of (tcgCard.variants || [])) {
           if (variant.price && variant.price > 0) {
             listings.push({
               title: `${tcgCard.name} - ${tcgCard.set_name || tcgCard.set}`,
@@ -278,20 +253,16 @@ async function fetchJustTCGComps(card) {
         continue;
       }
 
-      // Sort by price descending (most relevant/valuable first)
       listings.sort((a, b) => b.price - a.price);
 
-      // Calculate statistics
       const prices = listings.map(l => l.price);
       const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
       const sorted = [...prices].sort((a, b) => a - b);
       const median = sorted.length % 2 === 0
         ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
         : sorted[Math.floor(sorted.length / 2)];
-      const min = sorted[0];
-      const max = sorted[sorted.length - 1];
 
-      console.log(`JustTCG: SUCCESS — ${listings.length} listings, median $${median.toFixed(2)}, range $${min.toFixed(2)}-$${max.toFixed(2)}`);
+      console.log(`JustTCG: SUCCESS — ${listings.length} listings, median $${median.toFixed(2)}, range $${sorted[0].toFixed(2)}-$${sorted[sorted.length - 1].toFixed(2)}`);
 
       return {
         source: 'justtcg',
@@ -301,8 +272,8 @@ async function fetchJustTCGComps(card) {
         stats: {
           average: Math.round(avg * 100) / 100,
           median: Math.round(median * 100) / 100,
-          min: Math.round(min * 100) / 100,
-          max: Math.round(max * 100) / 100,
+          min: Math.round(sorted[0] * 100) / 100,
+          max: Math.round(sorted[sorted.length - 1] * 100) / 100,
           count: prices.length
         },
         searchQuery,
@@ -311,83 +282,74 @@ async function fetchJustTCGComps(card) {
 
     } catch (error) {
       console.error(`JustTCG: Error on attempt ${i + 1} ("${searchQuery}"):`, error.message);
-
-      if (error.response?.status === 401) {
+      if (error.message?.includes('Authentication') || error.message?.includes('API key')) {
         return { source: 'justtcg', available: false, error: 'Invalid API key', count: 0 };
       }
-      if (error.response?.status === 429) {
-        return { source: 'justtcg', available: true, error: 'Rate limit exceeded', count: 0 };
-      }
-
-      // Try next query on other errors
       continue;
     }
   }
 
-  // Also try without the game filter as a last resort
-  const lastQuery = searchQueries[0];
+  // Last resort: try just the card name without game filter
   try {
-    console.log(`JustTCG: Final attempt without game filter — q="${lastQuery}"`);
-    const response = await axios.get(url, {
-      params: { q: lastQuery, include_price_history: false, limit: 25 },
-      headers: { 'x-api-key': apiKey },
-      timeout: 10000
+    const lastQuery = searchQueries[0];
+    console.log(`JustTCG: Final attempt — query="${lastQuery}" (no game filter)`);
+    const response = await client.v1.cards.search(lastQuery, {
+      limit: 25,
+      include_price_history: false
     });
 
-    const cards = response.data?.data || [];
+    const cards = response.data || [];
     console.log(`JustTCG: No-filter got ${cards.length} results`);
 
-    if (cards.length > 0) {
-      const listings = [];
-      for (const tcgCard of cards) {
-        for (const variant of (tcgCard.variants || [])) {
-          if (variant.price && variant.price > 0) {
-            listings.push({
-              title: `${tcgCard.name} - ${tcgCard.set_name || tcgCard.set}`,
-              price: variant.price,
-              currency: 'USD',
-              condition: variant.condition,
-              printing: variant.printing,
-              cardId: tcgCard.id,
-              game: tcgCard.game,
-              set: tcgCard.set_name,
-              rarity: tcgCard.rarity,
-              number: tcgCard.number,
-              priceChange7d: variant.priceChange7d,
-              priceChange30d: variant.priceChange30d,
-              lastUpdated: variant.lastUpdated ? new Date(variant.lastUpdated * 1000).toISOString() : null
-            });
-          }
+    const listings = [];
+    for (const tcgCard of cards) {
+      for (const variant of (tcgCard.variants || [])) {
+        if (variant.price && variant.price > 0) {
+          listings.push({
+            title: `${tcgCard.name} - ${tcgCard.set_name || tcgCard.set}`,
+            price: variant.price,
+            currency: 'USD',
+            condition: variant.condition,
+            printing: variant.printing,
+            cardId: tcgCard.id,
+            game: tcgCard.game,
+            set: tcgCard.set_name,
+            rarity: tcgCard.rarity,
+            number: tcgCard.number,
+            priceChange7d: variant.priceChange7d,
+            priceChange30d: variant.priceChange30d,
+            lastUpdated: variant.lastUpdated ? new Date(variant.lastUpdated * 1000).toISOString() : null
+          });
         }
       }
+    }
 
-      if (listings.length > 0) {
-        listings.sort((a, b) => b.price - a.price);
-        const prices = listings.map(l => l.price);
-        const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
-        const sorted = [...prices].sort((a, b) => a - b);
-        const median = sorted.length % 2 === 0
-          ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
-          : sorted[Math.floor(sorted.length / 2)];
+    if (listings.length > 0) {
+      listings.sort((a, b) => b.price - a.price);
+      const prices = listings.map(l => l.price);
+      const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+      const sorted = [...prices].sort((a, b) => a - b);
+      const median = sorted.length % 2 === 0
+        ? (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2
+        : sorted[Math.floor(sorted.length / 2)];
 
-        console.log(`JustTCG: No-filter SUCCESS — ${listings.length} listings, median $${median.toFixed(2)}`);
+      console.log(`JustTCG: No-filter SUCCESS — ${listings.length} listings, median $${median.toFixed(2)}`);
 
-        return {
-          source: 'justtcg',
-          available: true,
-          count: listings.length,
-          listings: listings.slice(0, 20),
-          stats: {
-            average: Math.round(avg * 100) / 100,
-            median: Math.round(median * 100) / 100,
-            min: Math.round(sorted[0] * 100) / 100,
-            max: Math.round(sorted[sorted.length - 1] * 100) / 100,
-            count: prices.length
-          },
-          searchQuery: lastQuery,
-          game: game || 'unknown'
-        };
-      }
+      return {
+        source: 'justtcg',
+        available: true,
+        count: listings.length,
+        listings: listings.slice(0, 20),
+        stats: {
+          average: Math.round(avg * 100) / 100,
+          median: Math.round(median * 100) / 100,
+          min: Math.round(sorted[0] * 100) / 100,
+          max: Math.round(sorted[sorted.length - 1] * 100) / 100,
+          count: prices.length
+        },
+        searchQuery: lastQuery,
+        game: game || 'unknown'
+      };
     }
   } catch (e) {
     console.error('JustTCG: Final no-filter attempt failed:', e.message);
