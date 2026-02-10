@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Sparkles, TrendingUp, Calculator, HelpCircle, Lightbulb, ThumbsUp, Brain, Camera, Upload } from 'lucide-react';
+import { Send, Loader2, Sparkles, TrendingUp, Calculator, HelpCircle, Lightbulb, ThumbsUp, Brain, Camera, Upload, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 
 // Animation trigger keywords - maps keywords to animation types
@@ -29,6 +30,7 @@ const ANIMATION_DURATIONS = {
 };
 
 export default function SAMChatInterface({ isCustomerPortal = false, token = null }) {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
@@ -299,12 +301,14 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
       <div className="bg-gradient-to-r from-[#2C2416]/95 via-[#3D3020]/95 to-[#2C2416]/95 backdrop-blur-xl border-b border-[#FF8170]/20 px-4 lg:px-6 py-4 shadow-2xl">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {/* Small SAM Avatar with coral glow */}
+            {/* SAM Avatar */}
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-[#FF8170] to-[#FF9580] rounded-2xl blur-lg opacity-75 animate-pulse"></div>
-              <div className="relative w-12 h-12 bg-gradient-to-br from-[#FF8170] to-[#FF6B5A] rounded-2xl flex items-center justify-center shadow-2xl border border-[#FFF8F0]/20">
-                <span className="text-2xl font-black text-[#FFF8F0] drop-shadow-lg">S</span>
-              </div>
+              <img
+                src="/images/SAM_V2.png"
+                alt="SAM"
+                className="relative w-12 h-12 rounded-2xl object-cover shadow-2xl border border-[#FFF8F0]/20"
+              />
             </div>
             <div>
               <h1 className="text-2xl font-black bg-gradient-to-r from-[#FF8170] via-[#FF9580] to-[#FFB8A8] bg-clip-text text-transparent drop-shadow-lg">
@@ -314,15 +318,28 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
             </div>
           </div>
 
-          {/* Upload Button - Desktop */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isLoading || scanning}
-            className="hidden lg:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] hover:from-[#FF9580] hover:to-[#FF8170] text-[#2C2416] rounded-2xl font-bold transition-all shadow-2xl hover:shadow-[#FF8170]/50 border border-[#FFF8F0]/20 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Camera className="w-5 h-5" />
-            <span>Scan Card</span>
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Upload Button - Desktop */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading || scanning}
+              className="hidden lg:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] hover:from-[#FF9580] hover:to-[#FF8170] text-[#2C2416] rounded-2xl font-bold transition-all shadow-2xl hover:shadow-[#FF8170]/50 border border-[#FFF8F0]/20 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Camera className="w-5 h-5" />
+              <span>Scan Card</span>
+            </button>
+
+            {/* Close Button */}
+            {!isCustomerPortal && (
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center justify-center w-10 h-10 rounded-xl text-[#E8DCC0] hover:text-[#FFF8F0] hover:bg-[#FFF8F0]/10 transition-all"
+                title="Close SAM"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            )}
+          </div>
           <input
             ref={fileInputRef}
             type="file"
@@ -346,9 +363,11 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
               {msg.role === 'assistant' && (
                 <div className="relative flex-shrink-0">
                   <div className="absolute inset-0 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] rounded-xl blur opacity-50"></div>
-                  <div className="relative w-10 h-10 bg-gradient-to-br from-[#FF8170] to-[#FF6B5A] rounded-xl flex items-center justify-center shadow-lg border border-[#FFF8F0]/20">
-                    <span className="text-[#FFF8F0] text-sm font-black">S</span>
-                  </div>
+                  <img
+                    src="/images/SAM_V2.png"
+                    alt="SAM"
+                    className="relative w-10 h-10 rounded-xl object-cover shadow-lg border border-[#FFF8F0]/20"
+                  />
                 </div>
               )}
               {msg.role === 'user' && (

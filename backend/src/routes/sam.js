@@ -812,22 +812,41 @@ router.post('/scan', authenticate, upload.single('image'), async (req, res) => {
             },
             {
               type: 'text',
-              text: `You are SAM, the PSA grading expert. Analyze this trading card image and provide:
+              text: `You are SAM, the PSA grading expert. This is a photo of the FRONT of a trading card. Analyze what you can see and provide a thorough assessment.
 
-1. **Gradability Assessment**: Is this card worth grading? (Yes/No)
-2. **Estimated PSA Grade**: What grade would you estimate (1-10)?
-3. **Centering Analysis**: Check left-right and top-bottom centering ratios
-4. **Corner Condition**: Are corners sharp or showing wear?
-5. **Edge Quality**: Any chipping or edge wear visible?
-6. **Surface Condition**: Scratches, print defects, or damage?
-7. **Recommendation**: Should the owner grade this card? Which service level?
+FIRST — Identify the card:
+• Player name, year, brand/set, card number if visible
+• Sport (Baseball, Basketball, Football, Hockey, Soccer)
+• Note if it's a rookie card, refractor, auto, numbered, etc.
 
-Be specific about what you see. Use PSA grading standards:
-- PSA 10: 55/45 centering, sharp corners, clean edges, flawless surface
-- PSA 9: 60/40 centering, 1 corner can have slight wear
-- PSA 8: 65/35 centering, minor corner/edge wear acceptable
+THEN — Grade assessment based on what's visible on the front:
 
-Provide your analysis in a friendly, conversational way. Start with whether it's worth grading, then explain why.`
+1. **Centering** (most important for high grades):
+   Estimate the left-to-right and top-to-bottom border ratios as precisely as possible.
+   • PSA 10 requires 55/45 or better both ways
+   • PSA 9 requires 60/40 or better
+   • PSA 8 requires 65/35 or better
+   Measure by comparing border widths on opposite sides. Be specific: "Left border looks ~2mm, right ~3mm, roughly 60/40."
+
+2. **Corners**: Zoom in on all 4 corners. Any white showing, softness, or dings? Sharp corners = PSA 10 territory. Any white = PSA 8 max.
+
+3. **Edges**: Check all 4 edges for chipping, roughness, or white showing.
+
+4. **Surface**: Look for scratches, print lines, ink spots, fish eyes, wax stains, or gloss issues. Check under highlights/reflections in the photo.
+
+5. **Print Quality**: Any registration issues, color bleeding, focus problems, or factory defects?
+
+FINALLY — Give your verdict:
+• **Estimated PSA Grade**: Your best estimate (single number like PSA 9, not a range)
+• **Worth Grading?**: Yes or No — consider the card's likely value at this grade
+• **Confidence Level**: How confident are you given photo quality? Note if better photos would help.
+• **Service Level Recommendation**: Based on the card and likely grade
+
+IMPORTANT NOTES:
+- You can only see the front. Mention that back centering, back surface, and back edges can't be assessed from this photo.
+- If the photo is blurry, at an angle, or poor quality, say so and note how it limits your assessment.
+- Be honest — if it's clearly not a PSA 10 candidate, say so directly.
+- Be conversational and friendly, but specific with numbers.`
             }
           ]
         }
