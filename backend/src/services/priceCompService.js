@@ -213,7 +213,7 @@ async function fetchJustTCGComps(card) {
 
       const response = await client.v1.cards.search(searchQuery, {
         game: game,
-        limit: 25,
+        limit: 20,
         include_price_history: false
       });
 
@@ -294,7 +294,7 @@ async function fetchJustTCGComps(card) {
     const lastQuery = searchQueries[0];
     console.log(`JustTCG: Final attempt — query="${lastQuery}" (no game filter)`);
     const response = await client.v1.cards.search(lastQuery, {
-      limit: 25,
+      limit: 20,
       include_price_history: false
     });
 
