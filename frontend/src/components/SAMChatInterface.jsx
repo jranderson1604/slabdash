@@ -41,12 +41,69 @@ function TrendIndicator({ value }) {
   );
 }
 
-// Beautiful scan results + pricing card
-function ScanResultsCard({ scanResults }) {
-  const { cardInfo, pricing, estimatedGrade, gradable } = scanResults;
+// Grade tier pricing column
+function GradeTierColumn({ tier, label, highlight = false }) {
+  if (!tier || !tier.available || !tier.avg) {
+    return (
+      <div className={`flex-1 text-center p-2.5 rounded-xl ${highlight ? 'ring-1 ring-[#FF8170]/20' : ''}`}
+        style={{ background: highlight ? 'rgba(255, 129, 112, 0.06)' : 'rgba(255,255,255,0.03)' }}>
+        <p className="text-[9px] text-[#E8DCC0]/40 uppercase font-bold mb-1">{label}</p>
+        <p className="text-sm font-bold text-[#E8DCC0]/25">—</p>
+        <p className="text-[8px] text-[#E8DCC0]/20 mt-0.5">No data</p>
+      </div>
+    );
+  }
 
-  // Get the best source with data
-  const bestSource = pricing?.sources && Object.values(pricing.sources).find(s => s.available && s.count > 0);
+  return (
+    <div className={`flex-1 text-center p-2.5 rounded-xl ${highlight ? 'ring-1 ring-[#FF8170]/30' : ''}`}
+      style={{ background: highlight ? 'rgba(255, 129, 112, 0.08)' : 'rgba(255,255,255,0.03)' }}>
+      <p className={`text-[9px] uppercase font-bold mb-1 ${highlight ? 'text-[#FF8170]' : 'text-[#E8DCC0]/40'}`}>{label}</p>
+      <p className={`text-lg font-black leading-none ${highlight ? 'text-white' : 'text-[#E8DCC0]/90'}`}>
+        ${tier.avg.toFixed(0)}<span className="text-xs font-bold opacity-60">.{(tier.avg % 1).toFixed(2).slice(2)}</span>
+      </p>
+      {tier.count > 0 && (
+        <p className="text-[8px] text-[#E8DCC0]/30 mt-1">{tier.count} sale{tier.count !== 1 ? 's' : ''}</p>
+      )}
+      {tier.min != null && tier.max != null && tier.min !== tier.max && (
+        <p className="text-[8px] text-[#E8DCC0]/20 mt-0.5">${tier.min.toFixed(0)}–${tier.max.toFixed(0)}</p>
+      )}
+    </div>
+  );
+}
+
+// Recent sales list for a tier
+function RecentSalesList({ tier }) {
+  if (!tier?.recent || tier.recent.length === 0) return null;
+
+  return (
+    <div className="space-y-1">
+      {tier.recent.slice(0, 3).map((sale, i) => (
+        <div key={i} className="flex items-center justify-between">
+          <span className="text-[10px] text-[#E8DCC0]/40 font-medium truncate flex-1 mr-2">
+            {sale.title ? sale.title.substring(0, 40) : sale.condition || 'Sale'}
+            {sale.title && sale.title.length > 40 ? '...' : ''}
+          </span>
+          <span className="text-xs font-bold text-white">${sale.price.toFixed(2)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Beautiful scan results + graded pricing card
+function ScanResultsCard({ scanResults }) {
+  const { cardInfo, pricing, estimatedGrade } = scanResults;
+
+  const hasGradedData = pricing?.psa8?.available || pricing?.psa9?.available || pricing?.psa10?.available;
+  const hasRawData = pricing?.raw?.available && pricing.raw.count > 0;
+  const hasAnyPricing = hasRawData || hasGradedData;
+
+  // Determine which sources contributed
+  const allSources = new Set();
+  for (const tier of [pricing?.raw, pricing?.psa8, pricing?.psa9, pricing?.psa10]) {
+    if (tier?.sources) tier.sources.forEach(s => allSources.add(s));
+  }
+  const sourceLabel = [...allSources].map(s => s === 'justtcg' ? 'JustTCG' : s === 'ebay' ? 'eBay' : s).join(' + ');
 
   return (
     <div className="mt-4 space-y-2.5">
@@ -91,81 +148,62 @@ function ScanResultsCard({ scanResults }) {
           </div>
         </div>
 
-        {/* Price — big and clear */}
-        {pricing?.priceEstimate ? (
-          <div className="px-4 pb-3">
-            <div className="flex items-baseline gap-3">
-              <span className="text-4xl font-black text-white leading-none">
-                ${pricing.priceEstimate.toFixed(2)}
+        {/* RAW VALUE — big and clear */}
+        {hasRawData ? (
+          <div className="px-4 pb-2">
+            <p className="text-[9px] text-[#E8DCC0]/40 uppercase font-bold mb-0.5">Raw Value</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-white leading-none">
+                ${pricing.raw.avg.toFixed(2)}
               </span>
-              {bestSource?.listings?.[0]?.priceChange7d ? (
-                <TrendIndicator value={bestSource.listings[0].priceChange7d} />
-              ) : null}
             </div>
-            <p className="text-[10px] text-[#E8DCC0]/40 mt-1">
-              Avg sale price (NM) &middot; {pricing.totalListings} variant{pricing.totalListings !== 1 ? 's' : ''} found
+            <p className="text-[10px] text-[#E8DCC0]/30 mt-0.5">
+              avg from {pricing.raw.count} listing{pricing.raw.count !== 1 ? 's' : ''}
+              {pricing.raw.min != null && pricing.raw.max != null && pricing.raw.min !== pricing.raw.max
+                ? ` (${`$${pricing.raw.min.toFixed(2)}–$${pricing.raw.max.toFixed(2)}`})`
+                : ''}
             </p>
           </div>
         ) : (
-          <div className="px-4 pb-3">
+          <div className="px-4 pb-2">
             <p className="text-sm text-[#E8DCC0]/50">
-              {!cardInfo ? 'Could not identify card. Try a clearer photo.' : 'No pricing data found for this exact card.'}
+              {!cardInfo ? 'Could not identify card. Try a clearer photo.' : 'No raw pricing data found.'}
             </p>
           </div>
         )}
 
-        {/* Price breakdown — only if we have data */}
-        {bestSource?.stats && (
-          <div className="mx-4 mb-3 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.05)' }}>
-            <div className="grid grid-cols-4 gap-3 text-center">
-              <div>
-                <p className="text-[9px] text-[#E8DCC0]/35 uppercase font-bold mb-0.5">Low</p>
-                <p className="text-base font-bold text-[#E8DCC0]/80">${bestSource.stats.min.toFixed(2)}</p>
-              </div>
-              <div>
-                <p className="text-[9px] text-[#E8DCC0]/35 uppercase font-bold mb-0.5">Average</p>
-                <p className="text-base font-bold text-white">${bestSource.stats.average.toFixed(2)}</p>
-              </div>
-              <div>
-                <p className="text-[9px] text-[#E8DCC0]/35 uppercase font-bold mb-0.5">Median</p>
-                <p className="text-base font-bold text-[#E8DCC0]/80">${bestSource.stats.median.toFixed(2)}</p>
-              </div>
-              <div>
-                <p className="text-[9px] text-[#E8DCC0]/35 uppercase font-bold mb-0.5">High</p>
-                <p className="text-base font-bold text-[#E8DCC0]/80">${bestSource.stats.max.toFixed(2)}</p>
-              </div>
+        {/* GRADED PRICING — PSA 8, 9, 10 columns */}
+        {hasAnyPricing && (
+          <div className="mx-4 mb-3">
+            <p className="text-[9px] text-[#E8DCC0]/30 uppercase font-bold mb-2">If Graded</p>
+            <div className="flex gap-1.5">
+              <GradeTierColumn tier={pricing?.psa8} label="PSA 8" />
+              <GradeTierColumn tier={pricing?.psa9} label="PSA 9" />
+              <GradeTierColumn tier={pricing?.psa10} label="PSA 10" highlight />
             </div>
-
-            {/* Variants list — condition/printing breakdown */}
-            {bestSource.listings && bestSource.listings.length > 1 && (
-              <div className="mt-2.5 pt-2.5 space-y-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-                <p className="text-[9px] text-[#E8DCC0]/30 uppercase font-bold mb-1">By Variant</p>
-                {bestSource.listings.slice(0, 5).map((listing, i) => (
-                  <div key={i} className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] text-[#E8DCC0]/50 font-medium">
-                        {listing.condition || 'NM'}
-                      </span>
-                      {listing.printing && listing.printing !== 'Normal' && (
-                        <span className="text-[10px] text-[#818CF8]/70 font-medium">{listing.printing}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-white">${listing.price.toFixed(2)}</span>
-                      <TrendIndicator value={listing.priceChange7d} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         )}
 
+        {/* RECENT SALES — show for the most relevant tier */}
+        {(() => {
+          // Show recent sales for the grade tier with the most data
+          const bestTier = [pricing?.psa10, pricing?.psa9, pricing?.psa8].find(t => t?.recent?.length > 0);
+          if (!bestTier) return null;
+          return (
+            <div className="mx-4 mb-3 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <p className="text-[9px] text-[#E8DCC0]/30 uppercase font-bold mb-1.5">
+                Recent {bestTier.grade} Sales
+              </p>
+              <RecentSalesList tier={bestTier} />
+            </div>
+          );
+        })()}
+
         {/* Source attribution */}
-        {bestSource && (
+        {sourceLabel && (
           <div className="px-4 pb-3">
             <p className="text-[9px] text-[#E8DCC0]/25">
-              via {bestSource.source === 'justtcg' ? 'JustTCG' : bestSource.source === 'ebay' ? 'eBay' : bestSource.source}
+              via {sourceLabel} &middot; {pricing?.totalListings || 0} total listings
             </p>
           </div>
         )}

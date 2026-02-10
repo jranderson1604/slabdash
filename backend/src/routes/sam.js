@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require('multer');
 const { authenticate } = require('../middleware/auth');
 const Anthropic = require('@anthropic-ai/sdk');
-const { fetchJustTCGComps, fetchEbayComps } = require('../services/priceCompService');
+const { fetchJustTCGComps, fetchEbayComps, fetchGradedPricing } = require('../services/priceCompService');
 
 // Configure multer for memory storage (images stored in buffer)
 const upload = multer({
@@ -720,53 +720,52 @@ function detectPricingQuery(message) {
 }
 
 /**
- * Fetch comps for a chat pricing query
+ * Fetch comps for a chat pricing query — includes graded pricing breakdown
  */
 async function fetchCompsForChat(parsedQuery) {
-  const cardForLookup = {
-    player_name: parsedQuery.query,
-    description: parsedQuery.query,
-    brand: parsedQuery.brand,
-    sport: parsedQuery.sport
+  const cardInfo = {
+    name: parsedQuery.query,
+    game: parsedQuery.game || '',
+    sport: parsedQuery.sport || '',
   };
 
   try {
-    const compPromises = [fetchJustTCGComps(cardForLookup)];
-    if (process.env.EBAY_APP_ID) {
-      compPromises.push(fetchEbayComps(cardForLookup));
-    }
+    const gradedPricing = await fetchGradedPricing(cardInfo);
 
-    const results = await Promise.all(compPromises);
-    const available = results.filter(r => r.available && r.count > 0);
-
-    if (available.length === 0) return null;
+    const hasSomeData = gradedPricing.raw?.available || gradedPricing.psa8?.available || gradedPricing.psa9?.available || gradedPricing.psa10?.available;
+    if (!hasSomeData) return null;
 
     // Build a pricing context string for SAM
-    const lines = ['LIVE PRICING DATA (include this in your response):'];
-    for (const comp of available) {
-      const src = comp.source === 'justtcg' ? 'JustTCG' : comp.source === 'ebay' ? 'eBay' : comp.source;
-      lines.push(`${src}: ${comp.count} listings — Avg $${comp.stats.average.toFixed(2)}, Median $${comp.stats.median.toFixed(2)} (Range: $${comp.stats.min.toFixed(2)}–$${comp.stats.max.toFixed(2)})`);
+    const lines = ['LIVE PRICING DATA (include these numbers in your response):'];
 
-      // Include top listings for context
-      if (comp.listings?.length > 0) {
-        const topListings = comp.listings.slice(0, 3);
-        for (const listing of topListings) {
-          let detail = `  - ${listing.title}: $${listing.price.toFixed(2)}`;
-          if (listing.condition) detail += ` (${listing.condition})`;
-          if (listing.printing) detail += ` [${listing.printing}]`;
-          if (listing.priceChange7d) {
-            detail += ` | 7d: ${listing.priceChange7d > 0 ? '+' : ''}$${listing.priceChange7d.toFixed(2)}`;
-          }
-          lines.push(detail);
+    // Raw value
+    if (gradedPricing.raw?.available && gradedPricing.raw.count > 0) {
+      lines.push(`RAW (ungraded): Avg $${gradedPricing.raw.avg.toFixed(2)} (${gradedPricing.raw.count} listings, range $${gradedPricing.raw.min?.toFixed(2) || '?'}–$${gradedPricing.raw.max?.toFixed(2) || '?'})`);
+      if (gradedPricing.raw.recent?.length > 0) {
+        for (const sale of gradedPricing.raw.recent.slice(0, 2)) {
+          lines.push(`  - ${sale.title || sale.condition || 'Listing'}: $${sale.price.toFixed(2)}`);
         }
       }
     }
 
-    // Calculate overall estimate
-    const averages = available.filter(s => s.stats?.average).map(s => s.stats.average);
-    if (averages.length > 0) {
-      const estimate = Math.round((averages.reduce((a, b) => a + b, 0) / averages.length) * 100) / 100;
-      lines.push(`Overall estimated value: $${estimate.toFixed(2)}`);
+    // Graded tiers
+    for (const [key, label] of [['psa8', 'PSA 8'], ['psa9', 'PSA 9'], ['psa10', 'PSA 10']]) {
+      const tier = gradedPricing[key];
+      if (tier?.available && tier.count > 0) {
+        lines.push(`${label}: Avg $${tier.avg.toFixed(2)} (${tier.count} sold, range $${tier.min?.toFixed(2) || '?'}–$${tier.max?.toFixed(2) || '?'})`);
+        if (tier.recent?.length > 0) {
+          for (const sale of tier.recent.slice(0, 2)) {
+            lines.push(`  - ${sale.title || 'Sale'}: $${sale.price.toFixed(2)}`);
+          }
+        }
+      } else {
+        lines.push(`${label}: No sold data found`);
+      }
+    }
+
+    // Summary
+    if (gradedPricing.raw?.avg) {
+      lines.push(`\nRaw value: ~$${gradedPricing.raw.avg.toFixed(2)}. Present the raw value, then show what it would be worth as PSA 8, 9, and 10 so the customer can see the grading upside.`);
     }
 
     return lines.join('\n');
@@ -1072,62 +1071,19 @@ Include the FULL card number with denominator (e.g. "037/159" not just "37"). On
       condition = 'Near Mint (PSA 7 likely)';
     }
 
-    // Fetch price comps if we identified the card
+    // Fetch graded pricing breakdown (Raw, PSA 8, PSA 9, PSA 10)
     let pricing = null;
     if (cardInfo && (cardInfo.name || cardInfo.set || cardInfo.game)) {
-      console.log(`📊 Fetching comps for scanned card:`, JSON.stringify(cardInfo));
+      console.log(`📊 Fetching graded pricing for scanned card:`, JSON.stringify(cardInfo));
       try {
-        const cardForLookup = {
-          player_name: cardInfo.name || '',
-          set_name: cardInfo.set || '',
-          card_number: cardInfo.number || '',
-          year: cardInfo.year || '',
-          brand: cardInfo.game || cardInfo.sport || '',
-          game: cardInfo.game || '',
-          description: `${cardInfo.name || ''} ${cardInfo.set || ''}`.trim(),
-          sport: cardInfo.sport || ''
+        const gradedPricing = await fetchGradedPricing(cardInfo);
+        pricing = {
+          ...gradedPricing,
+          priceEstimate: gradedPricing.rawEstimate,
         };
-
-        // Fetch from available sources in parallel
-        const compPromises = [fetchJustTCGComps(cardForLookup)];
-        if (process.env.EBAY_APP_ID) {
-          compPromises.push(fetchEbayComps(cardForLookup));
-        }
-
-        const compResults = await Promise.all(compPromises);
-
-        // Log ALL results for debugging
-        for (const r of compResults) {
-          console.log(`📊 ${r.source}: available=${r.available}, count=${r.count || 0}, error=${r.error || 'none'}`);
-        }
-
-        const availableComps = compResults.filter(c => c.available && c.count > 0);
-
-        if (availableComps.length > 0) {
-          pricing = {
-            sources: compResults.reduce((acc, c) => { acc[c.source] = c; return acc; }, {}),
-            totalListings: compResults.reduce((sum, c) => sum + (c.count || 0), 0),
-            priceEstimate: null
-          };
-
-          const averages = availableComps.filter(s => s.stats?.average).map(s => s.stats.average);
-          if (averages.length > 0) {
-            pricing.priceEstimate = Math.round((averages.reduce((a, b) => a + b, 0) / averages.length) * 100) / 100;
-          }
-
-          console.log(`💰 Found ${pricing.totalListings} comp listings, estimate: $${pricing.priceEstimate || 'N/A'}`);
-        } else {
-          console.log('⚠️ No comp sources returned results');
-          // Still include sources info so frontend can show what was tried
-          pricing = {
-            sources: compResults.reduce((acc, c) => { acc[c.source] = c; return acc; }, {}),
-            totalListings: 0,
-            priceEstimate: null,
-            noResults: true
-          };
-        }
+        console.log(`💰 Graded pricing complete: ${pricing.totalListings} total listings`);
       } catch (compError) {
-        console.error('❌ Error fetching comps for scanned card:', compError.message);
+        console.error('❌ Error fetching graded pricing:', compError.message);
         pricing = { error: compError.message, totalListings: 0, priceEstimate: null };
       }
     } else {

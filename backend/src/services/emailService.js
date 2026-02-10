@@ -154,12 +154,12 @@ const sendSubmissionUpdateEmail = async (submissionId, stepName, progressPercent
             return { success: false, error: 'Template not found' };
         }
 
-        // Get all linked customers
+        // Get all linked customers (only those who have opted in to emails)
         const customersResult = await db.query(
             `SELECT c.id, c.name, c.email
              FROM submission_customers sc
              JOIN customers c ON sc.customer_id = c.id
-             WHERE sc.submission_id = $1 AND c.email IS NOT NULL`,
+             WHERE sc.submission_id = $1 AND c.email IS NOT NULL AND c.email_opt_in IS NOT FALSE`,
             [submissionId]
         );
 
@@ -400,8 +400,83 @@ const sendIntroductionEmail = async (companyId, customerEmail, emailData, isTest
     }
 };
 
+/**
+ * Generic send email function (used by scheduledRefreshService and others)
+ * Supports both Mailgun (default) and custom SMTP, with optional attachments
+ */
+const sendEmail = async ({ to, subject, html, text, companyId, attachments }) => {
+    try {
+        let config = null;
+        if (companyId) {
+            config = await getCompanyEmailConfig(companyId);
+        }
+
+        const useCustomSmtp = config?.use_custom_smtp;
+
+        if (!useCustomSmtp) {
+            // Use Mailgun HTTP API
+            const defaultConfig = getDefaultEmailConfig();
+            const fromAddress = `${config?.from_name || defaultConfig.from_name} <${defaultConfig.from_email}>`;
+
+            const mg = mailgun.client({
+                username: 'api',
+                key: defaultConfig.mailgun_api_key
+            });
+
+            const msgData = {
+                from: fromAddress,
+                to: Array.isArray(to) ? to : [to],
+                subject,
+                html,
+                text: text || undefined
+            };
+
+            // Add attachments if provided
+            if (attachments && attachments.length > 0) {
+                msgData.attachment = attachments.map(att => ({
+                    filename: att.filename,
+                    data: att.content || att.data,
+                    contentType: att.contentType || 'text/csv'
+                }));
+            }
+
+            await mg.messages.create(defaultConfig.mailgun_domain, msgData);
+        } else {
+            // Use custom SMTP
+            const fromAddress = `${config.from_name || 'SlabDash'} <${config.from_email}>`;
+            const transporter = createTransporter(config);
+
+            const mailOptions = {
+                from: fromAddress,
+                to: Array.isArray(to) ? to.join(', ') : to,
+                subject,
+                html,
+                text: text || undefined
+            };
+
+            // Add attachments for SMTP
+            if (attachments && attachments.length > 0) {
+                mailOptions.attachments = attachments.map(att => ({
+                    filename: att.filename,
+                    content: att.content || att.data,
+                    contentType: att.contentType || 'text/csv'
+                }));
+            }
+
+            await transporter.sendMail(mailOptions);
+        }
+
+        console.log(`📧 Email sent to ${to}: ${subject}`);
+        return { success: true };
+    } catch (error) {
+        console.error('sendEmail error:', error.message);
+        return { success: false, error: error.message };
+    }
+};
+
 module.exports = {
     sendSubmissionUpdateEmail,
+    sendEmail,
     testEmailConfig,
     sendIntroductionEmail,
     getEmailTemplate,

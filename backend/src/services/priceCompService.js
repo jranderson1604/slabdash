@@ -485,12 +485,148 @@ function isCompDataStale(lastCheck, maxAgeDays = 7) {
   return ageDays > maxAgeDays;
 }
 
+/**
+ * Fetch comps for a specific grade tier (raw, PSA 8, PSA 9, PSA 10)
+ * Searches both JustTCG and eBay with grade-specific queries
+ */
+async function fetchTierComps(card, grade) {
+  const gradeLabel = grade ? `PSA ${grade}` : null;
+
+  // Build card lookup with grade appended
+  const cardForLookup = {
+    ...card,
+    grade: grade || undefined,
+  };
+
+  // For eBay, we build a search query with the grade
+  const ebayCard = {
+    ...card,
+    grade: grade || undefined,
+  };
+
+  // For JustTCG, search for the raw card (JustTCG returns ungraded market prices)
+  // Only eBay has grade-specific sold data
+  const promises = [];
+
+  if (grade) {
+    // Graded tier — eBay is the main source (sold graded cards)
+    if (process.env.EBAY_APP_ID) {
+      promises.push(fetchEbayComps(ebayCard));
+    }
+    // JustTCG doesn't differentiate by PSA grade, skip for graded tiers
+  } else {
+    // Raw tier — both sources
+    promises.push(fetchJustTCGComps(cardForLookup));
+    if (process.env.EBAY_APP_ID) {
+      // eBay raw: search without grade, exclude "PSA" from results
+      promises.push(fetchEbayComps(cardForLookup));
+    }
+  }
+
+  if (promises.length === 0) {
+    return { grade: gradeLabel || 'Raw', available: false, count: 0, avg: null, recent: [] };
+  }
+
+  try {
+    const results = await Promise.all(promises);
+    const available = results.filter(r => r.available && r.count > 0);
+
+    if (available.length === 0) {
+      return { grade: gradeLabel || 'Raw', available: false, count: 0, avg: null, recent: [] };
+    }
+
+    // Merge listings from all sources, sorted by most recent
+    const allListings = [];
+    for (const source of available) {
+      for (const listing of (source.listings || [])) {
+        allListings.push({
+          ...listing,
+          source: source.source,
+        });
+      }
+    }
+
+    // Sort by end time (most recent first) for eBay, or by price for JustTCG
+    allListings.sort((a, b) => {
+      if (a.endTime && b.endTime) return new Date(b.endTime) - new Date(a.endTime);
+      return b.price - a.price;
+    });
+
+    // Calculate average from all sources
+    const averages = available.filter(s => s.stats?.average).map(s => s.stats.average);
+    const avg = averages.length > 0
+      ? Math.round((averages.reduce((a, b) => a + b, 0) / averages.length) * 100) / 100
+      : null;
+
+    // Get min/max across sources
+    const mins = available.filter(s => s.stats?.min).map(s => s.stats.min);
+    const maxes = available.filter(s => s.stats?.max).map(s => s.stats.max);
+
+    return {
+      grade: gradeLabel || 'Raw',
+      available: true,
+      count: allListings.length,
+      avg,
+      min: mins.length > 0 ? Math.min(...mins) : null,
+      max: maxes.length > 0 ? Math.max(...maxes) : null,
+      recent: allListings.slice(0, 5), // Last 5 sales
+      sources: available.map(s => s.source),
+    };
+  } catch (error) {
+    console.error(`Error fetching ${gradeLabel || 'Raw'} comps:`, error.message);
+    return { grade: gradeLabel || 'Raw', available: false, count: 0, avg: null, recent: [], error: error.message };
+  }
+}
+
+/**
+ * Fetch graded pricing breakdown: Raw, PSA 8, PSA 9, PSA 10
+ * Runs all 4 tiers in parallel for speed
+ * @param {Object} cardInfo - Card identification info from scan
+ * @returns {Object} { raw, psa8, psa9, psa10 } each with avg, recent sales, count
+ */
+async function fetchGradedPricing(cardInfo) {
+  const baseCard = {
+    player_name: cardInfo.name || '',
+    set_name: cardInfo.set || '',
+    card_number: cardInfo.number || '',
+    year: cardInfo.year || '',
+    brand: cardInfo.game || cardInfo.sport || '',
+    game: cardInfo.game || '',
+    description: `${cardInfo.name || ''} ${cardInfo.set || ''}`.trim(),
+    sport: cardInfo.sport || '',
+  };
+
+  console.log(`📊 Fetching graded pricing breakdown for: ${baseCard.player_name} (${baseCard.set_name})`);
+
+  // Run all 4 grade tiers in parallel
+  const [raw, psa8, psa9, psa10] = await Promise.all([
+    fetchTierComps(baseCard, null),    // Raw / ungraded
+    fetchTierComps(baseCard, '8'),     // PSA 8
+    fetchTierComps(baseCard, '9'),     // PSA 9
+    fetchTierComps(baseCard, '10'),    // PSA 10
+  ]);
+
+  console.log(`💰 Graded pricing: Raw=$${raw.avg || 'N/A'} | PSA 8=$${psa8.avg || 'N/A'} | PSA 9=$${psa9.avg || 'N/A'} | PSA 10=$${psa10.avg || 'N/A'}`);
+
+  return {
+    raw,
+    psa8,
+    psa9,
+    psa10,
+    // Convenience: total listings across all tiers
+    totalListings: raw.count + psa8.count + psa9.count + psa10.count,
+    // Best estimate: use raw avg as the "current value"
+    rawEstimate: raw.avg,
+  };
+}
+
 module.exports = {
   fetchAllComps,
   fetchEbayComps,
   fetchTCGPlayerComps,
   fetchPWCCComps,
   fetchJustTCGComps,
+  fetchGradedPricing,
   isCompDataStale,
   buildCardSearchQuery
 };

@@ -1,7 +1,7 @@
 /**
  * Scheduled Refresh Service
  * Handles automatic PSA submission refreshes based on company schedules
- * Sends email reports to admins with refresh results
+ * Sends email reports to admins with CSV attachment showing updates
  */
 
 const db = require('../db');
@@ -38,17 +38,19 @@ function shouldRunRefresh(company) {
     }
   }
 
-  // Check schedule type
-  switch (company.auto_refresh_schedule) {
+  // Check schedule type (default to weekly if not set)
+  const schedule = company.auto_refresh_schedule || 'weekly';
+
+  switch (schedule) {
     case 'daily':
       return true; // Run every day at the specified hour
 
     case 'weekly':
-      return currentDay === company.auto_refresh_day_of_week;
+      return currentDay === (company.auto_refresh_day_of_week ?? 1); // Default Monday
 
     case 'biweekly':
       // Check if it's the correct day and if 14 days have passed
-      if (currentDay !== company.auto_refresh_day_of_week) {
+      if (currentDay !== (company.auto_refresh_day_of_week ?? 1)) {
         return false;
       }
       if (company.last_auto_refresh) {
@@ -58,8 +60,83 @@ function shouldRunRefresh(company) {
       return true; // First run
 
     default:
-      return false;
+      // Treat unknown schedules as weekly
+      return currentDay === (company.auto_refresh_day_of_week ?? 1);
   }
+}
+
+/**
+ * Generate CSV content from refresh change log
+ * @param {Array} changeLog - Array of change objects from refresh
+ * @param {Array} submissions - Full submission records for additional context
+ * @returns {string} CSV content
+ */
+function generateRefreshCSV(changeLog, submissions) {
+  const submissionMap = {};
+  for (const sub of submissions) {
+    const num = sub.psa_submission_number || sub.psa_order_number;
+    if (num) submissionMap[num] = sub;
+  }
+
+  const headers = [
+    'Submission #',
+    'Service Level',
+    'Previous Step',
+    'Current Step',
+    'Step Changed',
+    'Previous Progress',
+    'Current Progress',
+    'Progress Change',
+    'Grades Ready',
+    'Shipped',
+    'Status'
+  ];
+
+  const rows = changeLog.map(change => {
+    const sub = submissionMap[change.submissionNumber] || {};
+    const serviceLevel = sub.service_level || '';
+
+    if (change.error) {
+      return [
+        change.submissionNumber,
+        serviceLevel,
+        '', '', '',
+        '', '', '',
+        '', '',
+        `Error: ${change.error}`
+      ];
+    }
+
+    return [
+      change.submissionNumber,
+      serviceLevel,
+      change.previousStep || '',
+      change.newStep || '',
+      change.stepChanged ? 'Yes' : 'No',
+      change.previousProgress != null ? `${change.previousProgress}%` : '',
+      change.newProgress != null ? `${change.newProgress}%` : '',
+      change.progressDelta ? `${change.progressDelta > 0 ? '+' : ''}${change.progressDelta}%` : '0%',
+      change.gradesReady ? 'Yes' : 'No',
+      change.shipped ? 'Yes' : 'No',
+      change.hadChanges ? 'Updated' : 'No Change'
+    ];
+  });
+
+  // Escape CSV values
+  const escapeCSV = (val) => {
+    const str = String(val ?? '');
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const csvLines = [
+    headers.map(escapeCSV).join(','),
+    ...rows.map(row => row.map(escapeCSV).join(','))
+  ];
+
+  return csvLines.join('\n');
 }
 
 /**
@@ -73,15 +150,14 @@ function formatEmailReport(companyName, results, changeLog) {
     .map(change => {
       const stepChange = change.stepChanged ? `<br><strong>Step:</strong> ${change.previousStep} → ${change.newStep}` : '';
       const progressChange = change.progressChanged ? `<br><strong>Progress:</strong> ${change.previousProgress}% → ${change.newProgress}% (${change.progressDelta > 0 ? '+' : ''}${change.progressDelta}%)` : '';
-      const gradeStatus = change.gradesReady ? '<br><span style="color: #10b981; font-weight: bold;">✓ Grades Ready!</span>' : '';
-      const shippedStatus = change.shipped ? '<br><span style="color: #3b82f6; font-weight: bold;">✓ Shipped!</span>' : '';
+      const gradeStatus = change.gradesReady ? '<br><span style="color: #10b981; font-weight: bold;">Grades Ready!</span>' : '';
+      const shippedStatus = change.shipped ? '<br><span style="color: #3b82f6; font-weight: bold;">Shipped!</span>' : '';
 
       return `
         <tr style="border-bottom: 1px solid #e5e7eb;">
           <td style="padding: 12px; font-weight: 600;">${change.submissionNumber}</td>
           <td style="padding: 12px;">
-            ${change.statusChanged ? change.newStatus : 'No change'}
-            ${stepChange}
+            ${change.stepChanged ? `${change.previousStep} → ${change.newStep}` : 'No step change'}
             ${progressChange}
             ${gradeStatus}
             ${shippedStatus}
@@ -91,11 +167,27 @@ function formatEmailReport(companyName, results, changeLog) {
     })
     .join('');
 
-  const noChangesHtml = changeLog.filter(c => !c.hadChanges).length > 0 ? `
+  const noChangesCount = changeLog.filter(c => !c.hadChanges && !c.error).length;
+  const noChangesHtml = noChangesCount > 0 ? `
     <p style="margin: 20px 0; color: #6b7280;">
-      <strong>${changeLog.filter(c => !c.hadChanges).length}</strong> submissions had no updates.
+      <strong>${noChangesCount}</strong> submission${noChangesCount !== 1 ? 's' : ''} had no updates.
     </p>
   ` : '';
+
+  const errorEntries = changeLog.filter(c => c.error);
+  const errorsHtml = errorEntries.length > 0 ? `
+    <h2 style="margin-top: 30px; color: #ef4444;">Errors (${errorEntries.length})</h2>
+    <ul style="color: #6b7280;">
+      ${errorEntries.map(e => `<li>${e.submissionNumber}: ${e.error}</li>`).join('')}
+    </ul>
+  ` : '';
+
+  const reportDate = new Date().toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
 
   return `
     <!DOCTYPE html>
@@ -105,32 +197,32 @@ function formatEmailReport(companyName, results, changeLog) {
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #1f2937; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 20px; border-radius: 12px 12px 0 0; }
-        .header h1 { margin: 0; font-size: 24px; }
-        .content { background: #ffffff; padding: 30px 20px; }
+        .header { background: linear-gradient(135deg, #1a1a2e 0%, #2d2b55 100%); color: white; padding: 30px 20px; border-radius: 12px 12px 0 0; }
+        .header h1 { margin: 0; font-size: 22px; }
+        .header p { margin: 5px 0 0 0; opacity: 0.8; font-size: 14px; }
+        .content { background: #ffffff; padding: 30px 20px; border: 1px solid #e5e7eb; }
         .stats { display: flex; justify-content: space-around; margin: 20px 0; }
         .stat { text-align: center; padding: 15px; background: #f9fafb; border-radius: 8px; flex: 1; margin: 0 5px; }
-        .stat-value { font-size: 32px; font-weight: bold; color: #667eea; }
-        .stat-label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value { font-size: 28px; font-weight: bold; color: #FF8170; }
+        .stat-label { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
         table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-        th { background: #f3f4f6; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb; }
-        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 14px; color: #6b7280; border-radius: 0 0 12px 12px; }
+        th { background: #f3f4f6; padding: 12px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb; font-size: 13px; }
+        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 13px; color: #6b7280; border-radius: 0 0 12px 12px; border: 1px solid #e5e7eb; border-top: none; }
+        .csv-note { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px 16px; margin-top: 20px; font-size: 13px; color: #166534; }
       </style>
     </head>
     <body>
       <div class="container">
         <div class="header">
-          <h1>📊 PSA Refresh Report</h1>
-          <p style="margin: 5px 0 0 0; opacity: 0.9;">${companyName}</p>
+          <h1>PSA Weekly Refresh Report</h1>
+          <p>${companyName} &mdash; ${reportDate}</p>
         </div>
 
         <div class="content">
-          <p>Your automatic PSA submission refresh has completed. Here's what changed:</p>
-
           <div class="stats">
             <div class="stat">
               <div class="stat-value">${totalSubmissions}</div>
-              <div class="stat-label">Total Checked</div>
+              <div class="stat-label">Checked</div>
             </div>
             <div class="stat">
               <div class="stat-value">${updatedCount}</div>
@@ -142,8 +234,8 @@ function formatEmailReport(companyName, results, changeLog) {
             </div>
           </div>
 
-          ${changeLog.filter(c => c.hadChanges).length > 0 ? `
-            <h2 style="margin-top: 30px; color: #1f2937;">Updated Submissions</h2>
+          ${updatedCount > 0 ? `
+            <h2 style="margin-top: 30px; color: #1f2937; font-size: 16px;">Updated Submissions</h2>
             <table>
               <thead>
                 <tr>
@@ -155,18 +247,19 @@ function formatEmailReport(companyName, results, changeLog) {
                 ${changesHtml}
               </tbody>
             </table>
-          ` : '<p style="margin: 20px 0; color: #6b7280;">No submissions were updated in this refresh.</p>'}
+          ` : '<p style="margin: 20px 0; color: #6b7280;">No submissions were updated this week.</p>'}
 
           ${noChangesHtml}
+          ${errorsHtml}
 
-          <p style="margin-top: 30px; font-size: 14px; color: #6b7280;">
-            This is an automated report. You can view the full CSV report in your SlabDash dashboard.
-          </p>
+          <div class="csv-note">
+            A detailed CSV report is attached to this email with the full breakdown of all submissions.
+          </div>
         </div>
 
         <div class="footer">
-          <p>SlabDash PSA Management System</p>
-          <p style="margin: 5px 0 0 0;">Automated at ${new Date().toLocaleString()}</p>
+          <p style="margin: 0;">SlabDash PSA Management</p>
+          <p style="margin: 4px 0 0 0; font-size: 12px;">Automated weekly refresh report</p>
         </div>
       </div>
     </body>
@@ -183,9 +276,9 @@ async function runCompanyRefresh(company, psaApiKey) {
   console.log(`Running scheduled refresh for company: ${company.name} (ID: ${company.id})`);
 
   try {
-    // Get all active submissions for this company
+    // Get all active submissions for this company (include service_level for CSV)
     const submissionsResult = await db.query(
-      `SELECT id, psa_submission_number, psa_order_number, shipped
+      `SELECT id, psa_submission_number, psa_order_number, shipped, service_level
        FROM submissions
        WHERE company_id = $1 AND shipped = false
        ORDER BY created_at DESC`,
@@ -201,7 +294,8 @@ async function runCompanyRefresh(company, psaApiKey) {
         totalSubmissions: 0,
         updatedCount: 0,
         errorCount: 0,
-        changeLog: []
+        changeLog: [],
+        submissions: []
       };
     }
 
@@ -318,7 +412,8 @@ async function runCompanyRefresh(company, psaApiKey) {
       totalSubmissions: submissions.length,
       updatedCount,
       errorCount,
-      changeLog
+      changeLog,
+      submissions
     };
 
   } catch (error) {
@@ -328,7 +423,7 @@ async function runCompanyRefresh(company, psaApiKey) {
 }
 
 /**
- * Send email report to company admin
+ * Send email report with CSV attachment to company admin
  */
 async function sendRefreshReport(company, results, changeLog) {
   try {
@@ -340,16 +435,28 @@ async function sendRefreshReport(company, results, changeLog) {
     }
 
     const htmlContent = formatEmailReport(company.name, results, changeLog);
-    const subject = `PSA Refresh Report - ${results.updatedCount} Updates`;
+    const subject = `PSA Refresh Report — ${results.updatedCount} Update${results.updatedCount !== 1 ? 's' : ''} | ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+
+    // Generate CSV attachment
+    const csvContent = generateRefreshCSV(changeLog, results.submissions || []);
+    const dateStr = new Date().toISOString().split('T')[0];
+    const csvFilename = `psa-refresh-report-${dateStr}.csv`;
 
     await emailService.sendEmail({
       to: emailTo,
       subject,
       html: htmlContent,
-      companyId: company.id
+      companyId: company.id,
+      attachments: [
+        {
+          filename: csvFilename,
+          content: Buffer.from(csvContent, 'utf-8'),
+          contentType: 'text/csv'
+        }
+      ]
     });
 
-    console.log(`Sent refresh report email to ${emailTo}`);
+    console.log(`Sent refresh report email with CSV to ${emailTo}`);
   } catch (error) {
     console.error('Failed to send refresh report email:', error);
     // Don't throw - email failure shouldn't stop the refresh
@@ -414,5 +521,6 @@ module.exports = {
   runScheduledRefreshes,
   runCompanyRefresh,
   sendRefreshReport,
-  shouldRunRefresh
+  shouldRunRefresh,
+  generateRefreshCSV
 };

@@ -8,7 +8,7 @@ const cardScannerService = require('../services/cardScannerService');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const upload = multer({ storage: multer.memoryStorage() });
-const { fetchJustTCGComps, fetchEbayComps } = require('../services/priceCompService');
+const { fetchJustTCGComps, fetchEbayComps, fetchGradedPricing } = require('../services/priceCompService');
 
 // Multer config for SAM card scanning (10MB, images only)
 const scanUpload = multer({
@@ -33,7 +33,7 @@ router.get('/access', async (req, res) => {
 
         // Find customer by portal access token
         const customerResult = await db.query(
-            `SELECT c.*, co.name as company_name, co.slug as company_slug, co.primary_color, co.logo_url, co.sam_enabled
+            `SELECT c.*, c.email_opt_in, co.name as company_name, co.slug as company_slug, co.primary_color, co.logo_url, co.sam_enabled
              FROM customers c JOIN companies co ON c.company_id = co.id
              WHERE c.portal_access_token = $1 AND c.portal_access_enabled = true`,
             [token]
@@ -93,7 +93,8 @@ router.get('/access', async (req, res) => {
             customer: {
                 id: customer.id,
                 name: customer.name,
-                email: customer.email
+                email: customer.email,
+                email_opt_in: customer.email_opt_in !== false // default true
             },
             company: {
                 name: customer.company_name,
@@ -111,6 +112,44 @@ router.get('/access', async (req, res) => {
     } catch (error) {
         console.error('Portal access error:', error);
         res.status(500).json({ error: 'Failed to load portal data' });
+    }
+});
+
+// Toggle email notification preference (token-based portal access)
+router.patch('/email-preference', async (req, res) => {
+    try {
+        const token = req.query.token;
+        const { email_opt_in } = req.body;
+
+        if (!token) {
+            return res.status(400).json({ error: 'Token required' });
+        }
+
+        if (typeof email_opt_in !== 'boolean') {
+            return res.status(400).json({ error: 'email_opt_in must be a boolean' });
+        }
+
+        // Verify portal access
+        const customerResult = await db.query(
+            'SELECT id FROM customers WHERE portal_access_token = $1 AND portal_access_enabled = true',
+            [token]
+        );
+
+        if (customerResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid or expired portal link' });
+        }
+
+        const customerId = customerResult.rows[0].id;
+
+        await db.query(
+            'UPDATE customers SET email_opt_in = $1 WHERE id = $2',
+            [email_opt_in, customerId]
+        );
+
+        res.json({ success: true, email_opt_in });
+    } catch (error) {
+        console.error('Email preference update error:', error);
+        res.status(500).json({ error: 'Failed to update email preference' });
     }
 });
 
@@ -855,27 +894,33 @@ You can scan cards! Tell customers they can upload a card photo for instant ID, 
                     else if (lower.includes('one piece')) game = 'one-piece-card-game';
                     else if (lower.includes('digimon')) game = 'digimon-card-game';
 
-                    const cardForLookup = {
-                        player_name: cardQuery,
-                        description: cardQuery,
-                        brand: game,
-                        sport: ''
-                    };
+                    // Fetch graded pricing breakdown
+                    const gradedPricing = await fetchGradedPricing({
+                        name: cardQuery,
+                        game: game,
+                        sport: '',
+                    });
 
-                    const compResults = await fetchJustTCGComps(cardForLookup);
-                    if (compResults.available && compResults.count > 0) {
-                        const lines = ['LIVE PRICING DATA (include this in your response):'];
-                        lines.push(`JustTCG: ${compResults.count} listings — Avg $${compResults.stats.average.toFixed(2)}, Median $${compResults.stats.median.toFixed(2)} (Range: $${compResults.stats.min.toFixed(2)}–$${compResults.stats.max.toFixed(2)})`);
-                        if (compResults.listings?.length > 0) {
-                            for (const listing of compResults.listings.slice(0, 3)) {
-                                let detail = `  - ${listing.title}: $${listing.price.toFixed(2)}`;
-                                if (listing.condition) detail += ` (${listing.condition})`;
-                                if (listing.priceChange7d) detail += ` | 7d: ${listing.priceChange7d > 0 ? '+' : ''}$${listing.priceChange7d.toFixed(2)}`;
-                                lines.push(detail);
+                    const hasSomeData = gradedPricing.raw?.available || gradedPricing.psa8?.available || gradedPricing.psa9?.available || gradedPricing.psa10?.available;
+
+                    if (hasSomeData) {
+                        const lines = ['LIVE PRICING DATA (include these numbers in your response):'];
+
+                        if (gradedPricing.raw?.available && gradedPricing.raw.count > 0) {
+                            lines.push(`RAW (ungraded): Avg $${gradedPricing.raw.avg.toFixed(2)} (${gradedPricing.raw.count} listings)`);
+                        }
+                        for (const [key, label] of [['psa8', 'PSA 8'], ['psa9', 'PSA 9'], ['psa10', 'PSA 10']]) {
+                            const tier = gradedPricing[key];
+                            if (tier?.available && tier.count > 0) {
+                                lines.push(`${label}: Avg $${tier.avg.toFixed(2)} (${tier.count} sold)`);
+                            } else {
+                                lines.push(`${label}: No sold data found`);
                             }
                         }
+                        lines.push('\nPresent the raw value, then show PSA 8, 9, and 10 values so the customer sees the grading upside.');
+
                         pricingContext = lines.join('\n');
-                        console.log(`💰 Portal chat: Got pricing data for "${cardQuery}"`);
+                        console.log(`💰 Portal chat: Got graded pricing for "${cardQuery}"`);
                     }
                 }
             } catch (pricingError) {
@@ -1109,49 +1154,17 @@ Include the FULL card number with denominator (e.g. "037/159" not just "37"). On
             condition = 'Near Mint (PSA 7 likely)';
         }
 
-        // Fetch price comps
+        // Fetch graded pricing breakdown (Raw, PSA 8, PSA 9, PSA 10)
         let pricing = null;
         if (cardInfo && (cardInfo.name || cardInfo.set || cardInfo.game)) {
-            console.log(`📊 Portal scan: Fetching comps for:`, JSON.stringify(cardInfo));
+            console.log(`📊 Portal scan: Fetching graded pricing for:`, JSON.stringify(cardInfo));
             try {
-                const cardForLookup = {
-                    player_name: cardInfo.name || '',
-                    set_name: cardInfo.set || '',
-                    card_number: cardInfo.number || '',
-                    year: cardInfo.year || '',
-                    brand: cardInfo.game || cardInfo.sport || '',
-                    game: cardInfo.game || '',
-                    description: `${cardInfo.name || ''} ${cardInfo.set || ''}`.trim(),
-                    sport: cardInfo.sport || ''
+                const gradedPricing = await fetchGradedPricing(cardInfo);
+                pricing = {
+                    ...gradedPricing,
+                    priceEstimate: gradedPricing.rawEstimate,
                 };
-
-                const compPromises = [fetchJustTCGComps(cardForLookup)];
-                if (process.env.EBAY_APP_ID) {
-                    compPromises.push(fetchEbayComps(cardForLookup));
-                }
-
-                const compResults = await Promise.all(compPromises);
-                const availableComps = compResults.filter(c => c.available && c.count > 0);
-
-                if (availableComps.length > 0) {
-                    pricing = {
-                        sources: compResults.reduce((acc, c) => { acc[c.source] = c; return acc; }, {}),
-                        totalListings: compResults.reduce((sum, c) => sum + (c.count || 0), 0),
-                        priceEstimate: null
-                    };
-                    const averages = availableComps.filter(s => s.stats?.average).map(s => s.stats.average);
-                    if (averages.length > 0) {
-                        pricing.priceEstimate = Math.round((averages.reduce((a, b) => a + b, 0) / averages.length) * 100) / 100;
-                    }
-                    console.log(`💰 Portal scan: ${pricing.totalListings} comps, estimate: $${pricing.priceEstimate || 'N/A'}`);
-                } else {
-                    pricing = {
-                        sources: compResults.reduce((acc, c) => { acc[c.source] = c; return acc; }, {}),
-                        totalListings: 0,
-                        priceEstimate: null,
-                        noResults: true
-                    };
-                }
+                console.log(`💰 Portal scan graded pricing complete: ${pricing.totalListings} total listings`);
             } catch (compError) {
                 console.error('❌ Portal scan comp error:', compError.message);
                 pricing = { error: compError.message, totalListings: 0, priceEstimate: null };
