@@ -79,9 +79,9 @@ export default function Layout({ children }) {
           </button>
           <Link to="/dashboard" className="flex items-center justify-center w-full">
             <img
-              src="/images/logo-full.png.svg"
+              src="/images/logo-icon.png.svg"
               alt="SlabDash"
-              className="h-48 w-full object-contain"
+              className="h-12 w-12 object-contain"
             />
           </Link>
         </div>
@@ -176,7 +176,8 @@ export default function Layout({ children }) {
 
       {/* Main content */}
       <div className="lg:pl-64">
-        {/* Top header */}
+        {/* Top header - hidden on SAM page */}
+        {location.pathname !== '/sam' && (
         <header className="bg-brand-600 border-b border-brand-700">
           <div className="flex items-center justify-between h-16 px-4 sm:px-6">
             {/* Mobile menu button */}
@@ -247,9 +248,10 @@ export default function Layout({ children }) {
             </div>
           </div>
         </header>
+        )}
 
         {/* Page content */}
-        <main className="p-4 sm:p-6 lg:p-8">
+        <main className={location.pathname === '/sam' ? '' : 'p-4 sm:p-6 lg:p-8'}>
           {children}
         </main>
       </div>
