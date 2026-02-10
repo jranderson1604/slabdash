@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Zap, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
 
 export default function Register() {
   const [formData, setFormData] = useState({
@@ -59,9 +59,17 @@ export default function Register() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#FFF5F3] flex">
+    <div className="min-h-screen flex relative overflow-hidden" style={{ backgroundColor: 'rgb(var(--bg-color))' }}>
+      {/* Background blobs */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full blur-3xl"
+        style={{ background: 'rgba(255, 129, 112, 0.08)' }}
+      />
+      <div className="absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full blur-3xl"
+        style={{ background: 'rgba(255, 185, 160, 0.06)' }}
+      />
+
       {/* Left side - Form */}
-      <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24">
+      <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24 relative">
         <div className="mx-auto w-full max-w-lg">
           {/* SlabDash Logo */}
           <div className="mb-8">
@@ -72,19 +80,25 @@ export default function Register() {
             />
           </div>
 
-          <h2 className="text-2xl font-bold text-gray-900">Create your account</h2>
-          <p className="mt-2 text-gray-600">Start tracking PSA submissions today</p>
+          <h2 className="text-2xl font-bold" style={{ color: 'rgb(var(--dark))' }}>Create your account</h2>
+          <p className="mt-2 font-medium" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>Start tracking PSA submissions today</p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2 text-red-700 text-sm">
+              <div className="rounded-2xl p-3 flex items-center gap-2 text-sm font-medium"
+                style={{
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.15)',
+                  color: '#DC2626',
+                }}
+              >
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 {error}
               </div>
             )}
 
             <div>
-              <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="companyName" className="label block mb-1.5">
                 Shop / Business Name
               </label>
               <input
@@ -100,7 +114,7 @@ export default function Register() {
             </div>
 
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="name" className="label block mb-1.5">
                 Your Name
               </label>
               <input
@@ -116,7 +130,7 @@ export default function Register() {
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="label block mb-1.5">
                 Email
               </label>
               <input
@@ -132,7 +146,7 @@ export default function Register() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="password" className="label block mb-1.5">
                 Password
               </label>
               <input
@@ -148,7 +162,7 @@ export default function Register() {
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="confirmPassword" className="label block mb-1.5">
                 Confirm Password
               </label>
               <input
@@ -166,7 +180,7 @@ export default function Register() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-[#FF8170] hover:bg-[#ff6b59] text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn btn-primary w-full flex items-center justify-center"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -176,35 +190,55 @@ export default function Register() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-gray-600">
+          <p className="mt-6 text-center text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>
             Already have an account?{' '}
-            <Link to="/login" className="text-[#FF8170] hover:text-[#ff6b59] font-medium">
+            <Link to="/login" className="font-bold" style={{ color: 'rgb(var(--brand-600))' }}>
               Sign in
             </Link>
           </p>
         </div>
       </div>
 
-      {/* Right side - Features (hidden on mobile) */}
-      <div className="hidden lg:flex lg:flex-1 bg-white items-center justify-center p-12 border-l border-brand-100">
-        <div className="max-w-md">
-          <h3 className="text-2xl font-bold text-gray-900 mb-6">
+      {/* Right side - Features (hidden on mobile) - Liquid glass panel */}
+      <div className="hidden lg:flex lg:flex-1 items-center justify-center p-12 relative">
+        <div className="rounded-3xl p-10 max-w-md w-full slide-up"
+          style={{
+            background: 'rgba(255, 255, 255, 0.45)',
+            backdropFilter: 'blur(40px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+            border: '1px solid rgba(255, 255, 255, 0.4)',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.7)',
+          }}
+        >
+          <h3 className="text-2xl font-bold mb-6" style={{ color: 'rgb(var(--dark))' }}>
             Everything you need to manage PSA submissions
           </h3>
           <ul className="space-y-4">
             {features.map((feature, i) => (
-              <li key={i} className="flex items-center gap-3 text-gray-700">
-                <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0" />
+              <li key={i} className="flex items-center gap-3 font-medium" style={{ color: 'rgba(44, 36, 22, 0.7)' }}>
+                <div className="w-6 h-6 rounded-full flex items-center justify-center"
+                  style={{
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    border: '1px solid rgba(16, 185, 129, 0.15)',
+                  }}
+                >
+                  <CheckCircle2 className="w-4 h-4" style={{ color: '#059669' }} />
+                </div>
                 {feature}
               </li>
             ))}
           </ul>
 
-          <div className="mt-12 p-6 bg-[#FFF5F3] rounded-xl border border-[#FFE8E4]">
-            <p className="text-gray-600 text-sm">
+          <div className="mt-10 p-5 rounded-2xl"
+            style={{
+              background: 'rgba(255, 129, 112, 0.06)',
+              border: '1px solid rgba(255, 129, 112, 0.1)',
+            }}
+          >
+            <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
               "SlabDash has transformed how we track submissions. Our customers love being able to check their order status anytime."
             </p>
-            <p className="mt-3 text-gray-900 font-medium">— Card Shop Owner</p>
+            <p className="mt-3 font-bold text-sm" style={{ color: 'rgb(var(--dark))' }}>-- Card Shop Owner</p>
           </div>
         </div>
       </div>

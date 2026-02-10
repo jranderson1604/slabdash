@@ -2,14 +2,14 @@ import { AlertCircle, CheckCircle2, Clock, Truck } from 'lucide-react';
 
 /**
  * Standardized StatusBadge component for submissions and orders
- * Displays status with appropriate color, icon, and tooltip
+ * Liquid glass style with translucent backgrounds
  */
 export default function StatusBadge({ submission, showTooltip = true }) {
   const getStatusInfo = () => {
     if (submission.shipped) {
       return {
         label: 'Shipped',
-        color: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+        style: { background: 'rgba(16, 185, 129, 0.1)', color: '#065F46', border: '1px solid rgba(16, 185, 129, 0.15)' },
         icon: <Truck className="w-3 h-3" />,
         description: 'Your cards have been shipped back to you'
       };
@@ -17,7 +17,7 @@ export default function StatusBadge({ submission, showTooltip = true }) {
     if (submission.problem_order) {
       return {
         label: 'Problem',
-        color: 'bg-rose-100 text-rose-800 border-rose-200',
+        style: { background: 'rgba(239, 68, 68, 0.1)', color: '#991B1B', border: '1px solid rgba(239, 68, 68, 0.15)' },
         icon: <AlertCircle className="w-3 h-3" />,
         description: 'There is an issue with this order - check details'
       };
@@ -25,7 +25,7 @@ export default function StatusBadge({ submission, showTooltip = true }) {
     if (submission.grades_ready) {
       return {
         label: 'Grades Ready',
-        color: 'bg-sky-100 text-sky-800 border-sky-200',
+        style: { background: 'rgba(14, 165, 233, 0.1)', color: '#075985', border: '1px solid rgba(14, 165, 233, 0.15)' },
         icon: <CheckCircle2 className="w-3 h-3" />,
         description: 'Grading complete - awaiting shipment'
       };
@@ -38,7 +38,7 @@ export default function StatusBadge({ submission, showTooltip = true }) {
     if (stepLower.includes('research') || stepLower.includes('assembly')) {
       return {
         label: step,
-        color: 'bg-purple-100 text-purple-800 border-purple-200',
+        style: { background: 'rgba(168, 85, 247, 0.1)', color: '#6B21A8', border: '1px solid rgba(168, 85, 247, 0.15)' },
         icon: <Clock className="w-3 h-3" />,
         description: 'Initial processing and card review'
       };
@@ -46,7 +46,7 @@ export default function StatusBadge({ submission, showTooltip = true }) {
     if (stepLower.includes('grading') || stepLower.includes('grade')) {
       return {
         label: step,
-        color: 'bg-amber-100 text-amber-800 border-amber-200',
+        style: { background: 'rgba(245, 158, 11, 0.1)', color: '#92400E', border: '1px solid rgba(245, 158, 11, 0.15)' },
         icon: <Clock className="w-3 h-3" />,
         description: 'Cards are being graded by PSA'
       };
@@ -54,7 +54,7 @@ export default function StatusBadge({ submission, showTooltip = true }) {
     if (stepLower.includes('qa') || stepLower.includes('quality')) {
       return {
         label: step,
-        color: 'bg-blue-100 text-blue-800 border-blue-200',
+        style: { background: 'rgba(59, 130, 246, 0.1)', color: '#1E3A8A', border: '1px solid rgba(59, 130, 246, 0.15)' },
         icon: <Clock className="w-3 h-3" />,
         description: 'Quality assurance check in progress'
       };
@@ -62,7 +62,7 @@ export default function StatusBadge({ submission, showTooltip = true }) {
     if (stepLower.includes('encapsulation') || stepLower.includes('encap')) {
       return {
         label: step,
-        color: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+        style: { background: 'rgba(99, 102, 241, 0.1)', color: '#3730A3', border: '1px solid rgba(99, 102, 241, 0.15)' },
         icon: <Clock className="w-3 h-3" />,
         description: 'Cards are being sealed in protective cases'
       };
@@ -70,7 +70,7 @@ export default function StatusBadge({ submission, showTooltip = true }) {
 
     return {
       label: step,
-      color: 'bg-gray-100 text-gray-800 border-gray-200',
+      style: { background: 'rgba(107, 114, 128, 0.1)', color: '#374151', border: '1px solid rgba(107, 114, 128, 0.12)' },
       icon: <Clock className="w-3 h-3" />,
       description: 'Processing in progress'
     };
@@ -78,25 +78,40 @@ export default function StatusBadge({ submission, showTooltip = true }) {
 
   const status = getStatusInfo();
 
+  const badgeElement = (
+    <span
+      className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold tracking-wide"
+      style={{
+        ...status.style,
+        backdropFilter: 'blur(12px) saturate(150%)',
+        WebkitBackdropFilter: 'blur(12px) saturate(150%)',
+      }}
+    >
+      {status.icon}
+      {status.label}
+    </span>
+  );
+
   if (!showTooltip) {
-    return (
-      <span className={`badge flex items-center gap-1 border ${status.color}`}>
-        {status.icon}
-        {status.label}
-      </span>
-    );
+    return badgeElement;
   }
 
   return (
     <div className="group relative">
-      <span className={`badge flex items-center gap-1 border ${status.color}`}>
-        {status.icon}
-        {status.label}
-      </span>
+      {badgeElement}
       {/* Tooltip with explanation */}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-10">
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs rounded-xl whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 pointer-events-none z-10"
+        style={{
+          background: 'rgba(44, 36, 22, 0.9)',
+          backdropFilter: 'blur(12px)',
+          color: '#FFF8F0',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+        }}
+      >
         {status.description}
-        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-gray-900"></div>
+        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent"
+          style={{ borderTopColor: 'rgba(44, 36, 22, 0.9)' }}
+        />
       </div>
     </div>
   );
