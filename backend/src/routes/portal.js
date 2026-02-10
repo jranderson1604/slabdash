@@ -762,7 +762,7 @@ router.post('/sam/chat', async (req, res) => {
         }
 
         // Import SAM service (same as admin SAM)
-        const { Anthropic } = require('@anthropic-ai/sdk');
+        const Anthropic = require('@anthropic-ai/sdk');
         const anthropic = new Anthropic({
             apiKey: process.env.ANTHROPIC_API_KEY
         });
@@ -860,7 +860,7 @@ Be encouraging, educational, and help customers make smart decisions about which
 
         // Call Claude API
         const response = await anthropic.messages.create({
-            model: 'claude-3-5-sonnet-20241022',
+            model: 'claude-sonnet-4-5-20250929',
             max_tokens: 1024,
             messages: messages
         });
