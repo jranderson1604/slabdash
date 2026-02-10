@@ -23,57 +23,122 @@ function buildCardSearchQuery(card) {
 }
 
 /**
- * Fetch comps from eBay Finding API (sold listings)
- * Requires eBay App ID from environment
+ * eBay OAuth token cache
+ * Browse API requires OAuth client credentials token (expires after ~2 hours)
+ */
+let ebayTokenCache = { token: null, expiresAt: 0 };
+
+/**
+ * Get eBay OAuth application token (client credentials grant)
+ * Requires EBAY_APP_ID (Client ID) and EBAY_CERT_ID (Client Secret)
+ */
+async function getEbayToken() {
+  const clientId = process.env.EBAY_APP_ID;
+  const clientSecret = process.env.EBAY_CERT_ID;
+
+  if (!clientId || !clientSecret) return null;
+
+  // Return cached token if still valid (with 5 min buffer)
+  if (ebayTokenCache.token && Date.now() < ebayTokenCache.expiresAt - 300000) {
+    return ebayTokenCache.token;
+  }
+
+  try {
+    const credentials = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+
+    const response = await axios.post(
+      'https://api.ebay.com/identity/v1/oauth2/token',
+      'grant_type=client_credentials&scope=https://api.ebay.com/oauth/api_scope',
+      {
+        headers: {
+          'Authorization': `Basic ${credentials}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        timeout: 10000,
+      }
+    );
+
+    const { access_token, expires_in } = response.data;
+    ebayTokenCache = {
+      token: access_token,
+      expiresAt: Date.now() + (expires_in * 1000),
+    };
+
+    console.log(`eBay OAuth token obtained (expires in ${expires_in}s)`);
+    return access_token;
+  } catch (error) {
+    console.error('eBay OAuth error:', error.response?.data || error.message);
+    return null;
+  }
+}
+
+/**
+ * Fetch comps from eBay Browse API (active listings)
+ * Uses OAuth client credentials. Requires EBAY_APP_ID + EBAY_CERT_ID.
+ * Returns current market prices for the card.
  */
 async function fetchEbayComps(card) {
   const appId = process.env.EBAY_APP_ID;
 
   if (!appId) {
-    console.log('eBay API not configured - skipping eBay comps');
     return { source: 'ebay', available: false, error: 'API not configured' };
   }
 
+  // Need both App ID and Cert ID for Browse API OAuth
+  if (!process.env.EBAY_CERT_ID) {
+    return { source: 'ebay', available: false, error: 'EBAY_CERT_ID not configured' };
+  }
+
   try {
+    const token = await getEbayToken();
+    if (!token) {
+      return { source: 'ebay', available: false, error: 'Failed to get OAuth token' };
+    }
+
     const searchQuery = buildCardSearchQuery(card);
+    console.log(`eBay Browse API search: "${searchQuery}"`);
 
-    // eBay Finding API endpoint
-    const url = 'https://svcs.ebay.com/services/search/FindingService/v1';
+    // Browse API search endpoint
+    const response = await axios.get('https://api.ebay.com/buy/browse/v1/item_summary/search', {
+      params: {
+        q: searchQuery,
+        limit: 50,
+        sort: 'newlyListed',
+        filter: 'conditionIds:{1000}', // 1000 = New (graded cards listed as New)
+      },
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'X-EBAY-C-MARKETPLACE-ID': 'EBAY_US',
+        'Content-Type': 'application/json',
+      },
+      timeout: 10000,
+    });
 
-    const params = {
-      'OPERATION-NAME': 'findCompletedItems',
-      'SERVICE-VERSION': '1.0.0',
-      'SECURITY-APPNAME': appId,
-      'RESPONSE-DATA-FORMAT': 'JSON',
-      'REST-PAYLOAD': '',
-      'keywords': searchQuery,
-      'sortOrder': 'EndTimeSoonest',
-      'itemFilter(0).name': 'SoldItemsOnly',
-      'itemFilter(0).value': 'true',
-      'itemFilter(1).name': 'Condition',
-      'itemFilter(1).value': 'New', // Graded cards are typically listed as "New"
-      'paginationInput.entriesPerPage': '100',
-      'paginationInput.pageNumber': '1'
-    };
-
-    const response = await axios.get(url, { params, timeout: 10000 });
-
-    const items = response.data?.findCompletedItemsResponse?.[0]?.searchResult?.[0]?.item || [];
+    const items = response.data?.itemSummaries || [];
 
     if (items.length === 0) {
       return { source: 'ebay', available: true, count: 0, listings: [] };
     }
 
     // Parse and format listings
-    const listings = items.map(item => ({
-      title: item.title?.[0],
-      price: parseFloat(item.sellingStatus?.[0]?.currentPrice?.[0]?.__value__ || 0),
-      currency: item.sellingStatus?.[0]?.currentPrice?.[0]?.['@currencyId'] || 'USD',
-      endTime: item.listingInfo?.[0]?.endTime?.[0],
-      url: item.viewItemURL?.[0],
-      condition: item.condition?.[0]?.conditionDisplayName?.[0],
-      shippingCost: parseFloat(item.shippingInfo?.[0]?.shippingServiceCost?.[0]?.__value__ || 0)
-    }));
+    const listings = items
+      .filter(item => item.price?.value)
+      .map(item => ({
+        title: item.title,
+        price: parseFloat(item.price.value),
+        currency: item.price.currency || 'USD',
+        endTime: item.itemEndDate || null,
+        url: item.itemWebUrl,
+        condition: item.condition,
+        shippingCost: item.shippingOptions?.[0]?.shippingCost?.value
+          ? parseFloat(item.shippingOptions[0].shippingCost.value)
+          : 0,
+        image: item.image?.imageUrl || null,
+      }));
+
+    if (listings.length === 0) {
+      return { source: 'ebay', available: true, count: 0, listings: [] };
+    }
 
     // Calculate statistics
     const prices = listings.map(l => l.price).filter(p => p > 0);
@@ -91,7 +156,7 @@ async function fetchEbayComps(card) {
       source: 'ebay',
       available: true,
       count: listings.length,
-      listings: listings.slice(0, 20), // Return top 20 most recent
+      listings: listings.slice(0, 20),
       stats: {
         average: Math.round(avg * 100) / 100,
         median: Math.round(median * 100) / 100,
@@ -103,11 +168,13 @@ async function fetchEbayComps(card) {
     };
 
   } catch (error) {
-    console.error('Error fetching eBay comps:', error.message);
+    const status = error.response?.status;
+    const ebayError = error.response?.data?.errors?.[0]?.message || error.message;
+    console.error(`eBay Browse API error (${status || 'network'}):`, ebayError);
     return {
       source: 'ebay',
-      available: true,
-      error: error.message,
+      available: false,
+      error: ebayError,
       count: 0
     };
   }

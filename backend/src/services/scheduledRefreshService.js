@@ -472,14 +472,25 @@ async function runScheduledRefreshes() {
 
   try {
     // Get all companies with auto_refresh_enabled = true
-    const companiesResult = await db.query(
-      `SELECT c.id, c.name, c.psa_api_key, c.auto_refresh_enabled, c.auto_refresh_schedule,
-              c.auto_refresh_day_of_week, c.auto_refresh_hour, c.auto_refresh_email,
-              c.last_auto_refresh, u.email as owner_email
-       FROM companies c
-       LEFT JOIN users u ON u.company_id = c.id AND u.role = 'owner'
-       WHERE c.auto_refresh_enabled = true`
-    );
+    // Use a safe query that handles missing columns (migration may not have run)
+    let companiesResult;
+    try {
+      companiesResult = await db.query(
+        `SELECT c.id, c.name, c.psa_api_key, c.auto_refresh_enabled, c.auto_refresh_schedule,
+                c.auto_refresh_day_of_week, c.auto_refresh_hour, c.auto_refresh_email,
+                c.last_auto_refresh, u.email as owner_email
+         FROM companies c
+         LEFT JOIN users u ON u.company_id = c.id AND u.role = 'owner'
+         WHERE c.auto_refresh_enabled = true`
+      );
+    } catch (queryErr) {
+      if (queryErr.code === '42703') {
+        // auto_refresh columns don't exist yet — migration 021 hasn't run
+        console.log('Auto-refresh columns not found in DB. Run migration 021_add_auto_refresh_schedule.sql');
+        return;
+      }
+      throw queryErr;
+    }
 
     const companies = companiesResult.rows;
 
