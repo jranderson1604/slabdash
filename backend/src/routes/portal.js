@@ -1139,9 +1139,9 @@ Include the FULL card number with denominator (e.g. "037/159" not just "37"). On
                         totalListings: compResults.reduce((sum, c) => sum + (c.count || 0), 0),
                         priceEstimate: null
                     };
-                    const medians = availableComps.filter(s => s.stats?.median).map(s => s.stats.median);
-                    if (medians.length > 0) {
-                        pricing.priceEstimate = Math.round((medians.reduce((a, b) => a + b, 0) / medians.length) * 100) / 100;
+                    const averages = availableComps.filter(s => s.stats?.average).map(s => s.stats.average);
+                    if (averages.length > 0) {
+                        pricing.priceEstimate = Math.round((averages.reduce((a, b) => a + b, 0) / averages.length) * 100) / 100;
                     }
                     console.log(`💰 Portal scan: ${pricing.totalListings} comps, estimate: $${pricing.priceEstimate || 'N/A'}`);
                 } else {

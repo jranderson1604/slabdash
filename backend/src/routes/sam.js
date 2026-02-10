@@ -172,7 +172,7 @@ CARD ACTIONS:
   - JustTCG: real-time TCG pricing for Pokemon, Magic, Yu-Gi-Oh, Lorcana, One Piece, Digimon, Flesh & Blood, Dragon Ball (Near Mint pricing with 7d/30d trends)
   - TCGPlayer: coming soon
   - PWCC: coming soon
-  Price estimate is calculated from the median across all available sources to avoid outlier skew.
+  Price estimate is calculated from the average of recent sales across all available sources.
 • Auto-Detect Sport — categorize cards by sport based on description
 • Bulk Assign to Customers — upload CSV mapping cert numbers to customer names
 • Create Buyback Offer — make a purchase offer (requires card to have a grade and customer)
@@ -763,9 +763,9 @@ async function fetchCompsForChat(parsedQuery) {
     }
 
     // Calculate overall estimate
-    const medians = available.filter(s => s.stats?.median).map(s => s.stats.median);
-    if (medians.length > 0) {
-      const estimate = Math.round((medians.reduce((a, b) => a + b, 0) / medians.length) * 100) / 100;
+    const averages = available.filter(s => s.stats?.average).map(s => s.stats.average);
+    if (averages.length > 0) {
+      const estimate = Math.round((averages.reduce((a, b) => a + b, 0) / averages.length) * 100) / 100;
       lines.push(`Overall estimated value: $${estimate.toFixed(2)}`);
     }
 
@@ -1110,9 +1110,9 @@ Include the FULL card number with denominator (e.g. "037/159" not just "37"). On
             priceEstimate: null
           };
 
-          const medians = availableComps.filter(s => s.stats?.median).map(s => s.stats.median);
-          if (medians.length > 0) {
-            pricing.priceEstimate = Math.round((medians.reduce((a, b) => a + b, 0) / medians.length) * 100) / 100;
+          const averages = availableComps.filter(s => s.stats?.average).map(s => s.stats.average);
+          if (averages.length > 0) {
+            pricing.priceEstimate = Math.round((averages.reduce((a, b) => a + b, 0) / averages.length) * 100) / 100;
           }
 
           console.log(`💰 Found ${pricing.totalListings} comp listings, estimate: $${pricing.priceEstimate || 'N/A'}`);
