@@ -103,7 +103,7 @@ function ScanResultsCard({ scanResults }) {
               ) : null}
             </div>
             <p className="text-[10px] text-[#E8DCC0]/40 mt-1">
-              Market price (NM) &middot; {pricing.totalListings} variant{pricing.totalListings !== 1 ? 's' : ''} found
+              Avg sale price (NM) &middot; {pricing.totalListings} variant{pricing.totalListings !== 1 ? 's' : ''} found
             </p>
           </div>
         ) : (
@@ -123,12 +123,12 @@ function ScanResultsCard({ scanResults }) {
                 <p className="text-base font-bold text-[#E8DCC0]/80">${bestSource.stats.min.toFixed(2)}</p>
               </div>
               <div>
-                <p className="text-[9px] text-[#E8DCC0]/35 uppercase font-bold mb-0.5">Median</p>
-                <p className="text-base font-bold text-white">${bestSource.stats.median.toFixed(2)}</p>
+                <p className="text-[9px] text-[#E8DCC0]/35 uppercase font-bold mb-0.5">Average</p>
+                <p className="text-base font-bold text-white">${bestSource.stats.average.toFixed(2)}</p>
               </div>
               <div>
-                <p className="text-[9px] text-[#E8DCC0]/35 uppercase font-bold mb-0.5">Average</p>
-                <p className="text-base font-bold text-[#E8DCC0]/80">${bestSource.stats.average.toFixed(2)}</p>
+                <p className="text-[9px] text-[#E8DCC0]/35 uppercase font-bold mb-0.5">Median</p>
+                <p className="text-base font-bold text-[#E8DCC0]/80">${bestSource.stats.median.toFixed(2)}</p>
               </div>
               <div>
                 <p className="text-[9px] text-[#E8DCC0]/35 uppercase font-bold mb-0.5">High</p>
