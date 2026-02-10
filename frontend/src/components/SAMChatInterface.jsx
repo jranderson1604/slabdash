@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Sparkles, TrendingUp, Calculator, HelpCircle, Lightbulb, ThumbsUp, Brain, Camera, Upload, X } from 'lucide-react';
+import { Send, Loader2, Sparkles, TrendingUp, TrendingDown, Calculator, HelpCircle, Lightbulb, ThumbsUp, Brain, Camera, Upload, X, DollarSign, BarChart3, ArrowUpRight, ArrowDownRight, Minus, Tag, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 
@@ -28,6 +28,268 @@ const ANIMATION_DURATIONS = {
   confused: 2500,       // Confused/help animation
   typing: -1,           // Continuous while loading
 };
+
+// Pricing trend arrow component
+function TrendIndicator({ value }) {
+  if (!value || value === 0) return null;
+  const isUp = value > 0;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-xs font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
+      {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+      {isUp ? '+' : ''}{typeof value === 'number' ? `$${value.toFixed(2)}` : value}
+    </span>
+  );
+}
+
+// Beautiful scan results + pricing card
+function ScanResultsCard({ scanResults }) {
+  const { cardInfo, pricing, estimatedGrade, gradable } = scanResults;
+
+  return (
+    <div className="mt-4 space-y-3">
+      {/* Card ID + Grade Badge Row */}
+      {(cardInfo || estimatedGrade) && (
+        <div className="flex items-start gap-3">
+          {/* Grade Badge */}
+          {estimatedGrade && (
+            <div className="flex-shrink-0 relative">
+              <div className="absolute inset-0 rounded-2xl blur-md opacity-60"
+                style={{ background: 'linear-gradient(135deg, #FF8170, #FF6B5A)' }} />
+              <div className="relative w-16 h-16 rounded-2xl flex flex-col items-center justify-center"
+                style={{
+                  background: 'linear-gradient(135deg, #FF8170, #E8543D)',
+                  boxShadow: '0 4px 20px rgba(255, 107, 89, 0.4), inset 0 1px 0 rgba(255,255,255,0.3)',
+                  border: '1px solid rgba(255, 185, 160, 0.3)',
+                }}>
+                <span className="text-[10px] font-bold text-white/80 uppercase tracking-wider">PSA</span>
+                <span className="text-2xl font-black text-white leading-none">
+                  {estimatedGrade.replace(/PSA\s*/i, '')}
+                </span>
+              </div>
+            </div>
+          )}
+          {/* Card Info */}
+          {cardInfo && (
+            <div className="flex-1 min-w-0">
+              {cardInfo.name && (
+                <p className="font-black text-base text-[#2C2416] leading-tight">{cardInfo.name}</p>
+              )}
+              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                {cardInfo.year && (
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold"
+                    style={{ background: 'rgba(44, 36, 22, 0.08)', color: '#8B7355' }}>
+                    {cardInfo.year}
+                  </span>
+                )}
+                {cardInfo.set && (
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold"
+                    style={{ background: 'rgba(255, 129, 112, 0.1)', color: '#E8543D' }}>
+                    {cardInfo.set}
+                  </span>
+                )}
+                {cardInfo.number && (
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold"
+                    style={{ background: 'rgba(44, 36, 22, 0.06)', color: '#8B7355' }}>
+                    #{cardInfo.number}
+                  </span>
+                )}
+                {cardInfo.game && (
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase"
+                    style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#6366F1' }}>
+                    {cardInfo.game}
+                  </span>
+                )}
+                {cardInfo.sport && (
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase"
+                    style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#059669' }}>
+                    {cardInfo.sport}
+                  </span>
+                )}
+                {cardInfo.rarity && (
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-bold"
+                    style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#D97706' }}>
+                    {cardInfo.rarity}
+                  </span>
+                )}
+              </div>
+              {cardInfo.attributes && (
+                <p className="text-[10px] text-[#8B7355] mt-1 font-medium">{cardInfo.attributes}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Grading verdict pill */}
+      {gradable !== undefined && (
+        <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+          gradable
+            ? 'text-emerald-700'
+            : 'text-red-700'
+        }`} style={{
+          background: gradable ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+          border: `1px solid ${gradable ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
+        }}>
+          {gradable ? '✓ Worth Grading' : '✗ Not Recommended'}
+        </div>
+      )}
+
+      {/* Pricing Card */}
+      {pricing && pricing.priceEstimate && (
+        <div className="rounded-2xl overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, rgba(44, 36, 22, 0.95), rgba(61, 48, 32, 0.95))',
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+          }}>
+          {/* Price estimate hero */}
+          <div className="px-4 pt-4 pb-3">
+            <div className="flex items-center gap-2 mb-1">
+              <DollarSign className="w-3.5 h-3.5 text-[#FF8170]" />
+              <span className="text-[10px] font-bold text-[#E8DCC0]/60 uppercase tracking-widest">Market Value</span>
+            </div>
+            <div className="flex items-end gap-2">
+              <span className="text-3xl font-black text-white leading-none">
+                ${pricing.priceEstimate.toFixed(2)}
+              </span>
+              {pricing.totalListings > 0 && (
+                <span className="text-xs text-[#E8DCC0]/50 font-medium mb-1">
+                  from {pricing.totalListings} listings
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Source breakdowns */}
+          {pricing.sources && (
+            <div className="px-4 pb-3 space-y-2">
+              {Object.entries(pricing.sources).map(([key, source]) => {
+                if (!source.available || !source.count || source.count === 0) return null;
+                const sourceName = key === 'justtcg' ? 'JustTCG' : key === 'ebay' ? 'eBay Sold' : key;
+                const sourceColor = key === 'justtcg' ? '#818CF8' : key === 'ebay' ? '#60A5FA' : '#A78BFA';
+
+                return (
+                  <div key={key} className="rounded-xl p-3"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.06)',
+                      border: '1px solid rgba(255, 255, 255, 0.06)',
+                    }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ background: sourceColor, boxShadow: `0 0 8px ${sourceColor}60` }} />
+                        <span className="text-xs font-bold text-white">{sourceName}</span>
+                        <span className="text-[10px] text-[#E8DCC0]/40">{source.count} results</span>
+                      </div>
+                    </div>
+
+                    {/* Stats row */}
+                    {source.stats && (
+                      <div className="grid grid-cols-4 gap-2">
+                        <div>
+                          <p className="text-[9px] text-[#E8DCC0]/40 uppercase font-bold">Low</p>
+                          <p className="text-sm font-bold text-[#E8DCC0]">${source.stats.min.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-[#E8DCC0]/40 uppercase font-bold">Median</p>
+                          <p className="text-sm font-bold text-white">${source.stats.median.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-[#E8DCC0]/40 uppercase font-bold">Avg</p>
+                          <p className="text-sm font-bold text-[#E8DCC0]">${source.stats.average.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] text-[#E8DCC0]/40 uppercase font-bold">High</p>
+                          <p className="text-sm font-bold text-[#E8DCC0]">${source.stats.max.toFixed(2)}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Top listings with trends */}
+                    {source.listings && source.listings.length > 0 && (
+                      <div className="mt-2 pt-2 space-y-1.5" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                        {source.listings.slice(0, 3).map((listing, i) => (
+                          <div key={i} className="flex items-center justify-between">
+                            <p className="text-[10px] text-[#E8DCC0]/60 truncate flex-1 mr-2 font-medium">
+                              {listing.title}
+                              {listing.printing && listing.printing !== 'Normal' && (
+                                <span className="ml-1 text-[#818CF8]">[{listing.printing}]</span>
+                              )}
+                            </p>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-xs font-bold text-white">${listing.price.toFixed(2)}</span>
+                              <TrendIndicator value={listing.priceChange7d} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Price bar visualization */}
+          {pricing.sources && (() => {
+            const allSources = Object.values(pricing.sources).filter(s => s.available && s.stats);
+            if (allSources.length === 0) return null;
+            const globalMin = Math.min(...allSources.map(s => s.stats.min));
+            const globalMax = Math.max(...allSources.map(s => s.stats.max));
+            const range = globalMax - globalMin || 1;
+
+            return (
+              <div className="px-4 pb-4">
+                <div className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <BarChart3 className="w-3 h-3 text-[#FF8170]" />
+                    <span className="text-[10px] font-bold text-[#E8DCC0]/50 uppercase tracking-wider">Price Range</span>
+                  </div>
+                  <div className="relative h-6 rounded-full overflow-hidden"
+                    style={{ background: 'rgba(255,255,255,0.08)' }}>
+                    {/* Median marker */}
+                    {pricing.priceEstimate && (
+                      <div className="absolute top-0 bottom-0 w-0.5 z-10"
+                        style={{
+                          left: `${((pricing.priceEstimate - globalMin) / range) * 100}%`,
+                          background: '#FF8170',
+                          boxShadow: '0 0 8px rgba(255, 129, 112, 0.6)',
+                        }} />
+                    )}
+                    {/* Range bar */}
+                    <div className="absolute top-1 bottom-1 rounded-full"
+                      style={{
+                        left: `${((globalMin - globalMin) / range) * 100}%`,
+                        right: `${100 - ((globalMax - globalMin) / range) * 100}%`,
+                        background: 'linear-gradient(90deg, #818CF8, #FF8170, #F59E0B)',
+                        opacity: 0.6,
+                      }} />
+                  </div>
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[10px] text-[#E8DCC0]/40 font-bold">${globalMin.toFixed(2)}</span>
+                    <span className="text-[10px] text-[#FF8170] font-bold">Est. ${pricing.priceEstimate?.toFixed(2)}</span>
+                    <span className="text-[10px] text-[#E8DCC0]/40 font-bold">${globalMax.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* No pricing data fallback */}
+      {(!pricing || !pricing.priceEstimate) && cardInfo && (
+        <div className="rounded-xl px-3 py-2 text-xs font-medium"
+          style={{
+            background: 'rgba(44, 36, 22, 0.06)',
+            color: '#8B7355',
+            border: '1px solid rgba(44, 36, 22, 0.08)',
+          }}>
+          No market pricing found for this card. Try the Price Comp Lookup on the card detail page for more sources.
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function SAMChatInterface({ isCustomerPortal = false, token = null }) {
   const navigate = useNavigate();
@@ -393,27 +655,7 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
                 )}
                 <p className="text-base leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>
                 {msg.scanResults && (
-                  <div className="mt-4 pt-4 border-t border-[#2C2416]/10 space-y-2 text-sm">
-                    {msg.scanResults.gradable !== undefined && (
-                      <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold ${
-                        msg.scanResults.gradable
-                          ? 'bg-green-600/20 text-green-800 border border-green-600/30'
-                          : 'bg-red-600/20 text-red-800 border border-red-600/30'
-                      }`}>
-                        {msg.scanResults.gradable ? '✅ Worth Grading!' : '❌ Not Recommended'}
-                      </div>
-                    )}
-                    {msg.scanResults.estimatedGrade && (
-                      <p className="text-[#FF8170] font-semibold">
-                        Estimated Grade: <span className="text-[#2C2416]">{msg.scanResults.estimatedGrade}</span>
-                      </p>
-                    )}
-                    {msg.scanResults.condition && (
-                      <p className="text-[#8B7355] font-semibold">
-                        Condition: <span className="text-[#2C2416]">{msg.scanResults.condition}</span>
-                      </p>
-                    )}
-                  </div>
+                  <ScanResultsCard scanResults={msg.scanResults} />
                 )}
                 <p className="text-xs mt-3 opacity-50 font-medium">
                   {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
