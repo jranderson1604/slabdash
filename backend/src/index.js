@@ -241,6 +241,16 @@ async function startServer() {
       `);
       console.log("✓ Migration: Customer auth columns ensured");
 
+      // Company columns for subscriptions and SAM
+      await db.query(`
+        ALTER TABLE companies
+        ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMP WITH TIME ZONE,
+        ADD COLUMN IF NOT EXISTS sam_enabled BOOLEAN DEFAULT FALSE;
+      `);
+      console.log("✓ Migration: Company stripe/sam columns ensured");
+
     } catch (migrationError) {
       // Don't fail startup if migration has issues, just log it
       console.warn("⚠ Migration warning:", migrationError.message);
