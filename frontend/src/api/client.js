@@ -84,7 +84,8 @@ export const cards = {
 
 export const psa = {
   testConnection: () => api.get('/psa/test'),
-  refreshAll: () => api.post('/psa/refresh-all')
+  refreshAll: () => api.post('/psa/refresh-all'),
+  sendWeeklyUpdate: (email) => api.post('/psa/send-weekly-update', { email }),
 };
 
 export const portal = {

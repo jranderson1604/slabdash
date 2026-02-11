@@ -138,29 +138,60 @@ router.patch('/:id', authenticate, async (req, res) => {
     }
 });
 
-// Lookup cert
+// Lookup cert — fetches grade, images, and full cert data from PSA API
 router.post('/:id/lookup-cert', authenticate, async (req, res) => {
     try {
         if (!req.user.psa_api_key) return res.status(400).json({ error: 'PSA API key not configured' });
-        
+
         const cardResult = await db.query('SELECT * FROM cards WHERE id = $1 AND company_id = $2', [req.params.id, req.companyId]);
         if (cardResult.rows.length === 0) return res.status(404).json({ error: 'Card not found' });
-        
+
         const card = cardResult.rows[0];
         if (!card.psa_cert_number) return res.status(400).json({ error: 'No cert number' });
-        
-        const certResult = await psaService.getCertificate(req.user.psa_api_key, card.psa_cert_number);
+
+        // Fetch cert + images in parallel
+        const certResult = await psaService.getCertWithImages(req.user.psa_api_key, card.psa_cert_number);
         if (!certResult.success) return res.status(404).json({ error: certResult.error });
-        
+
         const cert = certResult.data;
+        const parsed = psaService.parseCertData(cert);
+
+        // Build update with all available fields
+        const updates = {
+            grade: parsed.grade,
+            psa_cert_data: JSON.stringify(cert),
+            status: 'graded',
+        };
+
+        if (parsed.playerName && !card.player_name) updates.player_name = parsed.playerName;
+        if (parsed.year && !card.year) updates.year = parsed.year;
+        if (parsed.brand && !card.brand) updates.brand = parsed.brand;
+        if (parsed.cardNumber && !card.card_number) updates.card_number = parsed.cardNumber;
+        if (parsed.variety && !card.variation) updates.variation = parsed.variety;
+        if (cert.images && cert.images.length > 0) updates.card_images = cert.images;
+
+        const setClauses = [];
+        const values = [];
+        let pi = 1;
+        for (const [key, value] of Object.entries(updates)) {
+            setClauses.push(`${key} = $${pi++}`);
+            values.push(value);
+        }
+        values.push(card.id);
+
         await db.query(
-            `UPDATE cards SET grade = $1, psa_cert_data = $2, status = 'graded' WHERE id = $3`,
-            [cert.CardGrade || cert.Grade, JSON.stringify(cert), card.id]
+            `UPDATE cards SET ${setClauses.join(', ')} WHERE id = $${pi}`,
+            values
         );
-        
+
         const updated = await db.query('SELECT * FROM cards WHERE id = $1', [card.id]);
-        res.json({ card: updated.rows[0], certData: cert });
+        res.json({
+            card: updated.rows[0],
+            certData: cert,
+            parsed,
+        });
     } catch (error) {
+        console.error('Cert lookup error:', error);
         res.status(500).json({ error: 'Failed to lookup cert' });
     }
 });

@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const { authenticate, requireRole } = require("../middleware/auth");
-const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa, tryGetOrderDetails, getCertificate, scrapePsaCertImages } = require("../services/psaService");
+const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa, getCertificate, getCertWithImages, parseCertData } = require("../services/psaService");
 const { normalizeServiceLevel } = require("../utils/serviceLevel");
 
 // List submissions
@@ -220,33 +220,12 @@ router.post("/", authenticate, async (req, res) => {
 
           if (result.success) {
             parsedPsaData = parseProgressData(result.data);
-            console.log("PSA order data fetched and parsed:", {
+            console.log("PSA order data fetched:", {
               orderNumber: parsedPsaData.orderNumber,
               currentStep: parsedPsaData.currentStep,
               progressPercent: parsedPsaData.progressPercent,
               gradesReady: parsedPsaData.gradesReady
             });
-
-            // EXPERIMENTAL: Try to find an endpoint that returns card data
-            if (parsedPsaData.orderNumber) {
-              console.log('\n🔍 EXPLORING PSA API FOR CARD DATA...\n');
-              try {
-                const explorationResults = await tryGetOrderDetails(
-                  psaApiKey,
-                  parsedPsaData.orderNumber,
-                  psa_submission_number
-                );
-
-                if (explorationResults.successful) {
-                  console.log('\n✅ SUCCESS! Found working endpoint:', explorationResults.successful.endpoint);
-                  console.log('Response data structure:', Object.keys(explorationResults.successful.data));
-                } else {
-                  console.log('\n❌ No working endpoint found for card data');
-                }
-              } catch (exploreError) {
-                console.error('Endpoint exploration error:', exploreError.message);
-              }
-            }
           } else {
             console.log("PSA API returned no data:", result.error);
           }
@@ -518,13 +497,39 @@ router.post("/:id/refresh", authenticate, async (req, res) => {
     }
 
     // Update submission with latest PSA data
-    const parsed = await updateSubmissionFromPsa(submission.id, result.data);
+    const { parsed, changes } = await updateSubmissionFromPsa(submission.id, result.data);
+
+    // Fetch updated submission with all related data
+    const updatedResult = await db.query(
+      `SELECT s.*, c.name as customer_name, c.email as customer_email
+       FROM submissions s
+       LEFT JOIN customers c ON s.customer_id = c.id
+       WHERE s.id = $1`,
+      [submission.id]
+    );
+
+    const stepsResult = await db.query(
+      `SELECT * FROM submission_steps WHERE submission_id = $1 ORDER BY step_index`,
+      [submission.id]
+    );
 
     res.json({
       message: "Submission refreshed from PSA",
-      currentStep: parsed.currentStep,
-      progressPercent: parsed.progressPercent,
-      gradesReady: parsed.gradesReady
+      submission: {
+        ...updatedResult.rows[0],
+        steps: stepsResult.rows
+      },
+      changes: {
+        hadChanges: changes.hadChanges,
+        stepChanged: changes.stepChanged,
+        previousStep: changes.previousStep,
+        newStep: changes.newStep,
+        progressDelta: changes.progressDelta || 0,
+        gradesReady: parsed.gradesReady,
+        shipped: parsed.shipped,
+        problemOrder: parsed.problemOrder,
+        milestonesSet: changes.milestonesSet,
+      }
     });
   } catch (error) {
     console.error("Refresh submission error:", error);
@@ -740,62 +745,38 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
         const cardId = cardResult.rows[0].id;
         console.log(`Row ${i + 1}: Card created with ID ${cardId}`);
 
-        // Try to scrape images from PSA website
-        try {
-          console.log(`Row ${i + 1}: Scraping images from PSA website for cert ${certNumber}`);
-          const scrapeResult = await scrapePsaCertImages(certNumber);
+        // Fetch cert data + images from PSA API
+        if (req.user.psa_api_key) {
+          try {
+            const certResult = await getCertWithImages(req.user.psa_api_key, certNumber);
+            if (certResult.success && certResult.data) {
+              const cert = certResult.data;
+              const parsed = parseCertData(cert);
+              const updates = { psa_cert_data: JSON.stringify(cert) };
 
-          if (scrapeResult.success && scrapeResult.images.length > 0) {
-            await db.query(
-              'UPDATE cards SET card_images = $1 WHERE id = $2',
-              [scrapeResult.images, cardId]
-            );
-            console.log(`Row ${i + 1}: Updated with ${scrapeResult.images.length} image(s) from PSA website`);
-          } else {
-            console.log(`Row ${i + 1}: No images found on PSA website`);
+              if (parsed.playerName) updates.player_name = parsed.playerName;
+              if (cert.images && cert.images.length > 0) updates.card_images = cert.images;
 
-            // Fallback: Try PSA API if we have an API key
-            if (req.user.psa_api_key) {
-              console.log(`Row ${i + 1}: Trying PSA API as fallback`);
-              const certResult = await getCertificate(req.user.psa_api_key, certNumber);
-
-              if (certResult.success && certResult.data) {
-                const cert = certResult.data;
-                const images = [];
-
-                // Extract images from PSA cert data (various possible field names)
-                if (cert.FrontImageURL) images.push(cert.FrontImageURL);
-                if (cert.BackImageURL) images.push(cert.BackImageURL);
-                if (cert.FrontImage) images.push(cert.FrontImage);
-                if (cert.BackImage) images.push(cert.BackImage);
-                if (cert.ImageURL) images.push(cert.ImageURL);
-                if (cert.ImageUrl) images.push(cert.ImageUrl);
-                if (cert.Image) images.push(cert.Image);
-                if (cert.Images && Array.isArray(cert.Images)) {
-                  images.push(...cert.Images);
-                }
-
-                // Update card with images and cert data if found
-                if (images.length > 0) {
-                  await db.query(
-                    'UPDATE cards SET card_images = $1, psa_cert_data = $2 WHERE id = $3',
-                    [images, JSON.stringify(cert), cardId]
-                  );
-                  console.log(`Row ${i + 1}: Updated with ${images.length} image(s) from PSA API`);
-                } else {
-                  // Store cert data even if no images found
-                  await db.query(
-                    'UPDATE cards SET psa_cert_data = $1 WHERE id = $2',
-                    [JSON.stringify(cert), cardId]
-                  );
-                  console.log(`Row ${i + 1}: No images in API response, stored cert data`);
-                }
+              const setClauses = [];
+              const vals = [];
+              let pi = 1;
+              for (const [key, value] of Object.entries(updates)) {
+                setClauses.push(`${key} = $${pi++}`);
+                vals.push(value);
               }
+              vals.push(cardId);
+
+              await db.query(
+                `UPDATE cards SET ${setClauses.join(', ')} WHERE id = $${pi}`,
+                vals
+              );
+              console.log(`Row ${i + 1}: Enriched from PSA API (grade: ${parsed.grade}, images: ${cert.images?.length || 0})`);
             }
+            // Rate limit between cert lookups
+            await new Promise(r => setTimeout(r, 300));
+          } catch (certError) {
+            console.log(`Row ${i + 1}: PSA API cert lookup failed -`, certError.message);
           }
-        } catch (scrapeError) {
-          console.log(`Row ${i + 1}: Image scraping failed -`, scrapeError.message);
-          // Continue anyway, card is already created
         }
 
         imported++;

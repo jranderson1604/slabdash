@@ -436,6 +436,79 @@ router.get("/refresh-log/:id/csv", authenticate, async (req, res) => {
   }
 });
 
+// Send weekly update — manual trigger by admin
+// Refreshes all active submissions from PSA, then sends the email report
+router.post("/send-weekly-update", authenticate, requireRole("owner", "admin"), async (req, res) => {
+  try {
+    const companyResult = await db.query(
+      `SELECT c.id, c.name, c.psa_api_key, u.email as owner_email
+       FROM companies c
+       LEFT JOIN users u ON u.company_id = c.id AND u.role = 'owner'
+       WHERE c.id = $1`,
+      [req.user.company_id]
+    );
+
+    if (companyResult.rows.length === 0) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+
+    const company = companyResult.rows[0];
+
+    if (!company.psa_api_key) {
+      return res.status(400).json({ error: "PSA API key not configured" });
+    }
+
+    // Check rate limit — once per week
+    try {
+      const lastUpdateResult = await db.query(
+        `SELECT created_at FROM psa_refresh_logs
+         WHERE company_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [company.id]
+      );
+
+      if (lastUpdateResult.rows.length > 0) {
+        const lastUpdate = new Date(lastUpdateResult.rows[0].created_at);
+        const daysSinceLastUpdate = (Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60 * 24);
+
+        if (daysSinceLastUpdate < 6) {
+          return res.status(429).json({
+            error: "Weekly update already sent recently",
+            lastSent: lastUpdate.toISOString(),
+            nextAvailable: new Date(lastUpdate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            daysRemaining: Math.ceil(7 - daysSinceLastUpdate)
+          });
+        }
+      }
+    } catch (e) {
+      // psa_refresh_logs table might not exist
+    }
+
+    const { runCompanyRefresh, sendRefreshReport } = require('../services/scheduledRefreshService');
+
+    // Run the refresh
+    const results = await runCompanyRefresh(company, company.psa_api_key);
+
+    // Send the email report
+    const emailTo = req.body.email || company.owner_email || req.user.email;
+    if (emailTo) {
+      await sendRefreshReport({ ...company, owner_email: emailTo }, results, results.changeLog);
+    }
+
+    res.json({
+      success: true,
+      message: "Weekly update sent",
+      totalSubmissions: results.totalSubmissions,
+      updatedCount: results.updatedCount,
+      errorCount: results.errorCount,
+      emailSentTo: emailTo || null,
+      changesCount: results.changeLog.filter(c => c.hadChanges).length,
+    });
+  } catch (error) {
+    console.error("Send weekly update error:", error);
+    res.status(500).json({ error: "Failed to send weekly update", details: error.message });
+  }
+});
+
 router.get("/", (req, res) => {
   res.json({ ok: true, route: "psa" });
 });
