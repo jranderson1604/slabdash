@@ -1399,6 +1399,157 @@ const resolveSAMCustomer = async (req) => {
     throw new Error('Authentication required');
 };
 
+// SAM Token System: 15 free messages/day, then costs 1 token per message
+const SAM_FREE_DAILY_LIMIT = 15;
+
+const checkSAMTokens = async (customerId, companyId, type = 'message') => {
+    // Get or create today's usage record
+    const today = new Date().toISOString().split('T')[0];
+    let usage = await db.query(
+        `SELECT * FROM sam_usage WHERE customer_id = $1 AND usage_date = $2`,
+        [customerId, today]
+    );
+
+    if (usage.rows.length === 0) {
+        await db.query(
+            `INSERT INTO sam_usage (customer_id, company_id, usage_date, message_count, scan_count, tokens_used)
+             VALUES ($1, $2, $3, 0, 0, 0) ON CONFLICT (customer_id, usage_date) DO NOTHING`,
+            [customerId, companyId, today]
+        );
+        usage = await db.query(
+            `SELECT * FROM sam_usage WHERE customer_id = $1 AND usage_date = $2`,
+            [customerId, today]
+        );
+    }
+
+    const record = usage.rows[0];
+    const totalMessages = (record.message_count || 0) + (record.scan_count || 0);
+    const isFree = totalMessages < SAM_FREE_DAILY_LIMIT;
+
+    if (isFree) {
+        // Free message — increment count
+        const col = type === 'scan' ? 'scan_count' : 'message_count';
+        await db.query(
+            `UPDATE sam_usage SET ${col} = ${col} + 1, updated_at = NOW() WHERE id = $1`,
+            [record.id]
+        );
+        return {
+            allowed: true,
+            free: true,
+            remaining_free: SAM_FREE_DAILY_LIMIT - totalMessages - 1,
+            daily_used: totalMessages + 1,
+            daily_limit: SAM_FREE_DAILY_LIMIT,
+            token_balance: 0 // will be overwritten below
+        };
+    }
+
+    // Check token balance
+    const balanceResult = await db.query(
+        `SELECT sam_token_balance FROM customers WHERE id = $1`,
+        [customerId]
+    );
+    const tokenBalance = balanceResult.rows[0]?.sam_token_balance || 0;
+
+    if (tokenBalance <= 0) {
+        return {
+            allowed: false,
+            free: false,
+            remaining_free: 0,
+            daily_used: totalMessages,
+            daily_limit: SAM_FREE_DAILY_LIMIT,
+            token_balance: 0,
+            error: 'out_of_tokens'
+        };
+    }
+
+    // Deduct 1 token
+    await db.query(
+        `UPDATE customers SET sam_token_balance = sam_token_balance - 1 WHERE id = $1 AND sam_token_balance > 0`,
+        [customerId]
+    );
+    const col = type === 'scan' ? 'scan_count' : 'message_count';
+    await db.query(
+        `UPDATE sam_usage SET ${col} = ${col} + 1, tokens_used = tokens_used + 1, updated_at = NOW() WHERE id = $1`,
+        [record.id]
+    );
+
+    return {
+        allowed: true,
+        free: false,
+        remaining_free: 0,
+        daily_used: totalMessages + 1,
+        daily_limit: SAM_FREE_DAILY_LIMIT,
+        token_balance: tokenBalance - 1
+    };
+};
+
+// Get SAM usage stats for a customer
+router.get('/sam/usage', authenticateCustomer, async (req, res) => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const usage = await db.query(
+            `SELECT message_count, scan_count, tokens_used FROM sam_usage
+             WHERE customer_id = $1 AND usage_date = $2`,
+            [req.customer.id, today]
+        );
+        const record = usage.rows[0] || { message_count: 0, scan_count: 0, tokens_used: 0 };
+        const totalUsed = (record.message_count || 0) + (record.scan_count || 0);
+
+        res.json({
+            daily_used: totalUsed,
+            daily_limit: SAM_FREE_DAILY_LIMIT,
+            remaining_free: Math.max(0, SAM_FREE_DAILY_LIMIT - totalUsed),
+            token_balance: req.customer.sam_token_balance || 0,
+            tokens_used_today: record.tokens_used || 0
+        });
+    } catch (error) {
+        console.error('SAM usage check error:', error);
+        res.json({
+            daily_used: 0,
+            daily_limit: SAM_FREE_DAILY_LIMIT,
+            remaining_free: SAM_FREE_DAILY_LIMIT,
+            token_balance: 0,
+            tokens_used_today: 0
+        });
+    }
+});
+
+// Admin: Add tokens to a customer
+router.post('/sam/add-tokens', async (req, res) => {
+    try {
+        // This endpoint uses admin auth (check for Bearer token from admin)
+        const authHeader = req.headers.authorization;
+        if (!authHeader?.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'Auth required' });
+        }
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (decoded.type === 'customer') {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+
+        const { customer_id, tokens } = req.body;
+        if (!customer_id || !tokens || tokens < 1) {
+            return res.status(400).json({ error: 'customer_id and tokens (positive integer) required' });
+        }
+
+        const result = await db.query(
+            `UPDATE customers SET sam_token_balance = COALESCE(sam_token_balance, 0) + $1
+             WHERE id = $2 RETURNING sam_token_balance`,
+            [Math.floor(tokens), customer_id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Customer not found' });
+        }
+
+        res.json({ success: true, new_balance: result.rows[0].sam_token_balance });
+    } catch (error) {
+        console.error('Add tokens error:', error);
+        res.status(500).json({ error: 'Failed to add tokens' });
+    }
+});
+
 // SAM Chat endpoint for customer portal (token or JWT)
 router.post('/sam/chat', async (req, res) => {
     try {
@@ -1420,6 +1571,23 @@ router.post('/sam/chat', async (req, res) => {
             return res.status(403).json({
                 error: 'SAM Assistant is not available',
                 message: 'Your shop has not enabled the SAM AI assistant feature. Contact your shop to learn more!'
+            });
+        }
+
+        // Check SAM token usage (15 free/day, then costs tokens)
+        let tokenResult;
+        try {
+            tokenResult = await checkSAMTokens(customer.id, customer.company_id, 'message');
+        } catch (tokenErr) {
+            console.error('Token check error (allowing):', tokenErr.message);
+            tokenResult = { allowed: true, free: true, remaining_free: SAM_FREE_DAILY_LIMIT, daily_used: 0, daily_limit: SAM_FREE_DAILY_LIMIT, token_balance: 0 };
+        }
+
+        if (!tokenResult.allowed) {
+            return res.status(429).json({
+                error: 'out_of_tokens',
+                message: `You've used all ${SAM_FREE_DAILY_LIMIT} free messages today. Add tokens to keep chatting!`,
+                usage: tokenResult
             });
         }
 
@@ -1572,7 +1740,8 @@ You can scan cards! Tell customers they can upload a card photo for instant ID, 
             message: assistantMessage,
             model: 'claude-sonnet-4-5',
             ai_powered: true,
-            mode: 'AI (Claude)'
+            mode: 'AI (Claude)',
+            usage: tokenResult || null
         });
     } catch (error) {
         console.error('Customer portal SAM chat error:', error);
@@ -1606,6 +1775,23 @@ router.post('/sam/scan', scanUpload.single('image'), async (req, res) => {
             return res.status(403).json({
                 error: 'SAM Assistant is not available',
                 message: 'Your shop has not enabled the SAM AI assistant feature.'
+            });
+        }
+
+        // Check SAM token usage for scans
+        let tokenResult;
+        try {
+            tokenResult = await checkSAMTokens(customer.id, customer.company_id, 'scan');
+        } catch (tokenErr) {
+            console.error('Token check error (allowing):', tokenErr.message);
+            tokenResult = { allowed: true, free: true, remaining_free: SAM_FREE_DAILY_LIMIT, daily_used: 0, daily_limit: SAM_FREE_DAILY_LIMIT, token_balance: 0 };
+        }
+
+        if (!tokenResult.allowed) {
+            return res.status(429).json({
+                error: 'out_of_tokens',
+                message: `You've used all ${SAM_FREE_DAILY_LIMIT} free messages today. Add tokens to keep scanning!`,
+                usage: tokenResult
             });
         }
 

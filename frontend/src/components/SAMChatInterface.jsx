@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Sparkles, TrendingUp, TrendingDown, Calculator, HelpCircle, Lightbulb, ThumbsUp, Brain, Camera, Upload, X, DollarSign, BarChart3, ArrowUpRight, ArrowDownRight, Minus, Tag, Layers, ImagePlus, Paperclip } from 'lucide-react';
+import { Send, Loader2, Sparkles, TrendingUp, TrendingDown, Calculator, HelpCircle, Lightbulb, ThumbsUp, Brain, Camera, Upload, X, DollarSign, BarChart3, ArrowUpRight, ArrowDownRight, Minus, Tag, Layers, ImagePlus, Paperclip, Zap, Lock, Coins } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 
@@ -247,6 +247,8 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
   const [uploadedImage, setUploadedImage] = useState(null);
   const [scanning, setScanning] = useState(false);
   const [pendingImage, setPendingImage] = useState(null); // { file, preview }
+  const [samUsage, setSamUsage] = useState(null); // { daily_used, daily_limit, remaining_free, token_balance }
+  const [tokenLocked, setTokenLocked] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -278,6 +280,18 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Fetch SAM usage for customer portal
+  useEffect(() => {
+    if (isCustomerPortal && jwtToken) {
+      fetch(`${API_URL}/portal/sam/usage`, {
+        headers: { Authorization: `Bearer ${jwtToken}` }
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => { if (data) setSamUsage(data); })
+        .catch(() => {});
+    }
+  }, [isCustomerPortal, jwtToken]);
 
   // Detect animation trigger from text
   const detectAnimationTrigger = (text) => {
@@ -466,6 +480,9 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
   };
 
   const handleSend = async () => {
+    // Block if token-locked in customer portal
+    if (isCustomerPortal && tokenLocked) return;
+
     // If there's a pending image, send it as a scan
     if (pendingImage) {
       const text = input.trim() || '📸 Scan this card';
@@ -505,7 +522,32 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
           body: JSON.stringify({ message: messageText, history: messages.slice(-10) }),
         });
-        response = { data: await res.json() };
+        const data = await res.json();
+
+        // Handle out-of-tokens response
+        if (res.status === 429 && data.error === 'out_of_tokens') {
+          setTokenLocked(true);
+          if (data.usage) setSamUsage(prev => ({ ...prev, ...data.usage }));
+          const lockedMsg = {
+            role: 'assistant',
+            content: `You've used all ${data.usage?.daily_limit || 15} free messages for today! You can get more tokens from your card shop to keep chatting with me. Your free messages reset every day at midnight.`,
+            timestamp: new Date()
+          };
+          setMessages(prev => [...prev, lockedMsg]);
+          playAnimation('confused');
+          setIsLoading(false);
+          return;
+        }
+
+        // Update usage from response
+        if (data.usage) {
+          setSamUsage(prev => ({ ...prev, ...data.usage }));
+          if (data.usage.remaining_free <= 0 && data.usage.token_balance <= 0) {
+            setTokenLocked(true);
+          }
+        }
+
+        response = { data };
       } else {
         const endpoint = isCustomerPortal
           ? `/portal/sam/chat?token=${token}`
@@ -601,10 +643,25 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Token usage indicator - customer portal only */}
+            {isCustomerPortal && samUsage && (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#FFF8F0]/10"
+                style={{ background: 'rgba(255,255,255,0.05)' }}>
+                <Zap className="w-3.5 h-3.5" style={{ color: samUsage.remaining_free > 0 ? '#10B981' : '#F59E0B' }} />
+                <span className="text-xs font-bold" style={{ color: samUsage.remaining_free > 0 ? '#10B981' : '#F59E0B' }}>
+                  {samUsage.remaining_free > 0
+                    ? `${samUsage.remaining_free} free`
+                    : samUsage.token_balance > 0
+                      ? `${samUsage.token_balance} tokens`
+                      : 'No tokens'}
+                </span>
+              </div>
+            )}
+
             {/* Upload Button - Desktop */}
             <button
               onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading || scanning}
+              disabled={isLoading || scanning || tokenLocked}
               className="hidden lg:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] hover:from-[#FF9580] hover:to-[#FF8170] text-[#2C2416] rounded-2xl font-bold transition-all shadow-2xl hover:shadow-[#FF8170]/50 border border-[#FFF8F0]/20 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Camera className="w-5 h-5" />
@@ -728,12 +785,52 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
         </div>
       )}
 
+      {/* Token Paywall - shown when locked */}
+      {isCustomerPortal && tokenLocked && (
+        <div className="border-t border-[#FF8170]/20 bg-gradient-to-r from-[#2C2416] via-[#3D3020] to-[#2C2416]">
+          <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6 text-center">
+            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3"
+              style={{ background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.05))', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+              <Lock className="w-7 h-7 text-amber-400" />
+            </div>
+            <h3 className="text-lg font-black text-[#FFF8F0] mb-1">Daily Limit Reached</h3>
+            <p className="text-sm text-[#E8DCC0]/60 mb-3">
+              You've used all {samUsage?.daily_limit || 15} free messages today. Free messages reset at midnight.
+            </p>
+            {samUsage?.token_balance > 0 ? (
+              <p className="text-sm font-bold text-amber-400">
+                You have {samUsage.token_balance} tokens remaining
+              </p>
+            ) : (
+              <p className="text-sm text-[#E8DCC0]/40">
+                Ask your card shop about getting more SAM tokens!
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Input Area - Modern Glass Design */}
-      <div className="border-t border-[#FF8170]/20 bg-[#2C2416]/95 backdrop-blur-xl shadow-2xl sticky bottom-0"
+      <div className={`border-t border-[#FF8170]/20 bg-[#2C2416]/95 backdrop-blur-xl shadow-2xl sticky bottom-0 ${tokenLocked && isCustomerPortal ? 'opacity-40 pointer-events-none' : ''}`}
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleDrop}
       >
         <div className="max-w-5xl mx-auto px-4 lg:px-6 py-4 lg:py-6">
+          {/* Usage bar - customer portal */}
+          {isCustomerPortal && samUsage && !tokenLocked && (
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                <div className="h-full rounded-full transition-all duration-500" style={{
+                  width: `${Math.max(0, (samUsage.remaining_free / samUsage.daily_limit) * 100)}%`,
+                  background: samUsage.remaining_free > 5 ? 'linear-gradient(90deg, #10B981, #059669)' : samUsage.remaining_free > 2 ? 'linear-gradient(90deg, #F59E0B, #D97706)' : 'linear-gradient(90deg, #EF4444, #DC2626)',
+                }} />
+              </div>
+              <span className="text-[10px] font-bold shrink-0" style={{ color: samUsage.remaining_free > 5 ? '#10B981' : samUsage.remaining_free > 2 ? '#F59E0B' : '#EF4444' }}>
+                {samUsage.remaining_free}/{samUsage.daily_limit} free
+                {samUsage.token_balance > 0 && ` + ${samUsage.token_balance} tokens`}
+              </span>
+            </div>
+          )}
           {/* Pending image preview */}
           {pendingImage && (
             <div className="mb-3 flex items-center gap-3 px-2">
@@ -805,11 +902,11 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
 
             <button
               onClick={handleSend}
-              disabled={(!input.trim() && !pendingImage) || isLoading || scanning}
+              disabled={(!input.trim() && !pendingImage) || isLoading || scanning || (isCustomerPortal && tokenLocked)}
               className="flex-shrink-0 p-4 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] hover:from-[#FF9580] hover:to-[#FF8170] text-[#FFF8F0] rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-2xl hover:shadow-[#FF8170]/50 border border-[#FFF8F0]/20 hover:scale-105"
               aria-label="Send message"
             >
-              <Send className="w-6 h-6" />
+              {isCustomerPortal && tokenLocked ? <Lock className="w-6 h-6" /> : <Send className="w-6 h-6" />}
             </button>
           </div>
         </div>
