@@ -113,39 +113,101 @@ router.post('/auth/register', authLimiter, async (req, res) => {
     const trimmedEmail = email.trim().toLowerCase();
     const trimmedName = name.trim();
 
-    // Check if email already exists for this company
+    // Check if email already exists for this company (case-insensitive, whitespace-trimmed)
     const existing = await db.query(
-      `SELECT id, name, password_hash FROM customers
-       WHERE company_id = $1 AND LOWER(email) = $2`,
+      `SELECT id, name, email, password_hash FROM customers
+       WHERE company_id = $1 AND LOWER(TRIM(email)) = $2`,
       [company.id, trimmedEmail]
     );
 
     let customer;
+    let isAbsorbed = false;
     if (existing.rows.length > 0) {
       // Account absorption: email exists in system (added by shop), new registration takes it over
       const existingCustomer = existing.rows[0];
       if (existingCustomer.password_hash) {
         return res.status(409).json({ error: 'Account already registered. Please sign in.' });
       }
-      // Absorb: set their password, update name, enable portal
+      // Absorb: set their password, normalize email, update name, enable portal
       await db.query(
-        `UPDATE customers SET name = $1, password_hash = $2, portal_access_enabled = true,
+        `UPDATE customers SET name = $1, email = $2, password_hash = $3, portal_access_enabled = true,
          failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW(), updated_at = NOW()
-         WHERE id = $3`,
-        [trimmedName, passwordHash, existingCustomer.id]
+         WHERE id = $4`,
+        [trimmedName, trimmedEmail, passwordHash, existingCustomer.id]
       );
       customer = { id: existingCustomer.id, name: trimmedName, email: trimmedEmail };
+      isAbsorbed = true;
+      console.log(`Customer absorbed: ${trimmedEmail} -> existing ID ${existingCustomer.id} (company: ${company.id})`);
     } else {
-      // Brand new customer
+      // Brand new customer — insert into customers table
       const portalToken = crypto.randomBytes(32).toString('hex');
-      const result = await db.query(
-        `INSERT INTO customers (company_id, name, email, password_hash, portal_access_enabled,
-         portal_access_token, last_login_at)
-         VALUES ($1, $2, $3, $4, true, $5, NOW())
-         RETURNING id`,
-        [company.id, trimmedName, trimmedEmail, passwordHash, portalToken]
-      );
-      customer = { id: result.rows[0].id, name: trimmedName, email: trimmedEmail };
+      try {
+        const result = await db.query(
+          `INSERT INTO customers (company_id, name, email, password_hash, portal_access_enabled,
+           portal_access_token, last_login_at, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, true, $5, NOW(), NOW(), NOW())
+           RETURNING id`,
+          [company.id, trimmedName, trimmedEmail, passwordHash, portalToken]
+        );
+        customer = { id: result.rows[0].id, name: trimmedName, email: trimmedEmail };
+        console.log(`New customer created: ${trimmedEmail} -> ID ${customer.id} (company: ${company.id})`);
+      } catch (insertErr) {
+        // Handle unique constraint violation (race condition or case mismatch)
+        if (insertErr.code === '23505') {
+          console.log(`Unique constraint hit for ${trimmedEmail}, trying absorption...`);
+          const retry = await db.query(
+            `SELECT id, name, password_hash FROM customers
+             WHERE company_id = $1 AND LOWER(TRIM(email)) = $2`,
+            [company.id, trimmedEmail]
+          );
+          if (retry.rows.length > 0 && !retry.rows[0].password_hash) {
+            await db.query(
+              `UPDATE customers SET name = $1, email = $2, password_hash = $3, portal_access_enabled = true,
+               failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW(), updated_at = NOW()
+               WHERE id = $4`,
+              [trimmedName, trimmedEmail, passwordHash, retry.rows[0].id]
+            );
+            customer = { id: retry.rows[0].id, name: trimmedName, email: trimmedEmail };
+            isAbsorbed = true;
+          } else {
+            return res.status(409).json({ error: 'Account already registered. Please sign in.' });
+          }
+        } else {
+          throw insertErr;
+        }
+      }
+    }
+
+    // Link new customer to any submissions that reference their email
+    // (so they can see submissions they're part of)
+    if (!isAbsorbed) {
+      try {
+        // Find submissions for this company where the customer email matches but isn't linked yet
+        const unlinkedSubs = await db.query(
+          `SELECT s.id FROM submissions s
+           JOIN customers c ON s.customer_id = c.id
+           WHERE s.company_id = $1
+           AND NOT EXISTS (SELECT 1 FROM submission_customers sc WHERE sc.submission_id = s.id AND sc.customer_id = $2)
+           AND EXISTS (
+             SELECT 1 FROM cards WHERE submission_id = s.id
+             AND LOWER(TRIM(COALESCE(customer_email, ''))) = $3
+           )
+           LIMIT 50`,
+          [company.id, customer.id, trimmedEmail]
+        );
+        // Auto-link found submissions
+        for (const sub of unlinkedSubs.rows) {
+          await db.query(
+            `INSERT INTO submission_customers (submission_id, customer_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+            [sub.id, customer.id]
+          ).catch(() => {}); // ignore if submission_customers table has issues
+        }
+        if (unlinkedSubs.rows.length > 0) {
+          console.log(`Auto-linked ${unlinkedSubs.rows.length} submissions for new customer ${trimmedEmail}`);
+        }
+      } catch (linkErr) {
+        console.log('Auto-link submissions skipped:', linkErr.message);
+      }
     }
 
     // Issue long-lived JWT (30 days — stays logged in on home screen)
@@ -157,12 +219,12 @@ router.post('/auth/register', authLimiter, async (req, res) => {
 
     res.json({
       token,
-      customer,
+      customer: { ...customer, hasPin: false },
       company: companyResponse(company)
     });
   } catch (error) {
     console.error('Customer registration error:', error);
-    res.status(500).json({ error: 'Registration failed' });
+    res.status(500).json({ error: 'Registration failed. Please try again.' });
   }
 });
 
@@ -181,13 +243,13 @@ router.post('/auth/login', authLimiter, async (req, res) => {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Find customer by email + company
+    // Find customer by email + company (case-insensitive, whitespace-trimmed)
     const customerResult = await db.query(
       `SELECT id, name, email, password_hash, pin_hash, portal_access_enabled,
               failed_login_attempts, locked_until
        FROM customers
-       WHERE company_id = $1 AND LOWER(email) = $2`,
-      [company.id, email.toLowerCase()]
+       WHERE company_id = $1 AND LOWER(TRIM(email)) = $2`,
+      [company.id, email.trim().toLowerCase()]
     );
 
     if (customerResult.rows.length === 0) {

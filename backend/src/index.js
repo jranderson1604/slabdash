@@ -254,6 +254,9 @@ async function startServer() {
       `);
       console.log("✓ Migration: Company stripe/sam/shop_code columns ensured");
 
+      // Auto-enable SAM for all companies (it's a core feature)
+      await db.query(`UPDATE companies SET sam_enabled = TRUE WHERE sam_enabled IS NOT TRUE`);
+
       // Generate 4-digit shop codes for companies that don't have one
       const companiesWithoutCode = await db.query(
         `SELECT id FROM companies WHERE shop_code IS NULL`

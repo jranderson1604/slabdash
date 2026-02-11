@@ -89,13 +89,14 @@ router.post('/', authenticate, async (req, res) => {
         const { email, name, phone, address_line1, city, state, postal_code, notes } = req.body;
         if (!email || !name) return res.status(400).json({ error: 'Email and name required' });
         
-        const existing = await db.query('SELECT id FROM customers WHERE company_id = $1 AND email = $2', [req.companyId, email.toLowerCase()]);
+        const trimmedEmail = email.trim().toLowerCase();
+        const existing = await db.query('SELECT id FROM customers WHERE company_id = $1 AND LOWER(TRIM(email)) = $2', [req.companyId, trimmedEmail]);
         if (existing.rows.length > 0) return res.status(400).json({ error: 'Customer already exists' });
-        
+
         const result = await db.query(
-            `INSERT INTO customers (company_id, email, name, phone, address_line1, city, state, postal_code, notes)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-            [req.companyId, email.toLowerCase(), name, phone, address_line1, city, state, postal_code, notes]
+            `INSERT INTO customers (company_id, email, name, phone, address_line1, city, state, postal_code, notes, portal_access_enabled)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true) RETURNING *`,
+            [req.companyId, trimmedEmail, name, phone, address_line1, city, state, postal_code, notes]
         );
         res.status(201).json(result.rows[0]);
     } catch (error) {
