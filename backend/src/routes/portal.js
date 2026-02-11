@@ -709,18 +709,20 @@ router.get('/me', authenticateCustomer, async (req, res) => {
     });
 });
 
-// Get customer's submissions (includes submission_customers links)
+// Get customer's submissions (includes submission_customers links + pickup data)
 router.get('/submissions', authenticateCustomer, async (req, res) => {
     try {
         const result = await db.query(
             `SELECT s.id, s.internal_id, s.psa_submission_number, s.service_level,
                     s.current_step, s.progress_percent, s.grades_ready, s.shipped, s.problem_order,
                     s.date_sent, s.return_tracking, s.admin_notes, s.prep_notes,
+                    COALESCE(sc.pickup_code, s.pickup_code) as pickup_code,
+                    COALESCE(sc.picked_up, s.picked_up, false) as picked_up,
+                    COALESCE(sc.picked_up_at, s.picked_up_at) as picked_up_at,
                     (SELECT COUNT(*) FROM cards WHERE submission_id = s.id) as card_count
              FROM submissions s
-             WHERE s.customer_id = $1 OR s.id IN (
-                 SELECT submission_id FROM submission_customers WHERE customer_id = $1
-             )
+             LEFT JOIN submission_customers sc ON s.id = sc.submission_id AND sc.customer_id = $1
+             WHERE s.customer_id = $1 OR sc.customer_id IS NOT NULL
              ORDER BY s.created_at DESC`,
             [req.customer.id]
         );

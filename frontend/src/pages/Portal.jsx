@@ -694,7 +694,7 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
 // ============================================
 // Shared helpers
 // ============================================
-const PSA_STEPS = ['Arrived', 'Order Prep', 'Research & ID', 'Grading', 'Assembly', 'QA', 'Shipped'];
+const PSA_STEPS = ['Arrived', 'Order Prep', 'Research & ID', 'Grading', 'Assembly', 'QA', 'Shipped', 'Picked Up'];
 
 function getStepIndex(currentStep) {
   if (!currentStep) return -1;
@@ -720,20 +720,30 @@ function getServiceColor(level) {
   return '#6B7280';
 }
 
-function ProgressPipeline({ currentStep, shipped }) {
-  const stepIdx = shipped ? PSA_STEPS.length : getStepIndex(currentStep);
-  const progress = shipped ? 100 : stepIdx >= 0 ? Math.round(((stepIdx + 0.5) / PSA_STEPS.length) * 100) : 0;
+function ProgressPipeline({ currentStep, shipped, pickedUp }) {
+  let stepIdx;
+  if (pickedUp) stepIdx = PSA_STEPS.length; // all complete
+  else if (shipped) stepIdx = 7; // at "Picked Up" step (waiting)
+  else stepIdx = getStepIndex(currentStep);
+
+  const totalSteps = PSA_STEPS.length;
+  const progress = pickedUp ? 100 : shipped ? Math.round((7 / totalSteps) * 100) : stepIdx >= 0 ? Math.round(((stepIdx + 0.5) / totalSteps) * 100) : 0;
+  const isComplete = pickedUp;
+
   return (
     <div>
       <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.06)' }}>
         <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
-          style={{ width: `${progress}%`, background: shipped ? 'linear-gradient(90deg, #10B981, #059669)' : 'linear-gradient(90deg, rgb(var(--brand-400)), rgb(var(--brand-600)))' }} />
+          style={{ width: `${progress}%`, background: isComplete ? 'linear-gradient(90deg, #10B981, #059669)' : shipped ? 'linear-gradient(90deg, #10B981, #2563EB)' : 'linear-gradient(90deg, rgb(var(--brand-400)), rgb(var(--brand-600)))' }} />
       </div>
       <div className="flex justify-between mt-1.5">
         {PSA_STEPS.map((step, i) => (
           <span key={step} className="text-[8px] sm:text-[9px] font-semibold text-center flex-1"
-            style={{ color: i < stepIdx ? '#059669' : (i === stepIdx && !shipped) ? 'rgb(var(--brand-600))' : 'rgba(44, 36, 22, 0.2)', fontWeight: (i === stepIdx && !shipped) ? 800 : 600 }}>
-            {step.replace('Research & ID', 'R&ID')}
+            style={{
+              color: i < stepIdx ? '#059669' : (i === stepIdx && !isComplete) ? (shipped ? '#2563EB' : 'rgb(var(--brand-600))') : 'rgba(44, 36, 22, 0.2)',
+              fontWeight: (i === stepIdx && !isComplete) ? 800 : (isComplete && i === totalSteps - 1) ? 800 : 600,
+            }}>
+            {step === 'Research & ID' ? 'R&ID' : step === 'Picked Up' ? (isComplete ? 'Done!' : 'Pickup') : step}
           </span>
         ))}
       </div>
@@ -836,8 +846,9 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
     setRefreshing(false);
   };
 
-  const activeSubmissions = data.submissions.filter(s => !s.shipped);
-  const completedSubmissions = data.submissions.filter(s => s.shipped);
+  const readyForPickup = data.submissions.filter(s => s.pickup_code && !s.picked_up);
+  const activeSubmissions = data.submissions.filter(s => !s.shipped && !s.picked_up && !s.pickup_code);
+  const completedSubmissions = data.submissions.filter(s => s.picked_up || (s.shipped && !s.pickup_code));
   const pendingOffers = (data.buybackOffers || []).filter(o => o.status === 'pending');
   const hasSAM = data.company?.sam_enabled;
   const totalCards = data.submissions.reduce((sum, s) => sum + (s.card_count || s.cards?.length || 0), 0);
@@ -902,6 +913,7 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
           {/* Quick stats row */}
           <div className="flex gap-2 overflow-x-auto no-scrollbar">
             {[
+              { label: 'Pickup', value: readyForPickup.length, show: readyForPickup.length > 0 },
               { label: 'Active', value: activeSubmissions.length, show: true },
               { label: 'Cards', value: totalCards, show: totalCards > 0 },
               { label: 'Graded', value: gradedCards.length, show: gradedCards.length > 0 },
@@ -961,7 +973,7 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
         {/* ====== SUBMISSIONS TAB ====== */}
         {activeTab === 'submissions' && (
           <>
-            {activeSubmissions.length === 0 && completedSubmissions.length === 0 && pendingOffers.length === 0 ? (
+            {activeSubmissions.length === 0 && readyForPickup.length === 0 && completedSubmissions.length === 0 && pendingOffers.length === 0 ? (
               <div className="rounded-2xl p-12 text-center" style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.5)' }}>
                 <Package className="w-16 h-16 mx-auto mb-4" style={{ color: 'rgba(44, 36, 22, 0.1)' }} />
                 <h3 className="text-xl font-bold mb-1" style={{ color: 'rgb(var(--dark))' }}>No Submissions Yet</h3>
@@ -969,6 +981,23 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
               </div>
             ) : (
               <>
+                {/* Ready for Pickup - most important, shown first */}
+                {readyForPickup.length > 0 && (
+                  <section>
+                    <div className="flex items-center gap-2 mb-3">
+                      <h2 className="text-base font-black" style={{ color: '#7C3AED' }}>Ready for Pickup</h2>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                        style={{ background: 'rgba(124, 58, 237, 0.08)', color: '#7C3AED' }}>{readyForPickup.length}</span>
+                    </div>
+                    <div className="space-y-3">
+                      {readyForPickup.map(sub => (
+                        <JWTSubmissionCard key={sub.id} submission={sub} isExpanded={expandedId === sub.id}
+                          onToggle={() => setExpandedId(expandedId === sub.id ? null : sub.id)} jwtToken={jwtToken} onRefresh={onRefresh} />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
                 {activeSubmissions.length > 0 && (
                   <section>
                     <div className="flex items-center gap-2 mb-3">
@@ -1003,6 +1032,7 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
                   <section>
                     <div className="flex items-center gap-2 mb-3">
                       <h2 className="text-base font-black" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>Completed</h2>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'rgba(16, 185, 129, 0.06)', color: '#059669' }}>{completedSubmissions.length}</span>
                     </div>
                     <div className="space-y-3">
                       {completedSubmissions.map(sub => (
@@ -1328,23 +1358,35 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
   const isShipped = submission.shipped;
   const isGradesReady = submission.grades_ready;
   const isProblem = submission.problem_order;
+  const isPickedUp = submission.picked_up;
+  const hasPickupCode = !!submission.pickup_code;
   const serviceColor = getServiceColor(submission.service_level);
 
   let statusText = submission.current_step || 'Processing';
   let statusColor = '#D97706';
-  if (isShipped) { statusText = 'Delivered'; statusColor = '#059669'; }
-  else if (isGradesReady) { statusText = 'Grades Ready!'; statusColor = '#2563EB'; }
-  else if (isProblem) { statusText = 'Needs Attention'; statusColor = '#DC2626'; }
+  let StatusIcon = Clock;
+  if (isPickedUp) { statusText = 'Picked Up'; statusColor = '#059669'; StatusIcon = CheckCircle2; }
+  else if (hasPickupCode && isGradesReady) { statusText = 'Ready for Pickup'; statusColor = '#7C3AED'; StatusIcon = Key; }
+  else if (isShipped) { statusText = 'Shipped'; statusColor = '#059669'; StatusIcon = Truck; }
+  else if (isGradesReady) { statusText = 'Grades Ready!'; statusColor = '#2563EB'; StatusIcon = Sparkles; }
+  else if (isProblem) { statusText = 'Needs Attention'; statusColor = '#DC2626'; StatusIcon = AlertTriangle; }
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{
-      background: 'rgba(255, 255, 255, 0.6)', backdropFilter: 'blur(40px) saturate(180%)',
-      border: isProblem ? '1.5px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(255, 255, 255, 0.5)',
+      background: isPickedUp ? 'rgba(16, 185, 129, 0.04)' : 'rgba(255, 255, 255, 0.6)',
+      backdropFilter: 'blur(40px) saturate(180%)',
+      border: isPickedUp ? '1.5px solid rgba(16, 185, 129, 0.2)' : isProblem ? '1.5px solid rgba(239, 68, 68, 0.2)' : hasPickupCode && !isPickedUp ? '1.5px solid rgba(124, 58, 237, 0.15)' : '1px solid rgba(255, 255, 255, 0.5)',
       boxShadow: '0 2px 20px rgba(0,0,0,0.03)',
     }}>
       <button onClick={onToggle} className="w-full text-left p-4 sm:p-5">
         <div className="flex items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2 min-w-0">
+            {isPickedUp && (
+              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
+                <CheckCircle2 className="w-4 h-4 text-white" />
+              </div>
+            )}
             <span className="text-base sm:text-lg font-black" style={{ color: 'rgb(var(--dark))' }}>
               #{submission.psa_submission_number || submission.internal_id || '\u2014'}
             </span>
@@ -1355,15 +1397,76 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
           </div>
           <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-bold shrink-0"
             style={{ background: `${statusColor}10`, color: statusColor }}>
+            <StatusIcon className="w-3 h-3" />
             {statusText}
           </div>
         </div>
-        {!isShipped && <ProgressPipeline currentStep={submission.current_step} shipped={false} />}
+
+        {/* Progress pipeline - always show, with picked_up state */}
+        <ProgressPipeline currentStep={submission.current_step} shipped={isShipped} pickedUp={isPickedUp} />
+
         <div className="flex items-center justify-between mt-3 text-xs" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
           <span className="font-semibold">{submission.card_count || submission.cards?.length || 0} cards</span>
+          {isPickedUp && submission.picked_up_at && (
+            <span className="font-semibold" style={{ color: '#059669' }}>
+              Picked up {new Date(submission.picked_up_at).toLocaleDateString()}
+            </span>
+          )}
           {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </div>
       </button>
+
+      {/* Pickup Code Banner - shown when ready for pickup */}
+      {hasPickupCode && !isPickedUp && (
+        <div className="mx-4 mb-3 rounded-2xl overflow-hidden" style={{
+          background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.06), rgba(99, 102, 241, 0.04))',
+          border: '1px solid rgba(124, 58, 237, 0.12)',
+        }}>
+          <div className="px-4 py-4 text-center">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Key className="w-4 h-4" style={{ color: '#7C3AED' }} />
+              <span className="text-xs font-bold" style={{ color: '#7C3AED' }}>YOUR PICKUP CODE</span>
+            </div>
+            <div className="py-3 px-6 rounded-xl mb-2 inline-block" style={{
+              background: 'rgba(255,255,255,0.8)',
+              border: '2px dashed rgba(124, 58, 237, 0.25)',
+            }}>
+              <span className="text-3xl sm:text-4xl font-black tracking-[6px]" style={{
+                color: '#7C3AED',
+                fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+              }}>
+                {submission.pickup_code}
+              </span>
+            </div>
+            <p className="text-[11px] font-semibold" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
+              Show this code when picking up your cards
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Picked Up Success Banner */}
+      {isPickedUp && (
+        <div className="mx-4 mb-3 rounded-2xl overflow-hidden" style={{
+          background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(5, 150, 105, 0.04))',
+          border: '1px solid rgba(16, 185, 129, 0.15)',
+        }}>
+          <div className="px-4 py-3 flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+              style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
+              <CheckCircle2 className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="text-sm font-bold" style={{ color: '#059669' }}>Order Complete</p>
+              <p className="text-[11px]" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
+                {submission.picked_up_at
+                  ? `Picked up on ${new Date(submission.picked_up_at).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`
+                  : 'Your cards have been picked up'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isExpanded && submission.cards?.length > 0 && (
         <div className="px-4 pb-4 space-y-2" style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}>
