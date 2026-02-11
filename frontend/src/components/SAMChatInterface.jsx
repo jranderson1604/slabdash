@@ -227,7 +227,8 @@ function ScanResultsCard({ scanResults }) {
   );
 }
 
-export default function SAMChatInterface({ isCustomerPortal = false, token = null }) {
+export default function SAMChatInterface({ isCustomerPortal = false, token = null, jwtToken = null }) {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
   const navigate = useNavigate();
   const [messages, setMessages] = useState([
     {
@@ -360,13 +361,23 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
         const formData = new FormData();
         formData.append('image', file);
 
-        const endpoint = isCustomerPortal
-          ? `/portal/sam/scan?token=${token}`
-          : '/sam/scan';
-
-        const response = await api.post(endpoint, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        let response;
+        if (isCustomerPortal && jwtToken) {
+          // Use fetch with JWT Bearer auth for customer portal
+          const res = await fetch(`${API_URL}/portal/sam/scan`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${jwtToken}` },
+            body: formData,
+          });
+          response = { data: await res.json() };
+        } else {
+          const endpoint = isCustomerPortal
+            ? `/portal/sam/scan?token=${token}`
+            : '/sam/scan';
+          response = await api.post(endpoint, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        }
 
         const analysisMessage = {
           role: 'assistant',
@@ -486,14 +497,24 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
     playAnimation('typing');
 
     try {
-      const endpoint = isCustomerPortal
-        ? `/portal/sam/chat?token=${token}`
-        : '/sam/chat';
-
-      const response = await api.post(endpoint, {
-        message: messageText,
-        history: messages.slice(-10)
-      });
+      let response;
+      if (isCustomerPortal && jwtToken) {
+        // Use fetch with JWT Bearer auth for customer portal
+        const res = await fetch(`${API_URL}/portal/sam/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+          body: JSON.stringify({ message: messageText, history: messages.slice(-10) }),
+        });
+        response = { data: await res.json() };
+      } else {
+        const endpoint = isCustomerPortal
+          ? `/portal/sam/chat?token=${token}`
+          : '/sam/chat';
+        response = await api.post(endpoint, {
+          message: messageText,
+          history: messages.slice(-10)
+        });
+      }
 
       // Log AI mode for debugging
       console.log('═══════════════════════════════════');
