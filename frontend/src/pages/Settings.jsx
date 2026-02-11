@@ -22,7 +22,14 @@ import {
   Play,
   Plus,
   Trash2,
+  QrCode,
+  Download,
+  Printer,
+  Copy,
+  Check,
 } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
+import { useRef } from 'react';
 import axios from 'axios';
 
 function SettingsSection({ icon: Icon, title, description, children }) {
@@ -170,6 +177,7 @@ export default function Settings() {
         primary_color: data.primary_color || '#ef4444',
         background_color: data.background_color || '#f5f5f5',
         sidebar_color: data.sidebar_color || '#ffffff',
+        logo_url: data.logo_url || data.company_logo_url || '',
         service_level_pricing: serviceLevelPricing,
         tax_percentage: data.tax_percentage || 0,
       });
@@ -1090,6 +1098,269 @@ export default function Settings() {
           </div>
         </div>
       </SettingsSection>
+
+      {/* Portal QR Code */}
+      {company?.slug && (
+        <PortalQRCode
+          slug={company.slug}
+          shopName={settings.name}
+          logoUrl={settings.logo_url}
+          primaryColor={settings.primary_color}
+        />
+      )}
     </div>
+  );
+}
+
+// ============================================
+// Portal QR Code — printable card with shop branding
+// ============================================
+function PortalQRCode({ slug, shopName, logoUrl, primaryColor }) {
+  const printRef = useRef(null);
+  const [copied, setCopied] = useState(false);
+
+  const portalUrl = `${window.location.origin}/portal?shop=${encodeURIComponent(slug)}`;
+
+  const handleCopyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(portalUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for older browsers
+      const input = document.createElement('input');
+      input.value = portalUrl;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handlePrint = () => {
+    const printContent = printRef.current;
+    if (!printContent) return;
+
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${shopName} - Portal QR Code</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          @page { size: 4in 6in; margin: 0; }
+          body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: white;
+          }
+          .card {
+            width: 3.5in;
+            padding: 0.4in 0.3in;
+            text-align: center;
+            border: 2px solid ${primaryColor || '#ef4444'};
+            border-radius: 16px;
+          }
+          .logo { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; margin: 0 auto 12px; }
+          .shop-name { font-size: 20px; font-weight: 700; margin-bottom: 4px; color: #111; }
+          .subtitle { font-size: 11px; color: #666; margin-bottom: 16px; letter-spacing: 0.5px; text-transform: uppercase; }
+          .qr-wrap { display: inline-block; padding: 12px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; margin-bottom: 16px; }
+          .scan-text { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 4px; }
+          .url-text { font-size: 10px; color: #999; word-break: break-all; }
+          .powered { font-size: 8px; color: #ccc; margin-top: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="card">
+          ${logoUrl ? `<img src="${logoUrl}" class="logo" alt="" />` : ''}
+          <div class="shop-name">${shopName || slug}</div>
+          <div class="subtitle">Customer Portal</div>
+          <div class="qr-wrap">
+            ${printContent.querySelector('.qr-container').innerHTML}
+          </div>
+          <div class="scan-text">Scan to check your order status</div>
+          <div class="url-text">${portalUrl}</div>
+          <div class="powered">Powered by SlabDash</div>
+        </div>
+      </body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.onload = () => {
+      printWindow.print();
+    };
+  };
+
+  const handleDownload = () => {
+    const svgEl = printRef.current?.querySelector('.qr-container svg');
+    if (!svgEl) return;
+
+    // Create a canvas with the full card design
+    const canvas = document.createElement('canvas');
+    const scale = 3; // 3x for high-res
+    const w = 400;
+    const h = 550;
+    canvas.width = w * scale;
+    canvas.height = h * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(scale, scale);
+
+    // Background
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(0, 0, w, h, 16);
+    ctx.fill();
+
+    // Border
+    ctx.strokeStyle = primaryColor || '#ef4444';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.roundRect(1.5, 1.5, w - 3, h - 3, 16);
+    ctx.stroke();
+
+    // Shop name
+    ctx.fillStyle = '#111111';
+    ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(shopName || slug, w / 2, 50);
+
+    // Subtitle
+    ctx.fillStyle = '#666666';
+    ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+    ctx.fillText('CUSTOMER PORTAL', w / 2, 70);
+
+    // QR code
+    const svgData = new XMLSerializer().serializeToString(svgEl);
+    const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+    img.onload = () => {
+      const qrSize = 220;
+      const qrX = (w - qrSize) / 2;
+      const qrY = 90;
+
+      // QR background
+      ctx.fillStyle = '#f9fafb';
+      ctx.beginPath();
+      ctx.roundRect(qrX - 16, qrY - 12, qrSize + 32, qrSize + 24, 12);
+      ctx.fill();
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
+      URL.revokeObjectURL(url);
+
+      // "Scan" text
+      ctx.fillStyle = '#333333';
+      ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('Scan to check your order status', w / 2, qrY + qrSize + 50);
+
+      // URL
+      ctx.fillStyle = '#999999';
+      ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(portalUrl, w / 2, qrY + qrSize + 72);
+
+      // Powered by
+      ctx.fillStyle = '#cccccc';
+      ctx.font = '9px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('Powered by SlabDash', w / 2, h - 20);
+
+      // Download
+      const link = document.createElement('a');
+      link.download = `${slug}-portal-qr.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+    img.src = url;
+  };
+
+  return (
+    <SettingsSection
+      icon={QrCode}
+      title="Portal QR Code"
+      description="Print or share this QR code so customers can access their portal"
+    >
+      <div className="flex flex-col lg:flex-row gap-6">
+        {/* Preview card */}
+        <div ref={printRef} className="flex-shrink-0">
+          <div
+            className="w-[280px] mx-auto lg:mx-0 rounded-2xl border-2 p-6 text-center bg-white"
+            style={{ borderColor: primaryColor || '#ef4444' }}
+          >
+            {logoUrl && (
+              <img src={logoUrl} alt="" className="w-16 h-16 rounded-xl object-cover mx-auto mb-3" />
+            )}
+            <h3 className="text-lg font-bold text-gray-900">{shopName || slug}</h3>
+            <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-4">Customer Portal</p>
+            <div className="qr-container inline-block p-3 bg-gray-50 rounded-xl border border-gray-200">
+              <QRCodeSVG
+                value={portalUrl}
+                size={180}
+                level="H"
+                includeMargin={false}
+                fgColor="#111111"
+                bgColor="transparent"
+              />
+            </div>
+            <p className="text-sm font-semibold text-gray-700 mt-4">Scan to check your order status</p>
+            <p className="text-[9px] text-gray-400 mt-1 break-all">{portalUrl}</p>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex-1 space-y-4">
+          <div>
+            <label className="label">Portal Link</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={portalUrl}
+                className="input flex-1 text-sm bg-gray-50"
+                onClick={(e) => e.target.select()}
+              />
+              <button
+                onClick={handleCopyLink}
+                className="btn btn-secondary gap-2 whitespace-nowrap"
+              >
+                {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
+                {copied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Share this link or the QR code with your customers. It takes them directly to your shop's login page.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3 pt-2">
+            <button onClick={handlePrint} className="btn btn-primary gap-2">
+              <Printer className="w-4 h-4" />
+              Print Card
+            </button>
+            <button onClick={handleDownload} className="btn btn-secondary gap-2">
+              <Download className="w-4 h-4" />
+              Download PNG
+            </button>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+            <p className="font-medium mb-1">Tips for printing</p>
+            <ul className="list-disc list-inside text-xs space-y-1 text-amber-700">
+              <li>Print on cardstock for a counter display card</li>
+              <li>Works great as a 4x6 card or sticker</li>
+              <li>Add your logo in Shop Information above to include it on the card</li>
+              <li>Customers scan the code, enter their email and password, and see their orders</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </SettingsSection>
   );
 }

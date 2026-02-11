@@ -20,7 +20,7 @@ const SHOP_KEY = 'slabdash_portal_shop';
 // ============================================
 // LOGIN PAGE — university-style shop picker + email/password
 // ============================================
-function PortalLogin({ onLoginSuccess, initialError }) {
+function PortalLogin({ onLoginSuccess, initialError, initialShop }) {
   const [step, setStep] = useState('shop'); // 'shop' | 'login' | 'forgot' | 'reset'
   const [shopCode, setShopCode] = useState('');
   const [shop, setShop] = useState(null);
@@ -31,8 +31,14 @@ function PortalLogin({ onLoginSuccess, initialError }) {
   const [error, setError] = useState(initialError || '');
   const [success, setSuccess] = useState('');
 
-  // Try to restore saved shop
+  // Use initialShop from QR code link, or restore from localStorage
   useEffect(() => {
+    if (initialShop) {
+      setShop(initialShop);
+      setShopCode(initialShop.slug);
+      setStep('login');
+      return;
+    }
     const saved = localStorage.getItem(SHOP_KEY);
     if (saved) {
       try {
@@ -42,7 +48,7 @@ function PortalLogin({ onLoginSuccess, initialError }) {
         setStep('login');
       } catch {}
     }
-  }, []);
+  }, [initialShop]);
 
   const lookupShop = async (e) => {
     e.preventDefault();
@@ -424,10 +430,12 @@ function PasswordSetupBanner({ token, onComplete }) {
 export default function Portal() {
   const [searchParams] = useSearchParams();
   const magicToken = searchParams.get('token');
+  const shopSlug = searchParams.get('shop');
 
   const [mode, setMode] = useState('loading'); // 'loading' | 'login' | 'portal-token' | 'portal-jwt'
   const [jwtToken, setJwtToken] = useState(null);
   const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false);
+  const [initialShop, setInitialShop] = useState(null);
 
   useEffect(() => {
     // Priority: magic link token > saved JWT > login page
@@ -437,10 +445,8 @@ export default function Portal() {
         .then(res => {
           if (res.ok) {
             setMode('portal-token');
-            // Check if customer has a password set (we can infer from trying to see if they have one)
-            setNeedsPasswordSetup(true); // Always show setup option for magic link users
+            setNeedsPasswordSetup(true);
           } else {
-            // Invalid token — try saved JWT
             checkJwt();
           }
         })
@@ -449,6 +455,21 @@ export default function Portal() {
       checkJwt();
     }
   }, [magicToken]);
+
+  // Auto-lookup shop from ?shop= query param (for QR code links)
+  useEffect(() => {
+    if (shopSlug && !magicToken) {
+      fetch(`${API_URL}/portal/auth/shop-lookup/${encodeURIComponent(shopSlug.toLowerCase())}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data) {
+            setInitialShop(data);
+            localStorage.setItem(SHOP_KEY, JSON.stringify(data));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [shopSlug]);
 
   const checkJwt = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -497,7 +518,7 @@ export default function Portal() {
 
   // Login page
   if (mode === 'login') {
-    return <PortalLogin onLoginSuccess={handleLoginSuccess} />;
+    return <PortalLogin onLoginSuccess={handleLoginSuccess} initialShop={initialShop} />;
   }
 
   // Portal via magic link token
@@ -528,7 +549,7 @@ export default function Portal() {
     );
   }
 
-  return <PortalLogin onLoginSuccess={handleLoginSuccess} />;
+  return <PortalLogin onLoginSuccess={handleLoginSuccess} initialShop={initialShop} />;
 }
 
 // Wrapper that adds password setup banner and logout to CustomerPortal
