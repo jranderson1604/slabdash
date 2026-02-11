@@ -254,6 +254,9 @@ async function startServer() {
       `);
       console.log("✓ Migration: Company stripe/sam/shop_code columns ensured");
 
+      // Auto-enable SAM for all companies (it's a core feature)
+      await db.query(`UPDATE companies SET sam_enabled = TRUE WHERE sam_enabled IS NOT TRUE`);
+
       // Generate 4-digit shop codes for companies that don't have one
       const companiesWithoutCode = await db.query(
         `SELECT id FROM companies WHERE shop_code IS NULL`
@@ -275,6 +278,30 @@ async function startServer() {
       if (companiesWithoutCode.rows.length > 0) {
         console.log(`✓ Migration: Generated shop codes for ${companiesWithoutCode.rows.length} companies`);
       }
+
+      // SAM token system: add token balance to customers and usage tracking table
+      await db.query(`
+        ALTER TABLE customers
+        ADD COLUMN IF NOT EXISTS sam_token_balance INTEGER DEFAULT 0;
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS sam_usage (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+          company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+          usage_date DATE NOT NULL DEFAULT CURRENT_DATE,
+          message_count INTEGER DEFAULT 0,
+          scan_count INTEGER DEFAULT 0,
+          tokens_used INTEGER DEFAULT 0,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          UNIQUE(customer_id, usage_date)
+        );
+      `);
+      await db.query(`
+        CREATE INDEX IF NOT EXISTS idx_sam_usage_customer_date ON sam_usage(customer_id, usage_date);
+      `);
+      console.log("✓ Migration: SAM token system columns ensured");
 
     } catch (migrationError) {
       // Don't fail startup if migration has issues, just log it

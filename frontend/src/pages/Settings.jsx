@@ -27,6 +27,7 @@ import {
   Printer,
   Copy,
   Check,
+  Bot,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useRef } from 'react';
@@ -596,6 +597,40 @@ export default function Settings() {
             <button onClick={() => handleSave('pricing')} disabled={saving} className="btn btn-primary gap-2">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save Pricing & Tax Settings
+            </button>
+          </div>
+        </div>
+      </SettingsSection>
+
+      {/* SAM AI Assistant */}
+      <SettingsSection
+        icon={Bot}
+        title="SAM AI Assistant"
+        description="Enable or disable SAM AI for your customer portal"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium text-gray-900">Enable SAM in Customer Portal</p>
+              <p className="text-sm text-gray-500">When enabled, customers can chat with SAM AI to ask questions about their submissions, cards, and grading status.</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={settings.sam_enabled ?? true}
+                onChange={(e) =>
+                  setSettings({ ...settings, sam_enabled: e.target.checked })
+                }
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600"></div>
+            </label>
+          </div>
+
+          <div className="pt-4">
+            <button onClick={() => handleSave('sam')} disabled={saving} className="btn btn-primary gap-2">
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Save SAM Settings
             </button>
           </div>
         </div>
