@@ -305,7 +305,7 @@ async function runCompanyRefresh(company, psaApiKey) {
     let errorCount = 0;
     const changeLog = [];
 
-    // Refresh each submission
+    // Refresh each submission using the shared updateSubmissionFromPsa
     for (const submission of submissions) {
       if (!submission.psa_submission_number && !submission.psa_order_number) {
         console.log(`Skipping submission ${submission.id} - no PSA number`);
@@ -318,68 +318,24 @@ async function runCompanyRefresh(company, psaApiKey) {
         // Get submission progress from PSA
         const progress = await psaService.getSubmissionProgress(psaApiKey, orderNumber);
 
-        if (!progress || !progress.data) {
+        if (!progress || !progress.success || !progress.data) {
           errorCount++;
           changeLog.push({
             submissionNumber: orderNumber,
             hadChanges: false,
-            error: 'Failed to fetch progress from PSA'
+            error: progress?.error || 'Failed to fetch progress from PSA'
           });
           continue;
         }
 
-        const data = progress.data;
+        // Use the unified updateSubmissionFromPsa (handles steps, milestones, cert auto-fetch, emails)
+        const { parsed, changes } = await psaService.updateSubmissionFromPsa(submission.id, progress.data);
 
-        // Parse the data
-        const parsed = {
-          currentStep: data.CurrentStep || '',
-          progressPercent: data.ProgressPercent || 0,
-          gradesReady: data.GradesComplete === true || data.ProgressPercent === 100,
-          shipped: submission.shipped // Keep existing shipped status unless PSA says otherwise
-        };
-
-        // Check for changes
-        const prevResult = await db.query(
-          'SELECT current_step, progress_percent, grades_ready, shipped FROM submissions WHERE id = $1',
-          [submission.id]
-        );
-        const prev = prevResult.rows[0];
-
-        const changes = {
-          submissionNumber: orderNumber,
-          hadChanges: false,
-          stepChanged: prev.current_step !== parsed.currentStep,
-          progressChanged: prev.progress_percent !== parsed.progressPercent,
-          gradesReady: parsed.gradesReady && !prev.grades_ready,
-          shipped: parsed.shipped && !prev.shipped,
-          previousStep: prev.current_step,
-          newStep: parsed.currentStep,
-          previousProgress: prev.progress_percent,
-          newProgress: parsed.progressPercent,
-          progressDelta: parsed.progressPercent - prev.progress_percent
-        };
-
-        changes.hadChanges = changes.stepChanged || changes.progressChanged || changes.gradesReady || changes.shipped;
-
-        if (changes.hadChanges) {
-          // Update submission in database
-          await db.query(
-            `UPDATE submissions
-             SET current_step = $1,
-                 progress_percent = $2,
-                 grades_ready = $3,
-                 updated_at = NOW()
-             WHERE id = $4`,
-            [parsed.currentStep, parsed.progressPercent, parsed.gradesReady, submission.id]
-          );
-
-          updatedCount++;
-        }
-
+        if (changes.hadChanges) updatedCount++;
         changeLog.push(changes);
 
-        // Rate limiting
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // Rate limiting between PSA API calls
+        await new Promise(resolve => setTimeout(resolve, 300));
 
       } catch (error) {
         console.error(`Error refreshing submission ${submission.id}:`, error);

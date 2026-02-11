@@ -228,6 +228,19 @@ async function startServer() {
         console.log("✓ Migration: No corrupted shipped statuses found");
       }
 
+      // Customer auth columns for self-service login
+      await db.query(`
+        ALTER TABLE customers
+        ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP WITH TIME ZONE,
+        ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZONE,
+        ADD COLUMN IF NOT EXISTS password_reset_token VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMP WITH TIME ZONE,
+        ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS email_verification_token VARCHAR(255);
+      `);
+      console.log("✓ Migration: Customer auth columns ensured");
+
     } catch (migrationError) {
       // Don't fail startup if migration has issues, just log it
       console.warn("⚠ Migration warning:", migrationError.message);

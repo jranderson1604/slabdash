@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Sparkles, TrendingUp, TrendingDown, Calculator, HelpCircle, Lightbulb, ThumbsUp, Brain, Camera, Upload, X, DollarSign, BarChart3, ArrowUpRight, ArrowDownRight, Minus, Tag, Layers } from 'lucide-react';
+import { Send, Loader2, Sparkles, TrendingUp, TrendingDown, Calculator, HelpCircle, Lightbulb, ThumbsUp, Brain, Camera, Upload, X, DollarSign, BarChart3, ArrowUpRight, ArrowDownRight, Minus, Tag, Layers, ImagePlus, Paperclip } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 
@@ -145,6 +145,21 @@ function ScanResultsCard({ scanResults }) {
                 <span className="text-[10px] text-[#E8DCC0]/35">{cardInfo.year}</span>
               )}
             </div>
+            {/* Parallel / variant badge */}
+            {cardInfo?.parallel && cardInfo.parallel.toLowerCase() !== 'base' && (
+              <div className="mt-1">
+                <span className="inline-block text-[9px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: 'rgba(255, 129, 112, 0.15)', color: '#FF8170', border: '1px solid rgba(255, 129, 112, 0.2)' }}>
+                  {cardInfo.parallel}{cardInfo.serial ? ` ${cardInfo.serial}` : ''}
+                </span>
+                {cardInfo?.attributes && cardInfo.attributes.includes('RC') && (
+                  <span className="inline-block text-[9px] font-bold px-2 py-0.5 rounded-full ml-1"
+                    style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                    RC
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -230,9 +245,11 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
   const [idleAnimationIndex, setIdleAnimationIndex] = useState(1);
   const [uploadedImage, setUploadedImage] = useState(null);
   const [scanning, setScanning] = useState(false);
+  const [pendingImage, setPendingImage] = useState(null); // { file, preview }
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const chatFileInputRef = useRef(null);
   const animationTimeoutRef = useRef(null);
   const idleIntervalRef = useRef(null);
 
@@ -320,14 +337,11 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
     };
   }, []);
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // Core scan function — sends an image file to SAM for analysis
+  const scanImage = async (file, messageText) => {
     setScanning(true);
     playAnimation('thinking');
 
-    // Create preview
     const reader = new FileReader();
     reader.onload = async (event) => {
       const imageUrl = event.target.result;
@@ -336,14 +350,13 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
       // Add user message with image
       const userMessage = {
         role: 'user',
-        content: '📸 [Uploaded card image for analysis]',
+        content: messageText || '📸 Scan this card',
         timestamp: new Date(),
         image: imageUrl
       };
       setMessages(prev => [...prev, userMessage]);
 
       try {
-        // Send image to SAM for analysis
         const formData = new FormData();
         formData.append('image', file);
 
@@ -377,6 +390,7 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
       } finally {
         setScanning(false);
         setUploadedImage(null);
+        setPendingImage(null);
         startIdleCycle();
       }
     };
@@ -384,7 +398,71 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
     reader.readAsDataURL(file);
   };
 
+  // Handle file input from scan button (header)
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = ''; // Reset so same file can be re-selected
+    await scanImage(file);
+  };
+
+  // Handle file input from chat attachment button
+  const handleChatImageAttach = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setPendingImage({ file, preview: event.target.result });
+    };
+    reader.readAsDataURL(file);
+    inputRef.current?.focus();
+  };
+
+  // Handle paste events (Ctrl+V image)
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            setPendingImage({ file, preview: event.target.result });
+          };
+          reader.readAsDataURL(file);
+        }
+        return;
+      }
+    }
+  };
+
+  // Handle drop events (drag and drop image)
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setPendingImage({ file, preview: event.target.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSend = async () => {
+    // If there's a pending image, send it as a scan
+    if (pendingImage) {
+      const text = input.trim() || '📸 Scan this card';
+      setInput('');
+      await scanImage(pendingImage.file, text);
+      return;
+    }
+
     if (!input.trim() || isLoading) return;
 
     const userMessage = {
@@ -630,18 +708,51 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
       )}
 
       {/* Input Area - Modern Glass Design */}
-      <div className="border-t border-[#FF8170]/20 bg-[#2C2416]/95 backdrop-blur-xl shadow-2xl sticky bottom-0">
+      <div className="border-t border-[#FF8170]/20 bg-[#2C2416]/95 backdrop-blur-xl shadow-2xl sticky bottom-0"
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleDrop}
+      >
         <div className="max-w-5xl mx-auto px-4 lg:px-6 py-4 lg:py-6">
+          {/* Pending image preview */}
+          {pendingImage && (
+            <div className="mb-3 flex items-center gap-3 px-2">
+              <div className="relative group">
+                <img
+                  src={pendingImage.preview}
+                  alt="Attached card"
+                  className="w-16 h-16 rounded-xl object-cover border-2 border-[#FF8170]/40 shadow-lg"
+                />
+                <button
+                  onClick={() => setPendingImage(null)}
+                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+              <p className="text-xs text-[#E8DCC0]/50 font-medium">
+                Card image attached — hit send to scan
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-3 items-end">
-            {/* Upload Button - Mobile */}
+            {/* Attach Image Button */}
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => chatFileInputRef.current?.click()}
               disabled={isLoading || scanning}
-              className="lg:hidden flex-shrink-0 p-4 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] hover:from-[#FF9580] hover:to-[#FF8170] text-[#FFF8F0] rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-2xl hover:shadow-[#FF8170]/50 border border-[#FFF8F0]/20"
-              aria-label="Upload card image"
+              className="flex-shrink-0 p-4 bg-gradient-to-br from-[#3D3020] to-[#2C2416] hover:from-[#FF8170] hover:to-[#FF6B5A] text-[#8B7355] hover:text-[#FFF8F0] rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg border border-[#FFF8F0]/10 hover:border-[#FF8170]/30"
+              aria-label="Attach card image"
             >
-              <Camera className="w-6 h-6" />
+              <ImagePlus className="w-6 h-6" />
             </button>
+            <input
+              ref={chatFileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleChatImageAttach}
+              className="hidden"
+            />
 
             <div className="flex-1 relative">
               <textarea
@@ -654,7 +765,8 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
                     handleSend();
                   }
                 }}
-                placeholder="Ask SAM anything about PSA grading..."
+                onPaste={handlePaste}
+                placeholder={pendingImage ? "Add a note (optional) then hit send..." : "Ask SAM anything about PSA grading..."}
                 className="w-full px-6 py-4 bg-gradient-to-br from-[#3D3020] to-[#2C2416] border-2 border-[#FFF8F0]/10 focus:border-[#FF8170]/50 rounded-3xl focus:ring-4 focus:ring-[#FF8170]/20 text-[#FFF8F0] placeholder-[#8B7355] font-medium resize-none touch-manipulation shadow-2xl backdrop-blur-xl transition-all"
                 disabled={isLoading || scanning}
                 rows={1}
@@ -672,7 +784,7 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
 
             <button
               onClick={handleSend}
-              disabled={!input.trim() || isLoading || scanning}
+              disabled={(!input.trim() && !pendingImage) || isLoading || scanning}
               className="flex-shrink-0 p-4 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] hover:from-[#FF9580] hover:to-[#FF8170] text-[#FFF8F0] rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-2xl hover:shadow-[#FF8170]/50 border border-[#FFF8F0]/20 hover:scale-105"
               aria-label="Send message"
             >

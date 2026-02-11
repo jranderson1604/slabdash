@@ -1,5 +1,4 @@
 const axios = require('axios');
-const cheerio = require('cheerio');
 const db = require('../db');
 
 const PSA_API_BASE = process.env.PSA_API_BASE || 'https://api.psacard.com/publicapi';
@@ -15,11 +14,22 @@ const STEP_NAMES = {
     'Shipped': 'Shipped'
 };
 
+// Step order for progress tracking
+const STEP_ORDER = ['Arrived', 'Order Prep', 'Research & ID', 'Grading', 'Assembly', 'QA Check 1', 'QA Check 2', 'Shipped'];
+
 const createPsaClient = (apiKey) => axios.create({
     baseURL: PSA_API_BASE,
-    headers: { 'Authorization': `Bearer ${apiKey}`, 'Accept': 'application/json' },
+    headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Accept': 'application/json',
+        'User-Agent': 'SlabDash/2.0'
+    },
     timeout: 30000
 });
+
+// ============================================
+// CORE API FUNCTIONS
+// ============================================
 
 const getSubmissionProgress = async (apiKey, submissionNumber) => {
     try {
@@ -29,20 +39,17 @@ const getSubmissionProgress = async (apiKey, submissionNumber) => {
         const status = error.response?.status;
         const message = error.response?.data?.message || error.message;
 
-        // Handle specific error codes gracefully
         if (status === 404) {
             return { success: false, error: 'Submission not found', status: 404 };
         }
         if (status === 500) {
-            console.log(`PSA API returned 500 for submission ${submissionNumber} - this is a PSA API issue, will skip`);
+            console.log(`PSA API returned 500 for submission ${submissionNumber} - PSA API issue, skipping`);
             return { success: false, error: 'PSA API server error (500)', status: 500 };
         }
         if (status === 429) {
-            // Let rate limit errors bubble up for retry logic
             throw error;
         }
 
-        // Log other errors and return gracefully
         console.error(`PSA API error for submission ${submissionNumber}:`, message);
         return { success: false, error: message || 'Unknown PSA API error', status: status || 0 };
     }
@@ -55,213 +62,377 @@ const getCertificate = async (apiKey, certNumber) => {
         if (data.ServerMessage === 'No data found') return { success: false, error: 'Certificate not found' };
         return { success: true, data: data.PSACert || data };
     } catch (error) {
-        throw error;
+        if (error.response?.status === 404) {
+            return { success: false, error: 'Certificate not found' };
+        }
+        console.error(`PSA cert lookup error for ${certNumber}:`, error.message);
+        return { success: false, error: error.message };
     }
 };
 
-// Try multiple PSA API endpoints to find card data
-const tryGetOrderDetails = async (apiKey, orderNumber, submissionNumber) => {
-    const client = createPsaClient(apiKey);
-    const results = { attempted: [], successful: null, allResponses: {} };
-
-    // Endpoint 1: Try GetOrder with order number
+const getCertImages = async (apiKey, certNumber) => {
     try {
-        console.log(`Trying GetOrder with orderNumber: ${orderNumber}`);
-        const response = await client.get(`/order/GetOrder/${orderNumber}`);
-        results.attempted.push({ endpoint: `/order/GetOrder/${orderNumber}`, status: 'success' });
-        results.allResponses.GetOrder = response.data;
-        console.log('GetOrder response:', JSON.stringify(response.data, null, 2));
-        if (response.data && Object.keys(response.data).length > 0) {
-            results.successful = { endpoint: 'GetOrder', data: response.data };
+        const response = await createPsaClient(apiKey).get(`/cert/GetImagesByCertNumber/${certNumber}`);
+        const data = response.data;
+        if (!data || data.ServerMessage === 'No data found') {
+            return { success: false, error: 'No images found' };
         }
-    } catch (error) {
-        results.attempted.push({ endpoint: `/order/GetOrder/${orderNumber}`, status: 'failed', error: error.message });
-        console.log(`GetOrder failed: ${error.message}`);
-    }
-
-    // Endpoint 2: Try GetSubmission with submission number
-    try {
-        console.log(`Trying GetSubmission with submissionNumber: ${submissionNumber}`);
-        const response = await client.get(`/order/GetSubmission/${submissionNumber}`);
-        results.attempted.push({ endpoint: `/order/GetSubmission/${submissionNumber}`, status: 'success' });
-        results.allResponses.GetSubmission = response.data;
-        console.log('GetSubmission response:', JSON.stringify(response.data, null, 2));
-        if (!results.successful && response.data && Object.keys(response.data).length > 0) {
-            results.successful = { endpoint: 'GetSubmission', data: response.data };
+        const images = [];
+        if (data.FrontImageURL) images.push(data.FrontImageURL);
+        if (data.BackImageURL) images.push(data.BackImageURL);
+        if (data.Images && Array.isArray(data.Images)) {
+            for (const img of data.Images) {
+                const url = typeof img === 'string' ? img : img.ImageURL || img.imageUrl;
+                if (url && !images.includes(url)) images.push(url);
+            }
         }
+        return { success: true, images, raw: data };
     } catch (error) {
-        results.attempted.push({ endpoint: `/order/GetSubmission/${submissionNumber}`, status: 'failed', error: error.message });
-        console.log(`GetSubmission failed: ${error.message}`);
+        return { success: false, error: error.message, images: [] };
     }
-
-    // Endpoint 3: Try GetOrderDetails
-    try {
-        console.log(`Trying GetOrderDetails with orderNumber: ${orderNumber}`);
-        const response = await client.get(`/order/GetOrderDetails/${orderNumber}`);
-        results.attempted.push({ endpoint: `/order/GetOrderDetails/${orderNumber}`, status: 'success' });
-        results.allResponses.GetOrderDetails = response.data;
-        console.log('GetOrderDetails response:', JSON.stringify(response.data, null, 2));
-        if (!results.successful && response.data && Object.keys(response.data).length > 0) {
-            results.successful = { endpoint: 'GetOrderDetails', data: response.data };
-        }
-    } catch (error) {
-        results.attempted.push({ endpoint: `/order/GetOrderDetails/${orderNumber}`, status: 'failed', error: error.message });
-        console.log(`GetOrderDetails failed: ${error.message}`);
-    }
-
-    // Endpoint 4: Try GetSubmissionDetails
-    try {
-        console.log(`Trying GetSubmissionDetails with submissionNumber: ${submissionNumber}`);
-        const response = await client.get(`/order/GetSubmissionDetails/${submissionNumber}`);
-        results.attempted.push({ endpoint: `/order/GetSubmissionDetails/${submissionNumber}`, status: 'success' });
-        results.allResponses.GetSubmissionDetails = response.data;
-        console.log('GetSubmissionDetails response:', JSON.stringify(response.data, null, 2));
-        if (!results.successful && response.data && Object.keys(response.data).length > 0) {
-            results.successful = { endpoint: 'GetSubmissionDetails', data: response.data };
-        }
-    } catch (error) {
-        results.attempted.push({ endpoint: `/order/GetSubmissionDetails/${submissionNumber}`, status: 'failed', error: error.message });
-        console.log(`GetSubmissionDetails failed: ${error.message}`);
-    }
-
-    // Endpoint 5: Try submissions (plural) endpoint
-    try {
-        console.log(`Trying /submissions/${submissionNumber}`);
-        const response = await client.get(`/submissions/${submissionNumber}`);
-        results.attempted.push({ endpoint: `/submissions/${submissionNumber}`, status: 'success' });
-        results.allResponses.submissions = response.data;
-        console.log('submissions response:', JSON.stringify(response.data, null, 2));
-        if (!results.successful && response.data && Object.keys(response.data).length > 0) {
-            results.successful = { endpoint: 'submissions', data: response.data };
-        }
-    } catch (error) {
-        results.attempted.push({ endpoint: `/submissions/${submissionNumber}`, status: 'failed', error: error.message });
-        console.log(`submissions endpoint failed: ${error.message}`);
-    }
-
-    console.log('\n=== ENDPOINT EXPLORATION SUMMARY ===');
-    console.log('Attempted endpoints:', results.attempted.length);
-    console.log('Successful endpoint:', results.successful?.endpoint || 'NONE');
-    console.log('All attempts:', JSON.stringify(results.attempted, null, 2));
-
-    return results;
 };
 
+const getCertWithImages = async (apiKey, certNumber) => {
+    const [certResult, imagesResult] = await Promise.all([
+        getCertificate(apiKey, certNumber),
+        getCertImages(apiKey, certNumber).catch(() => ({ success: false, images: [] }))
+    ]);
+
+    if (!certResult.success) return certResult;
+
+    return {
+        success: true,
+        data: {
+            ...certResult.data,
+            images: imagesResult.images || [],
+            frontImage: imagesResult.raw?.FrontImageURL || null,
+            backImage: imagesResult.raw?.BackImageURL || null
+        }
+    };
+};
+
+// ============================================
+// DATA PARSING
+// ============================================
+
+/**
+ * Parse PSA progress data into a clean, normalized structure.
+ * Extracts ALL available fields from the API response.
+ */
 const parseProgressData = (data) => {
     const steps = data.orderProgressSteps || [];
     let completedCount = 0;
     let currentStep = 'Unknown';
-    
+    let lastCompletedStep = null;
+
     for (let i = 0; i < steps.length; i++) {
-        if (steps[i].completed) completedCount++;
-        else if (currentStep === 'Unknown') {
+        if (steps[i].completed) {
+            completedCount++;
+            lastCompletedStep = STEP_NAMES[steps[i].step] || steps[i].step;
+        } else if (currentStep === 'Unknown') {
             currentStep = STEP_NAMES[steps[i].step] || steps[i].step;
         }
     }
-    
+
     if (completedCount === steps.length && steps.length > 0) currentStep = 'Shipped';
 
+    const progressPercent = steps.length > 0 ? Math.round((completedCount / steps.length) * 100) : 0;
+
     return {
-        orderNumber: data.orderNumber,
+        orderNumber: data.orderNumber || data.OrderNumber || null,
         currentStep,
-        progressPercent: steps.length > 0 ? Math.round((completedCount / steps.length) * 100) : 0,
-        gradesReady: data.gradesReady || false,
-        shipped: data.shipped || false,
-        problemOrder: data.problemOrder || false,
-        accountingHold: data.accountingHold || false,
-        steps: steps.map(s => ({ index: s.index, name: STEP_NAMES[s.step] || s.step, completed: s.completed }))
+        lastCompletedStep,
+        progressPercent,
+        completedSteps: completedCount,
+        totalSteps: steps.length,
+        gradesReady: data.gradesReady || data.GradesComplete || data.GradesReady || false,
+        shipped: data.shipped || data.Shipped || (currentStep === 'Shipped') || false,
+        problemOrder: data.problemOrder || data.ProblemOrder || false,
+        accountingHold: data.accountingHold || data.AccountingHold || false,
+        // Extract any extra fields PSA might include
+        serviceLevel: data.serviceLevel || data.ServiceLevel || null,
+        estimatedCompletionDate: data.estimatedCompletionDate || data.EstimatedCompletionDate || null,
+        cardCount: data.cardCount || data.CardCount || data.numberOfCards || null,
+        steps: steps.map(s => ({
+            index: s.index,
+            name: STEP_NAMES[s.step] || s.step,
+            rawStep: s.step,
+            completed: s.completed,
+            completedDate: s.completedDate || s.CompletedDate || null
+        }))
     };
 };
 
+/**
+ * Extract rich data from a PSA certificate response.
+ * Normalizes all the different field name formats PSA uses.
+ */
+const parseCertData = (cert) => {
+    return {
+        certNumber: cert.CertNumber || cert.certNumber || null,
+        grade: cert.CardGrade || cert.Grade || cert.grade || null,
+        gradeDescription: cert.GradeDescription || cert.gradeDescription || null,
+        year: cert.Year || cert.year || null,
+        brand: cert.Brand || cert.brand || null,
+        cardNumber: cert.CardNumber || cert.cardNumber || null,
+        playerName: cert.Subject || cert.PlayerName || cert.subject || null,
+        category: cert.Category || cert.category || null,
+        variety: cert.Variety || cert.variety || null,
+        labelType: cert.LabelType || cert.labelType || null,
+        reversal: cert.Reversal || cert.reversal || null,
+        specId: cert.SpecID || cert.specId || null,
+        specNumber: cert.SpecNumber || cert.specNumber || null,
+        cardDescription: cert.CardDescription || cert.cardDescription || null,
+        totalPopulation: cert.TotalPopulation || cert.totalPopulation || null,
+        populationHigher: cert.PopulationHigher || cert.populationHigher || null,
+        isCrossover: cert.IsCrossover || cert.isCrossover || false,
+        isDualGrade: cert.IsDualGrade || cert.isDualGrade || false,
+    };
+};
+
+// ============================================
+// DATABASE UPDATE FUNCTIONS
+// ============================================
+
+/**
+ * Update a submission from PSA API data.
+ * Detects changes, updates milestone dates, sends notifications.
+ */
 const updateSubmissionFromPsa = async (submissionId, psaData) => {
     const parsed = parseProgressData(psaData);
 
     // Get current state before update to detect changes
     const currentResult = await db.query(
-        'SELECT psa_submission_number, current_step, progress_percent, grades_ready, shipped, problem_order FROM submissions WHERE id = $1',
+        `SELECT psa_submission_number, current_step, progress_percent, grades_ready, shipped,
+                problem_order, date_received, date_graded, date_shipped, service_level
+         FROM submissions WHERE id = $1`,
         [submissionId]
     );
-    const previousState = currentResult.rows[0];
+    const prev = currentResult.rows[0];
 
-    await db.query(`
-        UPDATE submissions SET
-            psa_order_number = $1, current_step = $2, progress_percent = $3,
-            grades_ready = $4, shipped = $5, problem_order = $6, accounting_hold = $7,
-            psa_api_response = $8, last_api_update = NOW()
-        WHERE id = $9
-    `, [parsed.orderNumber, parsed.currentStep, parsed.progressPercent, parsed.gradesReady,
-        parsed.shipped, parsed.problemOrder, parsed.accountingHold, JSON.stringify(psaData), submissionId]);
+    // Build update query with milestone dates
+    const updateFields = {
+        psa_order_number: parsed.orderNumber,
+        current_step: parsed.currentStep,
+        progress_percent: parsed.progressPercent,
+        grades_ready: parsed.gradesReady,
+        shipped: parsed.shipped,
+        problem_order: parsed.problemOrder,
+        accounting_hold: parsed.accountingHold,
+        psa_api_response: JSON.stringify(psaData),
+        last_api_update: new Date(),
+        last_refreshed_at: new Date(),
+    };
 
+    // Auto-set service level from PSA if we don't have one
+    if (!prev.service_level && parsed.serviceLevel) {
+        updateFields.service_level = parsed.serviceLevel;
+    }
+
+    // Auto-set milestone dates based on progress
+    if (!prev.date_received && parsed.completedSteps >= 1) {
+        updateFields.date_received = new Date();
+    }
+    if (!prev.date_graded && parsed.gradesReady && !prev.grades_ready) {
+        updateFields.date_graded = new Date();
+    }
+    if (!prev.date_shipped && parsed.shipped && !prev.shipped) {
+        updateFields.date_shipped = new Date();
+    }
+
+    // Build dynamic SET clause
+    const setClauses = [];
+    const values = [];
+    let paramIndex = 1;
+    for (const [key, value] of Object.entries(updateFields)) {
+        setClauses.push(`${key} = $${paramIndex++}`);
+        values.push(value);
+    }
+    values.push(submissionId);
+
+    await db.query(
+        `UPDATE submissions SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`,
+        values
+    );
+
+    // Update submission steps with completion timestamps
     await db.query('DELETE FROM submission_steps WHERE submission_id = $1', [submissionId]);
 
     for (const step of parsed.steps) {
         await db.query(
-            `INSERT INTO submission_steps (submission_id, step_index, step_name, completed) VALUES ($1, $2, $3, $4)`,
-            [submissionId, step.index, step.name, step.completed]
+            `INSERT INTO submission_steps (submission_id, step_index, step_name, completed, completed_at)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [submissionId, step.index, step.name, step.completed, step.completedDate || (step.completed ? new Date() : null)]
         );
     }
 
     // Track what changed
     const changes = {
-        submissionNumber: previousState.psa_submission_number,
+        submissionNumber: prev.psa_submission_number,
         hadChanges: false,
         stepChanged: false,
         progressChanged: false,
         statusChanged: false,
-        previousStep: previousState.current_step,
+        previousStep: prev.current_step,
         newStep: parsed.currentStep,
-        previousProgress: previousState.progress_percent,
+        previousProgress: prev.progress_percent,
         newProgress: parsed.progressPercent,
-        previousGradesReady: previousState.grades_ready,
+        previousGradesReady: prev.grades_ready,
         newGradesReady: parsed.gradesReady,
-        previousShipped: previousState.shipped,
+        previousShipped: prev.shipped,
         newShipped: parsed.shipped,
-        previousProblem: previousState.problem_order,
-        newProblem: parsed.problemOrder
+        previousProblem: prev.problem_order,
+        newProblem: parsed.problemOrder,
+        milestonesSet: {},
     };
 
-    // Detect what changed
-    if (previousState.current_step !== parsed.currentStep) {
+    if (prev.current_step !== parsed.currentStep) {
         changes.hadChanges = true;
         changes.stepChanged = true;
     }
-    if (previousState.progress_percent !== parsed.progressPercent) {
+    if (prev.progress_percent !== parsed.progressPercent) {
         changes.hadChanges = true;
         changes.progressChanged = true;
-        changes.progressDelta = parsed.progressPercent - previousState.progress_percent;
+        changes.progressDelta = parsed.progressPercent - prev.progress_percent;
     }
-    if (previousState.grades_ready !== parsed.gradesReady ||
-        previousState.shipped !== parsed.shipped ||
-        previousState.problem_order !== parsed.problemOrder) {
+    if (prev.grades_ready !== parsed.gradesReady ||
+        prev.shipped !== parsed.shipped ||
+        prev.problem_order !== parsed.problemOrder) {
         changes.hadChanges = true;
         changes.statusChanged = true;
     }
+    if (updateFields.date_received && !prev.date_received) changes.milestonesSet.received = true;
+    if (updateFields.date_graded && !prev.date_graded) changes.milestonesSet.graded = true;
+    if (updateFields.date_shipped && !prev.date_shipped) changes.milestonesSet.shipped = true;
 
     // Send email notification if step changed
-    if (previousState.current_step !== parsed.currentStep && parsed.currentStep) {
+    if (prev.current_step !== parsed.currentStep && parsed.currentStep) {
         try {
             const { sendSubmissionUpdateEmail } = require('./emailService');
             await sendSubmissionUpdateEmail(submissionId, parsed.currentStep, parsed.progressPercent);
         } catch (emailError) {
             console.error('Failed to send email notification:', emailError);
-            // Don't fail the update if email fails
+        }
+    }
+
+    // Auto-fetch cert data for all cards when grades become ready
+    if (parsed.gradesReady && !prev.grades_ready) {
+        try {
+            await autoFetchCertData(submissionId);
+        } catch (certError) {
+            console.error('Auto cert fetch failed:', certError.message);
         }
     }
 
     return { parsed, changes };
 };
 
-const refreshAllSubmissions = async () => {
-    const companies = await db.query(
-        `SELECT id, psa_api_key FROM companies WHERE auto_refresh_enabled = true AND psa_api_key IS NOT NULL`
+/**
+ * When grades become ready, automatically look up cert data for all cards
+ * in the submission that have cert numbers but no grade yet.
+ */
+const autoFetchCertData = async (submissionId) => {
+    // Get the company's API key and all cards for this submission
+    const subResult = await db.query(
+        `SELECT s.company_id, c.psa_api_key
+         FROM submissions s
+         JOIN companies c ON s.company_id = c.id
+         WHERE s.id = $1`,
+        [submissionId]
     );
-    
-    for (const company of companies.rows) {
+    if (subResult.rows.length === 0) return;
+
+    const apiKey = subResult.rows[0].psa_api_key;
+    if (!apiKey) return;
+
+    const cardsResult = await db.query(
+        `SELECT id, psa_cert_number FROM cards
+         WHERE submission_id = $1 AND psa_cert_number IS NOT NULL AND (grade IS NULL OR grade = '')`,
+        [submissionId]
+    );
+
+    if (cardsResult.rows.length === 0) return;
+
+    console.log(`Auto-fetching cert data for ${cardsResult.rows.length} cards in submission ${submissionId}`);
+
+    let updated = 0;
+    for (const card of cardsResult.rows) {
+        try {
+            const certResult = await getCertWithImages(apiKey, card.psa_cert_number);
+            if (certResult.success) {
+                const cert = certResult.data;
+                const parsed = parseCertData(cert);
+
+                const updateData = {
+                    grade: parsed.grade,
+                    psa_cert_data: JSON.stringify(cert),
+                    status: 'graded',
+                };
+
+                // Add player name if not already set
+                if (parsed.playerName) {
+                    updateData.player_name = parsed.playerName;
+                }
+
+                // Add images if available
+                if (cert.images && cert.images.length > 0) {
+                    updateData.card_images = cert.images;
+                }
+
+                const setClauses = [];
+                const values = [];
+                let pi = 1;
+                for (const [key, value] of Object.entries(updateData)) {
+                    if (key === 'card_images') {
+                        setClauses.push(`${key} = $${pi++}`);
+                        values.push(value);
+                    } else {
+                        setClauses.push(`${key} = $${pi++}`);
+                        values.push(value);
+                    }
+                }
+                values.push(card.id);
+
+                await db.query(
+                    `UPDATE cards SET ${setClauses.join(', ')} WHERE id = $${pi}`,
+                    values
+                );
+                updated++;
+            }
+            // Rate limit between cert lookups
+            await new Promise(r => setTimeout(r, 300));
+        } catch (err) {
+            console.error(`Auto cert fetch failed for ${card.psa_cert_number}:`, err.message);
+        }
+    }
+
+    console.log(`Auto cert fetch complete: ${updated}/${cardsResult.rows.length} cards updated`);
+};
+
+// ============================================
+// BATCH / UTILITY FUNCTIONS
+// ============================================
+
+const refreshAllSubmissions = async () => {
+    let companiesResult;
+    try {
+        companiesResult = await db.query(
+            `SELECT id, psa_api_key FROM companies WHERE auto_refresh_enabled = true AND psa_api_key IS NOT NULL`
+        );
+    } catch (err) {
+        if (err.code === '42703') {
+            console.log('Auto-refresh columns not found. Run migration 021.');
+            return;
+        }
+        throw err;
+    }
+
+    for (const company of companiesResult.rows) {
         const submissions = await db.query(
             `SELECT id, psa_submission_number FROM submissions WHERE company_id = $1 AND shipped = false AND psa_submission_number IS NOT NULL`,
             [company.id]
         );
-        
+
         for (const sub of submissions.rows) {
             try {
                 const result = await getSubmissionProgress(company.psa_api_key, sub.psa_submission_number);
@@ -281,77 +452,22 @@ const logApiCall = async (companyId, endpoint, method, params, status, response)
             [companyId, endpoint, method, JSON.stringify(params), status, JSON.stringify(response)]
         );
     } catch (error) {
-        console.error('Failed to log API call:', error);
+        // api_logs table may not exist — silently skip
     }
 };
 
-// Scrape PSA cert page to get card images
-const scrapePsaCertImages = async (certNumber) => {
-    try {
-        const url = `https://www.psacard.com/cert/${certNumber}`;
-        console.log(`Scraping PSA cert page: ${url}`);
-
-        const response = await axios.get(url, {
-            timeout: 10000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Referer': 'https://www.psacard.com/',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'same-origin',
-                'Cache-Control': 'max-age=0'
-            }
-        });
-
-        const $ = cheerio.load(response.data);
-        const images = [];
-
-        // Try multiple selectors to find images
-        // PSA displays front and back images
-        $('img[src*="cert"]').each((i, elem) => {
-            const src = $(elem).attr('src');
-            if (src && !src.includes('logo') && !src.includes('icon')) {
-                // Convert relative URLs to absolute
-                const absoluteUrl = src.startsWith('http') ? src : `https://www.psacard.com${src}`;
-                images.push(absoluteUrl);
-            }
-        });
-
-        // Also check for images in specific cert image containers
-        $('.cert-image img, .card-image img, [class*="cert"] img, [class*="card"] img').each((i, elem) => {
-            const src = $(elem).attr('src');
-            if (src && !images.includes(src)) {
-                const absoluteUrl = src.startsWith('http') ? src : `https://www.psacard.com${src}`;
-                if (!absoluteUrl.includes('logo') && !absoluteUrl.includes('icon')) {
-                    images.push(absoluteUrl);
-                }
-            }
-        });
-
-        // Look for background images in style attributes
-        $('[style*="background-image"]').each((i, elem) => {
-            const style = $(elem).attr('style');
-            const match = style.match(/url\(['"]?([^'"]+)['"]?\)/);
-            if (match && match[1]) {
-                const src = match[1];
-                const absoluteUrl = src.startsWith('http') ? src : `https://www.psacard.com${src}`;
-                if (!absoluteUrl.includes('logo') && !absoluteUrl.includes('icon') && !images.includes(absoluteUrl)) {
-                    images.push(absoluteUrl);
-                }
-            }
-        });
-
-        console.log(`Found ${images.length} images on PSA cert page`);
-        return { success: true, images: images.filter((img, index, self) => self.indexOf(img) === index) }; // Remove duplicates
-    } catch (error) {
-        console.error('PSA scraping error:', error.message);
-        return { success: false, error: error.message, images: [] };
-    }
+module.exports = {
+    getSubmissionProgress,
+    getCertificate,
+    getCertImages,
+    getCertWithImages,
+    parseProgressData,
+    parseCertData,
+    updateSubmissionFromPsa,
+    autoFetchCertData,
+    refreshAllSubmissions,
+    logApiCall,
+    STEP_NAMES,
+    STEP_ORDER,
+    createPsaClient,
 };
-
-module.exports = { getSubmissionProgress, getCertificate, parseProgressData, updateSubmissionFromPsa, refreshAllSubmissions, logApiCall, tryGetOrderDetails, scrapePsaCertImages, STEP_NAMES };

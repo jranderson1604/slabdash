@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const db = require('../db');
 const { authenticateCustomer } = require('../middleware/auth');
 const stripeService = require('../services/stripe');
@@ -9,6 +12,407 @@ const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const upload = multer({ storage: multer.memoryStorage() });
 const { fetchJustTCGComps, fetchEbayComps, fetchGradedPricing } = require('../services/priceCompService');
+
+// ============================================
+// SECURITY: Strict rate limiter for auth endpoints
+// 5 attempts per 15 minutes per IP
+// ============================================
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please try again in 15 minutes.' },
+  keyGenerator: (req) => {
+    // Rate limit by IP + email combo to prevent distributed attacks
+    const email = (req.body?.email || '').toLowerCase();
+    return `${req.ip}:${email}`;
+  }
+});
+
+// Password validation: min 8 chars, at least 1 letter, at least 1 number
+const validatePassword = (password) => {
+  if (!password || password.length < 8) return 'Password must be at least 8 characters';
+  if (!/[a-zA-Z]/.test(password)) return 'Password must contain at least one letter';
+  if (!/[0-9]/.test(password)) return 'Password must contain at least one number';
+  return null;
+};
+
+// Account lockout: 5 failed attempts = 30 minute lock
+const LOCKOUT_THRESHOLD = 5;
+const LOCKOUT_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+
+const checkAccountLock = (customer) => {
+  if (customer.locked_until && new Date(customer.locked_until) > new Date()) {
+    const minutesLeft = Math.ceil((new Date(customer.locked_until) - new Date()) / 60000);
+    return `Account locked. Try again in ${minutesLeft} minutes.`;
+  }
+  return null;
+};
+
+// ============================================
+// CUSTOMER AUTH ENDPOINTS
+// ============================================
+
+// Look up shop by slug (returns minimal public info only)
+router.get('/auth/shop-lookup/:slug', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT name, slug, primary_color, logo_url FROM companies WHERE slug = $1`,
+      [req.params.slug.toLowerCase()]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Shop not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to look up shop' });
+  }
+});
+
+// Customer login with email + password + shop slug
+router.post('/auth/login', authLimiter, async (req, res) => {
+  try {
+    const { slug, email, password } = req.body;
+
+    if (!slug || !email || !password) {
+      return res.status(400).json({ error: 'Shop code, email, and password are required' });
+    }
+
+    // Find company by slug
+    const companyResult = await db.query(
+      `SELECT id, name, slug, primary_color, logo_url, sam_enabled FROM companies WHERE slug = $1`,
+      [slug.toLowerCase()]
+    );
+    if (companyResult.rows.length === 0) {
+      // Timing-safe: same error message whether shop exists or not
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    const company = companyResult.rows[0];
+
+    // Find customer by email + company
+    const customerResult = await db.query(
+      `SELECT id, name, email, password_hash, portal_access_enabled,
+              failed_login_attempts, locked_until
+       FROM customers
+       WHERE company_id = $1 AND LOWER(email) = $2`,
+      [company.id, email.toLowerCase()]
+    );
+
+    if (customerResult.rows.length === 0) {
+      // Timing-safe: run bcrypt compare even when user not found
+      await bcrypt.compare(password, '$2a$12$invalidhashtowastetimenothinghere1234567890');
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const customer = customerResult.rows[0];
+
+    // Check portal access
+    if (!customer.portal_access_enabled) {
+      return res.status(403).json({ error: 'Portal access is disabled. Contact your shop.' });
+    }
+
+    // Check account lockout
+    const lockMessage = checkAccountLock(customer);
+    if (lockMessage) {
+      return res.status(423).json({ error: lockMessage });
+    }
+
+    // Check if password is set
+    if (!customer.password_hash) {
+      return res.status(401).json({
+        error: 'No password set. Use your magic link to set up a password.',
+        code: 'NO_PASSWORD'
+      });
+    }
+
+    // Verify password (bcrypt cost 12)
+    const passwordMatch = await bcrypt.compare(password, customer.password_hash);
+
+    if (!passwordMatch) {
+      // Increment failed attempts
+      const newAttempts = (customer.failed_login_attempts || 0) + 1;
+      const updates = { failed_login_attempts: newAttempts };
+
+      if (newAttempts >= LOCKOUT_THRESHOLD) {
+        updates.locked_until = new Date(Date.now() + LOCKOUT_DURATION_MS);
+        console.log(`🔒 Customer ${email} locked out after ${newAttempts} failed attempts`);
+      }
+
+      const setClauses = Object.entries(updates).map(([k, v], i) => `${k} = $${i + 1}`);
+      const values = Object.values(updates);
+      values.push(customer.id);
+      await db.query(
+        `UPDATE customers SET ${setClauses.join(', ')} WHERE id = $${values.length}`,
+        values
+      );
+
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Success — reset failed attempts, update last login
+    await db.query(
+      `UPDATE customers SET failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW() WHERE id = $1`,
+      [customer.id]
+    );
+
+    // Issue JWT (24h expiration — shorter than admin for security)
+    const token = jwt.sign(
+      { customerId: customer.id, type: 'customer' },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      token,
+      customer: { id: customer.id, name: customer.name, email: customer.email },
+      company: { name: company.name, slug: company.slug, primaryColor: company.primary_color, logo_url: company.logo_url, sam_enabled: company.sam_enabled }
+    });
+  } catch (error) {
+    console.error('Customer login error:', error);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Set password (from magic link — requires valid portal token)
+router.post('/auth/setup-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and password are required' });
+    }
+
+    // Validate password strength
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ error: passwordError });
+    }
+
+    // Find customer by portal token
+    const customerResult = await db.query(
+      `SELECT c.id, c.name, c.email, c.company_id, c.password_hash,
+              co.name as company_name, co.slug as company_slug, co.primary_color, co.logo_url, co.sam_enabled
+       FROM customers c
+       JOIN companies co ON c.company_id = co.id
+       WHERE c.portal_access_token = $1 AND c.portal_access_enabled = true`,
+      [token]
+    );
+
+    if (customerResult.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid or expired token' });
+    }
+
+    const customer = customerResult.rows[0];
+
+    // Hash password with cost factor 12
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    // Update customer with password
+    await db.query(
+      `UPDATE customers SET password_hash = $1, failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW() WHERE id = $2`,
+      [passwordHash, customer.id]
+    );
+
+    // Issue JWT
+    const jwtToken = jwt.sign(
+      { customerId: customer.id, type: 'customer' },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({
+      token: jwtToken,
+      customer: { id: customer.id, name: customer.name, email: customer.email },
+      company: { name: customer.company_name, slug: customer.company_slug, primaryColor: customer.primary_color, logo_url: customer.logo_url, sam_enabled: customer.sam_enabled },
+      message: 'Password set successfully! You can now log in with your email and password.'
+    });
+  } catch (error) {
+    console.error('Setup password error:', error);
+    res.status(500).json({ error: 'Failed to set password' });
+  }
+});
+
+// Forgot password — sends a reset link
+router.post('/auth/forgot-password', authLimiter, async (req, res) => {
+  try {
+    const { slug, email } = req.body;
+
+    // Always return same message whether user exists or not (timing-safe)
+    const successMessage = 'If your email is registered, you will receive a password reset link.';
+
+    if (!slug || !email) {
+      return res.json({ message: successMessage });
+    }
+
+    // Find company
+    const companyResult = await db.query(
+      `SELECT id FROM companies WHERE slug = $1`, [slug.toLowerCase()]
+    );
+    if (companyResult.rows.length === 0) {
+      return res.json({ message: successMessage });
+    }
+
+    // Find customer
+    const customerResult = await db.query(
+      `SELECT id, email, name FROM customers WHERE company_id = $1 AND LOWER(email) = $2 AND portal_access_enabled = true`,
+      [companyResult.rows[0].id, email.toLowerCase()]
+    );
+
+    if (customerResult.rows.length === 0) {
+      return res.json({ message: successMessage });
+    }
+
+    const customer = customerResult.rows[0];
+
+    // Generate secure reset token (32 bytes = 64 hex chars)
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+    await db.query(
+      `UPDATE customers SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3`,
+      [resetToken, resetExpires, customer.id]
+    );
+
+    // Send reset email
+    try {
+      const { sendPasswordResetEmail } = require('../services/emailService');
+      await sendPasswordResetEmail(customer.id, resetToken);
+    } catch (emailError) {
+      console.error('Failed to send password reset email:', emailError.message);
+      // Don't expose email sending failure to user
+    }
+
+    res.json({ message: successMessage });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.json({ message: 'If your email is registered, you will receive a password reset link.' });
+  }
+});
+
+// Reset password with token
+router.post('/auth/reset-password', authLimiter, async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ error: passwordError });
+    }
+
+    // Find customer by reset token (not expired)
+    const customerResult = await db.query(
+      `SELECT id FROM customers
+       WHERE password_reset_token = $1 AND password_reset_expires > NOW()`,
+      [token]
+    );
+
+    if (customerResult.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid or expired reset link. Request a new one.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    // Update password and clear reset token + lockout
+    await db.query(
+      `UPDATE customers
+       SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL,
+           failed_login_attempts = 0, locked_until = NULL
+       WHERE id = $2`,
+      [passwordHash, customerResult.rows[0].id]
+    );
+
+    res.json({ message: 'Password reset successfully. You can now log in.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// Update customer profile (requires JWT auth)
+router.patch('/profile', authenticateCustomer, async (req, res) => {
+  try {
+    const { name, email, phone, currentPassword, newPassword } = req.body;
+    const updates = {};
+
+    // Update name
+    if (name && name.trim()) {
+      updates.name = name.trim();
+    }
+
+    // Update phone
+    if (phone !== undefined) {
+      updates.phone = phone.trim() || null;
+    }
+
+    // Update email (requires verification in production — for now just update)
+    if (email && email.trim() && email.toLowerCase() !== req.customer.email.toLowerCase()) {
+      // Check uniqueness within company
+      const existing = await db.query(
+        `SELECT id FROM customers WHERE company_id = $1 AND LOWER(email) = $2 AND id != $3`,
+        [req.customer.company_id, email.toLowerCase(), req.customer.id]
+      );
+      if (existing.rows.length > 0) {
+        return res.status(409).json({ error: 'Email already in use by another customer' });
+      }
+      updates.email = email.trim().toLowerCase();
+    }
+
+    // Change password
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: 'Current password is required to change password' });
+      }
+
+      // Verify current password
+      const customerResult = await db.query(
+        `SELECT password_hash FROM customers WHERE id = $1`, [req.customer.id]
+      );
+      const passwordMatch = await bcrypt.compare(currentPassword, customerResult.rows[0].password_hash || '');
+      if (!passwordMatch) {
+        return res.status(401).json({ error: 'Current password is incorrect' });
+      }
+
+      const passwordError = validatePassword(newPassword);
+      if (passwordError) {
+        return res.status(400).json({ error: passwordError });
+      }
+
+      updates.password_hash = await bcrypt.hash(newPassword, 12);
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No changes provided' });
+    }
+
+    updates.updated_at = new Date();
+
+    const setClauses = Object.entries(updates).map(([k, v], i) => `${k} = $${i + 1}`);
+    const values = Object.values(updates);
+    values.push(req.customer.id);
+
+    await db.query(
+      `UPDATE customers SET ${setClauses.join(', ')} WHERE id = $${values.length}`,
+      values
+    );
+
+    res.json({
+      message: 'Profile updated',
+      customer: {
+        name: updates.name || req.customer.name,
+        email: updates.email || req.customer.email,
+        phone: updates.phone !== undefined ? updates.phone : req.customer.phone
+      }
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
 
 // Multer config for SAM card scanning (10MB, images only)
 const scanUpload = multer({
@@ -1066,37 +1470,51 @@ router.post('/sam/scan', scanUpload.single('image'), async (req, res) => {
                         },
                         {
                             type: 'text',
-                            text: `You are SAM, a card identification expert. Your job is to ACCURATELY identify this card so we can pull the exact market price. Be honest and straightforward — never hype up a card.
+                            text: `You are SAM, a card identification expert. Your job is to ACCURATELY identify this card so we can pull the EXACT market price — the wrong parallel or missing card number means wrong pricing.
 
-STEP 1 — IDENTIFY THE CARD (critical):
-Read every visible detail on the card:
-• **Card Name** — the exact name printed on the card
+STEP 1 — IDENTIFY THE CARD (critical — read EVERYTHING on the card):
+• **Card Name** — the exact player/character name printed on the card
 • **Year** — printed year or copyright year
-• **Set** — the exact set name (e.g., "Crown Zenith", "Evolving Skies", "Modern Horizons 3"). Read the set logo/text carefully.
-• **Card Number** — the number printed on the card (e.g., "037/159", "SV049", "#25"). Include the full number with denominator if visible.
+• **Brand/Product** — the product line (e.g., "Prizm", "Topps Chrome", "Crown Zenith", "Evolving Skies")
+• **Set** — the specific set within the product if different from brand
+• **Card Number** — the FULL number printed on the card (e.g., "239", "037/159", "SV049"). Include the complete number with any denominator.
+• **Parallel/Variant** — THIS IS CRITICAL for pricing. Identify the exact parallel:
+  - Sports: Base, Silver Prizm, Gold Prizm /10, Red White & Blue, Mojo, Cracked Ice, Color Blast, Refractor, Gold Refractor, Xfractor, Pink, Green, Orange /299, Red /199, Blue /75, etc.
+  - Pokemon: Regular, Reverse Holo, Full Art, Alt Art, Illustration Rare, Special Art Rare, Gold, Rainbow, etc.
+  - Look at the card surface (rainbow shimmer = prizm/refractor, solid color border = color parallel, numbered = short print)
+  - If the card is numbered (e.g., /25, /99, /199), ALWAYS include this — it's a key price differentiator
+• **Serial Number** — if the card is numbered (e.g., "12/25", "056/199"), note the serial
 • **Game** — Pokemon, Magic: The Gathering, Yu-Gi-Oh, etc.
 • **Sport** — Baseball, Basketball, Football, Hockey, etc.
-• **Attributes** — holo, reverse holo, full art, alt art, foil, refractor, RC, 1st edition, numbered (/25, /99), autograph, etc.
-• **Rarity** — look at rarity symbols on the card
+• **Attributes** — RC (rookie card), 1st edition, autograph, memorabilia/patch, etc.
+• **Rarity** — look at rarity symbols
 
-Be exact. Read text as printed. If you can't read something, say so — don't guess.
+Read text EXACTLY as printed. If a card is a Silver Prizm, say "Silver Prizm" not just "Prizm". If it's a base card, say "Base". The parallel determines 90% of the card's value.
 
 STEP 2 — HONEST ASSESSMENT (2-3 lines max):
 • Quick centering + any visible flaws
 • Estimated PSA grade (single number)
-• Be REALISTIC about grading: if the card is worth less than $10-15 raw, grading costs $20+ and makes zero financial sense. Say that directly. Don't tell someone to grade a $1 card. Only recommend grading if the graded value would significantly exceed the cost.
+• Be REALISTIC: if the card is worth less than $10-15 raw, grading costs $20+. Say that directly.
 
 FORMAT:
-**Card:** [Name] — [Year] [Set] #[Number]
-[Game/Sport] | [Attributes] | [Rarity]
+**Card:** [Name] — [Year] [Brand] [Set] #[Number]
+[Game/Sport] | **[Parallel/Variant]** | [Attributes] | [Rarity]
+[Serial: X/Y if numbered]
 
-**Condition:** [1-2 sentences. Estimated PSA grade. Honest grading recommendation based on card value — if it's a common card worth a few bucks, say "not worth the grading fee."]
+**Condition:** [1-2 sentences. PSA grade estimate. Honest grading recommendation.]
 
 AT THE VERY END, output this hidden JSON on its own line (will be stripped from display):
-<!--CARD_ID:{"name":"Card Name","set":"Set Name","number":"037/159","year":"2023","game":"pokemon","sport":"","rarity":"Ultra Rare","attributes":"full art, holo"}-->
-For "game": pokemon, mtg, yugioh, disney-lorcana, one-piece-card-game, digimon-card-game, flesh-and-blood-tcg, dragon-ball-super-fusion-world, or "" for sports.
-For "sport": baseball, basketball, football, hockey, soccer, or "" for TCG.
-Include the FULL card number with denominator (e.g. "037/159" not just "37"). Only include fields you can read.`
+<!--CARD_ID:{"name":"Card Name","set":"Set Name","number":"239","year":"2024","game":"","sport":"basketball","parallel":"Silver Prizm","serial":"/199","rarity":"","attributes":"RC"}-->
+IMPORTANT RULES for CARD_ID:
+- "parallel": The EXACT variant/parallel name. Use "Base" for base cards. Examples: "Silver Prizm", "Gold Prizm", "Cracked Ice", "Refractor", "Holo", "Full Art", "Alt Art", "Illustration Rare", "Reverse Holo", "Mojo", "Red White Blue"
+- "serial": If numbered, include as "/25" or "/199". Leave "" if not numbered.
+- "number": The card number WITHOUT leading zeros (e.g., "239" not "0239"). Include denominator if on card (e.g., "037/159").
+- "name": Player/character name only (e.g., "Stephon Castle" not "Stephon Castle RC")
+- "set": The product name (e.g., "Prizm", "Topps Chrome", "Crown Zenith")
+- "game": pokemon, mtg, yugioh, disney-lorcana, one-piece-card-game, digimon-card-game, flesh-and-blood-tcg, dragon-ball-super-fusion-world, or "" for sports.
+- "sport": baseball, basketball, football, hockey, soccer, or "" for TCG.
+- "attributes": Comma-separated. RC, 1st edition, autograph, patch, memorabilia, etc.
+Only include fields you can actually read from the card.`
                         }
                     ]
                 }
