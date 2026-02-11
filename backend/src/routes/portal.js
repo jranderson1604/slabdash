@@ -709,13 +709,19 @@ router.get('/me', authenticateCustomer, async (req, res) => {
     });
 });
 
-// Get customer's submissions
+// Get customer's submissions (includes submission_customers links)
 router.get('/submissions', authenticateCustomer, async (req, res) => {
     try {
         const result = await db.query(
-            `SELECT id, internal_id, psa_submission_number, current_step, progress_percent, grades_ready, shipped, problem_order,
-                    (SELECT COUNT(*) FROM cards WHERE submission_id = submissions.id) as card_count
-             FROM submissions WHERE customer_id = $1 ORDER BY created_at DESC`,
+            `SELECT s.id, s.internal_id, s.psa_submission_number, s.service_level,
+                    s.current_step, s.progress_percent, s.grades_ready, s.shipped, s.problem_order,
+                    s.date_sent, s.return_tracking, s.admin_notes, s.prep_notes,
+                    (SELECT COUNT(*) FROM cards WHERE submission_id = s.id) as card_count
+             FROM submissions s
+             WHERE s.customer_id = $1 OR s.id IN (
+                 SELECT submission_id FROM submission_customers WHERE customer_id = $1
+             )
+             ORDER BY s.created_at DESC`,
             [req.customer.id]
         );
         res.json(result.rows);
@@ -724,33 +730,36 @@ router.get('/submissions', authenticateCustomer, async (req, res) => {
     }
 });
 
-// Get single submission
+// Get single submission (includes submission_customers access)
 router.get('/submissions/:id', authenticateCustomer, async (req, res) => {
     try {
         const result = await db.query(
-            'SELECT * FROM submissions WHERE id = $1 AND customer_id = $2',
+            `SELECT s.* FROM submissions s
+             WHERE s.id = $1 AND (s.customer_id = $2 OR s.id IN (
+                 SELECT submission_id FROM submission_customers WHERE customer_id = $2
+             ))`,
             [req.params.id, req.customer.id]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Submission not found' });
-        
+
         const cards = await db.query('SELECT * FROM cards WHERE submission_id = $1', [req.params.id]);
         const steps = await db.query('SELECT * FROM submission_steps WHERE submission_id = $1 ORDER BY step_index', [req.params.id]);
-        
+
         res.json({ ...result.rows[0], cards: cards.rows, steps: steps.rows });
     } catch (error) {
         res.status(500).json({ error: 'Failed to get submission' });
     }
 });
 
-// Get customer stats
+// Get customer stats (includes submission_customers links)
 router.get('/stats', authenticateCustomer, async (req, res) => {
     try {
         const stats = await db.query(`
             SELECT
-                (SELECT COUNT(*) FROM submissions WHERE customer_id = $1) as total_submissions,
-                (SELECT COUNT(*) FROM submissions WHERE customer_id = $1 AND shipped = false) as active_submissions,
-                (SELECT COUNT(*) FROM cards WHERE customer_id = $1) as total_cards,
-                (SELECT COUNT(*) FROM cards WHERE customer_id = $1 AND grade IS NOT NULL) as graded_cards,
+                (SELECT COUNT(*) FROM submissions WHERE customer_id = $1 OR id IN (SELECT submission_id FROM submission_customers WHERE customer_id = $1)) as total_submissions,
+                (SELECT COUNT(*) FROM submissions WHERE (customer_id = $1 OR id IN (SELECT submission_id FROM submission_customers WHERE customer_id = $1)) AND shipped = false) as active_submissions,
+                (SELECT COUNT(*) FROM cards WHERE customer_owner_id = $1 OR submission_id IN (SELECT id FROM submissions WHERE customer_id = $1)) as total_cards,
+                (SELECT COUNT(*) FROM cards WHERE (customer_owner_id = $1 OR submission_id IN (SELECT id FROM submissions WHERE customer_id = $1)) AND grade IS NOT NULL) as graded_cards,
                 (SELECT COUNT(*) FROM buyback_offers WHERE customer_id = $1 AND status = 'pending') as pending_offers,
                 (SELECT COUNT(*) FROM buyback_offers WHERE customer_id = $1 AND status = 'accepted') as accepted_offers,
                 (SELECT COALESCE(SUM(offer_price), 0) FROM buyback_offers WHERE customer_id = $1 AND status = 'paid') as total_earnings
@@ -1289,36 +1298,58 @@ router.get('/cards/:cardId', async (req, res) => {
     }
 });
 
-// SAM Chat endpoint for customer portal (token-based)
+// Helper: resolve customer from token or JWT for SAM endpoints
+const resolveSAMCustomer = async (req) => {
+    const token = req.query.token;
+    const authHeader = req.headers.authorization;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        // JWT auth
+        const jwtToken = authHeader.split(' ')[1];
+        const decoded = jwt.verify(jwtToken, process.env.JWT_SECRET);
+        if (decoded.type !== 'customer') throw new Error('Invalid token type');
+
+        const result = await db.query(
+            `SELECT c.id, c.name, c.email, c.company_id, co.sam_enabled
+             FROM customers c JOIN companies co ON c.company_id = co.id
+             WHERE c.id = $1 AND c.portal_access_enabled = true`,
+            [decoded.customerId]
+        );
+        if (result.rows.length === 0) throw new Error('Customer not found');
+        return result.rows[0];
+    }
+
+    if (token) {
+        // Portal token auth
+        const result = await db.query(
+            `SELECT c.id, c.name, c.email, c.company_id, co.sam_enabled
+             FROM customers c JOIN companies co ON c.company_id = co.id
+             WHERE c.portal_access_token = $1 AND c.portal_access_enabled = true
+             AND (c.portal_token_expires IS NULL OR c.portal_token_expires > NOW())`,
+            [token]
+        );
+        if (result.rows.length === 0) throw new Error('Invalid or expired token');
+        return result.rows[0];
+    }
+
+    throw new Error('Authentication required');
+};
+
+// SAM Chat endpoint for customer portal (token or JWT)
 router.post('/sam/chat', async (req, res) => {
     try {
-        const token = req.query.token;
         const { message, history } = req.body;
-
-        if (!token) {
-            return res.status(401).json({ error: 'Token is required' });
-        }
 
         if (!message) {
             return res.status(400).json({ error: 'Message is required' });
         }
 
-        // Verify portal token and check SAM access
-        const customerResult = await db.query(
-            `SELECT c.id, c.name, c.email, c.company_id, co.sam_enabled
-             FROM customers c
-             JOIN companies co ON c.company_id = co.id
-             WHERE c.portal_access_token = $1
-             AND c.portal_access_enabled = true
-             AND (c.portal_token_expires IS NULL OR c.portal_token_expires > NOW())`,
-            [token]
-        );
-
-        if (customerResult.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid or expired token' });
+        let customer;
+        try {
+            customer = await resolveSAMCustomer(req);
+        } catch (authErr) {
+            return res.status(401).json({ error: authErr.message });
         }
-
-        const customer = customerResult.rows[0];
 
         // Check if company has SAM enabled
         if (!customer.sam_enabled) {
@@ -1497,31 +1528,15 @@ You can scan cards! Tell customers they can upload a card photo for instant ID, 
     }
 });
 
-// SAM Card Scan endpoint for customer portal (token-based)
+// SAM Card Scan endpoint for customer portal (token or JWT)
 router.post('/sam/scan', scanUpload.single('image'), async (req, res) => {
     try {
-        const token = req.query.token;
-
-        if (!token) {
-            return res.status(401).json({ error: 'Token is required' });
+        let customer;
+        try {
+            customer = await resolveSAMCustomer(req);
+        } catch (authErr) {
+            return res.status(401).json({ error: authErr.message });
         }
-
-        // Verify portal token and check SAM access
-        const customerResult = await db.query(
-            `SELECT c.id, c.name, c.email, c.company_id, co.sam_enabled
-             FROM customers c
-             JOIN companies co ON c.company_id = co.id
-             WHERE c.portal_access_token = $1
-             AND c.portal_access_enabled = true
-             AND (c.portal_token_expires IS NULL OR c.portal_token_expires > NOW())`,
-            [token]
-        );
-
-        if (customerResult.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid or expired token' });
-        }
-
-        const customer = customerResult.rows[0];
 
         if (!customer.sam_enabled) {
             return res.status(403).json({

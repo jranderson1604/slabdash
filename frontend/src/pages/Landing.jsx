@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Package,
@@ -19,8 +19,13 @@ import {
   HelpCircle,
   X,
   PlayCircle,
-  ChevronRight
+  ChevronRight,
+  Store,
+  Loader2,
+  AlertTriangle
 } from 'lucide-react';
+
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -28,12 +33,51 @@ export default function Landing() {
   const [showFAQ, setShowFAQ] = useState(false);
   const [showDemo, setShowDemo] = useState(false);
   const [demoStep, setDemoStep] = useState(0);
+  const [shopCode, setShopCode] = useState('');
+  const [shopLoading, setShopLoading] = useState(false);
+  const [shopError, setShopError] = useState('');
+  const [shopFound, setShopFound] = useState(null);
+  const shopCodeRefs = [useRef(), useRef(), useRef(), useRef()];
 
   // Add landing-page class to body to prevent bold font styling
   useEffect(() => {
     document.body.classList.add('landing-page');
     return () => document.body.classList.remove('landing-page');
   }, []);
+
+  const handleShopCodeInput = (index, value) => {
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const newCode = shopCode.split('');
+    newCode[index] = digit;
+    const code = newCode.join('');
+    setShopCode(code);
+    setShopError('');
+    setShopFound(null);
+    if (digit && index < 3) shopCodeRefs[index + 1].current?.focus();
+    if (code.length === 4 && /^\d{4}$/.test(code)) lookupShop(code);
+  };
+
+  const handleShopCodeKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !shopCode[index] && index > 0) shopCodeRefs[index - 1].current?.focus();
+  };
+
+  const handleShopCodePaste = (e) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
+    if (pasted.length === 4) { setShopCode(pasted); shopCodeRefs[3].current?.focus(); lookupShop(pasted); }
+  };
+
+  const lookupShop = async (code) => {
+    setShopLoading(true); setShopError('');
+    try {
+      const res = await fetch(`${API_URL}/portal/auth/shop-lookup/${encodeURIComponent(code)}`);
+      if (!res.ok) { setShopError('Shop not found. Check the code and try again.'); setShopLoading(false); return; }
+      const data = await res.json();
+      setShopFound(data);
+      setTimeout(() => navigate(`/portal?shop=${encodeURIComponent(code)}`), 600);
+    } catch { setShopError('Connection error. Please try again.'); }
+    setShopLoading(false);
+  };
 
   const features = [
     {
@@ -260,10 +304,10 @@ export default function Landing() {
                 <PlayCircle className="w-4 h-4" />
                 Demo
               </button>
-              <Link to="/portal" className="text-gray-600 hover:text-[#FF8170] font-medium transition-colors flex items-center gap-2">
+              <a href="#customer-login" className="text-gray-600 hover:text-[#FF8170] font-medium transition-colors flex items-center gap-2">
                 <Package className="w-4 h-4" />
                 Track My Cards
-              </Link>
+              </a>
             </div>
 
             <div className="flex items-center gap-4">
@@ -364,6 +408,100 @@ export default function Landing() {
                     ))}
                   </div>
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Customer Login Section */}
+      <section id="customer-login" className="py-16 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-white to-gray-50">
+        <div className="max-w-4xl mx-auto">
+          <div className="relative rounded-3xl overflow-hidden border border-gray-200 shadow-xl">
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900" />
+            <div className="absolute top-0 right-0 w-80 h-80 bg-[#FF8170] opacity-10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#FF8170] opacity-5 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3" />
+
+            <div className="relative z-10 grid md:grid-cols-2 gap-8 p-8 sm:p-12 items-center">
+              {/* Left: Info */}
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#FF8170]/15 text-[#FF8170] rounded-full text-xs font-bold mb-5 border border-[#FF8170]/20">
+                  <Package className="w-3.5 h-3.5" />
+                  Customer Portal
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-extrabold text-white mb-4 leading-tight">
+                  Track Your Cards
+                </h2>
+                <p className="text-gray-400 text-lg leading-relaxed mb-6">
+                  Enter your shop's 4-digit code to sign in or create your account. Track submissions, view grades, and manage your cards.
+                </p>
+                <div className="flex items-center gap-6 text-sm text-gray-500">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <span>Real-time tracking</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    <span>Grade updates</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right: Shop Code Entry */}
+              <div className="text-center">
+                <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-5"
+                  style={{ background: 'linear-gradient(135deg, #FF8170, #e8543d)', boxShadow: '0 8px 30px rgba(255, 107, 89, 0.3)' }}>
+                  <Store className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-1">Enter Shop Code</h3>
+                <p className="text-xs text-gray-500 mb-6">Ask your card shop for their 4-digit code</p>
+
+                <div className="flex gap-3 justify-center mb-4" onPaste={handleShopCodePaste}>
+                  {[0, 1, 2, 3].map(i => (
+                    <input
+                      key={i}
+                      ref={shopCodeRefs[i]}
+                      type="text"
+                      inputMode="numeric"
+                      maxLength={1}
+                      value={shopCode[i] || ''}
+                      onChange={(e) => handleShopCodeInput(i, e.target.value)}
+                      onKeyDown={(e) => handleShopCodeKeyDown(i, e)}
+                      className="w-14 h-16 sm:w-16 sm:h-20 rounded-2xl text-center text-2xl sm:text-3xl font-black focus:ring-2 focus:ring-[#FF8170] transition-all"
+                      style={{
+                        background: shopCode[i] ? 'rgba(255, 129, 112, 0.1)' : 'rgba(255,255,255,0.06)',
+                        border: `2px solid ${shopCode[i] ? 'rgba(255, 129, 112, 0.4)' : 'rgba(255,255,255,0.1)'}`,
+                        color: '#fff',
+                        outline: 'none',
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {shopError && (
+                  <div className="flex items-center gap-2 justify-center mb-3 text-xs font-semibold text-red-400">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    {shopError}
+                  </div>
+                )}
+
+                {shopLoading && (
+                  <div className="flex items-center gap-2 justify-center mb-3">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#FF8170]" />
+                    <span className="text-sm font-semibold text-gray-400">Looking up shop...</span>
+                  </div>
+                )}
+
+                {shopFound && (
+                  <div className="flex items-center gap-2 justify-center mb-3">
+                    <CheckCircle2 className="w-4 h-4 text-green-400" />
+                    <span className="text-sm font-bold text-green-400">{shopFound.name}</span>
+                  </div>
+                )}
+
+                <p className="text-[11px] text-gray-600 mt-4">
+                  The code is on your receipt or the QR poster in-store
+                </p>
               </div>
             </div>
           </div>
