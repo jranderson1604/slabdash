@@ -54,12 +54,15 @@ const checkAccountLock = (customer) => {
 // CUSTOMER AUTH ENDPOINTS
 // ============================================
 
-// Look up shop by slug (returns minimal public info only)
-router.get('/auth/shop-lookup/:slug', async (req, res) => {
+// Look up shop by 4-digit code (returns minimal public info only)
+router.get('/auth/shop-lookup/:code', async (req, res) => {
   try {
+    const code = req.params.code.trim();
+    // Support both shop_code (4-digit) and slug for backwards compatibility
     const result = await db.query(
-      `SELECT name, slug, primary_color, logo_url FROM companies WHERE slug = $1`,
-      [req.params.slug.toLowerCase()]
+      `SELECT name, slug, shop_code, primary_color, logo_url FROM companies
+       WHERE shop_code = $1 OR slug = $1`,
+      [code.toLowerCase()]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Shop not found' });
@@ -70,29 +73,117 @@ router.get('/auth/shop-lookup/:slug', async (req, res) => {
   }
 });
 
-// Customer login with email + password + shop slug
+// Helper: find company by shop_code or slug
+const findCompany = async (code) => {
+  const result = await db.query(
+    `SELECT id, name, slug, shop_code, primary_color, logo_url, sam_enabled
+     FROM companies WHERE shop_code = $1 OR slug = $1`,
+    [code.toLowerCase()]
+  );
+  return result.rows[0] || null;
+};
+
+// Helper: build company response object
+const companyResponse = (company) => ({
+  name: company.name, slug: company.slug, shop_code: company.shop_code,
+  primaryColor: company.primary_color, logo_url: company.logo_url,
+  sam_enabled: company.sam_enabled
+});
+
+// Customer registration — creates account or absorbs existing record
+router.post('/auth/register', authLimiter, async (req, res) => {
+  try {
+    const { shopCode, name, email, password } = req.body;
+
+    if (!shopCode || !name?.trim() || !email?.trim() || !password) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ error: passwordError });
+    }
+
+    const company = await findCompany(shopCode);
+    if (!company) {
+      return res.status(404).json({ error: 'Invalid shop code' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedName = name.trim();
+
+    // Check if email already exists for this company
+    const existing = await db.query(
+      `SELECT id, name, password_hash FROM customers
+       WHERE company_id = $1 AND LOWER(email) = $2`,
+      [company.id, trimmedEmail]
+    );
+
+    let customer;
+    if (existing.rows.length > 0) {
+      // Account absorption: email exists in system (added by shop), new registration takes it over
+      const existingCustomer = existing.rows[0];
+      if (existingCustomer.password_hash) {
+        return res.status(409).json({ error: 'Account already registered. Please sign in.' });
+      }
+      // Absorb: set their password, update name, enable portal
+      await db.query(
+        `UPDATE customers SET name = $1, password_hash = $2, portal_access_enabled = true,
+         failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW(), updated_at = NOW()
+         WHERE id = $3`,
+        [trimmedName, passwordHash, existingCustomer.id]
+      );
+      customer = { id: existingCustomer.id, name: trimmedName, email: trimmedEmail };
+    } else {
+      // Brand new customer
+      const portalToken = crypto.randomBytes(32).toString('hex');
+      const result = await db.query(
+        `INSERT INTO customers (company_id, name, email, password_hash, portal_access_enabled,
+         portal_access_token, last_login_at)
+         VALUES ($1, $2, $3, $4, true, $5, NOW())
+         RETURNING id`,
+        [company.id, trimmedName, trimmedEmail, passwordHash, portalToken]
+      );
+      customer = { id: result.rows[0].id, name: trimmedName, email: trimmedEmail };
+    }
+
+    // Issue long-lived JWT (30 days — stays logged in on home screen)
+    const token = jwt.sign(
+      { customerId: customer.id, type: 'customer' },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      token,
+      customer,
+      company: companyResponse(company)
+    });
+  } catch (error) {
+    console.error('Customer registration error:', error);
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
+// Customer login with email + password + shop code
 router.post('/auth/login', authLimiter, async (req, res) => {
   try {
-    const { slug, email, password } = req.body;
+    const { shopCode, email, password } = req.body;
 
-    if (!slug || !email || !password) {
+    if (!shopCode || !email || !password) {
       return res.status(400).json({ error: 'Shop code, email, and password are required' });
     }
 
-    // Find company by slug
-    const companyResult = await db.query(
-      `SELECT id, name, slug, primary_color, logo_url, sam_enabled FROM companies WHERE slug = $1`,
-      [slug.toLowerCase()]
-    );
-    if (companyResult.rows.length === 0) {
-      // Timing-safe: same error message whether shop exists or not
+    const company = await findCompany(shopCode);
+    if (!company) {
+      await bcrypt.compare(password, '$2a$12$invalidhashtowastetimenothinghere1234567890');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    const company = companyResult.rows[0];
 
     // Find customer by email + company
     const customerResult = await db.query(
-      `SELECT id, name, email, password_hash, portal_access_enabled,
+      `SELECT id, name, email, password_hash, pin_hash, portal_access_enabled,
               failed_login_attempts, locked_until
        FROM customers
        WHERE company_id = $1 AND LOWER(email) = $2`,
@@ -100,73 +191,65 @@ router.post('/auth/login', authLimiter, async (req, res) => {
     );
 
     if (customerResult.rows.length === 0) {
-      // Timing-safe: run bcrypt compare even when user not found
       await bcrypt.compare(password, '$2a$12$invalidhashtowastetimenothinghere1234567890');
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
     const customer = customerResult.rows[0];
 
-    // Check portal access
     if (!customer.portal_access_enabled) {
       return res.status(403).json({ error: 'Portal access is disabled. Contact your shop.' });
     }
 
-    // Check account lockout
     const lockMessage = checkAccountLock(customer);
     if (lockMessage) {
       return res.status(423).json({ error: lockMessage });
     }
 
-    // Check if password is set
     if (!customer.password_hash) {
       return res.status(401).json({
-        error: 'No password set. Use your magic link to set up a password.',
+        error: 'No password set. Please create an account first.',
         code: 'NO_PASSWORD'
       });
     }
 
-    // Verify password (bcrypt cost 12)
     const passwordMatch = await bcrypt.compare(password, customer.password_hash);
 
     if (!passwordMatch) {
-      // Increment failed attempts
       const newAttempts = (customer.failed_login_attempts || 0) + 1;
-      const updates = { failed_login_attempts: newAttempts };
+      const lockUpdate = newAttempts >= LOCKOUT_THRESHOLD
+        ? `, locked_until = '${new Date(Date.now() + LOCKOUT_DURATION_MS).toISOString()}'`
+        : '';
+
+      await db.query(
+        `UPDATE customers SET failed_login_attempts = $1${lockUpdate} WHERE id = $2`,
+        [newAttempts, customer.id]
+      );
 
       if (newAttempts >= LOCKOUT_THRESHOLD) {
-        updates.locked_until = new Date(Date.now() + LOCKOUT_DURATION_MS);
-        console.log(`🔒 Customer ${email} locked out after ${newAttempts} failed attempts`);
+        console.log(`Account locked: ${email} after ${newAttempts} failed attempts`);
       }
-
-      const setClauses = Object.entries(updates).map(([k, v], i) => `${k} = $${i + 1}`);
-      const values = Object.values(updates);
-      values.push(customer.id);
-      await db.query(
-        `UPDATE customers SET ${setClauses.join(', ')} WHERE id = $${values.length}`,
-        values
-      );
 
       return res.status(401).json({ error: 'Invalid credentials' });
     }
 
-    // Success — reset failed attempts, update last login
+    // Success
     await db.query(
       `UPDATE customers SET failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW() WHERE id = $1`,
       [customer.id]
     );
 
-    // Issue JWT (24h expiration — shorter than admin for security)
+    // Long-lived JWT (30 days for home screen app)
     const token = jwt.sign(
       { customerId: customer.id, type: 'customer' },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '30d' }
     );
 
     res.json({
       token,
-      customer: { id: customer.id, name: customer.name, email: customer.email },
-      company: { name: company.name, slug: company.slug, primaryColor: company.primary_color, logo_url: company.logo_url, sam_enabled: company.sam_enabled }
+      customer: { id: customer.id, name: customer.name, email: customer.email, hasPin: !!customer.pin_hash },
+      company: companyResponse(company)
     });
   } catch (error) {
     console.error('Customer login error:', error);
@@ -174,89 +257,105 @@ router.post('/auth/login', authLimiter, async (req, res) => {
   }
 });
 
-// Set password (from magic link — requires valid portal token)
-router.post('/auth/setup-password', async (req, res) => {
+// Set up or change 4-digit PIN (requires JWT auth)
+router.post('/auth/pin/setup', authenticateCustomer, async (req, res) => {
   try {
-    const { token, password } = req.body;
+    const { pin } = req.body;
 
-    if (!token || !password) {
-      return res.status(400).json({ error: 'Token and password are required' });
+    if (!pin || !/^\d{4}$/.test(pin)) {
+      return res.status(400).json({ error: 'PIN must be exactly 4 digits' });
     }
 
-    // Validate password strength
-    const passwordError = validatePassword(password);
-    if (passwordError) {
-      return res.status(400).json({ error: passwordError });
-    }
+    const pinHash = await bcrypt.hash(pin, 10);
 
-    // Find customer by portal token
-    const customerResult = await db.query(
-      `SELECT c.id, c.name, c.email, c.company_id, c.password_hash,
-              co.name as company_name, co.slug as company_slug, co.primary_color, co.logo_url, co.sam_enabled
-       FROM customers c
-       JOIN companies co ON c.company_id = co.id
-       WHERE c.portal_access_token = $1 AND c.portal_access_enabled = true`,
-      [token]
+    await db.query(
+      `UPDATE customers SET pin_hash = $1 WHERE id = $2`,
+      [pinHash, req.customer.id]
     );
 
-    if (customerResult.rows.length === 0) {
-      return res.status(401).json({ error: 'Invalid or expired token' });
+    res.json({ message: 'PIN set successfully' });
+  } catch (error) {
+    console.error('PIN setup error:', error);
+    res.status(500).json({ error: 'Failed to set PIN' });
+  }
+});
+
+// Verify PIN for quick re-auth (extends session)
+router.post('/auth/pin/verify', authenticateCustomer, async (req, res) => {
+  try {
+    const { pin } = req.body;
+
+    if (!pin || !/^\d{4}$/.test(pin)) {
+      return res.status(400).json({ error: 'PIN must be exactly 4 digits' });
     }
 
+    const customerResult = await db.query(
+      `SELECT pin_hash, failed_login_attempts, locked_until FROM customers WHERE id = $1`,
+      [req.customer.id]
+    );
     const customer = customerResult.rows[0];
 
-    // Hash password with cost factor 12
-    const passwordHash = await bcrypt.hash(password, 12);
+    if (!customer.pin_hash) {
+      return res.status(400).json({ error: 'No PIN set' });
+    }
 
-    // Update customer with password
+    const lockMessage = checkAccountLock(customer);
+    if (lockMessage) {
+      return res.status(423).json({ error: lockMessage });
+    }
+
+    const match = await bcrypt.compare(pin, customer.pin_hash);
+    if (!match) {
+      const newAttempts = (customer.failed_login_attempts || 0) + 1;
+      const lockUpdate = newAttempts >= LOCKOUT_THRESHOLD
+        ? `, locked_until = '${new Date(Date.now() + LOCKOUT_DURATION_MS).toISOString()}'`
+        : '';
+      await db.query(
+        `UPDATE customers SET failed_login_attempts = $1${lockUpdate} WHERE id = $2`,
+        [newAttempts, req.customer.id]
+      );
+      return res.status(401).json({ error: 'Incorrect PIN' });
+    }
+
+    // Reset failed attempts, refresh session
     await db.query(
-      `UPDATE customers SET password_hash = $1, failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW() WHERE id = $2`,
-      [passwordHash, customer.id]
+      `UPDATE customers SET failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW() WHERE id = $1`,
+      [req.customer.id]
     );
 
-    // Issue JWT
-    const jwtToken = jwt.sign(
-      { customerId: customer.id, type: 'customer' },
+    // Issue fresh long-lived token
+    const token = jwt.sign(
+      { customerId: req.customer.id, type: 'customer' },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: '30d' }
     );
 
-    res.json({
-      token: jwtToken,
-      customer: { id: customer.id, name: customer.name, email: customer.email },
-      company: { name: customer.company_name, slug: customer.company_slug, primaryColor: customer.primary_color, logo_url: customer.logo_url, sam_enabled: customer.sam_enabled },
-      message: 'Password set successfully! You can now log in with your email and password.'
-    });
+    res.json({ token, verified: true });
   } catch (error) {
-    console.error('Setup password error:', error);
-    res.status(500).json({ error: 'Failed to set password' });
+    console.error('PIN verify error:', error);
+    res.status(500).json({ error: 'PIN verification failed' });
   }
 });
 
 // Forgot password — sends a reset link
 router.post('/auth/forgot-password', authLimiter, async (req, res) => {
   try {
-    const { slug, email } = req.body;
+    const { shopCode, email } = req.body;
 
-    // Always return same message whether user exists or not (timing-safe)
     const successMessage = 'If your email is registered, you will receive a password reset link.';
 
-    if (!slug || !email) {
+    if (!shopCode || !email) {
       return res.json({ message: successMessage });
     }
 
-    // Find company
-    const companyResult = await db.query(
-      `SELECT id FROM companies WHERE slug = $1`, [slug.toLowerCase()]
-    );
-    if (companyResult.rows.length === 0) {
+    const company = await findCompany(shopCode);
+    if (!company) {
       return res.json({ message: successMessage });
     }
 
-    // Find customer
     const customerResult = await db.query(
       `SELECT id, email, name FROM customers WHERE company_id = $1 AND LOWER(email) = $2 AND portal_access_enabled = true`,
-      [companyResult.rows[0].id, email.toLowerCase()]
+      [company.id, email.toLowerCase()]
     );
 
     if (customerResult.rows.length === 0) {
@@ -265,22 +364,19 @@ router.post('/auth/forgot-password', authLimiter, async (req, res) => {
 
     const customer = customerResult.rows[0];
 
-    // Generate secure reset token (32 bytes = 64 hex chars)
     const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000);
 
     await db.query(
       `UPDATE customers SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3`,
       [resetToken, resetExpires, customer.id]
     );
 
-    // Send reset email
     try {
       const { sendPasswordResetEmail } = require('../services/emailService');
       await sendPasswordResetEmail(customer.id, resetToken);
     } catch (emailError) {
       console.error('Failed to send password reset email:', emailError.message);
-      // Don't expose email sending failure to user
     }
 
     res.json({ message: successMessage });
@@ -304,7 +400,6 @@ router.post('/auth/reset-password', authLimiter, async (req, res) => {
       return res.status(400).json({ error: passwordError });
     }
 
-    // Find customer by reset token (not expired)
     const customerResult = await db.query(
       `SELECT id FROM customers
        WHERE password_reset_token = $1 AND password_reset_expires > NOW()`,
@@ -317,7 +412,6 @@ router.post('/auth/reset-password', authLimiter, async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Update password and clear reset token + lockout
     await db.query(
       `UPDATE customers
        SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL,
@@ -339,19 +433,15 @@ router.patch('/profile', authenticateCustomer, async (req, res) => {
     const { name, email, phone, currentPassword, newPassword } = req.body;
     const updates = {};
 
-    // Update name
     if (name && name.trim()) {
       updates.name = name.trim();
     }
 
-    // Update phone
     if (phone !== undefined) {
       updates.phone = phone.trim() || null;
     }
 
-    // Update email (requires verification in production — for now just update)
     if (email && email.trim() && email.toLowerCase() !== req.customer.email.toLowerCase()) {
-      // Check uniqueness within company
       const existing = await db.query(
         `SELECT id FROM customers WHERE company_id = $1 AND LOWER(email) = $2 AND id != $3`,
         [req.customer.company_id, email.toLowerCase(), req.customer.id]
@@ -362,13 +452,11 @@ router.patch('/profile', authenticateCustomer, async (req, res) => {
       updates.email = email.trim().toLowerCase();
     }
 
-    // Change password
     if (newPassword) {
       if (!currentPassword) {
         return res.status(400).json({ error: 'Current password is required to change password' });
       }
 
-      // Verify current password
       const customerResult = await db.query(
         `SELECT password_hash FROM customers WHERE id = $1`, [req.customer.id]
       );
@@ -437,7 +525,8 @@ router.get('/access', async (req, res) => {
 
         // Find customer by portal access token
         const customerResult = await db.query(
-            `SELECT c.*, co.name as company_name, co.slug as company_slug, co.primary_color, co.logo_url, co.sam_enabled
+            `SELECT c.*, co.name as company_name, co.slug as company_slug, co.shop_code as company_shop_code,
+             co.primary_color, co.logo_url, co.sam_enabled
              FROM customers c JOIN companies co ON c.company_id = co.id
              WHERE c.portal_access_token = $1 AND c.portal_access_enabled = true`,
             [token]
@@ -503,6 +592,7 @@ router.get('/access', async (req, res) => {
             company: {
                 name: customer.company_name,
                 slug: customer.company_slug,
+                shop_code: customer.company_shop_code,
                 primaryColor: customer.primary_color,
                 logo_url: customer.logo_url,
                 sam_enabled: customer.sam_enabled || false
@@ -578,23 +668,24 @@ router.post('/login', async (req, res) => {
         
         if (token) {
             const result = await db.query(
-                `SELECT c.*, co.name as company_name, co.slug as company_slug, co.primary_color, co.logo_url
+                `SELECT c.*, co.name as company_name, co.slug as company_slug, co.shop_code as company_shop_code,
+                 co.primary_color, co.logo_url, co.sam_enabled
                  FROM customers c JOIN companies co ON c.company_id = co.id
                  WHERE c.portal_access_token = $1 AND c.portal_token_expires > NOW() AND c.portal_access_enabled = true`,
                 [token]
             );
-            
+
             if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid or expired token' });
-            
+
             const customer = result.rows[0];
             await db.query('UPDATE customers SET portal_access_token = NULL WHERE id = $1', [customer.id]);
-            
+
             const jwtToken = jwt.sign({ customerId: customer.id, type: 'customer' }, process.env.JWT_SECRET, { expiresIn: '30d' });
-            
+
             res.json({
                 token: jwtToken,
                 customer: { id: customer.id, name: customer.name, email: customer.email },
-                company: { name: customer.company_name, slug: customer.company_slug, primaryColor: customer.primary_color }
+                company: companyResponse({ ...customer, name: customer.company_name, slug: customer.company_slug, shop_code: customer.company_shop_code })
             });
         } else {
             res.json({ message: 'If your email is registered, you will receive a login link.' });
@@ -605,10 +696,16 @@ router.post('/login', async (req, res) => {
 });
 
 // Get customer info
-router.get('/me', authenticateCustomer, (req, res) => {
+router.get('/me', authenticateCustomer, async (req, res) => {
+    const result = await db.query(
+      `SELECT c.pin_hash, co.name as company_name, co.slug, co.shop_code, co.primary_color, co.logo_url, co.sam_enabled
+       FROM customers c JOIN companies co ON c.company_id = co.id WHERE c.id = $1`,
+      [req.customer.id]
+    );
+    const data = result.rows[0] || {};
     res.json({
-        customer: { id: req.customer.id, name: req.customer.name, email: req.customer.email },
-        company: { name: req.customer.company_name, primaryColor: req.customer.primary_color }
+        customer: { id: req.customer.id, name: req.customer.name, email: req.customer.email, hasPin: !!data.pin_hash },
+        company: { name: data.company_name, slug: data.slug, shop_code: data.shop_code, primaryColor: data.primary_color, logo_url: data.logo_url, sam_enabled: data.sam_enabled }
     });
 });
 
