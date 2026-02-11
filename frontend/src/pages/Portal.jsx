@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import CustomerPortal from './CustomerPortal';
 import { QRCodeSVG } from 'qrcode.react';
@@ -8,35 +8,332 @@ import CompLookup from '../components/CompLookup';
 import SAMChatInterface from '../components/SAMChatInterface';
 import {
   Loader2, AlertTriangle, Eye, EyeOff, Store, ArrowRight, Lock, Mail, KeyRound, ArrowLeft,
-  CheckCircle2, Package, Clock, Sparkles, ChevronDown, ChevronUp,
+  CheckCircle2, Package, Clock, Sparkles, ChevronDown, ChevronUp, Hash,
   Key, Truck, MessageSquare, Camera, Bot, Bell, BellOff, Grid, Search,
-  Image as ImageIcon, Upload, User, LogOut, Settings
+  Image as ImageIcon, Upload, User, LogOut, Settings, Plus, Smartphone, Shield, X, Delete
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 const STORAGE_KEY = 'slabdash_portal_token';
 const SHOP_KEY = 'slabdash_portal_shop';
+const PIN_LAST_VERIFIED = 'slabdash_pin_verified';
 
 // ============================================
-// LOGIN PAGE — university-style shop picker + email/password
+// Add to Home Screen Banner
 // ============================================
-function PortalLogin({ onLoginSuccess, initialError, initialShop }) {
-  const [step, setStep] = useState('shop'); // 'shop' | 'login' | 'forgot' | 'reset'
+function AddToHomeScreenBanner({ onDismiss }) {
+  const [isIOS, setIsIOS] = useState(false);
+  const [isAndroid, setIsAndroid] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  useEffect(() => {
+    const ua = navigator.userAgent || '';
+    setIsIOS(/iPhone|iPad|iPod/.test(ua) && !window.MSStream);
+    setIsAndroid(/Android/.test(ua));
+    setIsStandalone(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone);
+  }, []);
+
+  // Don't show if already installed or on desktop
+  if (isStandalone || (!isIOS && !isAndroid)) return null;
+
+  return (
+    <div className="mx-5 mb-4 rounded-2xl overflow-hidden" style={{
+      background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.06))',
+      border: '1px solid rgba(99, 102, 241, 0.15)',
+    }}>
+      <div className="px-4 py-3.5 flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+          style={{ background: 'linear-gradient(135deg, #6366F1, #8B5CF6)' }}>
+          <Smartphone className="w-5 h-5 text-white" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>Add to Home Screen</p>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>
+            {isIOS
+              ? 'Tap the Share button below, then "Add to Home Screen"'
+              : 'Tap the menu (⋮) then "Add to Home Screen"'}
+          </p>
+        </div>
+        <button onClick={onDismiss} className="p-1 rounded-lg shrink-0" style={{ background: 'rgba(0,0,0,0.04)' }}>
+          <X className="w-3.5 h-3.5" style={{ color: 'rgba(44, 36, 22, 0.3)' }} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// PIN Entry Screen (quick re-auth)
+// ============================================
+function PINScreen({ onVerified, onFallback, jwtToken, customerName }) {
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [shake, setShake] = useState(false);
+
+  const handleDigit = (digit) => {
+    if (pin.length >= 4) return;
+    const newPin = pin + digit;
+    setPin(newPin);
+    setError('');
+
+    if (newPin.length === 4) {
+      verifyPin(newPin);
+    }
+  };
+
+  const handleDelete = () => {
+    setPin(prev => prev.slice(0, -1));
+    setError('');
+  };
+
+  const verifyPin = async (code) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/portal/auth/pin/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+        body: JSON.stringify({ pin: code }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        // Store new token if provided
+        if (data.token) {
+          localStorage.setItem(STORAGE_KEY, data.token);
+        }
+        localStorage.setItem(PIN_LAST_VERIFIED, Date.now().toString());
+        onVerified(data.token || jwtToken);
+      } else {
+        setShake(true);
+        setTimeout(() => setShake(false), 500);
+        setPin('');
+        setError(data.error || 'Incorrect PIN');
+      }
+    } catch {
+      setPin('');
+      setError('Verification failed');
+    }
+    setLoading(false);
+  };
+
+  const dots = Array.from({ length: 4 }, (_, i) => i < pin.length);
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-6"
+      style={{ background: 'linear-gradient(180deg, rgb(var(--bg-color)) 0%, rgba(var(--bg-color), 0.95) 100%)' }}>
+      <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-6"
+        style={{ background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))' }}>
+        <Shield className="w-7 h-7 text-white" />
+      </div>
+
+      <h2 className="text-xl font-black mb-1" style={{ color: 'rgb(var(--dark))' }}>Welcome back</h2>
+      <p className="text-sm mb-8" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>{customerName}</p>
+
+      {/* PIN dots */}
+      <div className={`flex gap-4 mb-8 ${shake ? 'animate-shake' : ''}`}>
+        {dots.map((filled, i) => (
+          <div key={i} className="w-4 h-4 rounded-full transition-all duration-200"
+            style={{
+              background: filled ? 'rgb(var(--brand-500))' : 'transparent',
+              border: `2px solid ${filled ? 'rgb(var(--brand-500))' : 'rgba(44, 36, 22, 0.15)'}`,
+              transform: filled ? 'scale(1.1)' : 'scale(1)',
+            }} />
+        ))}
+      </div>
+
+      {error && <p className="text-xs font-semibold mb-4" style={{ color: '#DC2626' }}>{error}</p>}
+
+      {/* Number pad */}
+      <div className="grid grid-cols-3 gap-3 mb-6" style={{ maxWidth: '260px' }}>
+        {[1,2,3,4,5,6,7,8,9,'',0,'del'].map((key, i) => {
+          if (key === '') return <div key={i} />;
+          if (key === 'del') return (
+            <button key="del" onClick={handleDelete} disabled={loading || pin.length === 0}
+              className="w-20 h-14 rounded-2xl flex items-center justify-center disabled:opacity-30"
+              style={{ background: 'rgba(0,0,0,0.04)' }}>
+              <Delete className="w-5 h-5" style={{ color: 'rgba(44, 36, 22, 0.5)' }} />
+            </button>
+          );
+          return (
+            <button key={key} onClick={() => handleDigit(String(key))} disabled={loading}
+              className="w-20 h-14 rounded-2xl text-xl font-bold disabled:opacity-50 active:scale-95 transition-transform"
+              style={{ background: 'rgba(0,0,0,0.04)', color: 'rgb(var(--dark))' }}>
+              {key}
+            </button>
+          );
+        })}
+      </div>
+
+      <button onClick={onFallback}
+        className="text-xs font-semibold py-2 px-4 rounded-lg"
+        style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
+        Use password instead
+      </button>
+
+      {loading && <Loader2 className="w-5 h-5 animate-spin mt-4" style={{ color: 'rgb(var(--brand-500))' }} />}
+
+      <style>{`
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
+        .animate-shake { animation: shake 0.4s ease-in-out; }
+      `}</style>
+    </div>
+  );
+}
+
+// ============================================
+// PIN Setup Prompt (after first login)
+// ============================================
+function PINSetupPrompt({ jwtToken, onComplete, onSkip }) {
+  const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [step, setStep] = useState('enter'); // 'enter' | 'confirm'
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleDigit = (digit) => {
+    const current = step === 'enter' ? pin : confirmPin;
+    if (current.length >= 4) return;
+    const newVal = current + digit;
+
+    if (step === 'enter') {
+      setPin(newVal);
+      if (newVal.length === 4) {
+        setTimeout(() => setStep('confirm'), 300);
+      }
+    } else {
+      setConfirmPin(newVal);
+      if (newVal.length === 4) {
+        if (newVal !== pin) {
+          setError('PINs don\'t match. Try again.');
+          setPin('');
+          setConfirmPin('');
+          setStep('enter');
+        } else {
+          submitPin(newVal);
+        }
+      }
+    }
+    setError('');
+  };
+
+  const handleDelete = () => {
+    if (step === 'enter') {
+      setPin(prev => prev.slice(0, -1));
+    } else {
+      setConfirmPin(prev => prev.slice(0, -1));
+    }
+  };
+
+  const submitPin = async (code) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/portal/auth/pin/setup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+        body: JSON.stringify({ pin: code }),
+      });
+      if (res.ok) {
+        localStorage.setItem(PIN_LAST_VERIFIED, Date.now().toString());
+        onComplete();
+      } else {
+        const data = await res.json();
+        setError(data.error || 'Failed to set PIN');
+        setPin('');
+        setConfirmPin('');
+        setStep('enter');
+      }
+    } catch {
+      setError('Failed to set PIN');
+    }
+    setLoading(false);
+  };
+
+  const currentPin = step === 'enter' ? pin : confirmPin;
+  const dots = Array.from({ length: 4 }, (_, i) => i < currentPin.length);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(8px)' }}>
+      <div className="w-full max-w-xs rounded-3xl p-6 text-center"
+        style={{ background: 'rgba(255,255,255,0.97)', boxShadow: '0 25px 80px rgba(0,0,0,0.2)' }}>
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+          style={{ background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))' }}>
+          <KeyRound className="w-6 h-6 text-white" />
+        </div>
+
+        <h3 className="text-lg font-black mb-1" style={{ color: 'rgb(var(--dark))' }}>
+          {step === 'enter' ? 'Set a Quick PIN' : 'Confirm PIN'}
+        </h3>
+        <p className="text-xs mb-6" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>
+          {step === 'enter' ? 'Use a 4-digit PIN for quick access next time' : 'Enter the same PIN again to confirm'}
+        </p>
+
+        <div className="flex gap-4 justify-center mb-6">
+          {dots.map((filled, i) => (
+            <div key={i} className="w-4 h-4 rounded-full transition-all duration-200"
+              style={{
+                background: filled ? 'rgb(var(--brand-500))' : 'transparent',
+                border: `2px solid ${filled ? 'rgb(var(--brand-500))' : 'rgba(44, 36, 22, 0.15)'}`,
+              }} />
+          ))}
+        </div>
+
+        {error && <p className="text-xs font-semibold mb-3" style={{ color: '#DC2626' }}>{error}</p>}
+
+        <div className="grid grid-cols-3 gap-2 mb-4 mx-auto" style={{ maxWidth: '220px' }}>
+          {[1,2,3,4,5,6,7,8,9,'',0,'del'].map((key, i) => {
+            if (key === '') return <div key={i} />;
+            if (key === 'del') return (
+              <button key="del" onClick={handleDelete} disabled={loading}
+                className="w-16 h-12 rounded-xl flex items-center justify-center"
+                style={{ background: 'rgba(0,0,0,0.04)' }}>
+                <Delete className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.5)' }} />
+              </button>
+            );
+            return (
+              <button key={key} onClick={() => handleDigit(String(key))} disabled={loading}
+                className="w-16 h-12 rounded-xl text-lg font-bold active:scale-95 transition-transform"
+                style={{ background: 'rgba(0,0,0,0.04)', color: 'rgb(var(--dark))' }}>
+                {key}
+              </button>
+            );
+          })}
+        </div>
+
+        <button onClick={onSkip}
+          className="text-xs font-semibold py-2"
+          style={{ color: 'rgba(44, 36, 22, 0.3)' }}>
+          Skip for now
+        </button>
+
+        {loading && <Loader2 className="w-5 h-5 animate-spin mx-auto mt-2" style={{ color: 'rgb(var(--brand-500))' }} />}
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// LOGIN PAGE — 4-digit shop code + sign up / sign in
+// ============================================
+function PortalLogin({ onLoginSuccess, initialShop }) {
+  const [step, setStep] = useState('shop'); // 'shop' | 'signin' | 'signup' | 'forgot'
   const [shopCode, setShopCode] = useState('');
   const [shop, setShop] = useState(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(initialError || '');
+  const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const codeRefs = [useRef(), useRef(), useRef(), useRef()];
 
-  // Use initialShop from QR code link, or restore from localStorage
+  // Use initialShop from QR code link
   useEffect(() => {
     if (initialShop) {
       setShop(initialShop);
-      setShopCode(initialShop.slug);
-      setStep('login');
+      setShopCode(initialShop.shop_code || initialShop.slug || '');
+      setStep('signin');
       return;
     }
     const saved = localStorage.getItem(SHOP_KEY);
@@ -44,19 +341,59 @@ function PortalLogin({ onLoginSuccess, initialError, initialShop }) {
       try {
         const parsed = JSON.parse(saved);
         setShop(parsed);
-        setShopCode(parsed.slug);
-        setStep('login');
+        setShopCode(parsed.shop_code || parsed.slug || '');
+        setStep('signin');
       } catch {}
     }
   }, [initialShop]);
 
-  const lookupShop = async (e) => {
+  // Auto-focus first code input
+  useEffect(() => {
+    if (step === 'shop') {
+      setTimeout(() => codeRefs[0].current?.focus(), 100);
+    }
+  }, [step]);
+
+  const handleCodeInput = (index, value) => {
+    // Only allow digits
+    const digit = value.replace(/\D/g, '').slice(-1);
+    const newCode = shopCode.split('');
+    newCode[index] = digit;
+    const code = newCode.join('');
+    setShopCode(code);
+    setError('');
+
+    if (digit && index < 3) {
+      codeRefs[index + 1].current?.focus();
+    }
+
+    // Auto-submit when 4 digits entered
+    if (code.length === 4 && /^\d{4}$/.test(code)) {
+      lookupShop(code);
+    }
+  };
+
+  const handleCodeKeyDown = (index, e) => {
+    if (e.key === 'Backspace' && !shopCode[index] && index > 0) {
+      codeRefs[index - 1].current?.focus();
+    }
+  };
+
+  const handleCodePaste = (e) => {
     e.preventDefault();
-    if (!shopCode.trim()) return;
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
+    if (pasted.length === 4) {
+      setShopCode(pasted);
+      codeRefs[3].current?.focus();
+      lookupShop(pasted);
+    }
+  };
+
+  const lookupShop = async (code) => {
     setLoading(true);
     setError('');
     try {
-      const res = await fetch(`${API_URL}/portal/auth/shop-lookup/${encodeURIComponent(shopCode.trim().toLowerCase())}`);
+      const res = await fetch(`${API_URL}/portal/auth/shop-lookup/${encodeURIComponent(code)}`);
       if (!res.ok) {
         setError('Shop not found. Check the code and try again.');
         setLoading(false);
@@ -65,38 +402,72 @@ function PortalLogin({ onLoginSuccess, initialError, initialShop }) {
       const data = await res.json();
       setShop(data);
       localStorage.setItem(SHOP_KEY, JSON.stringify(data));
-      setStep('login');
+      setStep('signin');
     } catch {
       setError('Connection error. Please try again.');
     }
     setLoading(false);
   };
 
-  const handleLogin = async (e) => {
+  const handleSignIn = async (e) => {
     e.preventDefault();
-    if (!email.trim() || !password) return;
     setLoading(true);
     setError('');
     try {
       const res = await fetch(`${API_URL}/portal/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: shop.slug, email: email.trim(), password })
+        body: JSON.stringify({ shopCode: shop.shop_code || shop.slug, email: email.trim(), password }),
       });
       const data = await res.json();
-
       if (!res.ok) {
         if (data.code === 'NO_PASSWORD') {
-          setError('No password set yet. Use your magic link email to set one up, or ask your shop to send you a new portal link.');
+          setError('No account found. Please create one first.');
+          setStep('signup');
         } else {
-          setError(data.error || 'Login failed');
+          setError(data.error || 'Sign in failed');
         }
         setLoading(false);
         return;
       }
-
       localStorage.setItem(STORAGE_KEY, data.token);
-      onLoginSuccess(data.token);
+      localStorage.setItem(SHOP_KEY, JSON.stringify(data.company));
+      onLoginSuccess(data.token, data.customer);
+    } catch {
+      setError('Connection error. Please try again.');
+    }
+    setLoading(false);
+  };
+
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`${API_URL}/portal/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shopCode: shop.shop_code || shop.slug,
+          name: name.trim(),
+          email: email.trim(),
+          password,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (res.status === 409) {
+          setError('Account already exists. Please sign in instead.');
+          setStep('signin');
+        } else {
+          setError(data.error || 'Registration failed');
+        }
+        setLoading(false);
+        return;
+      }
+      localStorage.setItem(STORAGE_KEY, data.token);
+      localStorage.setItem(SHOP_KEY, JSON.stringify(data.company));
+      onLoginSuccess(data.token, data.customer, true); // isNewAccount = true
     } catch {
       setError('Connection error. Please try again.');
     }
@@ -105,16 +476,16 @@ function PortalLogin({ onLoginSuccess, initialError, initialShop }) {
 
   const handleForgotPassword = async (e) => {
     e.preventDefault();
-    if (!email.trim()) return;
     setLoading(true);
     setError('');
     try {
-      await fetch(`${API_URL}/portal/auth/forgot-password`, {
+      const res = await fetch(`${API_URL}/portal/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug: shop.slug, email: email.trim() })
+        body: JSON.stringify({ shopCode: shop.shop_code || shop.slug, email: email.trim() }),
       });
-      setSuccess('If your email is registered, you will receive a password reset link.');
+      const data = await res.json();
+      setSuccess(data.message);
     } catch {
       setSuccess('If your email is registered, you will receive a password reset link.');
     }
@@ -123,303 +494,246 @@ function PortalLogin({ onLoginSuccess, initialError, initialShop }) {
 
   const changeShop = () => {
     setShop(null);
+    setShopCode('');
     setStep('shop');
     setError('');
     setSuccess('');
     localStorage.removeItem(SHOP_KEY);
   };
 
-  return (
-    <div className="min-h-screen flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgb(var(--bg-color))' }}>
-      <div className="w-full max-w-sm">
-        {/* Logo / Brand */}
-        <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center"
-            style={{ background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))' }}>
-            <Store className="w-7 h-7 text-white" />
-          </div>
-          <h1 className="text-2xl font-black" style={{ color: 'rgb(var(--dark))' }}>Customer Portal</h1>
-          <p className="text-sm mt-1" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
-            Sign in to track your submissions
-          </p>
-        </div>
-
-        {/* Card */}
-        <div className="rounded-2xl p-6 sm:p-8"
-          style={{
-            background: 'rgba(255, 255, 255, 0.7)',
-            backdropFilter: 'blur(40px) saturate(180%)',
-            border: '1px solid rgba(255, 255, 255, 0.5)',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.04)',
-          }}>
-
-          {/* Step 1: Shop Code */}
-          {step === 'shop' && (
-            <form onSubmit={lookupShop}>
-              <label className="block text-xs font-bold mb-2" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>
-                SHOP CODE
-              </label>
-              <p className="text-xs mb-4" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
-                Enter the code from your card shop
-              </p>
-              <input
-                type="text"
-                value={shopCode}
-                onChange={(e) => setShopCode(e.target.value)}
-                placeholder="e.g. acme-cards"
-                autoFocus
-                className="w-full px-4 py-3 rounded-xl text-sm font-semibold"
-                style={{
-                  background: 'rgba(0,0,0,0.03)',
-                  border: '1.5px solid rgba(0,0,0,0.08)',
-                  color: 'rgb(var(--dark))',
-                  outline: 'none',
-                }}
-              />
-              {error && <p className="text-xs mt-2 font-semibold" style={{ color: '#DC2626' }}>{error}</p>}
-              <button type="submit" disabled={loading || !shopCode.trim()}
-                className="w-full mt-4 py-3 rounded-xl font-bold text-white text-sm transition-all disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))' }}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (
-                  <span className="flex items-center justify-center gap-2">Find My Shop <ArrowRight className="w-4 h-4" /></span>
-                )}
-              </button>
-            </form>
-          )}
-
-          {/* Step 2: Login */}
-          {step === 'login' && shop && (
-            <form onSubmit={handleLogin}>
-              {/* Shop badge */}
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex items-center gap-2.5">
-                  {shop.logo_url ? (
-                    <img src={shop.logo_url} alt="" className="w-8 h-8 rounded-lg object-cover" />
-                  ) : (
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                      style={{ background: shop.primary_color || '#ef4444' }}>
-                      <Store className="w-4 h-4 text-white" />
-                    </div>
-                  )}
-                  <div>
-                    <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>{shop.name}</p>
-                    <p className="text-[10px]" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>{shop.slug}</p>
-                  </div>
-                </div>
-                <button type="button" onClick={changeShop}
-                  className="text-[11px] font-bold px-2 py-1 rounded-lg transition-all"
-                  style={{ color: 'rgba(44, 36, 22, 0.4)', background: 'rgba(0,0,0,0.03)' }}>
-                  Change
-                </button>
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-[11px] font-bold mb-1" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>EMAIL</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
-                    <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@email.com" autoFocus
-                      className="w-full pl-10 pr-4 py-3 rounded-xl text-sm"
-                      style={{ background: 'rgba(0,0,0,0.03)', border: '1.5px solid rgba(0,0,0,0.08)', outline: 'none', color: 'rgb(var(--dark))' }}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold mb-1" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>PASSWORD</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
-                    <input type={showPassword ? 'text' : 'password'} value={password}
-                      onChange={(e) => setPassword(e.target.value)} placeholder="Your password"
-                      className="w-full pl-10 pr-10 py-3 rounded-xl text-sm"
-                      style={{ background: 'rgba(0,0,0,0.03)', border: '1.5px solid rgba(0,0,0,0.08)', outline: 'none', color: 'rgb(var(--dark))' }}
-                    />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2"
-                      style={{ color: 'rgba(44, 36, 22, 0.25)' }}>
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {error && <p className="text-xs mt-3 font-semibold" style={{ color: '#DC2626' }}>{error}</p>}
-
-              <button type="submit" disabled={loading || !email.trim() || !password}
-                className="w-full mt-4 py-3 rounded-xl font-bold text-white text-sm transition-all disabled:opacity-50"
-                style={{ background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))' }}>
-                {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Sign In'}
-              </button>
-
-              <button type="button" onClick={() => { setStep('forgot'); setError(''); setSuccess(''); }}
-                className="w-full mt-2 text-xs font-bold py-2" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
-                Forgot password?
-              </button>
-            </form>
-          )}
-
-          {/* Forgot Password */}
-          {step === 'forgot' && shop && (
-            <form onSubmit={handleForgotPassword}>
-              <button type="button" onClick={() => { setStep('login'); setError(''); setSuccess(''); }}
-                className="flex items-center gap-1 text-xs font-bold mb-4"
-                style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
-                <ArrowLeft className="w-3.5 h-3.5" /> Back to login
-              </button>
-
-              <div className="flex items-center gap-2 mb-4">
-                <KeyRound className="w-5 h-5" style={{ color: 'rgb(var(--brand-500))' }} />
-                <h2 className="text-lg font-bold" style={{ color: 'rgb(var(--dark))' }}>Reset Password</h2>
-              </div>
-
-              <p className="text-xs mb-4" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
-                Enter your email and we'll send you a reset link.
-              </p>
-
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@email.com" autoFocus
-                  className="w-full pl-10 pr-4 py-3 rounded-xl text-sm"
-                  style={{ background: 'rgba(0,0,0,0.03)', border: '1.5px solid rgba(0,0,0,0.08)', outline: 'none', color: 'rgb(var(--dark))' }}
-                />
-              </div>
-
-              {error && <p className="text-xs mt-2 font-semibold" style={{ color: '#DC2626' }}>{error}</p>}
-              {success && (
-                <div className="mt-3 p-3 rounded-xl" style={{ background: 'rgba(16, 185, 129, 0.06)', border: '1px solid rgba(16, 185, 129, 0.12)' }}>
-                  <p className="text-xs font-semibold" style={{ color: '#059669' }}>{success}</p>
-                </div>
-              )}
-
-              {!success && (
-                <button type="submit" disabled={loading || !email.trim()}
-                  className="w-full mt-4 py-3 rounded-xl font-bold text-white text-sm transition-all disabled:opacity-50"
-                  style={{ background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))' }}>
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Send Reset Link'}
-                </button>
-              )}
-            </form>
-          )}
-        </div>
-
-        {/* Footer link for magic link users */}
-        <p className="text-center text-[11px] mt-6" style={{ color: 'rgba(44, 36, 22, 0.3)' }}>
-          Have a magic link from your shop? Just click it — it still works.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ============================================
-// PASSWORD SETUP BANNER — shown when accessing via magic link without a password
-// ============================================
-function PasswordSetupBanner({ token, onComplete }) {
-  const [show, setShow] = useState(true);
-  const [expanded, setExpanded] = useState(false);
-  const [password, setPassword] = useState('');
-  const [confirm, setConfirm] = useState('');
-  const [showPw, setShowPw] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [done, setDone] = useState(false);
-
-  if (!show) return null;
-
-  const handleSetup = async (e) => {
-    e.preventDefault();
-    if (password !== confirm) { setError('Passwords don\'t match'); return; }
-    if (password.length < 8) { setError('Must be at least 8 characters'); return; }
-    if (!/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) { setError('Must contain letters and numbers'); return; }
-
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch(`${API_URL}/portal/auth/setup-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, password })
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || 'Failed to set password'); setLoading(false); return; }
-
-      // Save the JWT token
-      localStorage.setItem(STORAGE_KEY, data.token);
-      if (data.company?.slug) {
-        localStorage.setItem(SHOP_KEY, JSON.stringify(data.company));
-      }
-      setDone(true);
-      if (onComplete) onComplete(data.token);
-    } catch { setError('Connection error'); }
-    setLoading(false);
+  const inputStyle = {
+    background: 'rgba(0,0,0,0.03)',
+    border: '1px solid rgba(0,0,0,0.08)',
+    outline: 'none',
+    color: 'rgb(var(--dark))',
   };
 
-  if (done) {
+  // ---- Shop Code Entry ----
+  if (step === 'shop') {
     return (
-      <div className="mx-5 mb-4 p-4 rounded-xl flex items-center gap-3"
-        style={{ background: 'rgba(16, 185, 129, 0.06)', border: '1px solid rgba(16, 185, 129, 0.12)' }}>
-        <CheckCircle2 className="w-5 h-5 shrink-0" style={{ color: '#059669' }} />
-        <p className="text-sm font-bold" style={{ color: '#059669' }}>
-          Password set! You can now log in anytime at the portal login page.
-        </p>
+      <div className="min-h-screen flex items-center justify-center p-6"
+        style={{ background: 'linear-gradient(180deg, rgb(var(--bg-color)) 0%, rgba(var(--bg-color), 0.95) 100%)' }}>
+        <div className="w-full max-w-sm text-center">
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
+            style={{ background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))', boxShadow: '0 8px 30px rgba(255, 107, 89, 0.2)' }}>
+            <Store className="w-8 h-8 text-white" />
+          </div>
+          <h1 className="text-2xl font-black mb-1" style={{ color: 'rgb(var(--dark))' }}>Enter Shop Code</h1>
+          <p className="text-sm mb-8" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>
+            Ask your card shop for their 4-digit code
+          </p>
+
+          <div className="flex gap-3 justify-center mb-6" onPaste={handleCodePaste}>
+            {[0,1,2,3].map(i => (
+              <input
+                key={i}
+                ref={codeRefs[i]}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={shopCode[i] || ''}
+                onChange={(e) => handleCodeInput(i, e.target.value)}
+                onKeyDown={(e) => handleCodeKeyDown(i, e)}
+                className="w-16 h-20 rounded-2xl text-center text-3xl font-black focus:ring-2 transition-all"
+                style={{
+                  ...inputStyle,
+                  background: shopCode[i] ? 'rgba(var(--brand-500), 0.05)' : 'rgba(0,0,0,0.03)',
+                  borderColor: shopCode[i] ? 'rgba(var(--brand-500), 0.2)' : 'rgba(0,0,0,0.08)',
+                }}
+              />
+            ))}
+          </div>
+
+          {error && (
+            <div className="flex items-center gap-2 justify-center mb-4 text-xs font-semibold" style={{ color: '#DC2626' }}>
+              <AlertTriangle className="w-3.5 h-3.5" />
+              {error}
+            </div>
+          )}
+
+          {loading && (
+            <div className="flex items-center gap-2 justify-center mb-4">
+              <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'rgb(var(--brand-500))' }} />
+              <span className="text-sm font-semibold" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>Looking up shop...</span>
+            </div>
+          )}
+
+          <p className="text-[11px] mt-8" style={{ color: 'rgba(44, 36, 22, 0.25)' }}>
+            The code is on your receipt or the QR poster in-store
+          </p>
+        </div>
       </div>
     );
   }
 
+  // ---- Sign In / Sign Up / Forgot Password ----
   return (
-    <div className="mx-5 mb-4 rounded-xl overflow-hidden"
-      style={{ background: 'rgba(59, 130, 246, 0.04)', border: '1px solid rgba(59, 130, 246, 0.1)' }}>
-      <button onClick={() => setExpanded(!expanded)}
-        className="w-full p-4 flex items-center gap-3 text-left">
-        <Lock className="w-5 h-5 shrink-0" style={{ color: '#2563EB' }} />
-        <div className="flex-1">
-          <p className="text-sm font-bold" style={{ color: '#1D4ED8' }}>Set up a password</p>
-          <p className="text-xs" style={{ color: '#3B82F6' }}>Log in anytime without needing a magic link</p>
+    <div className="min-h-screen flex items-center justify-center p-6"
+      style={{ background: 'linear-gradient(180deg, rgb(var(--bg-color)) 0%, rgba(var(--bg-color), 0.95) 100%)' }}>
+      <div className="w-full max-w-sm">
+        {/* Shop header */}
+        <div className="text-center mb-6">
+          {shop?.logo_url ? (
+            <img src={shop.logo_url} alt="" className="w-14 h-14 rounded-2xl object-cover mx-auto mb-3" />
+          ) : (
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3"
+              style={{ background: shop?.primary_color || 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))' }}>
+              <Store className="w-7 h-7 text-white" />
+            </div>
+          )}
+          <h2 className="text-xl font-black" style={{ color: 'rgb(var(--dark))' }}>{shop?.name}</h2>
+          <button onClick={changeShop}
+            className="text-[11px] font-semibold mt-1 flex items-center gap-1 mx-auto"
+            style={{ color: 'rgba(44, 36, 22, 0.3)' }}>
+            <ArrowLeft className="w-3 h-3" /> Different shop
+          </button>
         </div>
-        <span className="text-xs font-bold px-2 py-1 rounded-lg"
-          style={{ background: 'rgba(59, 130, 246, 0.08)', color: '#2563EB' }}>
-          {expanded ? 'Close' : 'Set Up'}
-        </span>
-      </button>
 
-      {expanded && (
-        <form onSubmit={handleSetup} className="px-4 pb-4 space-y-3">
-          <div className="relative">
-            <input type={showPw ? 'text' : 'password'} value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="New password (8+ chars, letters & numbers)"
-              className="w-full px-3 py-2.5 rounded-lg text-sm pr-10"
-              style={{ background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(0,0,0,0.08)', outline: 'none' }}
-            />
-            <button type="button" onClick={() => setShowPw(!showPw)}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2"
-              style={{ color: 'rgba(44, 36, 22, 0.25)' }}>
-              {showPw ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+        {/* Tab toggle: Sign In / Create Account */}
+        {step !== 'forgot' && (
+          <div className="flex rounded-xl mb-6 p-1" style={{ background: 'rgba(0,0,0,0.04)' }}>
+            <button onClick={() => { setStep('signin'); setError(''); }}
+              className="flex-1 py-2.5 rounded-lg text-sm font-bold transition-all"
+              style={{
+                background: step === 'signin' ? 'white' : 'transparent',
+                color: step === 'signin' ? 'rgb(var(--dark))' : 'rgba(44, 36, 22, 0.35)',
+                boxShadow: step === 'signin' ? '0 1px 4px rgba(0,0,0,0.06)' : 'none',
+              }}>
+              Sign In
+            </button>
+            <button onClick={() => { setStep('signup'); setError(''); }}
+              className="flex-1 py-2.5 rounded-lg text-sm font-bold transition-all"
+              style={{
+                background: step === 'signup' ? 'white' : 'transparent',
+                color: step === 'signup' ? 'rgb(var(--dark))' : 'rgba(44, 36, 22, 0.35)',
+                boxShadow: step === 'signup' ? '0 1px 4px rgba(0,0,0,0.06)' : 'none',
+              }}>
+              Create Account
             </button>
           </div>
-          <input type={showPw ? 'text' : 'password'} value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-            placeholder="Confirm password"
-            className="w-full px-3 py-2.5 rounded-lg text-sm"
-            style={{ background: 'rgba(255,255,255,0.8)', border: '1px solid rgba(0,0,0,0.08)', outline: 'none' }}
-          />
-          {error && <p className="text-xs font-semibold" style={{ color: '#DC2626' }}>{error}</p>}
-          <div className="flex gap-2">
-            <button type="submit" disabled={loading || !password || !confirm}
-              className="flex-1 py-2.5 rounded-lg font-bold text-white text-xs disabled:opacity-50"
-              style={{ background: '#2563EB' }}>
-              {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" /> : 'Set Password'}
+        )}
+
+        {/* Forgot Password form */}
+        {step === 'forgot' && (
+          <form onSubmit={handleForgotPassword} className="space-y-4">
+            <div className="text-center mb-4">
+              <KeyRound className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(44, 36, 22, 0.2)' }} />
+              <h3 className="text-lg font-bold" style={{ color: 'rgb(var(--dark))' }}>Reset Password</h3>
+              <p className="text-xs mt-1" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>
+                Enter your email and we'll send you a reset link
+              </p>
+            </div>
+
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email address" required
+                className="w-full pl-10 pr-4 py-3 rounded-xl text-sm" style={inputStyle} />
+            </div>
+
+            {error && <p className="text-xs font-semibold" style={{ color: '#DC2626' }}>{error}</p>}
+            {success && (
+              <div className="flex items-start gap-2 p-3 rounded-xl" style={{ background: 'rgba(16, 185, 129, 0.06)', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
+                <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#059669' }} />
+                <p className="text-xs" style={{ color: '#059669' }}>{success}</p>
+              </div>
+            )}
+
+            <button type="submit" disabled={loading}
+              className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))' }}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Send Reset Link'}
             </button>
-            <button type="button" onClick={() => setShow(false)}
-              className="px-3 py-2.5 rounded-lg text-xs font-bold"
-              style={{ background: 'rgba(0,0,0,0.04)', color: 'rgba(44, 36, 22, 0.4)' }}>
-              Skip
+
+            <button type="button" onClick={() => { setStep('signin'); setError(''); setSuccess(''); }}
+              className="w-full text-xs font-semibold py-2" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
+              Back to sign in
             </button>
-          </div>
-        </form>
-      )}
+          </form>
+        )}
+
+        {/* Sign In form */}
+        {step === 'signin' && (
+          <form onSubmit={handleSignIn} className="space-y-3">
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email address" required autoComplete="email"
+                className="w-full pl-10 pr-4 py-3 rounded-xl text-sm" style={inputStyle} />
+            </div>
+
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
+              <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password" required autoComplete="current-password"
+                className="w-full pl-10 pr-10 py-3 rounded-xl text-sm" style={inputStyle} />
+              <button type="button" onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2">
+                {showPassword ? <EyeOff className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} /> : <Eye className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />}
+              </button>
+            </div>
+
+            {error && <p className="text-xs font-semibold" style={{ color: '#DC2626' }}>{error}</p>}
+
+            <button type="submit" disabled={loading}
+              className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))' }}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Sign In'}
+            </button>
+
+            <button type="button" onClick={() => { setStep('forgot'); setError(''); }}
+              className="w-full text-xs font-semibold py-1" style={{ color: 'rgba(44, 36, 22, 0.3)' }}>
+              Forgot password?
+            </button>
+          </form>
+        )}
+
+        {/* Sign Up form */}
+        {step === 'signup' && (
+          <form onSubmit={handleSignUp} className="space-y-3">
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)}
+                placeholder="Full name" required autoComplete="name"
+                className="w-full pl-10 pr-4 py-3 rounded-xl text-sm" style={inputStyle} />
+            </div>
+
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email address" required autoComplete="email"
+                className="w-full pl-10 pr-4 py-3 rounded-xl text-sm" style={inputStyle} />
+            </div>
+
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
+              <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password (8+ chars, letters & numbers)" required autoComplete="new-password"
+                className="w-full pl-10 pr-10 py-3 rounded-xl text-sm" style={inputStyle} />
+              <button type="button" onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2">
+                {showPassword ? <EyeOff className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} /> : <Eye className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />}
+              </button>
+            </div>
+
+            <p className="text-[10px] px-1" style={{ color: 'rgba(44, 36, 22, 0.3)' }}>
+              If your shop already has your email on file, your account will be linked automatically.
+            </p>
+
+            {error && <p className="text-xs font-semibold" style={{ color: '#DC2626' }}>{error}</p>}
+
+            <button type="submit" disabled={loading}
+              className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50"
+              style={{ background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))' }}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Create Account'}
+            </button>
+          </form>
+        )}
+
+        <p className="text-center text-[10px] mt-6" style={{ color: 'rgba(44, 36, 22, 0.2)' }}>
+          Powered by SlabDash
+        </p>
+      </div>
     </div>
   );
 }
@@ -430,22 +744,21 @@ function PasswordSetupBanner({ token, onComplete }) {
 export default function Portal() {
   const [searchParams] = useSearchParams();
   const magicToken = searchParams.get('token');
-  const shopSlug = searchParams.get('shop');
+  const shopParam = searchParams.get('shop');
 
-  const [mode, setMode] = useState('loading'); // 'loading' | 'login' | 'portal-token' | 'portal-jwt'
+  const [mode, setMode] = useState('loading'); // 'loading' | 'login' | 'portal-token' | 'portal-jwt' | 'pin'
   const [jwtToken, setJwtToken] = useState(null);
-  const [needsPasswordSetup, setNeedsPasswordSetup] = useState(false);
+  const [customerInfo, setCustomerInfo] = useState(null);
   const [initialShop, setInitialShop] = useState(null);
+  const [showPinSetup, setShowPinSetup] = useState(false);
+  const [showHomeScreenBanner, setShowHomeScreenBanner] = useState(false);
 
   useEffect(() => {
-    // Priority: magic link token > saved JWT > login page
     if (magicToken) {
-      // Validate magic link works
       fetch(`${API_URL}/portal/access?token=${magicToken}`)
         .then(res => {
           if (res.ok) {
             setMode('portal-token');
-            setNeedsPasswordSetup(true);
           } else {
             checkJwt();
           }
@@ -458,8 +771,8 @@ export default function Portal() {
 
   // Auto-lookup shop from ?shop= query param (for QR code links)
   useEffect(() => {
-    if (shopSlug && !magicToken) {
-      fetch(`${API_URL}/portal/auth/shop-lookup/${encodeURIComponent(shopSlug.toLowerCase())}`)
+    if (shopParam && !magicToken) {
+      fetch(`${API_URL}/portal/auth/shop-lookup/${encodeURIComponent(shopParam.toLowerCase())}`)
         .then(res => res.ok ? res.json() : null)
         .then(data => {
           if (data) {
@@ -469,22 +782,31 @@ export default function Portal() {
         })
         .catch(() => {});
     }
-  }, [shopSlug]);
+  }, [shopParam]);
 
   const checkJwt = () => {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      // Validate JWT by calling /portal/me
       fetch(`${API_URL}/portal/me`, {
         headers: { Authorization: `Bearer ${saved}` }
       })
         .then(res => {
-          if (res.ok) {
-            setJwtToken(saved);
-            setMode('portal-jwt');
+          if (res.ok) return res.json();
+          throw new Error('invalid');
+        })
+        .then(data => {
+          setJwtToken(saved);
+          setCustomerInfo(data.customer);
+
+          // Check if PIN is set and needs verification
+          const lastVerified = parseInt(localStorage.getItem(PIN_LAST_VERIFIED) || '0');
+          const fiveMinutes = 5 * 60 * 1000;
+          const needsPin = data.customer?.hasPin && (Date.now() - lastVerified > fiveMinutes);
+
+          if (needsPin) {
+            setMode('pin');
           } else {
-            localStorage.removeItem(STORAGE_KEY);
-            setMode('login');
+            setMode('portal-jwt');
           }
         })
         .catch(() => {
@@ -496,14 +818,34 @@ export default function Portal() {
     }
   };
 
-  const handleLoginSuccess = (token) => {
+  const handleLoginSuccess = (token, customer, isNewAccount = false) => {
     setJwtToken(token);
+    setCustomerInfo(customer);
+    setMode('portal-jwt');
+    localStorage.setItem(PIN_LAST_VERIFIED, Date.now().toString());
+
+    // Show PIN setup for new accounts or first-time logins
+    if (isNewAccount || !customer?.hasPin) {
+      setTimeout(() => setShowPinSetup(true), 1500);
+    }
+
+    // Show home screen banner on mobile
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (!isStandalone) {
+      setShowHomeScreenBanner(true);
+    }
+  };
+
+  const handlePinVerified = (newToken) => {
+    setJwtToken(newToken || jwtToken);
     setMode('portal-jwt');
   };
 
   const handleLogout = () => {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(PIN_LAST_VERIFIED);
     setJwtToken(null);
+    setCustomerInfo(null);
     setMode('login');
   };
 
@@ -516,6 +858,18 @@ export default function Portal() {
     );
   }
 
+  // PIN entry
+  if (mode === 'pin') {
+    return (
+      <PINScreen
+        jwtToken={jwtToken}
+        customerName={customerInfo?.name || ''}
+        onVerified={handlePinVerified}
+        onFallback={() => { handleLogout(); }}
+      />
+    );
+  }
+
   // Login page
   if (mode === 'login') {
     return <PortalLogin onLoginSuccess={handleLoginSuccess} initialShop={initialShop} />;
@@ -523,72 +877,37 @@ export default function Portal() {
 
   // Portal via magic link token
   if (mode === 'portal-token' && magicToken) {
-    return (
-      <CustomerPortalWrapper
-        token={magicToken}
-        authMode="token"
-        needsPasswordSetup={needsPasswordSetup}
-        onLogout={handleLogout}
-        onPasswordSet={(newJwt) => {
-          setJwtToken(newJwt);
-          setNeedsPasswordSetup(false);
-        }}
-      />
-    );
+    return <CustomerPortal />;
   }
 
   // Portal via JWT
   if (mode === 'portal-jwt' && jwtToken) {
     return (
-      <CustomerPortalWrapper
-        jwtToken={jwtToken}
-        authMode="jwt"
-        needsPasswordSetup={false}
-        onLogout={handleLogout}
-      />
+      <>
+        {showPinSetup && (
+          <PINSetupPrompt
+            jwtToken={jwtToken}
+            onComplete={() => setShowPinSetup(false)}
+            onSkip={() => setShowPinSetup(false)}
+          />
+        )}
+        <CustomerPortalJWT
+          jwtToken={jwtToken}
+          onLogout={handleLogout}
+          showHomeScreenBanner={showHomeScreenBanner}
+          onDismissHomeBanner={() => setShowHomeScreenBanner(false)}
+        />
+      </>
     );
   }
 
   return <PortalLogin onLoginSuccess={handleLoginSuccess} initialShop={initialShop} />;
 }
 
-// Wrapper that adds password setup banner and logout to CustomerPortal
-function CustomerPortalWrapper({ token, jwtToken, authMode, needsPasswordSetup, onLogout, onPasswordSet }) {
-  // CustomerPortal uses token query param for data loading.
-  // For JWT-based access, we need to pass the token differently.
-  // Since CustomerPortal reads from useSearchParams, we'll inject the token.
-
-  // For JWT mode, we use a different approach — render a modified portal
-  // For token mode, CustomerPortal already works via ?token= query param
-
-  if (authMode === 'token') {
-    return (
-      <div>
-        {needsPasswordSetup && (
-          <div className="max-w-2xl mx-auto pt-4">
-            <PasswordSetupBanner token={token} onComplete={onPasswordSet} />
-          </div>
-        )}
-        <CustomerPortal />
-      </div>
-    );
-  }
-
-  // JWT mode — CustomerPortal needs the token param, but we have JWT instead.
-  // We'll render CustomerPortal and pass JWT via a different mechanism.
-  // Since CustomerPortal uses fetch with ?token=, we need to provide an alternative.
-  // The simplest approach: add the JWT as a prop override
-  return (
-    <div>
-      <CustomerPortalJWT jwtToken={jwtToken} onLogout={onLogout} />
-    </div>
-  );
-}
-
 // ============================================
 // JWT-BASED PORTAL — loads data via JWT auth instead of magic link token
 // ============================================
-function CustomerPortalJWT({ jwtToken, onLogout }) {
+function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismissHomeBanner }) {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -666,9 +985,9 @@ function CustomerPortalJWT({ jwtToken, onLogout }) {
     );
   }
 
-  // Render the same portal layout as CustomerPortal but with JWT data + profile + logout
   return <JWTPortalView data={data} jwtToken={jwtToken} onLogout={onLogout} onRefresh={loadData}
-    showProfile={showProfile} setShowProfile={setShowProfile} />;
+    showProfile={showProfile} setShowProfile={setShowProfile}
+    showHomeScreenBanner={showHomeScreenBanner} onDismissHomeBanner={onDismissHomeBanner} />;
 }
 
 // ============================================
@@ -825,7 +1144,7 @@ function ProfileModal({ jwtToken, customer, onClose, onUpdate }) {
   );
 }
 
-function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setShowProfile }) {
+function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setShowProfile, showHomeScreenBanner, onDismissHomeBanner }) {
   const [expandedId, setExpandedId] = useState(null);
   const [activeTab, setActiveTab] = useState('submissions');
 
@@ -895,6 +1214,13 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
           </div>
         </div>
       </div>
+
+      {/* Add to Home Screen Banner */}
+      {showHomeScreenBanner && (
+        <div className="max-w-2xl mx-auto pt-4">
+          <AddToHomeScreenBanner onDismiss={onDismissHomeBanner} />
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="sticky top-0 z-40" style={{
@@ -1017,7 +1343,7 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
   );
 }
 
-// Simplified submission card for JWT portal (mirrors CustomerPortal's SubmissionCard)
+// Simplified submission card for JWT portal
 function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefresh }) {
   const isShipped = submission.shipped;
   const isGradesReady = submission.grades_ready;

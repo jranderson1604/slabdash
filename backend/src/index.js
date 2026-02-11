@@ -231,6 +231,8 @@ async function startServer() {
       // Customer auth columns for self-service login
       await db.query(`
         ALTER TABLE customers
+        ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS pin_hash VARCHAR(255),
         ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0,
         ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP WITH TIME ZONE,
         ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP WITH TIME ZONE,
@@ -241,15 +243,38 @@ async function startServer() {
       `);
       console.log("✓ Migration: Customer auth columns ensured");
 
-      // Company columns for subscriptions and SAM
+      // Company columns for subscriptions, SAM, and shop code
       await db.query(`
         ALTER TABLE companies
         ADD COLUMN IF NOT EXISTS stripe_customer_id VARCHAR(255),
         ADD COLUMN IF NOT EXISTS stripe_subscription_id VARCHAR(255),
         ADD COLUMN IF NOT EXISTS plan_expires_at TIMESTAMP WITH TIME ZONE,
-        ADD COLUMN IF NOT EXISTS sam_enabled BOOLEAN DEFAULT FALSE;
+        ADD COLUMN IF NOT EXISTS sam_enabled BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS shop_code VARCHAR(4);
       `);
-      console.log("✓ Migration: Company stripe/sam columns ensured");
+      console.log("✓ Migration: Company stripe/sam/shop_code columns ensured");
+
+      // Generate 4-digit shop codes for companies that don't have one
+      const companiesWithoutCode = await db.query(
+        `SELECT id FROM companies WHERE shop_code IS NULL`
+      );
+      for (const row of companiesWithoutCode.rows) {
+        let code;
+        let unique = false;
+        while (!unique) {
+          code = String(Math.floor(1000 + Math.random() * 9000)); // 1000-9999
+          const exists = await db.query(
+            `SELECT 1 FROM companies WHERE shop_code = $1`, [code]
+          );
+          unique = exists.rows.length === 0;
+        }
+        await db.query(
+          `UPDATE companies SET shop_code = $1 WHERE id = $2`, [code, row.id]
+        );
+      }
+      if (companiesWithoutCode.rows.length > 0) {
+        console.log(`✓ Migration: Generated shop codes for ${companiesWithoutCode.rows.length} companies`);
+      }
 
     } catch (migrationError) {
       // Don't fail startup if migration has issues, just log it

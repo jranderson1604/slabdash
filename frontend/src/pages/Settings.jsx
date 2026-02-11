@@ -1100,8 +1100,9 @@ export default function Settings() {
       </SettingsSection>
 
       {/* Portal QR Code */}
-      {company?.slug && (
+      {(company?.shop_code || company?.slug) && (
         <PortalQRCode
+          shopCode={company.shop_code}
           slug={company.slug}
           shopName={settings.name}
           logoUrl={settings.logo_url}
@@ -1115,11 +1116,12 @@ export default function Settings() {
 // ============================================
 // Portal QR Code — printable card with shop branding
 // ============================================
-function PortalQRCode({ slug, shopName, logoUrl, primaryColor }) {
+function PortalQRCode({ shopCode, slug, shopName, logoUrl, primaryColor }) {
   const printRef = useRef(null);
   const [copied, setCopied] = useState(false);
 
-  const portalUrl = `${window.location.origin}/portal?shop=${encodeURIComponent(slug)}`;
+  const portalUrl = `${window.location.origin}/portal?shop=${encodeURIComponent(shopCode || slug)}`;
+  const displayCode = shopCode || slug;
 
   const handleCopyLink = async () => {
     try {
@@ -1127,7 +1129,6 @@ function PortalQRCode({ slug, shopName, logoUrl, primaryColor }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Fallback for older browsers
       const input = document.createElement('input');
       input.value = portalUrl;
       document.body.appendChild(input);
@@ -1170,9 +1171,10 @@ function PortalQRCode({ slug, shopName, logoUrl, primaryColor }) {
           .logo { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; margin: 0 auto 12px; }
           .shop-name { font-size: 20px; font-weight: 700; margin-bottom: 4px; color: #111; }
           .subtitle { font-size: 11px; color: #666; margin-bottom: 16px; letter-spacing: 0.5px; text-transform: uppercase; }
-          .qr-wrap { display: inline-block; padding: 12px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; margin-bottom: 16px; }
-          .scan-text { font-size: 14px; font-weight: 600; color: #333; margin-bottom: 4px; }
-          .url-text { font-size: 10px; color: #999; word-break: break-all; }
+          .qr-wrap { display: inline-block; padding: 12px; background: white; border-radius: 12px; border: 1px solid #e5e7eb; margin-bottom: 12px; }
+          .shop-code { font-size: 28px; font-weight: 800; letter-spacing: 8px; color: #111; margin-bottom: 4px; }
+          .code-label { font-size: 10px; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; }
+          .scan-text { font-size: 13px; font-weight: 600; color: #333; margin-bottom: 4px; }
           .powered { font-size: 8px; color: #ccc; margin-top: 12px; }
         </style>
       </head>
@@ -1184,8 +1186,9 @@ function PortalQRCode({ slug, shopName, logoUrl, primaryColor }) {
           <div class="qr-wrap">
             ${printContent.querySelector('.qr-container').innerHTML}
           </div>
-          <div class="scan-text">Scan to check your order status</div>
-          <div class="url-text">${portalUrl}</div>
+          <div class="shop-code">${displayCode}</div>
+          <div class="code-label">Shop Code</div>
+          <div class="scan-text">Scan QR or enter code to get started</div>
           <div class="powered">Powered by SlabDash</div>
         </div>
       </body>
@@ -1201,41 +1204,35 @@ function PortalQRCode({ slug, shopName, logoUrl, primaryColor }) {
     const svgEl = printRef.current?.querySelector('.qr-container svg');
     if (!svgEl) return;
 
-    // Create a canvas with the full card design
     const canvas = document.createElement('canvas');
-    const scale = 3; // 3x for high-res
+    const scale = 3;
     const w = 400;
-    const h = 550;
+    const h = 580;
     canvas.width = w * scale;
     canvas.height = h * scale;
     const ctx = canvas.getContext('2d');
     ctx.scale(scale, scale);
 
-    // Background
     ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.roundRect(0, 0, w, h, 16);
     ctx.fill();
 
-    // Border
     ctx.strokeStyle = primaryColor || '#ef4444';
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.roundRect(1.5, 1.5, w - 3, h - 3, 16);
     ctx.stroke();
 
-    // Shop name
     ctx.fillStyle = '#111111';
     ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(shopName || slug, w / 2, 50);
 
-    // Subtitle
     ctx.fillStyle = '#666666';
     ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
     ctx.fillText('CUSTOMER PORTAL', w / 2, 70);
 
-    // QR code
     const svgData = new XMLSerializer().serializeToString(svgEl);
     const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(svgBlob);
@@ -1245,7 +1242,6 @@ function PortalQRCode({ slug, shopName, logoUrl, primaryColor }) {
       const qrX = (w - qrSize) / 2;
       const qrY = 90;
 
-      // QR background
       ctx.fillStyle = '#f9fafb';
       ctx.beginPath();
       ctx.roundRect(qrX - 16, qrY - 12, qrSize + 32, qrSize + 24, 12);
@@ -1257,24 +1253,26 @@ function PortalQRCode({ slug, shopName, logoUrl, primaryColor }) {
       ctx.drawImage(img, qrX, qrY, qrSize, qrSize);
       URL.revokeObjectURL(url);
 
-      // "Scan" text
-      ctx.fillStyle = '#333333';
-      ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText('Scan to check your order status', w / 2, qrY + qrSize + 50);
+      // Shop code
+      ctx.fillStyle = '#111111';
+      ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.letterSpacing = '8px';
+      ctx.fillText(displayCode.split('').join('  '), w / 2, qrY + qrSize + 48);
 
-      // URL
       ctx.fillStyle = '#999999';
       ctx.font = '10px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText(portalUrl, w / 2, qrY + qrSize + 72);
+      ctx.fillText('SHOP CODE', w / 2, qrY + qrSize + 65);
 
-      // Powered by
+      ctx.fillStyle = '#333333';
+      ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('Scan QR or enter code to get started', w / 2, qrY + qrSize + 90);
+
       ctx.fillStyle = '#cccccc';
       ctx.font = '9px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.fillText('Powered by SlabDash', w / 2, h - 20);
 
-      // Download
       const link = document.createElement('a');
-      link.download = `${slug}-portal-qr.png`;
+      link.download = `${shopName || slug}-portal-qr.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     };
@@ -1309,13 +1307,24 @@ function PortalQRCode({ slug, shopName, logoUrl, primaryColor }) {
                 bgColor="transparent"
               />
             </div>
-            <p className="text-sm font-semibold text-gray-700 mt-4">Scan to check your order status</p>
-            <p className="text-[9px] text-gray-400 mt-1 break-all">{portalUrl}</p>
+            <p className="text-2xl font-black text-gray-900 mt-4 tracking-[6px]">{displayCode}</p>
+            <p className="text-[9px] uppercase tracking-wider text-gray-400 mt-0.5 mb-2">Shop Code</p>
+            <p className="text-xs font-semibold text-gray-600">Scan QR or enter code to get started</p>
           </div>
         </div>
 
         {/* Actions */}
         <div className="flex-1 space-y-4">
+          {shopCode && (
+            <div>
+              <label className="label">Shop Code</label>
+              <div className="flex items-center gap-3">
+                <span className="text-3xl font-black tracking-[8px] text-gray-900 pl-1">{shopCode}</span>
+                <span className="text-xs text-gray-400">Give this code to customers</span>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="label">Portal Link</label>
             <div className="flex gap-2">
@@ -1351,12 +1360,12 @@ function PortalQRCode({ slug, shopName, logoUrl, primaryColor }) {
           </div>
 
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
-            <p className="font-medium mb-1">Tips for printing</p>
+            <p className="font-medium mb-1">How it works</p>
             <ul className="list-disc list-inside text-xs space-y-1 text-amber-700">
-              <li>Print on cardstock for a counter display card</li>
-              <li>Works great as a 4x6 card or sticker</li>
-              <li>Add your logo in Shop Information above to include it on the card</li>
-              <li>Customers scan the code, enter their email and password, and see their orders</li>
+              <li>Customer scans QR code or goes to portal and enters the 4-digit shop code</li>
+              <li>They create an account with name, email, and password</li>
+              <li>If you already have their email on file, their account links automatically</li>
+              <li>They set a 4-digit PIN for quick access and add to their home screen</li>
             </ul>
           </div>
         </div>
