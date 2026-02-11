@@ -7,16 +7,20 @@ const axios = require('axios');
 const { JustTCG } = require('justtcg-js');
 
 /**
- * Build search query for a card
+ * Build search query for a card — includes parallel, serial, card number
+ * Precise enough to match exact listings on eBay
  */
 function buildCardSearchQuery(card) {
   const parts = [];
 
   if (card.year) parts.push(card.year);
-  if (card.brand) parts.push(card.brand);
-  if (card.player_name) parts.push(card.player_name);
   if (card.set_name) parts.push(card.set_name);
+  if (card.player_name) parts.push(card.player_name);
+  // Include parallel/variant (critical for pricing — "Silver Prizm" vs "Base" is 10x difference)
+  if (card.parallel && card.parallel.toLowerCase() !== 'base') parts.push(card.parallel);
   if (card.card_number) parts.push(`#${card.card_number}`);
+  // Include serial for numbered cards (e.g., /25, /99)
+  if (card.serial) parts.push(card.serial);
   if (card.grade) parts.push(`PSA ${card.grade}`);
 
   return parts.join(' ');
@@ -324,13 +328,16 @@ async function fetchJustTCGComps(card) {
 
       console.log(`JustTCG: Filtered ${allCards.length} → ${matchedCards.length} exact matches`);
 
+      // Determine target parallel/printing for variant matching
+      const targetParallel = (card.parallel || '').toLowerCase().trim();
+
       // Flatten variants from MATCHED cards only
-      const listings = [];
+      const allVariantListings = [];
       for (const tcgCard of matchedCards) {
         for (const variant of (tcgCard.variants || [])) {
           if (variant.price && variant.price > 0) {
-            listings.push({
-              title: `${tcgCard.name} - ${tcgCard.set_name || tcgCard.set}`,
+            allVariantListings.push({
+              title: `${tcgCard.name} - ${tcgCard.set_name || tcgCard.set}${variant.printing && variant.printing !== 'Normal' ? ` [${variant.printing}]` : ''}`,
               price: variant.price,
               currency: 'USD',
               condition: variant.condition,
@@ -347,6 +354,19 @@ async function fetchJustTCGComps(card) {
               lastUpdated: variant.lastUpdated ? new Date(variant.lastUpdated * 1000).toISOString() : null
             });
           }
+        }
+      }
+
+      // Filter variants by parallel/printing if specified
+      let listings = allVariantListings;
+      if (targetParallel && targetParallel !== 'base' && allVariantListings.length > 1) {
+        const parallelMatches = allVariantListings.filter(l => {
+          const printing = (l.printing || '').toLowerCase();
+          return printing.includes(targetParallel) || targetParallel.includes(printing);
+        });
+        if (parallelMatches.length > 0) {
+          listings = parallelMatches;
+          console.log(`JustTCG: Narrowed to ${parallelMatches.length} variants matching parallel "${targetParallel}"`);
         }
       }
 
@@ -652,6 +672,9 @@ async function fetchTierComps(card, grade) {
  * @returns {Object} { raw, psa8, psa9, psa10 } each with avg, recent sales, count
  */
 async function fetchGradedPricing(cardInfo) {
+  const parallel = cardInfo.parallel || '';
+  const serial = cardInfo.serial || '';
+
   const baseCard = {
     player_name: cardInfo.name || '',
     set_name: cardInfo.set || '',
@@ -661,9 +684,12 @@ async function fetchGradedPricing(cardInfo) {
     game: cardInfo.game || '',
     description: `${cardInfo.name || ''} ${cardInfo.set || ''}`.trim(),
     sport: cardInfo.sport || '',
+    parallel: parallel,
+    serial: serial,
+    attributes: cardInfo.attributes || '',
   };
 
-  console.log(`📊 Fetching graded pricing breakdown for: ${baseCard.player_name} (${baseCard.set_name})`);
+  console.log(`📊 Fetching graded pricing for: ${baseCard.player_name} ${baseCard.set_name} #${baseCard.card_number} [${parallel || 'Base'}] ${serial}`);
 
   // Run all 4 grade tiers in parallel
   const [raw, psa8, psa9, psa10] = await Promise.all([
