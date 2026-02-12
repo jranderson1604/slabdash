@@ -694,7 +694,7 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
 // ============================================
 // Shared helpers
 // ============================================
-const PSA_STEPS = ['Arrived', 'Order Prep', 'Research & ID', 'Grading', 'Assembly', 'QA', 'Shipped', 'Picked Up'];
+const PSA_STEPS = ['Arrived', 'Order Prep', 'Research & ID', 'Grading', 'Assembly', 'Grades Ready', 'QA Checks', 'Shipped', 'Picked Up'];
 
 function getStepIndex(currentStep) {
   if (!currentStep) return -1;
@@ -702,10 +702,11 @@ function getStepIndex(currentStep) {
   if (lower.includes('arrived')) return 0;
   if (lower.includes('order prep')) return 1;
   if (lower.includes('research')) return 2;
-  if (lower.includes('grading')) return 3;
+  if (lower.includes('grading') && !lower.includes('ready')) return 3;
   if (lower.includes('assembly')) return 4;
-  if (lower.includes('qa') || lower.includes('quality')) return 5;
-  if (lower.includes('shipped') || lower.includes('complete')) return 6;
+  if (lower.includes('grades ready') || lower.includes('grade ready')) return 5;
+  if (lower.includes('qa') || lower.includes('quality')) return 6;
+  if (lower.includes('shipped') || lower.includes('complete')) return 7;
   return -1;
 }
 

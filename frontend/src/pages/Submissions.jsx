@@ -12,18 +12,20 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-// Service level display config
+// Service level display config (updated Feb 2026 turnaround times)
 const SERVICE_CONFIG = {
   'Walk-Through': { color: 'bg-red-500', text: 'text-red-700', light: 'bg-red-50', border: 'border-red-200', emoji: '⚡', speed: '1-2 days' },
   'Walk-Thru': { color: 'bg-red-500', text: 'text-red-700', light: 'bg-red-50', border: 'border-red-200', emoji: '⚡', speed: '1-2 days' },
-  'Super Express': { color: 'bg-orange-500', text: 'text-orange-700', light: 'bg-orange-50', border: 'border-orange-200', emoji: '🔥', speed: '5 days' },
-  'Express': { color: 'bg-amber-500', text: 'text-amber-700', light: 'bg-amber-50', border: 'border-amber-200', emoji: '🚀', speed: '10 days' },
-  'Regular': { color: 'bg-green-500', text: 'text-green-700', light: 'bg-green-50', border: 'border-green-200', emoji: '📦', speed: '20 days' },
-  'Standard': { color: 'bg-green-500', text: 'text-green-700', light: 'bg-green-50', border: 'border-green-200', emoji: '📦', speed: '20 days' },
-  'Value Plus': { color: 'bg-blue-500', text: 'text-blue-700', light: 'bg-blue-50', border: 'border-blue-200', emoji: '💎', speed: '40 days' },
-  'Plus': { color: 'bg-blue-500', text: 'text-blue-700', light: 'bg-blue-50', border: 'border-blue-200', emoji: '💎', speed: '40 days' },
-  'Value Bulk': { color: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50', border: 'border-purple-200', emoji: '📋', speed: '65 days' },
-  'Bulk': { color: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50', border: 'border-purple-200', emoji: '📋', speed: '65 days' },
+  'Super Express': { color: 'bg-orange-500', text: 'text-orange-700', light: 'bg-orange-50', border: 'border-orange-200', emoji: '🔥', speed: '~5 days' },
+  'Express': { color: 'bg-amber-500', text: 'text-amber-700', light: 'bg-amber-50', border: 'border-amber-200', emoji: '🚀', speed: '10-20 days' },
+  'Regular': { color: 'bg-green-500', text: 'text-green-700', light: 'bg-green-50', border: 'border-green-200', emoji: '📦', speed: '~25 days' },
+  'Standard': { color: 'bg-green-500', text: 'text-green-700', light: 'bg-green-50', border: 'border-green-200', emoji: '📦', speed: '~25 days' },
+  'Value Max': { color: 'bg-teal-500', text: 'text-teal-700', light: 'bg-teal-50', border: 'border-teal-200', emoji: '💎', speed: '~35 days' },
+  'Value Plus': { color: 'bg-blue-500', text: 'text-blue-700', light: 'bg-blue-50', border: 'border-blue-200', emoji: '💎', speed: '~45 days' },
+  'Plus': { color: 'bg-blue-500', text: 'text-blue-700', light: 'bg-blue-50', border: 'border-blue-200', emoji: '💎', speed: '~45 days' },
+  'Value': { color: 'bg-indigo-500', text: 'text-indigo-700', light: 'bg-indigo-50', border: 'border-indigo-200', emoji: '📋', speed: '~65 days' },
+  'Value Bulk': { color: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50', border: 'border-purple-200', emoji: '📋', speed: '~65 days' },
+  'Bulk': { color: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50', border: 'border-purple-200', emoji: '📋', speed: '~65 days' },
   'Specialty': { color: 'bg-pink-500', text: 'text-pink-700', light: 'bg-pink-50', border: 'border-pink-200', emoji: '✨', speed: 'Varies' },
   'Reholder': { color: 'bg-gray-500', text: 'text-gray-700', light: 'bg-gray-50', border: 'border-gray-200', emoji: '🔄', speed: 'Varies' },
 };
@@ -554,7 +556,7 @@ export default function Submissions() {
   });
 
   // Group by service level
-  const serviceOrder = ['Walk-Through', 'Walk-Thru', 'Super Express', 'Express', 'Regular', 'Standard', 'Value Plus', 'Plus', 'Value Bulk', 'Bulk', 'Specialty', 'Reholder'];
+  const serviceOrder = ['Walk-Through', 'Walk-Thru', 'Super Express', 'Express', 'Regular', 'Standard', 'Value Max', 'Value Plus', 'Plus', 'Value', 'Value Bulk', 'Bulk', 'Specialty', 'Reholder'];
 
   const groupedSubs = {};
   for (const sub of filteredSubs) {

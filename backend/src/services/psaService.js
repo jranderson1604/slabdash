@@ -6,16 +6,30 @@ const PSA_API_BASE = process.env.PSA_API_BASE || 'https://api.psacard.com/public
 const STEP_NAMES = {
     'Arrived': 'Arrived',
     'OrderPrep': 'Order Prep',
+    'Order Prep': 'Order Prep',
     'ResearchAndID': 'Research & ID',
+    'Research & ID': 'Research & ID',
+    'ResearchAndId': 'Research & ID',
+    'Research And ID': 'Research & ID',
     'Grading': 'Grading',
     'Assembly': 'Assembly',
-    'QACheck1': 'QA Check 1',
-    'QACheck2': 'QA Check 2',
-    'Shipped': 'Shipped'
+    'GradesReady': 'Grades Ready',
+    'Grades Ready': 'Grades Ready',
+    'QAChecks': 'QA Checks',
+    'QA Checks': 'QA Checks',
+    'QACheck': 'QA Checks',
+    'QA Check': 'QA Checks',
+    // Legacy step names (pre-Sept 2023) — map to current names
+    'QACheck1': 'Grading',
+    'QA Check 1': 'Grading',
+    'QACheck2': 'QA Checks',
+    'QA Check 2': 'QA Checks',
+    'Shipped': 'Shipped',
+    'Complete': 'Shipped',
 };
 
-// Step order for progress tracking
-const STEP_ORDER = ['Arrived', 'Order Prep', 'Research & ID', 'Grading', 'Assembly', 'QA Check 1', 'QA Check 2', 'Shipped'];
+// Step order for progress tracking (current PSA tracker as of 2024+)
+const STEP_ORDER = ['Arrived', 'Order Prep', 'Research & ID', 'Grading', 'Assembly', 'Grades Ready', 'QA Checks', 'Shipped'];
 
 const createPsaClient = (apiKey) => axios.create({
     baseURL: PSA_API_BASE,
