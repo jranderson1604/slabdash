@@ -12,18 +12,20 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-// Service level display config
+// Service level display config (updated Feb 2026 turnaround times)
 const SERVICE_CONFIG = {
   'Walk-Through': { color: 'bg-red-500', text: 'text-red-700', light: 'bg-red-50', border: 'border-red-200', emoji: '⚡', speed: '1-2 days' },
   'Walk-Thru': { color: 'bg-red-500', text: 'text-red-700', light: 'bg-red-50', border: 'border-red-200', emoji: '⚡', speed: '1-2 days' },
-  'Super Express': { color: 'bg-orange-500', text: 'text-orange-700', light: 'bg-orange-50', border: 'border-orange-200', emoji: '🔥', speed: '5 days' },
-  'Express': { color: 'bg-amber-500', text: 'text-amber-700', light: 'bg-amber-50', border: 'border-amber-200', emoji: '🚀', speed: '10 days' },
-  'Regular': { color: 'bg-green-500', text: 'text-green-700', light: 'bg-green-50', border: 'border-green-200', emoji: '📦', speed: '20 days' },
-  'Standard': { color: 'bg-green-500', text: 'text-green-700', light: 'bg-green-50', border: 'border-green-200', emoji: '📦', speed: '20 days' },
-  'Value Plus': { color: 'bg-blue-500', text: 'text-blue-700', light: 'bg-blue-50', border: 'border-blue-200', emoji: '💎', speed: '40 days' },
-  'Plus': { color: 'bg-blue-500', text: 'text-blue-700', light: 'bg-blue-50', border: 'border-blue-200', emoji: '💎', speed: '40 days' },
-  'Value Bulk': { color: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50', border: 'border-purple-200', emoji: '📋', speed: '65 days' },
-  'Bulk': { color: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50', border: 'border-purple-200', emoji: '📋', speed: '65 days' },
+  'Super Express': { color: 'bg-orange-500', text: 'text-orange-700', light: 'bg-orange-50', border: 'border-orange-200', emoji: '🔥', speed: '~5 days' },
+  'Express': { color: 'bg-amber-500', text: 'text-amber-700', light: 'bg-amber-50', border: 'border-amber-200', emoji: '🚀', speed: '10-20 days' },
+  'Regular': { color: 'bg-green-500', text: 'text-green-700', light: 'bg-green-50', border: 'border-green-200', emoji: '📦', speed: '~25 days' },
+  'Standard': { color: 'bg-green-500', text: 'text-green-700', light: 'bg-green-50', border: 'border-green-200', emoji: '📦', speed: '~25 days' },
+  'Value Max': { color: 'bg-teal-500', text: 'text-teal-700', light: 'bg-teal-50', border: 'border-teal-200', emoji: '💎', speed: '~35 days' },
+  'Value Plus': { color: 'bg-blue-500', text: 'text-blue-700', light: 'bg-blue-50', border: 'border-blue-200', emoji: '💎', speed: '~45 days' },
+  'Plus': { color: 'bg-blue-500', text: 'text-blue-700', light: 'bg-blue-50', border: 'border-blue-200', emoji: '💎', speed: '~45 days' },
+  'Value': { color: 'bg-indigo-500', text: 'text-indigo-700', light: 'bg-indigo-50', border: 'border-indigo-200', emoji: '📋', speed: '~65 days' },
+  'Value Bulk': { color: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50', border: 'border-purple-200', emoji: '📋', speed: '~65 days' },
+  'Bulk': { color: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50', border: 'border-purple-200', emoji: '📋', speed: '~65 days' },
   'Specialty': { color: 'bg-pink-500', text: 'text-pink-700', light: 'bg-pink-50', border: 'border-pink-200', emoji: '✨', speed: 'Varies' },
   'Reholder': { color: 'bg-gray-500', text: 'text-gray-700', light: 'bg-gray-50', border: 'border-gray-200', emoji: '🔄', speed: 'Varies' },
 };
@@ -304,6 +306,8 @@ export default function Submissions() {
   const [importProgress, setImportProgress] = useState({ phase: '', current: 0, total: 0, created: 0, updated: 0, refreshed: 0, errors: 0 });
   const [sendingUpdate, setSendingUpdate] = useState(false);
   const [updateResult, setUpdateResult] = useState(null);
+  const [refreshingAll, setRefreshingAll] = useState(false);
+  const [refreshProgress, setRefreshProgress] = useState(null); // { total, current, updated, errors, ... }
   const [pickupCode, setPickupCode] = useState('');
   const [pickupResult, setPickupResult] = useState(null);
   const [pickupLoading, setPickupLoading] = useState(false);
@@ -360,6 +364,89 @@ export default function Submissions() {
       }
     } finally {
       setSendingUpdate(false);
+    }
+  };
+
+  // ============================================
+  // REFRESH ALL FROM PSA (SSE streaming)
+  // ============================================
+  const handleRefreshAll = async () => {
+    if (!company?.hasPsaKey) {
+      alert('PSA API key not configured. Add it in Company Settings.');
+      return;
+    }
+
+    setRefreshingAll(true);
+    setRefreshProgress({ total: 0, current: 0, updated: 0, errors: 0 });
+
+    try {
+      const token = localStorage.getItem('slabdash_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+      const response = await fetch(`${API_URL}/psa/refresh-all`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.type === 'start') {
+                setRefreshProgress({ total: data.total, current: 0, updated: 0, errors: 0 });
+              } else if (data.type === 'progress') {
+                setRefreshProgress({
+                  total: data.total,
+                  current: data.current,
+                  updated: data.updated,
+                  errors: data.errors,
+                  submissionNumber: data.submissionNumber,
+                  hadChanges: data.hadChanges,
+                });
+              } else if (data.type === 'complete') {
+                setRefreshProgress(prev => ({ ...prev, ...data, done: true }));
+                setUpdateResult({
+                  success: true,
+                  message: data.message,
+                  updatedCount: data.updated,
+                  changesCount: data.changedCount
+                });
+                await loadSubmissions();
+              } else if (data.type === 'error') {
+                setUpdateResult({
+                  success: false,
+                  message: data.error || 'Refresh failed'
+                });
+              }
+            } catch {}
+          }
+        }
+      }
+    } catch (error) {
+      setUpdateResult({
+        success: false,
+        message: error.message || 'Failed to refresh from PSA'
+      });
+    } finally {
+      setRefreshingAll(false);
+      setTimeout(() => setRefreshProgress(null), 5000);
     }
   };
 
@@ -469,7 +556,7 @@ export default function Submissions() {
   });
 
   // Group by service level
-  const serviceOrder = ['Walk-Through', 'Walk-Thru', 'Super Express', 'Express', 'Regular', 'Standard', 'Value Plus', 'Plus', 'Value Bulk', 'Bulk', 'Specialty', 'Reholder'];
+  const serviceOrder = ['Walk-Through', 'Walk-Thru', 'Super Express', 'Express', 'Regular', 'Standard', 'Value Max', 'Value Plus', 'Plus', 'Value', 'Value Bulk', 'Bulk', 'Specialty', 'Reholder'];
 
   const groupedSubs = {};
   for (const sub of filteredSubs) {
@@ -512,14 +599,25 @@ export default function Submissions() {
 
           <div className="flex items-center gap-2 flex-wrap">
             {company?.hasPsaKey && (
-              <button
-                onClick={handleSendWeeklyUpdate}
-                disabled={sendingUpdate}
-                className="bg-white text-brand-700 px-4 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-[1.02] disabled:opacity-50"
-              >
-                {sendingUpdate ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                {sendingUpdate ? 'Sending...' : 'Send Weekly Update'}
-              </button>
+              <>
+                <button
+                  onClick={handleRefreshAll}
+                  disabled={refreshingAll || sendingUpdate}
+                  className="bg-white text-brand-700 px-4 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-[1.02] disabled:opacity-50"
+                >
+                  {refreshingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  {refreshingAll ? `${refreshProgress?.current || 0}/${refreshProgress?.total || 0}` : 'Refresh All'}
+                </button>
+
+                <button
+                  onClick={handleSendWeeklyUpdate}
+                  disabled={sendingUpdate || refreshingAll}
+                  className="bg-white/15 hover:bg-white/25 text-white px-3 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 border border-white/20 disabled:opacity-50"
+                >
+                  {sendingUpdate ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  <span className="hidden sm:inline">{sendingUpdate ? 'Sending...' : 'Weekly Report'}</span>
+                </button>
+              </>
             )}
 
             <button
@@ -537,6 +635,35 @@ export default function Submissions() {
           </div>
         </div>
 
+        {/* Refresh progress bar */}
+        {refreshingAll && refreshProgress && (
+          <div className="mt-4 rounded-xl p-3 bg-white/15 text-white">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm font-bold">Refreshing from PSA...</span>
+              </div>
+              <span className="text-sm font-mono">
+                {refreshProgress.current}/{refreshProgress.total}
+                {refreshProgress.updated > 0 && <span className="text-green-300 ml-2">+{refreshProgress.updated}</span>}
+                {refreshProgress.errors > 0 && <span className="text-red-300 ml-1">{refreshProgress.errors} err</span>}
+              </span>
+            </div>
+            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white rounded-full transition-all duration-300"
+                style={{ width: `${refreshProgress.total > 0 ? (refreshProgress.current / refreshProgress.total) * 100 : 0}%` }}
+              />
+            </div>
+            {refreshProgress.submissionNumber && (
+              <p className="text-xs text-white/50 mt-1">
+                {refreshProgress.submissionNumber}
+                {refreshProgress.hadChanges && <span className="text-green-300 ml-1">updated!</span>}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Update result toast */}
         {updateResult && (
           <div className={`mt-4 rounded-xl p-3 flex items-center gap-3 ${
@@ -546,8 +673,8 @@ export default function Submissions() {
             <div className="flex-1 text-sm">
               {updateResult.success ? (
                 <>
-                  <span className="font-bold">Weekly update sent!</span>
-                  {' '}{updateResult.updatedCount} updated, {updateResult.changesCount} with changes
+                  <span className="font-bold">Refresh complete!</span>
+                  {' '}{updateResult.updatedCount} refreshed, {updateResult.changesCount} with changes
                   {updateResult.emailSentTo && <> · Emailed to {updateResult.emailSentTo}</>}
                 </>
               ) : (

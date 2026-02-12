@@ -1550,6 +1550,69 @@ router.post('/sam/add-tokens', async (req, res) => {
     }
 });
 
+// SAM Token Bundles — pricing and purchase
+const SAM_TOKEN_BUNDLES = {
+    starter: { id: 'starter', name: 'Starter', tokens: 50, price_cents: 499, price_display: '$4.99', per_token: '~10¢' },
+    popular: { id: 'popular', name: 'Popular', tokens: 150, price_cents: 999, price_display: '$9.99', per_token: '~7¢', badge: 'Best Value' },
+    pro: { id: 'pro', name: 'Pro', tokens: 500, price_cents: 2499, price_display: '$24.99', per_token: '~5¢', badge: 'Most Tokens' },
+};
+
+// Get available token bundles
+router.get('/sam/bundles', (req, res) => {
+    res.json({
+        bundles: Object.values(SAM_TOKEN_BUNDLES),
+        free_daily: SAM_FREE_DAILY_LIMIT,
+    });
+});
+
+// Purchase SAM tokens via Stripe Checkout
+router.post('/sam/buy-tokens', authenticateCustomer, async (req, res) => {
+    try {
+        const { bundle } = req.body;
+        const bundleInfo = SAM_TOKEN_BUNDLES[bundle];
+
+        if (!bundleInfo) {
+            return res.status(400).json({ error: 'Invalid bundle. Choose: starter, popular, or pro' });
+        }
+
+        if (!stripeService.isConfigured()) {
+            // Mock mode — just credit tokens directly for development
+            await db.query(
+                `UPDATE customers SET sam_token_balance = COALESCE(sam_token_balance, 0) + $1 WHERE id = $2`,
+                [bundleInfo.tokens, req.customer.id]
+            );
+            return res.json({
+                success: true,
+                mock: true,
+                tokens_added: bundleInfo.tokens,
+                message: `Added ${bundleInfo.tokens} tokens (dev mode — Stripe not configured)`
+            });
+        }
+
+        // Determine success/cancel URLs
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const session = await stripeService.createTokenCheckoutSession({
+            customer_id: req.customer.id,
+            company_id: req.customer.company_id,
+            customer_email: req.customer.email,
+            token_count: bundleInfo.tokens,
+            price_cents: bundleInfo.price_cents,
+            bundle: bundleInfo.id,
+            success_url: `${frontendUrl}/portal?tokens=success&bundle=${bundleInfo.id}`,
+            cancel_url: `${frontendUrl}/portal?tokens=cancelled`,
+        });
+
+        res.json({
+            url: session.url,
+            session_id: session.id,
+            bundle: bundleInfo,
+        });
+    } catch (error) {
+        console.error('Token purchase error:', error);
+        res.status(500).json({ error: 'Failed to create checkout session' });
+    }
+});
+
 // SAM Chat endpoint for customer portal (token or JWT)
 router.post('/sam/chat', async (req, res) => {
     try {

@@ -81,15 +81,15 @@ SUBMISSION STATUSES:
 • Shipped — cards are on their way back (has return tracking number)
 • Problem — PSA flagged an issue (trimming, counterfeit, etc.)
 
-PSA PROCESSING STEPS (in order):
-1. Arrived at PSA
-2. Order Prep
-3. Research & ID
-4. Grading
-5. Assembly
-6. QA Check 1
-7. QA Check 2
-8. Shipped
+PSA PROCESSING STEPS (current tracker as of 2024+):
+1. Arrived — Package received at PSA facility
+2. Order Prep — Submission scanned, entered into system, order number assigned. Turnaround clock starts here. Customer identity removed from cards (anonymous grading).
+3. Research & ID — Cards cross-referenced with PSA database for accurate labeling. Autographs researched. Catches submission form mistakes. Customer submission form sealed in envelope — cards are anonymous from here on.
+4. Grading — Cards examined by at least 2 authentication/grading professionals on Surface, Edges, Corners & Centering. If graders disagree, a 3rd (and sometimes 4th) grader breaks the tie. NOTE: The old "QA Check 1" step has been folded INTO Grading.
+5. Assembly — Labels printed and cards sonically sealed in PSA holders (slabs).
+6. Grades Ready — NEW STEP (added Sept 2023). Grades are now visible to the customer! Payment is requested. You can choose to ship home, store in PSA Vault, or list on Goldin/eBay auctions. This gives collectors time to make decisions before QA.
+7. QA Checks — Holder condition inspected for defects, labels checked for errors, spot-checks for correct declared value/service level ("Results Review"). If issues found, card returns to sealing department. Formerly split into "QA Check 1" and "QA Check 2".
+8. Shipped/Complete — Cards shipped back with tracking info.
 
 Each step shows a progress percentage. SlabDash tracks these automatically when connected to PSA API.
 
@@ -237,7 +237,7 @@ EMAIL CONFIGURATION (Settings → Email):
 
 EMAIL TEMPLATES:
 Create templates for each PSA processing step:
-• Arrived at PSA, Order Prep, Research & ID, Grading, Assembly, QA Check 1, QA Check 2, Shipped
+• Arrived at PSA, Order Prep, Research & ID, Grading, Assembly, Grades Ready, QA Checks, Shipped
 • Each template has: subject line, HTML body, plain text body
 • Templates support variables: {{customer_name}}, {{company_name}}, {{submission_number}}, {{current_step}}, {{progress_percent}}, {{service_level}}
 • Enable/disable templates individually
@@ -433,21 +433,31 @@ WHAT GRADERS CHECK (in order of importance):
 
 COMMON GRADE KILLERS: Off-center (even 1mm), corner dings, edge chipping, print defects, surface scratches, wax stains, album damage.
 
-PSA SERVICE LEVELS:
-• Bulk ($19-25, 65+ days) — cards worth $100-500 graded
-• Value ($40-50, 45+ days) — cards worth $300-800
-• Regular ($75-100, 30+ days) — cards worth $500-1500
-• Express ($150-200, 15+ days) — cards worth $1000-3000
-• Super Express ($300+, 5-10 days) — cards worth $3000-10000
-• Walk-Through ($600+, 1-2 days) — cards worth $10,000+
+PSA SERVICE LEVELS (Updated February 2026 — prices increased $5 across value tiers):
+• Value Bulk ($24.99/card, ~65 biz days) — Collectors Club members only, 20-card minimum. TCG Bulk was merged into this tier. Best for cards worth $100-500 graded.
+• Value ($32.99/card, ~65 biz days) — Standard economy tier for cards worth $200-500 graded.
+• Value Plus ($49.99/card, ~45 biz days) — Mid-tier, cards worth $500-999 graded.
+• Value Max ($64.99/card, ~35 biz days) — Faster economy for cards worth $500-999 graded.
+• Regular ($79.99/card, ~25 biz days) — Standard service, max declared value ~$1,499. Good for cards worth $500-1500 graded.
+• Express (~$160/card, ~10-20 biz days) — Fast service, max declared value ~$2,999. For cards worth $1000-3000 graded.
+• Super Express (~$300+/card, ~5 biz days) — Premium speed, higher declared value caps. For cards worth $3000-10000.
+• Walk-Through (~$600+/card, 1-2 biz days) — Fastest possible. For high-value cards $10,000+.
 
-ROI FORMULA: Graded value ÷ Grading fee = ROI multiple. 20x+ = great (use Bulk), 10-20x = good, 5-10x = moderate, under 5x = probably not worth it.
+IMPORTANT PRICING NOTES:
+• Turnaround times are ESTIMATES, not guarantees. They start AFTER "Order Prep" (not when PSA receives the package).
+• The receiving phase (package arrival → Order Prep) currently averages ~15 business days for Bulk/Value tiers.
+• Add shipping time both ways (~7-14 days total).
+• Prices as of Feb 10, 2026. Express and higher tiers were NOT affected by the Feb 2026 increase.
+• PSA now grades ~90,000 cards/day globally (up from 15,000/day in 2021).
+• PSA Collectors Club membership ($149 or $199/year) required for Value Bulk.
+
+ROI FORMULA: Graded value ÷ Grading fee = ROI multiple. 20x+ = great (use Value Bulk), 10-20x = good, 5-10x = moderate, under 5x = probably not worth it.
 
 PROFIT FORMULA: Profit = Graded Value - (Raw Value + Grading Cost + Shipping)
 
 DECLARED VALUE: Estimate of graded value (not raw). Used for PSA insurance. Use the Price Comp Lookup to check eBay sold listings and JustTCG market prices for PSA 9/10 comps. For TCG cards (Pokemon, Magic, etc.), JustTCG provides real-time pricing with trend data. Insurance included under $500, then $3-$25+ per card above that.
 
-TIMING: Submit during player hype (championships, breakouts, season starts). Wait during off-season, injuries, market cooling. Add 30-day buffer to PSA turnaround estimates.
+TIMING: Submit during player hype (championships, breakouts, season starts). Wait during off-season, injuries, market cooling. Add 30-day buffer to PSA turnaround estimates. Busy periods (holidays, new card releases) can double turnaround times.
 
 COMMON PROBLEMS: Minimum grade not met ($5 rejection fee), evidence of trimming ($10 fee, not graded), authentic only (ungradable damage), miscut/OC qualifier, lost in transit (file insurance claim), longer turnaround (set realistic expectations).
 
@@ -504,7 +514,7 @@ function generateSAMResponse(userMessage, context) {
   if ((messageLower.includes('service level') || messageLower.includes('which service') || messageLower.includes('bulk') ||
        messageLower.includes('express') || messageLower.includes('regular')) &&
       (messageLower.includes('use') || messageLower.includes('choose') || messageLower.includes('best') || messageLower.includes('recommend'))) {
-    return '⚡ **PSA Service Levels - Which To Use:**\n\n**BULK ($19-25, 65+ days)**\n✅ Cards worth $100-500 graded\n✅ Not time-sensitive\n✅ Budget-conscious\n\n**REGULAR ($75-100, 30+ days)**\n✅ Cards worth $500-1500 graded\n✅ Standard turnaround\n✅ Professional dealers\n\n**EXPRESS ($150-200, 15+ days)**\n✅ Cards worth $1000-3000\n✅ Hot market conditions\n✅ Time-sensitive\n\n**SUPER EXPRESS ($300+, 5-10 days)**\n✅ Cards worth $3000-10000\n✅ Emergency situations\n\n**ROI Formula:**\nGraded value ÷ Grading fee = ROI\n• 20x+ = Use Bulk\n• 10-20x = Use Regular\n• 5-10x = Use Express\n• Under 5x = Maybe don\'t grade\n\n💡 **Example:** $500 card, $25 bulk = 20x ROI ✅';
+    return '⚡ **PSA Service Levels (Feb 2026 Pricing):**\n\n**VALUE BULK ($24.99, ~65 biz days)**\n✅ Cards worth $100-500 graded\n✅ Budget-friendly, Collectors Club required\n✅ 20-card minimum\n\n**VALUE ($32.99, ~65 biz days)**\n✅ Cards worth $200-500 graded\n✅ No club required\n\n**VALUE PLUS ($49.99, ~45 biz days)**\n✅ Cards worth $500-999 graded\n✅ Faster than Value tiers\n\n**REGULAR ($79.99, ~25 biz days)**\n✅ Cards worth $500-1500 graded\n✅ Standard turnaround\n\n**EXPRESS (~$160, ~10-20 biz days)**\n✅ Cards worth $1000-3000\n✅ Hot market conditions\n\n**SUPER EXPRESS (~$300+, ~5 biz days)**\n✅ Cards worth $3000-10000\n\n**ROI Formula:**\nGraded value ÷ Grading fee = ROI\n• 20x+ = Use Value Bulk\n• 10-20x = Use Regular\n• 5-10x = Use Express\n• Under 5x = Maybe don\'t grade\n\n💡 **Example:** $500 card, $25 bulk = 20x ROI ✅';
   }
 
   // DECLARED VALUE
@@ -522,7 +532,7 @@ function generateSAMResponse(userMessage, context) {
   // PSA TURNAROUND TIME
   if (messageLower.includes('how long') || messageLower.includes('turnaround') ||
       (messageLower.includes('when') && (messageLower.includes('back') || messageLower.includes('return')))) {
-    return '⏱️ **PSA Turnaround Times:**\n\n**Official estimates:**\n• Bulk: 65+ business days\n• Value: 45+ business days\n• Regular: 30+ business days\n• Express: 15+ business days\n• Super Express: 5-10 business days\n• Walk-Through: 1-2 business days\n\n**REALITY CHECK:**\n⚠️ These are MINIMUMS, not guarantees\n• Can take 2x longer during busy periods\n• Add shipping time both ways (+7-14 days)\n• Holidays add delays\n• Backlogs happen\n\n**Set customer expectations:**\n✅ "Estimated 65+ days, could be 90-120"\n❌ "It\'ll be back in exactly 65 days"\n\n💡 **Pro tip:** Add 30-day buffer when promising return dates!';
+    return '⏱️ **PSA Turnaround Times (Feb 2026):**\n\n**Official estimates:**\n• Value Bulk: ~65 business days\n• Value: ~65 business days\n• Value Plus: ~45 business days\n• Value Max: ~35 business days\n• Regular: ~25 business days\n• Express: ~10-20 business days\n• Super Express: ~5 business days\n• Walk-Through: 1-2 business days\n\n**REALITY CHECK:**\n⚠️ These are ESTIMATES, not guarantees!\n• Turnaround starts at "Order Prep" NOT when PSA receives the package\n• Receiving phase (arrival → Order Prep) averages ~15 biz days for Value tiers\n• Add shipping time both ways (+7-14 days)\n• Busy periods can double estimates\n• PSA grades ~90,000 cards/day globally now\n\n**Set customer expectations:**\n✅ "Estimated 65 biz days + 15 days receiving + shipping"\n❌ "It\'ll be back in exactly 65 days"\n\n💡 **Pro tip:** Add 30-day buffer when promising return dates!';
   }
 
   // PSA POPULATION & RARITY
@@ -546,7 +556,7 @@ function generateSAMResponse(userMessage, context) {
   // COST OPTIMIZATION
   if ((messageLower.includes('save money') || messageLower.includes('cheaper') || messageLower.includes('cost') ||
        messageLower.includes('optimize')) && !messageLower.includes('declared')) {
-    return '💵 **Save Money on PSA Grading:**\n\n**Big savings:**\n1. **Use Bulk** ($25 vs $75+ for Regular)\n   • For cards worth $100-500 graded\n   • Not time-sensitive\n\n2. **Batch submissions** \n   • Split shipping across many cards\n   • One $20 ship for 50 cards vs 50 separate ships\n\n3. **Pre-screen cards**\n   • Don\'t grade obvious PSA 7s or lower\n   • Only submit PSA 8+ candidates\n   • Saves grading fees on low-grade cards\n\n4. **Set minimums**\n   • PSA 8 minimum = don\'t pay for PSA 6s\n   • But be realistic (don\'t set PSA 9 on borderline)\n\n5. **Group customers**\n   • Combine into single submission\n   • Save on shipping\n\n**When to spend more:**\n• Express for hot cards ($1000+ value)\n• Higher insurance for valuable cards\n• Signature shipping (always worth it)\n\n💡 **Bulk + batching = biggest savings!**';
+    return '💵 **Save Money on PSA Grading (2026 Prices):**\n\n**Big savings:**\n1. **Use Value Bulk** ($24.99 vs $79.99 for Regular)\n   • Collectors Club membership required ($149-199/yr)\n   • 20-card minimum per submission\n   • For cards worth $100-500 graded\n\n2. **Batch submissions** \n   • Split shipping across many cards\n   • One $20 ship for 50 cards vs 50 separate ships\n\n3. **Pre-screen cards**\n   • Don\'t grade obvious PSA 7s or lower\n   • Only submit PSA 8+ candidates\n   • Saves grading fees on low-grade cards\n\n4. **Set minimums**\n   • PSA 8 minimum = don\'t pay for PSA 6s\n   • But be realistic (don\'t set PSA 9 on borderline)\n\n5. **Group customers**\n   • Combine into single submission\n   • Save on shipping\n\n**When to spend more:**\n• Express for hot cards ($1000+ value)\n• Higher insurance for valuable cards\n• Signature shipping (always worth it)\n\n💡 **Value Bulk + batching = biggest savings!**';
   }
 
   // ═══════════════════════════════════════
@@ -622,7 +632,7 @@ function generateSAMResponse(userMessage, context) {
 
   // SERVICE LEVELS
   if (messageLower.includes('service') && messageLower.includes('level')) {
-    return '⚡ **PSA Service Levels:**\n\n**Economy Tiers:**\n• **Bulk** - $19-25, 65+ days\n• **Value** - ~$40, 45+ days\n\n**Standard Tiers:**\n• **Regular** - ~$75, 30+ days\n• **Express** - ~$150, 15+ days\n\n**Premium Tiers:**\n• **Super Express** - ~$300, 5+ days\n• **Walk-Through** - ~$600, 1-2 days\n\n**In SlabDash:**\n• Set during submission creation\n• Edit anytime from submissions list\n• Track different timelines\n• Filter by service level\n\nPrices and times vary - check PSA website for current rates!';
+    return '⚡ **PSA Service Levels (Feb 2026):**\n\n**Economy Tiers:**\n• **Value Bulk** - $24.99, ~65 biz days (Collectors Club, 20-card min)\n• **Value** - $32.99, ~65 biz days\n• **Value Plus** - $49.99, ~45 biz days\n• **Value Max** - $64.99, ~35 biz days\n\n**Standard Tiers:**\n• **Regular** - $79.99, ~25 biz days\n• **Express** - ~$160, ~10-20 biz days\n\n**Premium Tiers:**\n• **Super Express** - ~$300+, ~5 biz days\n• **Walk-Through** - ~$600+, 1-2 biz days\n\n**In SlabDash:**\n• Set during submission creation\n• Edit anytime from submissions list\n• Track different timelines\n• Filter by service level';
   }
 
   // SETTINGS
@@ -1142,8 +1152,8 @@ router.get('/tips', authenticate, async (req, res) => {
     '📐 Tip: 55/45 centering or better is required for PSA 10 - use a ruler to check!',
     '🔍 Tip: Inspect corners with a magnifying glass - tiny white spots kill PSA 10s!',
     '✨ Tip: Check surface for scratches under angled light before submitting!',
-    '💰 Tip: Use Bulk service ($25) for cards worth $100-500 graded - saves money!',
-    '⚡ Tip: Use Express ($150+) only for cards worth $1000+ graded - ROI matters!',
+    '💰 Tip: Use Value Bulk ($24.99) for cards worth $100-500 graded - saves money!',
+    '⚡ Tip: Use Express (~$160) only for cards worth $1000+ graded - ROI matters!',
     '📊 Tip: Check PSA population reports to see how rare PSA 10s are for that card!',
     '🎯 Tip: Fresh-from-pack cards have the best chance at PSA 10!',
     '⏱️ Tip: Add 30-day buffer to PSA turnaround estimates when setting expectations!',

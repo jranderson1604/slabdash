@@ -249,6 +249,8 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
   const [pendingImage, setPendingImage] = useState(null); // { file, preview }
   const [samUsage, setSamUsage] = useState(null); // { daily_used, daily_limit, remaining_free, token_balance }
   const [tokenLocked, setTokenLocked] = useState(false);
+  const [tokenBundles, setTokenBundles] = useState(null);
+  const [buyingBundle, setBuyingBundle] = useState(null); // currently purchasing bundle id
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -292,6 +294,83 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
         .catch(() => {});
     }
   }, [isCustomerPortal, jwtToken]);
+
+  // Fetch token bundles for purchase UI
+  useEffect(() => {
+    if (isCustomerPortal) {
+      fetch(`${API_URL}/portal/sam/bundles`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => { if (data) setTokenBundles(data.bundles); })
+        .catch(() => {});
+    }
+  }, [isCustomerPortal]);
+
+  // Check URL params for successful token purchase
+  useEffect(() => {
+    if (isCustomerPortal) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tokens') === 'success') {
+        // Refresh usage data after purchase
+        if (jwtToken) {
+          fetch(`${API_URL}/portal/sam/usage`, {
+            headers: { Authorization: `Bearer ${jwtToken}` }
+          })
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+              if (data) {
+                setSamUsage(data);
+                setTokenLocked(false);
+              }
+            })
+            .catch(() => {});
+        }
+        // Clean up URL
+        const url = new URL(window.location);
+        url.searchParams.delete('tokens');
+        url.searchParams.delete('bundle');
+        window.history.replaceState({}, '', url);
+      }
+    }
+  }, [isCustomerPortal, jwtToken]);
+
+  // Handle token bundle purchase
+  const handleBuyTokens = async (bundleId) => {
+    if (!jwtToken || buyingBundle) return;
+    setBuyingBundle(bundleId);
+    try {
+      const res = await fetch(`${API_URL}/portal/sam/buy-tokens`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+        body: JSON.stringify({ bundle: bundleId }),
+      });
+      const data = await res.json();
+
+      if (data.mock) {
+        // Dev mode — tokens credited directly, refresh usage
+        const usageRes = await fetch(`${API_URL}/portal/sam/usage`, {
+          headers: { Authorization: `Bearer ${jwtToken}` }
+        });
+        const usageData = await usageRes.json();
+        setSamUsage(usageData);
+        setTokenLocked(false);
+        const successMsg = {
+          role: 'assistant',
+          content: `Added ${data.tokens_added} tokens! You're all set to keep chatting.`,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, successMsg]);
+      } else if (data.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Token purchase error:', error);
+    } finally {
+      setBuyingBundle(null);
+    }
+  };
 
   // Detect animation trigger from text
   const detectAnimationTrigger = (text) => {
@@ -530,7 +609,7 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
           if (data.usage) setSamUsage(prev => ({ ...prev, ...data.usage }));
           const lockedMsg = {
             role: 'assistant',
-            content: `You've used all ${data.usage?.daily_limit || 15} free messages for today! You can get more tokens from your card shop to keep chatting with me. Your free messages reset every day at midnight.`,
+            content: `You've used all ${data.usage?.daily_limit || 15} free messages for today! Grab a token pack below to keep chatting, or your free messages will reset at midnight.`,
             timestamp: new Date()
           };
           setMessages(prev => [...prev, lockedMsg]);
@@ -785,27 +864,71 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
         </div>
       )}
 
-      {/* Token Paywall - shown when locked */}
+      {/* Token Paywall + Purchase UI - shown when locked */}
       {isCustomerPortal && tokenLocked && (
         <div className="border-t border-[#FF8170]/20 bg-gradient-to-r from-[#2C2416] via-[#3D3020] to-[#2C2416]">
-          <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6 text-center">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-3"
-              style={{ background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.05))', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
-              <Lock className="w-7 h-7 text-amber-400" />
+          <div className="max-w-5xl mx-auto px-4 lg:px-6 py-5">
+            <div className="text-center mb-4">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-2"
+                style={{ background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.05))', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                <Coins className="w-6 h-6 text-amber-400" />
+              </div>
+              <h3 className="text-base font-black text-[#FFF8F0]">Need More SAM Time?</h3>
+              <p className="text-xs text-[#E8DCC0]/50 mt-1">
+                {samUsage?.daily_limit || 15} free messages daily — grab tokens to keep chatting
+              </p>
             </div>
-            <h3 className="text-lg font-black text-[#FFF8F0] mb-1">Daily Limit Reached</h3>
-            <p className="text-sm text-[#E8DCC0]/60 mb-3">
-              You've used all {samUsage?.daily_limit || 15} free messages today. Free messages reset at midnight.
-            </p>
-            {samUsage?.token_balance > 0 ? (
-              <p className="text-sm font-bold text-amber-400">
-                You have {samUsage.token_balance} tokens remaining
-              </p>
-            ) : (
-              <p className="text-sm text-[#E8DCC0]/40">
-                Ask your card shop about getting more SAM tokens!
-              </p>
+
+            {/* Bundle cards */}
+            {tokenBundles && tokenBundles.length > 0 && (
+              <div className="flex gap-2 justify-center mb-3">
+                {tokenBundles.map((bundle) => (
+                  <button
+                    key={bundle.id}
+                    onClick={() => handleBuyTokens(bundle.id)}
+                    disabled={buyingBundle != null}
+                    className="relative flex-1 max-w-[140px] rounded-2xl p-3 transition-all hover:scale-[1.03] active:scale-[0.98] disabled:opacity-60"
+                    style={{
+                      background: bundle.badge
+                        ? 'linear-gradient(135deg, rgba(255, 129, 112, 0.12), rgba(255, 129, 112, 0.04))'
+                        : 'rgba(255, 255, 255, 0.04)',
+                      border: bundle.badge
+                        ? '1px solid rgba(255, 129, 112, 0.25)'
+                        : '1px solid rgba(255, 255, 255, 0.08)',
+                    }}
+                  >
+                    {bundle.badge && (
+                      <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] font-black uppercase px-2 py-0.5 rounded-full"
+                        style={{ background: 'linear-gradient(135deg, #FF8170, #FF6B5A)', color: '#FFF8F0' }}>
+                        {bundle.badge}
+                      </span>
+                    )}
+                    <div className="text-center">
+                      <p className="text-2xl font-black text-[#FFF8F0] leading-none">{bundle.tokens}</p>
+                      <p className="text-[10px] text-[#E8DCC0]/40 font-bold uppercase mt-0.5">tokens</p>
+                      <div className="mt-2 py-1.5 rounded-xl font-black text-sm"
+                        style={{
+                          background: bundle.badge
+                            ? 'linear-gradient(135deg, #FF8170, #FF6B5A)'
+                            : 'rgba(255, 255, 255, 0.08)',
+                          color: bundle.badge ? '#FFF8F0' : '#E8DCC0',
+                        }}>
+                        {buyingBundle === bundle.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                        ) : (
+                          bundle.price_display
+                        )}
+                      </div>
+                      <p className="text-[9px] text-[#E8DCC0]/30 mt-1">{bundle.per_token}/msg</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
             )}
+
+            <p className="text-center text-[10px] text-[#E8DCC0]/25">
+              Free messages reset daily at midnight
+            </p>
           </div>
         </div>
       )}

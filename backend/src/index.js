@@ -301,6 +301,19 @@ async function startServer() {
       await db.query(`
         CREATE INDEX IF NOT EXISTS idx_sam_usage_customer_date ON sam_usage(customer_id, usage_date);
       `);
+      // SAM token purchase history
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS sam_token_purchases (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+          company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+          bundle VARCHAR(50) NOT NULL,
+          token_count INTEGER NOT NULL,
+          amount_cents INTEGER NOT NULL,
+          stripe_session_id VARCHAR(255),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `);
       console.log("✓ Migration: SAM token system columns ensured");
 
     } catch (migrationError) {

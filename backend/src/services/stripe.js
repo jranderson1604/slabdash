@@ -291,12 +291,67 @@ async function getSubscription(subscriptionId) {
   }
 }
 
+/**
+ * Create a Stripe checkout session for a one-time token bundle purchase
+ * @param {object} options - Bundle details and customer info
+ * @returns {Promise<object>} Checkout session with URL
+ */
+async function createTokenCheckoutSession(options = {}) {
+  if (!stripe) {
+    console.warn('⚠️  Stripe not configured. Returning mock token checkout session.');
+    return {
+      id: `cs_mock_tokens_${Date.now()}`,
+      url: options.success_url || 'http://localhost:3000/portal?tokens=success',
+      mock: true
+    };
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: `SAM AI Tokens — ${options.token_count} Pack`,
+              description: `${options.token_count} SAM AI assistant tokens for card grading help`,
+            },
+            unit_amount: options.price_cents, // Already in cents
+          },
+          quantity: 1,
+        },
+      ],
+      success_url: options.success_url || 'http://localhost:3000/portal?tokens=success',
+      cancel_url: options.cancel_url || 'http://localhost:3000/portal?tokens=cancelled',
+      customer_email: options.customer_email,
+      metadata: {
+        type: 'sam_tokens',
+        customer_id: options.customer_id,
+        company_id: options.company_id,
+        token_count: String(options.token_count),
+        bundle: options.bundle,
+      },
+    });
+
+    return {
+      id: session.id,
+      url: session.url,
+    };
+  } catch (error) {
+    console.error('Stripe token checkout session creation error:', error);
+    throw new Error('Failed to create token checkout session');
+  }
+}
+
 module.exports = {
   createPaymentIntent,
   confirmPaymentIntent,
   getPaymentIntent,
   createRefund,
   createCheckoutSession,
+  createTokenCheckoutSession,
   createPortalSession,
   cancelSubscription,
   getSubscription,

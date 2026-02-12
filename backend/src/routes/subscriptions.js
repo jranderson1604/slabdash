@@ -154,6 +154,36 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
+
+        // Handle SAM token purchases (one-time payments)
+        if (session.metadata.type === 'sam_tokens') {
+          const customerId = session.metadata.customer_id;
+          const tokenCount = parseInt(session.metadata.token_count, 10);
+          const bundle = session.metadata.bundle;
+          const companyId = session.metadata.company_id;
+
+          // Credit tokens to customer
+          await db.query(
+            `UPDATE customers SET sam_token_balance = COALESCE(sam_token_balance, 0) + $1 WHERE id = $2`,
+            [tokenCount, customerId]
+          );
+
+          // Log the purchase
+          try {
+            await db.query(
+              `INSERT INTO sam_token_purchases (customer_id, company_id, bundle, token_count, amount_cents, stripe_session_id)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [customerId, companyId, bundle, tokenCount, session.amount_total, session.id]
+            );
+          } catch (logErr) {
+            console.warn('Token purchase log failed (table may not exist):', logErr.message);
+          }
+
+          console.log(`✅ SAM tokens credited: ${tokenCount} tokens to customer ${customerId} (bundle: ${bundle})`);
+          break;
+        }
+
+        // Handle subscription checkouts
         const companyId = session.metadata.company_id;
         const plan = session.metadata.plan;
 
