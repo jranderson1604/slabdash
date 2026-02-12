@@ -31,28 +31,38 @@ const createPsaClient = (apiKey) => axios.create({
 // CORE API FUNCTIONS
 // ============================================
 
-const getSubmissionProgress = async (apiKey, submissionNumber) => {
-    try {
-        const response = await createPsaClient(apiKey).get(`/order/GetSubmissionProgress/${submissionNumber}`);
-        return { success: true, data: response.data };
-    } catch (error) {
-        const status = error.response?.status;
-        const message = error.response?.data?.message || error.message;
+const getSubmissionProgress = async (apiKey, submissionNumber, retries = 2) => {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const response = await createPsaClient(apiKey).get(`/order/GetSubmissionProgress/${submissionNumber}`);
+            // PSA may wrap data — unwrap common patterns
+            const raw = response.data;
+            const data = raw?.PSAOrder || raw?.psaOrder || raw;
+            return { success: true, data };
+        } catch (error) {
+            const status = error.response?.status;
+            const message = error.response?.data?.message || error.message;
 
-        if (status === 404) {
-            return { success: false, error: 'Submission not found', status: 404 };
-        }
-        if (status === 500) {
-            console.log(`PSA API returned 500 for submission ${submissionNumber} - PSA API issue, skipping`);
-            return { success: false, error: 'PSA API server error (500)', status: 500 };
-        }
-        if (status === 429) {
-            throw error;
-        }
+            if (status === 404) {
+                return { success: false, error: 'Submission not found', status: 404 };
+            }
+            // 429 rate limit — always throw so caller's retry logic handles it
+            if (status === 429) {
+                throw error;
+            }
+            // 5xx server errors and network timeouts — retry with backoff
+            if ((status >= 500 || !status) && attempt < retries) {
+                const delay = (attempt + 1) * 3000 + Math.random() * 2000;
+                console.log(`PSA API error (${status || 'network'}) for ${submissionNumber}, retry ${attempt + 1}/${retries} in ${Math.round(delay/1000)}s`);
+                await new Promise(r => setTimeout(r, delay));
+                continue;
+            }
 
-        console.error(`PSA API error for submission ${submissionNumber}:`, message);
-        return { success: false, error: message || 'Unknown PSA API error', status: status || 0 };
+            console.error(`PSA API error for submission ${submissionNumber}:`, message);
+            return { success: false, error: message || 'Unknown PSA API error', status: status || 0 };
+        }
     }
+    return { success: false, error: 'Max retries exceeded', status: 0 };
 };
 
 const getCertificate = async (apiKey, certNumber) => {
@@ -117,26 +127,40 @@ const getCertWithImages = async (apiKey, certNumber) => {
 
 /**
  * Parse PSA progress data into a clean, normalized structure.
- * Extracts ALL available fields from the API response.
+ * Handles BOTH camelCase and PascalCase field names from PSA API.
+ * PSA sometimes wraps data in PSAOrder or similar container objects.
  */
-const parseProgressData = (data) => {
-    const steps = data.orderProgressSteps || [];
+const parseProgressData = (rawData) => {
+    // Handle possible PSA API response wrappers
+    const data = rawData.PSAOrder || rawData.psaOrder || rawData;
+
+    // Handle both camelCase and PascalCase for the steps array
+    const rawSteps = data.orderProgressSteps || data.OrderProgressSteps || data.steps || data.Steps || [];
     let completedCount = 0;
     let currentStep = 'Unknown';
     let lastCompletedStep = null;
 
-    for (let i = 0; i < steps.length; i++) {
-        if (steps[i].completed) {
+    // Normalize each step — PSA can return any combination of casing
+    const normalizedSteps = rawSteps.map((s, idx) => {
+        const stepName = s.step || s.Step || s.name || s.Name || `Step ${idx + 1}`;
+        const isCompleted = s.completed === true || s.Completed === true || s.isComplete === true || s.IsComplete === true;
+        const completedDate = s.completedDate || s.CompletedDate || s.completedOn || s.CompletedOn || null;
+        const index = s.index !== undefined ? s.index : (s.Index !== undefined ? s.Index : idx);
+        return { stepName, isCompleted, completedDate, index, rawStep: stepName };
+    });
+
+    for (let i = 0; i < normalizedSteps.length; i++) {
+        if (normalizedSteps[i].isCompleted) {
             completedCount++;
-            lastCompletedStep = STEP_NAMES[steps[i].step] || steps[i].step;
+            lastCompletedStep = STEP_NAMES[normalizedSteps[i].rawStep] || normalizedSteps[i].stepName;
         } else if (currentStep === 'Unknown') {
-            currentStep = STEP_NAMES[steps[i].step] || steps[i].step;
+            currentStep = STEP_NAMES[normalizedSteps[i].rawStep] || normalizedSteps[i].stepName;
         }
     }
 
-    if (completedCount === steps.length && steps.length > 0) currentStep = 'Shipped';
+    if (completedCount === normalizedSteps.length && normalizedSteps.length > 0) currentStep = 'Shipped';
 
-    const progressPercent = steps.length > 0 ? Math.round((completedCount / steps.length) * 100) : 0;
+    const progressPercent = normalizedSteps.length > 0 ? Math.round((completedCount / normalizedSteps.length) * 100) : 0;
 
     return {
         orderNumber: data.orderNumber || data.OrderNumber || null,
@@ -144,21 +168,21 @@ const parseProgressData = (data) => {
         lastCompletedStep,
         progressPercent,
         completedSteps: completedCount,
-        totalSteps: steps.length,
-        gradesReady: data.gradesReady || data.GradesComplete || data.GradesReady || false,
+        totalSteps: normalizedSteps.length,
+        gradesReady: data.gradesReady || data.GradesComplete || data.GradesReady || data.gradesComplete || false,
         shipped: data.shipped || data.Shipped || (currentStep === 'Shipped') || false,
         problemOrder: data.problemOrder || data.ProblemOrder || false,
         accountingHold: data.accountingHold || data.AccountingHold || false,
         // Extract any extra fields PSA might include
         serviceLevel: data.serviceLevel || data.ServiceLevel || null,
         estimatedCompletionDate: data.estimatedCompletionDate || data.EstimatedCompletionDate || null,
-        cardCount: data.cardCount || data.CardCount || data.numberOfCards || null,
-        steps: steps.map(s => ({
+        cardCount: data.cardCount || data.CardCount || data.numberOfCards || data.NumberOfCards || null,
+        steps: normalizedSteps.map(s => ({
             index: s.index,
-            name: STEP_NAMES[s.step] || s.step,
-            rawStep: s.step,
-            completed: s.completed,
-            completedDate: s.completedDate || s.CompletedDate || null
+            name: STEP_NAMES[s.rawStep] || s.stepName,
+            rawStep: s.rawStep,
+            completed: s.isCompleted,
+            completedDate: s.completedDate
         }))
     };
 };
