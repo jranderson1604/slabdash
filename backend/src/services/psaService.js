@@ -3,6 +3,48 @@ const db = require('../db');
 
 const PSA_API_BASE = process.env.PSA_API_BASE || 'https://api.psacard.com/publicapi';
 
+// ============================================
+// GLOBAL RATE LIMIT TRACKING
+// ============================================
+let _rateLimitedUntil = 0; // Unix timestamp (ms) when rate limit expires
+
+/**
+ * Check if we're currently rate limited by PSA.
+ * Returns { limited: true, retryAfterMs, retryAfterMin } or { limited: false }.
+ */
+const isRateLimited = () => {
+    const now = Date.now();
+    if (_rateLimitedUntil > now) {
+        const retryAfterMs = _rateLimitedUntil - now;
+        return { limited: true, retryAfterMs, retryAfterMin: Math.ceil(retryAfterMs / 60000) };
+    }
+    return { limited: false };
+};
+
+/**
+ * Set global rate limit cooldown from a 429 response.
+ * Respects the retry-after header if present, otherwise defaults to 30 minutes.
+ */
+const setRateLimited = (error) => {
+    const retryAfterHeader = error.response?.headers?.['retry-after'];
+    let cooldownMs;
+
+    if (retryAfterHeader) {
+        const retryAfterSec = parseInt(retryAfterHeader, 10);
+        if (!isNaN(retryAfterSec) && retryAfterSec > 0) {
+            cooldownMs = retryAfterSec * 1000;
+        } else {
+            cooldownMs = 30 * 60 * 1000; // 30 min default
+        }
+    } else {
+        cooldownMs = 30 * 60 * 1000; // 30 min default
+    }
+
+    _rateLimitedUntil = Date.now() + cooldownMs;
+    const cooldownMin = Math.ceil(cooldownMs / 60000);
+    console.log(`[PSA] Rate limited — cooling down for ${cooldownMin} minutes (until ${new Date(_rateLimitedUntil).toLocaleTimeString()})`);
+};
+
 const STEP_NAMES = {
     'Arrived': 'Arrived',
     'OrderPrep': 'Order Prep',
@@ -46,10 +88,15 @@ const createPsaClient = (apiKey) => axios.create({
 // ============================================
 
 const getSubmissionProgress = async (apiKey, submissionNumber, retries = 2) => {
+    // Check global rate limit before making any request
+    const rl = isRateLimited();
+    if (rl.limited) {
+        return { success: false, error: `Rate limited — retry in ${rl.retryAfterMin}m`, status: 429, rateLimited: true };
+    }
+
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
             const response = await createPsaClient(apiKey).get(`/order/GetSubmissionProgress/${submissionNumber}`);
-            // PSA may wrap data — unwrap common patterns
             const raw = response.data;
             const data = raw?.PSAOrder || raw?.psaOrder || raw;
             return { success: true, data };
@@ -60,19 +107,20 @@ const getSubmissionProgress = async (apiKey, submissionNumber, retries = 2) => {
             if (status === 404) {
                 return { success: false, error: 'Submission not found', status: 404 };
             }
-            // 429 rate limit — always throw so caller's retry logic handles it
+            // 429 rate limit — set global cooldown and return failure (don't throw)
             if (status === 429) {
-                throw error;
+                setRateLimited(error);
+                return { success: false, error: 'PSA rate limit reached', status: 429, rateLimited: true };
             }
             // 5xx server errors and network timeouts — retry with backoff
             if ((status >= 500 || !status) && attempt < retries) {
                 const delay = (attempt + 1) * 3000 + Math.random() * 2000;
-                console.log(`PSA API error (${status || 'network'}) for ${submissionNumber}, retry ${attempt + 1}/${retries} in ${Math.round(delay/1000)}s`);
+                console.log(`[PSA] API error (${status || 'network'}) for ${submissionNumber}, retry ${attempt + 1}/${retries} in ${Math.round(delay/1000)}s`);
                 await new Promise(r => setTimeout(r, delay));
                 continue;
             }
 
-            console.error(`PSA API error for submission ${submissionNumber}:`, message);
+            console.error(`[PSA] API error for submission ${submissionNumber}: ${message}`);
             return { success: false, error: message || 'Unknown PSA API error', status: status || 0 };
         }
     }
@@ -733,19 +781,31 @@ const refreshAllSubmissions = async () => {
     }
 
     for (const company of companiesResult.rows) {
+        // Check rate limit before each company
+        if (isRateLimited().limited) {
+            console.log('[PSA] Rate limited — skipping remaining companies');
+            break;
+        }
+
         const submissions = await db.query(
             `SELECT id, psa_submission_number FROM submissions WHERE company_id = $1 AND shipped = false AND psa_submission_number IS NOT NULL`,
             [company.id]
         );
 
         for (const sub of submissions.rows) {
-            try {
-                const result = await getSubmissionProgress(company.psa_api_key, sub.psa_submission_number);
-                if (result.success) await updateSubmissionFromPsa(sub.id, result.data);
-                await new Promise(r => setTimeout(r, 500));
-            } catch (error) {
-                console.error(`Failed to refresh ${sub.psa_submission_number}:`, error.message);
+            const result = await getSubmissionProgress(company.psa_api_key, sub.psa_submission_number);
+            if (result.rateLimited) {
+                console.log(`[PSA] Rate limited — stopping refresh`);
+                break;
             }
+            if (result.success) {
+                try {
+                    await updateSubmissionFromPsa(sub.id, result.data);
+                } catch (err) {
+                    console.error(`[PSA] Update failed for ${sub.psa_submission_number}: ${err.message}`);
+                }
+            }
+            await new Promise(r => setTimeout(r, 2000));
         }
     }
 };
@@ -774,6 +834,7 @@ module.exports = {
     estimateSubmissionProgress,
     getHistoricalDurations,
     getRefreshPriority,
+    isRateLimited,
     logApiCall,
     STEP_NAMES,
     STEP_ORDER,
