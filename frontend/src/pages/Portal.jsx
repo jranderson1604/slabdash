@@ -11,7 +11,8 @@ import {
   CheckCircle2, Package, Clock, Sparkles, ChevronDown, ChevronUp, Hash,
   Key, Truck, MessageSquare, Camera, Bot, Bell, BellOff, Grid, Search,
   Image as ImageIcon, Upload, User, LogOut, Settings, Plus, Smartphone, Shield, X, Delete,
-  CreditCard, RefreshCw, Star, Wallet, Home, Layers, DollarSign, ExternalLink
+  CreditCard, RefreshCw, Star, Wallet, Home, Layers, DollarSign, ExternalLink,
+  TrendingUp, Zap, Award, CalendarClock
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -624,8 +625,92 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [lastPollTime, setLastPollTime] = useState(null);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
 
-  useEffect(() => { loadData(); }, [jwtToken]);
+  useEffect(() => { loadData(); checkPushStatus(); }, [jwtToken]);
+
+  const checkPushStatus = async () => {
+    try {
+      const res = await fetch(`${API_URL}/portal/push/status`, { headers: { Authorization: `Bearer ${jwtToken}` } });
+      if (res.ok) { const d = await res.json(); setPushSubscribed(d.subscribed); }
+    } catch {}
+  };
+
+  const togglePush = async () => {
+    if (pushLoading) return;
+    setPushLoading(true);
+    try {
+      if (pushSubscribed) {
+        // Unsubscribe
+        const reg = await navigator.serviceWorker?.ready;
+        const sub = await reg?.pushManager?.getSubscription();
+        if (sub) {
+          await fetch(`${API_URL}/portal/push/unsubscribe`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+            body: JSON.stringify({ endpoint: sub.endpoint }),
+          });
+          await sub.unsubscribe();
+        }
+        setPushSubscribed(false);
+      } else {
+        // Subscribe
+        const keyRes = await fetch(`${API_URL}/portal/push/vapid-key`);
+        const { key } = await keyRes.json();
+        if (!key) { alert('Push notifications not configured.'); setPushLoading(false); return; }
+
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') { setPushLoading(false); return; }
+
+        const reg = await navigator.serviceWorker?.ready;
+        if (!reg) { setPushLoading(false); return; }
+
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: Uint8Array.from(atob(key.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
+        });
+
+        await fetch(`${API_URL}/portal/push/subscribe`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+          body: JSON.stringify({ subscription: sub.toJSON() }),
+        });
+        setPushSubscribed(true);
+      }
+    } catch (err) {
+      console.error('Push toggle error:', err);
+    }
+    setPushLoading(false);
+  };
+
+  // Auto-poll for submission updates every 2 minutes
+  useEffect(() => {
+    if (!data || !jwtToken) return;
+    const interval = setInterval(async () => {
+      try {
+        const headers = { Authorization: `Bearer ${jwtToken}` };
+        const since = lastPollTime || new Date(Date.now() - 120000).toISOString();
+        const res = await fetch(`${API_URL}/portal/submissions/poll?since=${encodeURIComponent(since)}`, { headers });
+        if (!res.ok) return;
+        const poll = await res.json();
+        setLastPollTime(poll.serverTime);
+
+        if (poll.hasChanges && poll.submissions?.length > 0) {
+          // Merge updated submissions into existing data
+          setData(prev => {
+            if (!prev) return prev;
+            const updatedMap = {};
+            for (const s of poll.submissions) updatedMap[s.id] = s;
+            const merged = prev.submissions.map(sub =>
+              updatedMap[sub.id] ? { ...sub, ...updatedMap[sub.id] } : sub
+            );
+            return { ...prev, submissions: merged };
+          });
+        }
+      } catch {} // Silent fail — polling shouldn't disrupt UX
+    }, 120000); // 2 minutes
+    return () => clearInterval(interval);
+  }, [data, jwtToken, lastPollTime]);
 
   const loadData = async () => {
     try {
@@ -659,6 +744,7 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
       );
 
       setData({ customer: me.customer, company: me.company, submissions: subsWithCards, buybackOffers: offers, cards });
+      setLastPollTime(new Date().toISOString());
       setLoading(false);
     } catch (err) {
       console.error('JWT portal load error:', err);
@@ -694,6 +780,18 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
 // ============================================
 // Shared helpers
 // ============================================
+function formatTimeAgo(dateStr) {
+  if (!dateStr) return '';
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 const PSA_STEPS = ['Arrived', 'Order Prep', 'Research & ID', 'Grading', 'Assembly', 'Grades Ready', 'QA Checks', 'Shipped', 'Picked Up'];
 
 function getStepIndex(currentStep) {
@@ -721,33 +819,124 @@ function getServiceColor(level) {
   return '#6B7280';
 }
 
-function ProgressPipeline({ currentStep, shipped, pickedUp }) {
+function ProgressPipeline({ currentStep, shipped, pickedUp, estimated }) {
   let stepIdx;
-  if (pickedUp) stepIdx = PSA_STEPS.length; // all complete
-  else if (shipped) stepIdx = 7; // at "Picked Up" step (waiting)
+  if (pickedUp) stepIdx = PSA_STEPS.length;
+  else if (shipped) stepIdx = 7;
   else stepIdx = getStepIndex(currentStep);
 
   const totalSteps = PSA_STEPS.length;
-  const progress = pickedUp ? 100 : shipped ? Math.round((7 / totalSteps) * 100) : stepIdx >= 0 ? Math.round(((stepIdx + 0.5) / totalSteps) * 100) : 0;
+
+  // Use estimated progress for smooth sub-step interpolation (customers see movement even without step changes)
+  let progress;
+  if (pickedUp) progress = 100;
+  else if (shipped) progress = Math.round((7 / totalSteps) * 100);
+  else if (estimated?.estimatedProgress) progress = estimated.estimatedProgress;
+  else if (stepIdx >= 0) progress = Math.round(((stepIdx + 0.5) / totalSteps) * 100);
+  else progress = 0;
+
   const isComplete = pickedUp;
+  const isActive = !isComplete && !shipped && stepIdx >= 0;
+
+  // Condensed steps for mobile: show key milestones as nodes
+  const milestones = [
+    { label: 'Arrived', short: 'Recv', idx: 0 },
+    { label: 'Grading', short: 'Grade', idx: 3 },
+    { label: 'Grades Ready', short: 'Ready', idx: 5 },
+    { label: 'Shipped', short: 'Ship', idx: 7 },
+    { label: 'Done', short: 'Done', idx: 8 },
+  ];
 
   return (
-    <div>
-      <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.06)' }}>
-        <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
-          style={{ width: `${progress}%`, background: isComplete ? 'linear-gradient(90deg, #10B981, #059669)' : shipped ? 'linear-gradient(90deg, #10B981, #2563EB)' : 'linear-gradient(90deg, rgb(var(--brand-400)), rgb(var(--brand-600)))' }} />
-      </div>
-      <div className="flex justify-between mt-1.5">
-        {PSA_STEPS.map((step, i) => (
-          <span key={step} className="text-[8px] sm:text-[9px] font-semibold text-center flex-1"
+    <div className="py-1">
+      {/* Main track with milestone nodes */}
+      <div className="relative">
+        {/* Track background */}
+        <div className="h-1.5 rounded-full mx-2" style={{ background: 'rgba(0,0,0,0.06)' }} />
+
+        {/* Filled track with animated gradient */}
+        <div className="absolute top-0 left-2 h-1.5 rounded-full transition-all duration-[1500ms] ease-out"
+          style={{
+            width: `calc(${progress}% - 4px)`,
+            background: isComplete
+              ? 'linear-gradient(90deg, #10B981, #059669, #10B981)'
+              : shipped
+              ? 'linear-gradient(90deg, rgb(var(--brand-500)), #10B981, #059669)'
+              : 'linear-gradient(90deg, rgb(var(--brand-400)), rgb(var(--brand-500)), rgb(var(--brand-600)))',
+            backgroundSize: isActive ? '200% 100%' : '100% 100%',
+            animation: isActive ? 'shimmer 3s ease-in-out infinite' : 'none',
+          }} />
+
+        {/* Glowing leading edge */}
+        {isActive && progress > 5 && (
+          <div className="absolute top-0 h-1.5 rounded-full"
             style={{
-              color: i < stepIdx ? '#059669' : (i === stepIdx && !isComplete) ? (shipped ? '#2563EB' : 'rgb(var(--brand-600))') : 'rgba(44, 36, 22, 0.2)',
-              fontWeight: (i === stepIdx && !isComplete) ? 800 : (isComplete && i === totalSteps - 1) ? 800 : 600,
-            }}>
-            {step === 'Research & ID' ? 'R&ID' : step === 'Picked Up' ? (isComplete ? 'Done!' : 'Pickup') : step}
-          </span>
-        ))}
+              left: `calc(${progress}% - 8px)`,
+              width: '12px',
+              background: 'radial-gradient(circle, rgba(255,129,112,0.8), transparent)',
+              animation: 'pulse-glow 2s ease-in-out infinite',
+            }} />
+        )}
+
+        {/* Milestone nodes */}
+        <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex justify-between px-0">
+          {milestones.map((m, i) => {
+            const nodeProgress = (m.idx / (totalSteps)) * 100;
+            const isPast = m.idx < stepIdx;
+            const isCurrent = m.idx === stepIdx;
+            const isFuture = m.idx > stepIdx;
+            const isLastComplete = isComplete && i === milestones.length - 1;
+
+            return (
+              <div key={m.label} className="flex flex-col items-center" style={{ width: '20%' }}>
+                {/* Node */}
+                <div className="relative flex items-center justify-center transition-all duration-500"
+                  style={{
+                    width: isCurrent ? 22 : isPast || isLastComplete ? 18 : 14,
+                    height: isCurrent ? 22 : isPast || isLastComplete ? 18 : 14,
+                    borderRadius: '50%',
+                    background: isPast || isLastComplete
+                      ? isComplete ? 'linear-gradient(135deg, #10B981, #059669)' : 'linear-gradient(135deg, rgb(var(--brand-400)), rgb(var(--brand-600)))'
+                      : isCurrent
+                      ? 'linear-gradient(135deg, rgb(var(--brand-400)), rgb(var(--brand-600)))'
+                      : 'rgba(255,255,255,0.9)',
+                    border: isFuture && !isLastComplete ? '2px solid rgba(0,0,0,0.08)' : 'none',
+                    boxShadow: isCurrent
+                      ? '0 0 0 4px rgba(var(--brand-500), 0.15), 0 2px 8px rgba(var(--brand-500), 0.3)'
+                      : isPast ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
+                  }}>
+                  {(isPast || isLastComplete) && (
+                    <CheckCircle2 className="text-white" style={{ width: isPast ? 10 : 10, height: isPast ? 10 : 10 }} />
+                  )}
+                  {isCurrent && (
+                    <div className="rounded-full bg-white" style={{ width: 6, height: 6, animation: 'pulse-glow 2s ease-in-out infinite' }} />
+                  )}
+                </div>
+                {/* Label */}
+                <span className="text-[8px] sm:text-[9px] font-bold mt-1 text-center leading-tight"
+                  style={{
+                    color: isPast || isLastComplete ? '#059669' : isCurrent ? 'rgb(var(--brand-600))' : 'rgba(44, 36, 22, 0.22)',
+                    fontWeight: isCurrent ? 900 : isPast ? 700 : 600,
+                  }}>
+                  {isLastComplete ? 'Done!' : m.short}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       </div>
+
+      {/* CSS animations */}
+      <style>{`
+        @keyframes shimmer {
+          0%, 100% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+        }
+        @keyframes pulse-glow {
+          0%, 100% { opacity: 0.6; transform: scale(1); }
+          50% { opacity: 1; transform: scale(1.3); }
+        }
+      `}</style>
     </div>
   );
 }
@@ -898,6 +1087,14 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
               </div>
             </div>
             <div className="flex items-center gap-1.5">
+              {'Notification' in window && 'serviceWorker' in navigator && (
+                <button onClick={togglePush} disabled={pushLoading}
+                  className="p-2 rounded-xl relative" style={{ background: pushSubscribed ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)' }}
+                  title={pushSubscribed ? 'Notifications on' : 'Enable notifications'}>
+                  {pushSubscribed ? <Bell className="w-4 h-4 text-white" /> : <BellOff className="w-4 h-4 text-white/60" />}
+                  {pushSubscribed && <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-green-400" />}
+                </button>
+              )}
               <button onClick={handleRefresh} disabled={refreshing}
                 className="p-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.15)' }}>
                 <RefreshCw className={`w-4 h-4 text-white ${refreshing ? 'animate-spin' : ''}`} />
@@ -914,15 +1111,20 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
           {/* Quick stats row */}
           <div className="flex gap-2 overflow-x-auto no-scrollbar">
             {[
-              { label: 'Pickup', value: readyForPickup.length, show: readyForPickup.length > 0 },
+              { label: 'Pickup', value: readyForPickup.length, show: readyForPickup.length > 0, glow: true },
               { label: 'Active', value: activeSubmissions.length, show: true },
               { label: 'Cards', value: totalCards, show: totalCards > 0 },
               { label: 'Graded', value: gradedCards.length, show: gradedCards.length > 0 },
               { label: 'Offers', value: pendingOffers.length, show: pendingOffers.length > 0 },
             ].filter(s => s.show).map(stat => (
-              <div key={stat.label} className="px-3 py-1.5 rounded-xl shrink-0" style={{ background: 'rgba(255,255,255,0.15)' }}>
-                <p className="text-base font-black text-white leading-none">{stat.value}</p>
-                <p className="text-[9px] font-semibold" style={{ color: 'rgba(255, 248, 240, 0.6)' }}>{stat.label}</p>
+              <div key={stat.label} className="px-3.5 py-2 rounded-xl shrink-0"
+                style={{
+                  background: stat.glow ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.12)',
+                  backdropFilter: 'blur(10px)',
+                  boxShadow: stat.glow ? '0 0 15px rgba(255,255,255,0.1)' : 'none',
+                }}>
+                <p className="text-lg font-black text-white leading-none">{stat.value}</p>
+                <p className="text-[9px] font-bold mt-0.5" style={{ color: 'rgba(255, 248, 240, 0.55)' }}>{stat.label}</p>
               </div>
             ))}
           </div>
@@ -975,10 +1177,22 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
         {activeTab === 'submissions' && (
           <>
             {activeSubmissions.length === 0 && readyForPickup.length === 0 && completedSubmissions.length === 0 && pendingOffers.length === 0 ? (
-              <div className="rounded-2xl p-12 text-center" style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.5)' }}>
-                <Package className="w-16 h-16 mx-auto mb-4" style={{ color: 'rgba(44, 36, 22, 0.1)' }} />
-                <h3 className="text-xl font-bold mb-1" style={{ color: 'rgb(var(--dark))' }}>No Submissions Yet</h3>
-                <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>Your submissions will appear here once you drop off cards.</p>
+              <div className="rounded-2xl p-12 text-center" style={{
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.7), rgba(255,255,255,0.4))',
+                border: '1px solid rgba(255,255,255,0.5)',
+                boxShadow: '0 4px 30px rgba(0,0,0,0.02)',
+              }}>
+                <div className="w-20 h-20 mx-auto mb-5 rounded-2xl flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg, rgba(var(--brand-500), 0.08), rgba(var(--brand-500), 0.03))', border: '1px solid rgba(var(--brand-500), 0.08)' }}>
+                  <Package className="w-10 h-10" style={{ color: 'rgba(var(--brand-500), 0.3)' }} />
+                </div>
+                <h3 className="text-xl font-black mb-2" style={{ color: 'rgb(var(--dark))' }}>No Submissions Yet</h3>
+                <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>Your card submissions will appear here once you drop off at the shop.</p>
+                <div className="mt-6 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold"
+                  style={{ background: 'rgba(var(--brand-500), 0.06)', color: 'rgb(var(--brand-600))' }}>
+                  <Clock className="w-3.5 h-3.5" />
+                  Updates appear automatically
+                </div>
               </div>
             ) : (
               <>
@@ -1052,9 +1266,15 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
         {activeTab === 'cards' && (
           <>
             {allCards.length === 0 ? (
-              <div className="rounded-2xl p-12 text-center" style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.5)' }}>
-                <Layers className="w-16 h-16 mx-auto mb-4" style={{ color: 'rgba(44, 36, 22, 0.1)' }} />
-                <h3 className="text-xl font-bold mb-1" style={{ color: 'rgb(var(--dark))' }}>No Cards Yet</h3>
+              <div className="rounded-2xl p-12 text-center" style={{
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.7), rgba(255,255,255,0.4))',
+                border: '1px solid rgba(255,255,255,0.5)',
+              }}>
+                <div className="w-20 h-20 mx-auto mb-5 rounded-2xl flex items-center justify-center"
+                  style={{ background: 'linear-gradient(135deg, rgba(var(--brand-500), 0.08), rgba(var(--brand-500), 0.03))', border: '1px solid rgba(var(--brand-500), 0.08)' }}>
+                  <Layers className="w-10 h-10" style={{ color: 'rgba(var(--brand-500), 0.3)' }} />
+                </div>
+                <h3 className="text-xl font-black mb-2" style={{ color: 'rgb(var(--dark))' }}>No Cards Yet</h3>
                 <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>Cards from your submissions will appear here once assigned.</p>
               </div>
             ) : (
@@ -1134,13 +1354,22 @@ function CardRow({ card }) {
           </div>
           <div className="flex items-center gap-2">
             {hasPhotos && <Camera className="w-3.5 h-3.5" style={{ color: 'rgba(44, 36, 22, 0.2)' }} />}
-            {card.grade ? (
-              <div className="w-10 h-10 rounded-xl flex flex-col items-center justify-center"
-                style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.12)' }}>
-                <span className="text-sm font-black leading-none" style={{ color: '#059669' }}>{card.grade}</span>
-                <span className="text-[7px] font-bold" style={{ color: 'rgba(5, 150, 105, 0.6)' }}>PSA</span>
-              </div>
-            ) : (
+            {card.grade ? (() => {
+              const g = parseFloat(card.grade);
+              const gc = g >= 9 ? '#059669' : g >= 7 ? '#2563EB' : '#D97706';
+              return (
+                <div className="flex flex-col items-center justify-center shrink-0" style={{
+                  width: 42, minHeight: 48, borderRadius: 10,
+                  background: g >= 9 ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(5, 150, 105, 0.06))' : g >= 7 ? 'linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(37, 99, 235, 0.04))' : 'rgba(245, 158, 11, 0.08)',
+                  border: `1.5px solid ${gc}20`,
+                  boxShadow: g >= 9 ? `0 2px 10px ${gc}15` : 'none',
+                }}>
+                  <span className="text-[7px] font-black tracking-wider" style={{ color: `${gc}80` }}>PSA</span>
+                  <span className="text-lg font-black leading-none" style={{ color: gc }}>{card.grade}</span>
+                  {g >= 10 && <span className="text-[6px] font-black mt-0.5" style={{ color: gc }}>GEM</span>}
+                </div>
+              );
+            })() : (
               <div className="w-10 h-10 rounded-xl flex items-center justify-center"
                 style={{ background: 'rgba(245, 158, 11, 0.06)', border: '1px solid rgba(245, 158, 11, 0.1)' }}>
                 <Clock className="w-4 h-4" style={{ color: '#D97706' }} />
@@ -1362,78 +1591,159 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
   const isPickedUp = submission.picked_up;
   const hasPickupCode = !!submission.pickup_code;
   const serviceColor = getServiceColor(submission.service_level);
+  const cardCount = submission.card_count || submission.cards?.length || 0;
+  const gradedCount = submission.cards?.filter(c => c.grade)?.length || 0;
 
   let statusText = submission.current_step || 'Processing';
   let statusColor = '#D97706';
   let StatusIcon = Clock;
+  let statusGlow = 'none';
   if (isPickedUp) { statusText = 'Picked Up'; statusColor = '#059669'; StatusIcon = CheckCircle2; }
-  else if (hasPickupCode && isGradesReady) { statusText = 'Ready for Pickup'; statusColor = '#7C3AED'; StatusIcon = Key; }
+  else if (hasPickupCode && isGradesReady) { statusText = 'Ready for Pickup'; statusColor = '#7C3AED'; StatusIcon = Key; statusGlow = '0 0 12px rgba(124, 58, 237, 0.3)'; }
   else if (isShipped) { statusText = 'Shipped'; statusColor = '#059669'; StatusIcon = Truck; }
-  else if (isGradesReady) { statusText = 'Grades Ready!'; statusColor = '#2563EB'; StatusIcon = Sparkles; }
-  else if (isProblem) { statusText = 'Needs Attention'; statusColor = '#DC2626'; StatusIcon = AlertTriangle; }
+  else if (isGradesReady) { statusText = 'Grades Ready!'; statusColor = '#2563EB'; StatusIcon = Sparkles; statusGlow = '0 0 12px rgba(37, 99, 235, 0.2)'; }
+  else if (isProblem) { statusText = 'Needs Attention'; statusColor = '#DC2626'; StatusIcon = AlertTriangle; statusGlow = '0 0 12px rgba(220, 38, 38, 0.2)'; }
+
+  // Encouragement message based on state
+  const getEncouragement = () => {
+    if (isPickedUp) return null;
+    if (isGradesReady) return 'Your grades are in — looking great!';
+    if (isShipped) return 'On the way back to you!';
+    if (isProblem) return 'Your shop is on it.';
+    const est = submission.estimated;
+    if (!est) return null;
+    if (est.estimatedDaysRemaining <= 3 && est.estimatedProgress > 70) return 'Almost there — finishing up!';
+    if (est.estimatedProgress > 50) return 'Past the halfway mark!';
+    if (est.daysAtCurrentStep < 1) return 'Just moved to a new step!';
+    return null;
+  };
+  const encouragement = getEncouragement();
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{
-      background: isPickedUp ? 'rgba(16, 185, 129, 0.04)' : 'rgba(255, 255, 255, 0.6)',
+    <div className="rounded-2xl overflow-hidden transition-all duration-300" style={{
+      background: isPickedUp
+        ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.06), rgba(16, 185, 129, 0.02))'
+        : hasPickupCode && !isPickedUp
+        ? 'linear-gradient(135deg, rgba(124, 58, 237, 0.04), rgba(255, 255, 255, 0.6))'
+        : 'rgba(255, 255, 255, 0.65)',
       backdropFilter: 'blur(40px) saturate(180%)',
       border: isPickedUp ? '1.5px solid rgba(16, 185, 129, 0.2)' : isProblem ? '1.5px solid rgba(239, 68, 68, 0.2)' : hasPickupCode && !isPickedUp ? '1.5px solid rgba(124, 58, 237, 0.15)' : '1px solid rgba(255, 255, 255, 0.5)',
-      boxShadow: '0 2px 20px rgba(0,0,0,0.03)',
+      boxShadow: isExpanded ? '0 8px 40px rgba(0,0,0,0.06)' : '0 2px 20px rgba(0,0,0,0.03)',
     }}>
+      {/* Service level accent strip */}
+      {!isPickedUp && !isShipped && (
+        <div style={{ height: 3, background: `linear-gradient(90deg, ${serviceColor}40, ${serviceColor}15, transparent)` }} />
+      )}
+
       <button onClick={onToggle} className="w-full text-left p-4 sm:p-5">
-        <div className="flex items-center justify-between gap-3 mb-3">
-          <div className="flex items-center gap-2 min-w-0">
+        {/* Header: Order number + status badge */}
+        <div className="flex items-center justify-between gap-3 mb-3.5">
+          <div className="flex items-center gap-2.5 min-w-0">
             {isPickedUp && (
-              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
-                style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
+              <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                style={{ background: 'linear-gradient(135deg, #10B981, #059669)', boxShadow: '0 2px 8px rgba(16, 185, 129, 0.3)' }}>
                 <CheckCircle2 className="w-4 h-4 text-white" />
               </div>
             )}
-            <span className="text-base sm:text-lg font-black" style={{ color: 'rgb(var(--dark))' }}>
-              #{submission.psa_submission_number || submission.internal_id || '\u2014'}
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0"
-              style={{ background: `${serviceColor}12`, color: serviceColor, border: `1px solid ${serviceColor}20` }}>
-              {submission.service_level || 'Standard'}
-            </span>
+            <div className="min-w-0">
+              <span className="text-lg sm:text-xl font-black tracking-tight" style={{ color: 'rgb(var(--dark))' }}>
+                #{submission.psa_submission_number || submission.internal_id || '\u2014'}
+              </span>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0"
+                  style={{ background: `${serviceColor}10`, color: serviceColor }}>
+                  {submission.service_level || 'Standard'}
+                </span>
+                <span className="text-[10px] font-semibold" style={{ color: 'rgba(44, 36, 22, 0.3)' }}>
+                  {cardCount} card{cardCount !== 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[11px] font-bold shrink-0"
-            style={{ background: `${statusColor}10`, color: statusColor }}>
-            <StatusIcon className="w-3 h-3" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-bold shrink-0"
+            style={{ background: `${statusColor}0D`, color: statusColor, boxShadow: statusGlow }}>
+            <StatusIcon className="w-3.5 h-3.5" />
             {statusText}
           </div>
         </div>
 
-        {/* Progress pipeline - always show, with picked_up state */}
-        <ProgressPipeline currentStep={submission.current_step} shipped={isShipped} pickedUp={isPickedUp} />
+        {/* Progress pipeline */}
+        <ProgressPipeline currentStep={submission.current_step} shipped={isShipped} pickedUp={isPickedUp} estimated={submission.estimated} />
 
-        <div className="flex items-center justify-between mt-3 text-xs" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
-          <span className="font-semibold">{submission.card_count || submission.cards?.length || 0} cards</span>
-          {isPickedUp && submission.picked_up_at && (
-            <span className="font-semibold" style={{ color: '#059669' }}>
-              Picked up {new Date(submission.picked_up_at).toLocaleDateString()}
+        {/* Estimation info bar */}
+        {submission.estimated && !isShipped && !isPickedUp && (
+          <div className="flex items-center gap-2 mt-3 px-0.5">
+            <div className="flex-1 flex items-center gap-1.5 min-w-0">
+              <TrendingUp className="w-3 h-3 shrink-0" style={{ color: 'rgba(44, 36, 22, 0.2)' }} />
+              <span className="text-[10px] font-semibold truncate" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
+                {submission.estimated.currentStepLabel}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {submission.estimated.estimatedDaysRemaining > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg" style={{
+                  background: 'linear-gradient(135deg, rgba(var(--brand-500), 0.08), rgba(var(--brand-500), 0.03))',
+                  color: 'rgb(var(--brand-600))',
+                }}>
+                  ~{submission.estimated.estimatedDaysRemaining}d left
+                </span>
+              )}
+              {submission.estimated.estimatedCompletionDate && submission.estimated.estimatedDaysRemaining > 0 && (
+                <span className="text-[9px] font-semibold" style={{ color: 'rgba(44, 36, 22, 0.2)' }}>
+                  ~{new Date(submission.estimated.estimatedCompletionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Encouragement message */}
+        {encouragement && (
+          <div className="flex items-center gap-1.5 mt-2 px-0.5">
+            <Zap className="w-3 h-3 shrink-0" style={{ color: 'rgb(var(--brand-500))' }} />
+            <span className="text-[10px] font-bold" style={{ color: 'rgb(var(--brand-500))', opacity: 0.7 }}>
+              {encouragement}
             </span>
-          )}
-          {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </div>
+        )}
+
+        {/* Footer: last update + expand toggle */}
+        <div className="flex items-center justify-between mt-2.5">
+          {isPickedUp && submission.picked_up_at ? (
+            <span className="text-[10px] font-semibold" style={{ color: '#059669' }}>
+              Picked up {new Date(submission.picked_up_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+            </span>
+          ) : submission.last_refreshed_at ? (
+            <span className="text-[10px] font-medium" style={{ color: 'rgba(44, 36, 22, 0.2)' }}>
+              Updated {formatTimeAgo(submission.last_refreshed_at)}
+            </span>
+          ) : <span />}
+          <ChevronDown className="w-4 h-4 transition-transform duration-300"
+            style={{ color: 'rgba(44, 36, 22, 0.2)', transform: isExpanded ? 'rotate(180deg)' : 'none' }} />
         </div>
       </button>
 
-      {/* Pickup Code Banner - shown when ready for pickup */}
+      {/* Pickup Code Banner */}
       {hasPickupCode && !isPickedUp && (
         <div className="mx-4 mb-3 rounded-2xl overflow-hidden" style={{
-          background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.06), rgba(99, 102, 241, 0.04))',
-          border: '1px solid rgba(124, 58, 237, 0.12)',
+          background: 'linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(99, 102, 241, 0.04))',
+          border: '1.5px solid rgba(124, 58, 237, 0.15)',
+          boxShadow: '0 4px 20px rgba(124, 58, 237, 0.08)',
         }}>
-          <div className="px-4 py-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
+          <div className="px-5 py-5 text-center">
+            <div className="flex items-center justify-center gap-2 mb-3">
               <Key className="w-4 h-4" style={{ color: '#7C3AED' }} />
-              <span className="text-xs font-bold" style={{ color: '#7C3AED' }}>YOUR PICKUP CODE</span>
+              <span className="text-[11px] font-black tracking-wider" style={{ color: '#7C3AED' }}>YOUR PICKUP CODE</span>
             </div>
-            <div className="py-3 px-6 rounded-xl mb-2 inline-block" style={{
-              background: 'rgba(255,255,255,0.8)',
-              border: '2px dashed rgba(124, 58, 237, 0.25)',
+            <div className="py-4 px-8 rounded-2xl mb-3 inline-block" style={{
+              background: 'linear-gradient(135deg, rgba(255,255,255,0.95), rgba(255,255,255,0.85))',
+              boxShadow: '0 4px 20px rgba(124, 58, 237, 0.1), inset 0 1px 0 rgba(255,255,255,1)',
+              border: '1.5px solid rgba(124, 58, 237, 0.12)',
             }}>
-              <span className="text-3xl sm:text-4xl font-black tracking-[6px]" style={{
-                color: '#7C3AED',
+              <span className="text-4xl sm:text-5xl font-black tracking-[8px]" style={{
+                background: 'linear-gradient(135deg, #7C3AED, #6366F1)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
                 fontFamily: 'ui-monospace, SFMono-Regular, monospace',
               }}>
                 {submission.pickup_code}
@@ -1454,7 +1764,7 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
         }}>
           <div className="px-4 py-3 flex items-center gap-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-              style={{ background: 'linear-gradient(135deg, #10B981, #059669)' }}>
+              style={{ background: 'linear-gradient(135deg, #10B981, #059669)', boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)' }}>
               <CheckCircle2 className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -1469,34 +1779,139 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
         </div>
       )}
 
-      {isExpanded && submission.cards?.length > 0 && (
-        <div className="px-4 pb-4 space-y-2" style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}>
-          <p className="text-xs font-bold pt-3" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>CARDS ({submission.cards.length})</p>
-          {submission.cards.map(card => (
-            <div key={card.id} className="flex items-center gap-3 p-3 rounded-xl"
-              style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(0,0,0,0.05)' }}>
-              {card.before_photos?.[0] && (
-                <img src={card.before_photos[0].url || card.before_photos[0]} alt=""
-                  className="w-10 h-14 rounded-lg object-cover shrink-0" style={{ border: '1px solid rgba(0,0,0,0.08)' }} />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-sm truncate" style={{ color: 'rgb(var(--dark))' }}>
-                  {card.player_name || card.description || 'Card'}
+      {isExpanded && (
+        <div className="px-4 pb-5 space-y-4" style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+
+          {/* Activity Timeline — vertical rail design */}
+          {submission.activity?.length > 0 && (
+            <div className="pt-3">
+              <p className="text-[10px] font-black tracking-wider mb-3" style={{ color: 'rgba(44, 36, 22, 0.3)' }}>ACTIVITY</p>
+              <div className="relative pl-6">
+                {/* Vertical connecting rail */}
+                <div className="absolute left-[9px] top-1 bottom-1 w-[2px] rounded-full" style={{ background: 'rgba(0,0,0,0.05)' }} />
+                {submission.activity.slice(0, 6).map((evt, i) => {
+                  const isFirst = i === 0;
+                  const evtColor = evt.event_type === 'grades_ready' ? '#2563EB' :
+                    evt.event_type === 'shipped' ? '#059669' :
+                    evt.event_type === 'problem_flagged' ? '#DC2626' :
+                    evt.event_type === 'problem_resolved' ? '#059669' :
+                    'rgb(var(--brand-500))';
+
+                  return (
+                    <div key={i} className="relative pb-3 last:pb-0">
+                      {/* Node on the rail */}
+                      <div className="absolute -left-6 top-0.5 w-5 h-5 rounded-full flex items-center justify-center"
+                        style={{
+                          background: isFirst ? evtColor : `${evtColor}15`,
+                          boxShadow: isFirst ? `0 0 0 3px ${evtColor}15` : 'none',
+                        }}>
+                        {evt.event_type === 'grades_ready' ? <Sparkles className="w-2.5 h-2.5" style={{ color: isFirst ? '#fff' : evtColor }} /> :
+                         evt.event_type === 'shipped' ? <Truck className="w-2.5 h-2.5" style={{ color: isFirst ? '#fff' : evtColor }} /> :
+                         evt.event_type === 'problem_flagged' ? <AlertTriangle className="w-2.5 h-2.5" style={{ color: isFirst ? '#fff' : evtColor }} /> :
+                         <ArrowRight className="w-2.5 h-2.5" style={{ color: isFirst ? '#fff' : evtColor }} />}
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-bold" style={{ color: isFirst ? 'rgb(var(--dark))' : 'rgba(44, 36, 22, 0.5)' }}>
+                          {evt.event_type === 'step_change' ? `Moved to ${evt.to_step}` :
+                           evt.event_type === 'grades_ready' ? 'Grades are ready!' :
+                           evt.event_type === 'shipped' ? 'Order shipped!' :
+                           evt.event_type === 'problem_flagged' ? 'Issue flagged by PSA' :
+                           evt.event_type === 'problem_resolved' ? 'Issue resolved' :
+                           evt.event_type}
+                        </p>
+                        <p className="text-[9px] font-medium mt-0.5" style={{ color: 'rgba(44, 36, 22, 0.25)' }}>
+                          {new Date(evt.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Cards with PSA slab-style grade display */}
+          {submission.cards?.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[10px] font-black tracking-wider" style={{ color: 'rgba(44, 36, 22, 0.3)' }}>
+                  CARDS ({submission.cards.length})
                 </p>
-                <p className="text-[11px] truncate" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
-                  {[card.year, card.brand, card.card_number ? `#${card.card_number}` : ''].filter(Boolean).join(' ')}
-                  {card.psa_cert_number && ` \u00B7 Cert ${card.psa_cert_number}`}
+                {gradedCount > 0 && (
+                  <div className="flex items-center gap-1 px-2 py-0.5 rounded-lg"
+                    style={{ background: 'rgba(16, 185, 129, 0.06)' }}>
+                    <Award className="w-3 h-3" style={{ color: '#059669' }} />
+                    <span className="text-[10px] font-bold" style={{ color: '#059669' }}>{gradedCount} graded</span>
+                  </div>
+                )}
+              </div>
+              <div className="space-y-2">
+                {submission.cards.map(card => {
+                  const grade = parseFloat(card.grade);
+                  const gradeColor = grade >= 9 ? '#059669' : grade >= 7 ? '#2563EB' : grade ? '#D97706' : null;
+                  const gradeBg = grade >= 9
+                    ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(5, 150, 105, 0.06))'
+                    : grade >= 7 ? 'linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(37, 99, 235, 0.04))'
+                    : grade ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.04))'
+                    : null;
+
+                  return (
+                    <div key={card.id} className="flex items-center gap-3 p-3 rounded-xl"
+                      style={{ background: 'rgba(255,255,255,0.5)', border: '1px solid rgba(0,0,0,0.04)' }}>
+                      {card.before_photos?.[0] && (
+                        <img src={card.before_photos[0].url || card.before_photos[0]} alt=""
+                          className="w-10 h-14 rounded-lg object-cover shrink-0" style={{ border: '1px solid rgba(0,0,0,0.06)' }} />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm truncate" style={{ color: 'rgb(var(--dark))' }}>
+                          {card.player_name || card.description || 'Card'}
+                        </p>
+                        <p className="text-[10px] truncate mt-0.5" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
+                          {[card.year, card.brand, card.card_number ? `#${card.card_number}` : ''].filter(Boolean).join(' \u00B7 ')}
+                          {card.psa_cert_number && ` \u00B7 Cert ${card.psa_cert_number}`}
+                        </p>
+                      </div>
+                      {/* PSA slab-style grade badge */}
+                      {card.grade ? (
+                        <div className="relative shrink-0" style={{
+                          width: 44, minHeight: 52, borderRadius: 10,
+                          background: gradeBg,
+                          border: `1.5px solid ${gradeColor}25`,
+                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                          boxShadow: grade >= 9 ? `0 2px 12px ${gradeColor}15` : 'none',
+                        }}>
+                          <span className="text-[7px] font-black tracking-wider" style={{ color: `${gradeColor}80` }}>PSA</span>
+                          <span className="text-xl font-black leading-none" style={{ color: gradeColor }}>{card.grade}</span>
+                          {grade >= 10 && (
+                            <span className="text-[7px] font-black mt-0.5" style={{ color: gradeColor }}>GEM</span>
+                          )}
+                        </div>
+                      ) : card.psa_cert_number && isGradesReady ? (
+                        <div className="px-2 py-2 rounded-xl flex items-center justify-center shrink-0"
+                          style={{ background: 'rgba(99, 102, 241, 0.06)', border: '1px solid rgba(99, 102, 241, 0.1)' }}>
+                          <span className="text-[10px] font-bold" style={{ color: '#6366F1' }}>Pending</span>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Tracking info */}
+          {isShipped && submission.return_tracking && (
+            <div className="flex items-center gap-3 p-3 rounded-xl"
+              style={{ background: 'rgba(16, 185, 129, 0.04)', border: '1px solid rgba(16, 185, 129, 0.1)' }}>
+              <Truck className="w-4 h-4 shrink-0" style={{ color: '#059669' }} />
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-bold" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>TRACKING</p>
+                <p className="text-sm font-bold truncate" style={{ color: '#059669', fontFamily: 'ui-monospace, monospace' }}>
+                  {submission.return_tracking}
                 </p>
               </div>
-              {card.grade && (
-                <div className="w-9 h-9 rounded-lg flex flex-col items-center justify-center"
-                  style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.12)' }}>
-                  <span className="text-sm font-black leading-none" style={{ color: '#059669' }}>{card.grade}</span>
-                  <span className="text-[7px] font-bold" style={{ color: 'rgba(5, 150, 105, 0.6)' }}>PSA</span>
-                </div>
-              )}
             </div>
-          ))}
+          )}
         </div>
       )}
     </div>

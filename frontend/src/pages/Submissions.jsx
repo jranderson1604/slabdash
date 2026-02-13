@@ -32,6 +32,18 @@ const SERVICE_CONFIG = {
 
 const getServiceConfig = (level) => SERVICE_CONFIG[level] || { color: 'bg-gray-400', text: 'text-gray-600', light: 'bg-gray-50', border: 'border-gray-200', emoji: '📦', speed: '' };
 
+function formatTimeAgo(dateStr) {
+  if (!dateStr) return '';
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 // ============================================
 // SUBMISSION CARD — inline refresh, clear status
 // ============================================
@@ -158,22 +170,43 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
           </div>
         </div>
 
-        {/* Row 2: Progress bar */}
+        {/* Row 2: Progress bar — uses estimated progress for smooth interpolation */}
         <div className="mb-3">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs font-medium text-gray-500">
               {submission.current_step || 'Not Yet Sent'}
+              {submission.estimated?.currentStepLabel && !submission.shipped && (
+                <span className="text-gray-400 ml-1">({submission.estimated.currentStepLabel})</span>
+              )}
             </span>
             <span className="text-xs font-bold text-gray-700">
-              {submission.progress_percent || 0}%
+              {submission.estimated?.estimatedProgress || submission.progress_percent || 0}%
             </span>
           </div>
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-500 ${progressColor}`}
-              style={{ width: `${submission.progress_percent || 0}%` }}
+              className={`h-full rounded-full transition-all duration-1000 ease-out ${progressColor}`}
+              style={{ width: `${submission.estimated?.estimatedProgress || submission.progress_percent || 0}%` }}
             />
           </div>
+          {/* Estimated time remaining */}
+          {submission.estimated?.estimatedDaysRemaining > 0 && !submission.shipped && (
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-[10px] text-gray-400">
+                ~{submission.estimated.estimatedDaysRemaining} days remaining
+              </span>
+              {submission.refreshPriority && (
+                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                  submission.refreshPriority.tier === 'urgent' ? 'bg-red-50 text-red-600' :
+                  submission.refreshPriority.tier === 'high' ? 'bg-amber-50 text-amber-600' :
+                  submission.refreshPriority.tier === 'medium' ? 'bg-blue-50 text-blue-600' :
+                  'bg-gray-50 text-gray-500'
+                }`}>
+                  {submission.refreshPriority.tier} priority
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Row 3: Status badges */}
@@ -191,9 +224,16 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
               <AlertCircle className="w-3 h-3" /> Problem
             </span>
           )}
+
+          {/* Stale indicator: step duration exceeded expected time by 50%+ */}
+          {!submission.shipped && !submission.problem_order && submission.estimated?.stepProgressPercent > 150 && (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200" title={`At ${submission.current_step} for ${submission.estimated.daysAtCurrentStep} days (expected ~${submission.estimated.expectedStepDuration})`}>
+              <Clock className="w-3 h-3" /> Slow
+            </span>
+          )}
         </div>
 
-        {/* Row 4: Customers + Cards + Date */}
+        {/* Row 4: Customers + Cards + Date + Last Refreshed */}
         <div className="flex items-center justify-between text-xs text-gray-500">
           <div className="flex items-center gap-3">
             {customerCount > 0 && (
@@ -207,9 +247,17 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
               {cardCount} card{cardCount !== 1 ? 's' : ''}
             </span>
           </div>
-          <span>
-            {submission.date_sent ? format(new Date(submission.date_sent), 'MMM d, yyyy') : '—'}
-          </span>
+          <div className="flex items-center gap-2">
+            {submission.last_refreshed_at && (
+              <span className="text-[10px] text-gray-300" title={`Last refreshed: ${new Date(submission.last_refreshed_at).toLocaleString()}`}>
+                <RefreshCw className="w-3 h-3 inline mr-0.5" />
+                {formatTimeAgo(submission.last_refreshed_at)}
+              </span>
+            )}
+            <span>
+              {submission.date_sent ? format(new Date(submission.date_sent), 'MMM d, yyyy') : '—'}
+            </span>
+          </div>
         </div>
       </div>
     </div>
@@ -535,6 +583,7 @@ export default function Submissions() {
     if (filter === 'active' && (s.shipped || s.progress_percent >= 100)) return false;
     if (filter === 'completed' && !(s.shipped || s.progress_percent >= 100)) return false;
     if (filter === 'problems' && !s.problem_order) return false;
+    if (filter === 'slow' && (s.shipped || s.problem_order || !(s.estimated?.stepProgressPercent > 150))) return false;
 
     if (search) {
       const q = search.toLowerCase();
@@ -578,6 +627,7 @@ export default function Submissions() {
   const activeCount = subs.filter(s => !s.shipped && s.progress_percent < 100).length;
   const completedCount = subs.filter(s => s.shipped || s.progress_percent >= 100).length;
   const problemCount = subs.filter(s => s.problem_order).length;
+  const staleCount = subs.filter(s => !s.shipped && !s.problem_order && s.estimated?.stepProgressPercent > 150).length;
   const totalCards = subs.reduce((sum, s) => sum + (s.card_count || s.cards?.length || 0), 0);
   const totalCustomers = new Set(subs.flatMap(s => (s.linked_customers || []).map(c => c.id))).size;
 
@@ -595,6 +645,13 @@ export default function Submissions() {
               <span>{totalCards} cards</span>
               <span>{totalCustomers} customers</span>
             </div>
+            {/* Smart auto-refresh indicator */}
+            {company?.hasPsaKey && activeCount > 0 && (
+              <div className="flex items-center gap-1.5 mt-1.5 text-xs text-white/40">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                <span>Auto-refresh active — {activeCount} submissions monitored</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -696,6 +753,7 @@ export default function Submissions() {
             { key: 'active', label: 'Active', count: activeCount },
             { key: 'completed', label: 'Done', count: completedCount },
             { key: 'problems', label: 'Problems', count: problemCount },
+            ...(staleCount > 0 ? [{ key: 'slow', label: 'Slow', count: staleCount }] : []),
           ].map(tab => (
             <button
               key={tab.key}

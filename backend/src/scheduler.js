@@ -1,6 +1,6 @@
 /**
  * Scheduler - Cron jobs for automated tasks
- * Runs scheduled PSA refreshes and other background jobs
+ * Smart priority-based PSA refresh runs every 15 minutes
  */
 
 const cron = require('node-cron');
@@ -12,25 +12,19 @@ const scheduledRefreshService = require('./services/scheduledRefreshService');
 function initializeScheduler() {
   console.log('Initializing scheduler...');
 
-  // Run scheduled PSA refreshes every hour
-  // This checks if any company's refresh should run based on their schedule
-  cron.schedule('0 * * * *', async () => {
-    console.log('[Cron] Running hourly scheduled refresh check');
+  // Smart PSA refresh every 15 minutes
+  // Only refreshes submissions whose priority interval has elapsed
+  // (e.g., Express orders every 2-3h, Bulk every 6-8h)
+  cron.schedule('*/15 * * * *', async () => {
+    console.log('[Cron] Running smart refresh check');
     try {
-      await scheduledRefreshService.runScheduledRefreshes();
+      await scheduledRefreshService.runSmartRefresh();
     } catch (error) {
-      console.error('[Cron] Scheduled refresh error:', error);
+      console.error('[Cron] Smart refresh error:', error);
     }
   });
 
-  console.log('✓ Scheduled refresh job registered (runs hourly)');
-
-  // You can add more cron jobs here as needed
-  // Examples:
-  // - Daily database cleanup
-  // - Weekly report generation
-  // - Monthly billing tasks
-
+  console.log('✓ Smart refresh job registered (runs every 15 min)');
   console.log('Scheduler initialized successfully');
 }
 
