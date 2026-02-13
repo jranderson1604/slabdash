@@ -508,6 +508,10 @@ router.post("/:id/refresh", authenticate, async (req, res) => {
     // Fetch and update submission from PSA
     const result = await getSubmissionProgress(psaApiKey, submission.psa_submission_number);
 
+    if (result.rateLimited) {
+      return res.status(429).json({ error: result.error });
+    }
+
     if (!result.success) {
       return res.status(500).json({ error: result.error || "Failed to fetch data from PSA API" });
     }
