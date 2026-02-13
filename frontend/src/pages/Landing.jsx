@@ -233,43 +233,225 @@ export default function Landing() {
   ];
 
   const demoSteps = [
-    {
-      title: "Step 1: Create Your First Submission",
-      description: "Let's start by creating a new PSA submission. You'll enter the PSA submission number and service level.",
-      image: "📦",
-      action: "Create Submission"
-    },
-    {
-      title: "Step 2: Add Customer Information",
-      description: "Now we'll add a customer to this submission. You can add their name, email, and phone number.",
-      image: "👤",
-      action: "Add Customer"
-    },
-    {
-      title: "Step 3: Import Cards from PSA",
-      description: "Download your CSV from PSA and import it here. SlabDash will automatically populate all card details.",
-      image: "📥",
-      action: "Import CSV"
-    },
-    {
-      title: "Step 4: Send Customer Portal Link",
-      description: "Generate a unique tracking link for your customer. They can bookmark it and check their card status anytime!",
-      image: "🔗",
-      action: "Generate Link"
-    },
-    {
-      title: "Step 5: Send Status Updates",
-      description: "When cards are graded, send automatic email updates to all customers with progress bars and grades!",
-      image: "📧",
-      action: "Send Email"
-    },
-    {
-      title: "You're All Set!",
-      description: "That's how easy it is to manage PSA submissions with SlabDash. Your customers will love the transparency!",
-      image: "🎉",
-      action: "Start Your Free Trial"
-    }
+    { title: "Add a submission", description: "Enter the PSA order number and service level — SlabDash pulls the rest automatically.", action: "Next" },
+    { title: "Track real-time progress", description: "Every submission shows a live pipeline pulled from PSA. No manual updates needed.", action: "Next" },
+    { title: "Your customers get a portal", description: "Each customer gets a private tracking page — they scan a QR code or click a link.", action: "Next" },
+    { title: "Grades come in? Customers know.", description: "Push notifications, emails, and portal updates fire automatically when PSA updates.", action: "Next" },
+    { title: "Pickup made easy", description: "Customers get a unique pickup code. Verify it in-store — done.", action: "Next" },
+    { title: "Ready to try it?", description: "Start your free trial — no credit card, no commitment. See why shops love SlabDash.", action: "Start Free Trial" },
   ];
+
+  // Mock data for demo screens
+  const demoSubmissions = [
+    { num: '86241907', customer: 'Marcus Rivera', cards: 18, service: 'Express', step: 'Grading', progress: 62, daysIn: 8 },
+    { num: '86239214', customer: 'Jen Park', cards: 42, service: 'Regular', step: 'Research & ID', progress: 35, daysIn: 22 },
+    { num: '86237801', customer: 'Tommy Chen', cards: 6, service: 'Super Express', step: 'Grades Ready', progress: 88, daysIn: 4 },
+  ];
+
+  const demoPipeline = ['Received', 'Research & ID', 'Grading', 'Assembly', 'Grades Ready'];
+  const demoActiveIdx = 2; // Grading
+
+  const DemoScreen = ({ step }) => {
+    const coralGrad = 'linear-gradient(135deg, #FF8170 0%, #E8543D 100%)';
+    const cream = '#FBF7F2';
+    const tan = '#F5EDE4';
+
+    // Step 0: Add a submission form
+    if (step === 0) return (
+      <div style={{ background: cream, borderRadius: 16, border: '1px solid rgba(44,36,22,0.08)', overflow: 'hidden' }}>
+        <div style={{ background: coralGrad, padding: '20px 24px' }}>
+          <p style={{ color: '#fff', fontWeight: 800, fontSize: 18 }}>New Submission</p>
+        </div>
+        <div style={{ padding: 24 }} className="space-y-4">
+          <div>
+            <p className="text-xs font-bold mb-1" style={{ color: 'rgba(44,36,22,0.5)' }}>PSA ORDER NUMBER</p>
+            <div style={{ background: '#fff', border: '2px solid #FF8170', borderRadius: 12, padding: '12px 16px', fontSize: 20, fontFamily: 'monospace', fontWeight: 700, color: '#2C2416' }}>86241907</div>
+          </div>
+          <div>
+            <p className="text-xs font-bold mb-1" style={{ color: 'rgba(44,36,22,0.5)' }}>SERVICE LEVEL</p>
+            <div className="flex gap-2">
+              {['Bulk', 'Regular', 'Express'].map(s => (
+                <div key={s} style={{ background: s === 'Express' ? '#FF8170' : tan, color: s === 'Express' ? '#fff' : '#2C2416', borderRadius: 10, padding: '8px 16px', fontWeight: 700, fontSize: 14 }}>{s}</div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-bold mb-1" style={{ color: 'rgba(44,36,22,0.5)' }}>CUSTOMER</p>
+            <div style={{ background: '#fff', border: '1px solid rgba(44,36,22,0.1)', borderRadius: 12, padding: '12px 16px', fontWeight: 600, color: '#2C2416' }}>Marcus Rivera</div>
+          </div>
+          <div style={{ background: coralGrad, borderRadius: 14, padding: '14px 0', textAlign: 'center', color: '#fff', fontWeight: 800, fontSize: 16, cursor: 'default' }}>Create Submission</div>
+        </div>
+      </div>
+    );
+
+    // Step 1: Live pipeline
+    if (step === 1) return (
+      <div className="space-y-4">
+        {demoSubmissions.map((sub, i) => {
+          const steps = demoPipeline;
+          const activeStep = sub.step === 'Grades Ready' ? 4 : sub.step === 'Grading' ? 2 : 1;
+          return (
+            <div key={i} style={{ background: cream, borderRadius: 16, border: '1px solid rgba(44,36,22,0.08)', padding: 20 }}>
+              <div className="flex items-center justify-between mb-1">
+                <p style={{ fontWeight: 800, fontSize: 16, color: '#2C2416' }}>{sub.customer}</p>
+                <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(44,36,22,0.45)', fontWeight: 600 }}>#{sub.num}</span>
+              </div>
+              <p className="text-xs mb-3" style={{ color: 'rgba(44,36,22,0.5)' }}>{sub.cards} cards · {sub.service} · Day {sub.daysIn}</p>
+              <div className="flex items-center gap-1 mb-2">
+                {steps.map((s, j) => (
+                  <div key={j} className="flex-1 flex flex-col items-center">
+                    <div style={{
+                      width: j <= activeStep ? 28 : 20,
+                      height: j <= activeStep ? 28 : 20,
+                      borderRadius: '50%',
+                      background: j < activeStep ? '#FF8170' : j === activeStep ? coralGrad : tan,
+                      border: j === activeStep ? '3px solid rgba(255,129,112,0.3)' : 'none',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'all 0.3s',
+                    }}>
+                      {j < activeStep && <CheckCircle2 size={14} color="#fff" />}
+                      {j === activeStep && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff' }} />}
+                    </div>
+                    <p style={{ fontSize: 9, marginTop: 4, fontWeight: j === activeStep ? 800 : 500, color: j <= activeStep ? '#2C2416' : 'rgba(44,36,22,0.35)' }}>{s}</p>
+                  </div>
+                ))}
+              </div>
+              <div style={{ height: 6, background: tan, borderRadius: 3, overflow: 'hidden' }}>
+                <div style={{ width: `${sub.progress}%`, height: '100%', background: coralGrad, borderRadius: 3, transition: 'width 1s ease' }} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+
+    // Step 2: Customer portal mockup
+    if (step === 2) return (
+      <div style={{ background: cream, borderRadius: 16, border: '1px solid rgba(44,36,22,0.08)', overflow: 'hidden' }}>
+        <div style={{ background: coralGrad, padding: '20px 24px', textAlign: 'center' }}>
+          <p style={{ color: 'rgba(255,248,240,0.7)', fontSize: 12, fontWeight: 700 }}>CUSTOMER PORTAL</p>
+          <p style={{ color: '#fff', fontWeight: 900, fontSize: 22 }}>Marcus Rivera</p>
+          <p style={{ color: 'rgba(255,248,240,0.8)', fontSize: 13, fontWeight: 600, marginTop: 4 }}>1 active · 18 cards</p>
+        </div>
+        <div style={{ padding: 20 }}>
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid rgba(44,36,22,0.06)', padding: 20, marginBottom: 12 }}>
+            <div className="flex items-center justify-between mb-2">
+              <p style={{ fontWeight: 800, fontSize: 15, color: '#2C2416' }}>Order #86241907</p>
+              <span style={{ background: 'rgba(255,129,112,0.12)', color: '#E8543D', padding: '4px 10px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>Express</span>
+            </div>
+            <div className="flex items-center gap-1 my-3">
+              {demoPipeline.map((s, j) => (
+                <div key={j} style={{ flex: 1, height: 6, borderRadius: 3, background: j <= demoActiveIdx ? '#FF8170' : tan }} />
+              ))}
+            </div>
+            <div className="flex justify-between" style={{ fontSize: 12, color: 'rgba(44,36,22,0.55)' }}>
+              <span style={{ fontWeight: 700, color: '#2C2416' }}>Grading</span>
+              <span>~62% complete</span>
+            </div>
+          </div>
+          <div style={{ background: 'rgba(255,129,112,0.06)', borderRadius: 12, padding: '12px 16px', textAlign: 'center' }}>
+            <p style={{ fontSize: 13, fontWeight: 600, color: '#E8543D' }}>Past the halfway mark!</p>
+          </div>
+          <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+            <div style={{ flex: 1, background: tan, borderRadius: 12, padding: '12px 0', textAlign: 'center' }}>
+              <p style={{ fontSize: 20, fontWeight: 800, color: '#2C2416' }}>18</p>
+              <p style={{ fontSize: 10, color: 'rgba(44,36,22,0.5)', fontWeight: 600 }}>Cards</p>
+            </div>
+            <div style={{ flex: 1, background: tan, borderRadius: 12, padding: '12px 0', textAlign: 'center' }}>
+              <p style={{ fontSize: 20, fontWeight: 800, color: '#2C2416' }}>8</p>
+              <p style={{ fontSize: 10, color: 'rgba(44,36,22,0.5)', fontWeight: 600 }}>Days In</p>
+            </div>
+            <div style={{ flex: 1, background: tan, borderRadius: 12, padding: '12px 0', textAlign: 'center' }}>
+              <p style={{ fontSize: 20, fontWeight: 800, color: '#FF8170' }}>~5d</p>
+              <p style={{ fontSize: 10, color: 'rgba(44,36,22,0.5)', fontWeight: 600 }}>Est. Left</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
+    // Step 3: Notifications
+    if (step === 3) return (
+      <div className="space-y-3">
+        <div style={{ background: cream, borderRadius: 16, border: '1px solid rgba(44,36,22,0.08)', overflow: 'hidden' }}>
+          <div style={{ background: coralGrad, padding: '16px 20px', display: 'flex', alignItems: 'center', gap: 12 }}>
+            <Bell size={20} color="#fff" />
+            <p style={{ color: '#fff', fontWeight: 800 }}>Automatic Notifications</p>
+          </div>
+          <div style={{ padding: 16 }} className="space-y-3">
+            {[
+              { icon: '🎯', title: 'Grades Ready!', body: 'Marcus — Your 18 cards from order #86241907 have been graded.', time: 'Just now', highlight: true },
+              { icon: '📦', title: 'Step Change: Grading → Assembly', body: 'Jen Park\'s order moved to the next step.', time: '2h ago', highlight: false },
+              { icon: '🚚', title: 'Shipped!', body: 'Tommy Chen — Order #86237801 has shipped. Track: 1Z999AA10.', time: 'Yesterday', highlight: false },
+            ].map((n, i) => (
+              <div key={i} style={{
+                background: n.highlight ? 'rgba(255,129,112,0.06)' : '#fff',
+                border: `1px solid ${n.highlight ? 'rgba(255,129,112,0.2)' : 'rgba(44,36,22,0.06)'}`,
+                borderRadius: 12, padding: '14px 16px',
+              }}>
+                <div className="flex items-start gap-3">
+                  <span style={{ fontSize: 22 }}>{n.icon}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <p style={{ fontWeight: 800, fontSize: 14, color: '#2C2416' }}>{n.title}</p>
+                      <span style={{ fontSize: 11, color: 'rgba(44,36,22,0.4)' }}>{n.time}</span>
+                    </div>
+                    <p style={{ fontSize: 13, color: 'rgba(44,36,22,0.6)', marginTop: 2 }}>{n.body}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+
+    // Step 4: Pickup
+    if (step === 4) return (
+      <div style={{ background: cream, borderRadius: 16, border: '1px solid rgba(44,36,22,0.08)', overflow: 'hidden' }}>
+        <div style={{ background: coralGrad, padding: '20px 24px', textAlign: 'center' }}>
+          <p style={{ color: 'rgba(255,248,240,0.7)', fontSize: 12, fontWeight: 700 }}>READY FOR PICKUP</p>
+          <p style={{ color: '#fff', fontWeight: 900, fontSize: 22, marginTop: 4 }}>Tommy Chen</p>
+        </div>
+        <div style={{ padding: 24, textAlign: 'center' }}>
+          <div style={{ background: tan, borderRadius: 16, padding: '28px 20px', marginBottom: 20 }}>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(44,36,22,0.4)', letterSpacing: 2, marginBottom: 8 }}>PICKUP CODE</p>
+            <p style={{ fontSize: 44, fontWeight: 900, fontFamily: 'monospace', color: '#2C2416', letterSpacing: 6 }}>T4X-9KP</p>
+          </div>
+          <div className="flex gap-3 mb-4">
+            <div style={{ flex: 1, background: '#fff', borderRadius: 12, border: '1px solid rgba(44,36,22,0.06)', padding: 14, textAlign: 'center' }}>
+              <p style={{ fontSize: 24, fontWeight: 800, color: '#2C2416' }}>6</p>
+              <p style={{ fontSize: 11, color: 'rgba(44,36,22,0.5)', fontWeight: 600 }}>Cards</p>
+            </div>
+            <div style={{ flex: 1, background: '#fff', borderRadius: 12, border: '1px solid rgba(44,36,22,0.06)', padding: 14, textAlign: 'center' }}>
+              <p style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>$142</p>
+              <p style={{ fontSize: 11, color: 'rgba(44,36,22,0.5)', fontWeight: 600 }}>Total Due</p>
+            </div>
+          </div>
+          <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 12, padding: '12px 16px' }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#065f46' }}>Customer shows code at counter — you verify and hand off the slabs.</p>
+          </div>
+        </div>
+      </div>
+    );
+
+    // Step 5: CTA
+    if (step === 5) return (
+      <div style={{ textAlign: 'center', padding: '20px 0' }}>
+        <div style={{ fontSize: 64, marginBottom: 16 }}>🚀</div>
+        <p style={{ fontSize: 28, fontWeight: 900, color: '#2C2416', marginBottom: 8 }}>That's SlabDash.</p>
+        <p style={{ fontSize: 16, color: 'rgba(44,36,22,0.55)', maxWidth: 400, margin: '0 auto 24px', lineHeight: 1.6 }}>
+          Submissions, tracking, customer portals, notifications, pickup codes — all in one place. Your customers will love it.
+        </p>
+        <div className="flex justify-center gap-3">
+          <div style={{ background: '#10b981', borderRadius: 14, padding: '14px 28px', color: '#fff', fontWeight: 800, fontSize: 16 }}>14-day free trial</div>
+          <div style={{ background: tan, borderRadius: 14, padding: '14px 28px', color: '#2C2416', fontWeight: 700, fontSize: 16 }}>No credit card</div>
+        </div>
+      </div>
+    );
+
+    return null;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-gray-50">
@@ -897,85 +1079,50 @@ export default function Landing() {
 
       {/* Interactive Demo Modal */}
       {showDemo && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full shadow-2xl overflow-hidden">
-            <div className="bg-gradient-to-r from-brand-600 to-brand-700 p-6 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <img
-                  src="/images/SAM_V2.png"
-                  alt="SAM"
-                  className="w-16 h-16 animate-bounce"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.parentElement.innerHTML = '<div class="text-white text-4xl">🎬</div>';
-                  }}
-                />
-                <div>
-                  <h2 className="text-2xl font-bold text-white">Interactive Demo Tour</h2>
-                  <p className="text-white/90">Follow SAM through a complete submission</p>
-                </div>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4" onClick={() => { setShowDemo(false); setDemoStep(0); }}>
+          <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div style={{ background: 'linear-gradient(135deg, #FF8170 0%, #E8543D 100%)' }} className="p-5 flex items-center justify-between shrink-0">
+              <div>
+                <h2 className="text-xl font-black text-white">{demoSteps[demoStep].title}</h2>
+                <p className="text-sm font-semibold" style={{ color: 'rgba(255,248,240,0.8)' }}>{demoSteps[demoStep].description}</p>
               </div>
-              <button
-                onClick={() => {
-                  setShowDemo(false);
-                  setDemoStep(0);
-                }}
-                className="text-white hover:bg-white/20 rounded-lg p-2 transition-colors"
-              >
-                <X className="w-6 h-6" />
+              <button onClick={() => { setShowDemo(false); setDemoStep(0); }} className="text-white/70 hover:text-white hover:bg-white/10 p-2 rounded-lg transition-colors shrink-0 ml-3">
+                <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="p-8">
-              {/* Demo Step */}
-              <div className="text-center mb-8">
-                <div className="text-8xl mb-6">{demoSteps[demoStep].image}</div>
-                <h3 className="text-3xl font-bold text-gray-900 mb-4">{demoSteps[demoStep].title}</h3>
-                <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-                  {demoSteps[demoStep].description}
-                </p>
-              </div>
+            {/* Mock Screen */}
+            <div className="flex-1 overflow-auto p-5" style={{ background: '#FAF5EF' }}>
+              <DemoScreen step={demoStep} />
+            </div>
 
-              {/* Progress Indicator */}
-              <div className="flex items-center justify-center gap-2 mb-8">
-                {demoSteps.map((_, index) => (
-                  <div
-                    key={index}
-                    className={`h-2 rounded-full transition-all ${
-                      index === demoStep
-                        ? 'w-12 bg-brand-600'
-                        : index < demoStep
-                        ? 'w-8 bg-brand-400'
-                        : 'w-8 bg-gray-300'
-                    }`}
-                  />
+            {/* Footer nav */}
+            <div className="p-4 border-t flex items-center justify-between shrink-0" style={{ borderColor: 'rgba(44,36,22,0.08)', background: '#FBF7F2' }}>
+              {/* Progress dots */}
+              <div className="flex gap-2">
+                {demoSteps.map((_, i) => (
+                  <button key={i} onClick={() => setDemoStep(i)} className="p-0 border-0 bg-transparent cursor-pointer">
+                    <div style={{ width: i === demoStep ? 24 : 8, height: 8, borderRadius: 4, background: i <= demoStep ? '#FF8170' : '#F0E8DE', transition: 'all 0.3s' }} />
+                  </button>
                 ))}
               </div>
-
-              {/* Navigation Buttons */}
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => setDemoStep(Math.max(0, demoStep - 1))}
-                  disabled={demoStep === 0}
-                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-300 transition-colors"
-                >
-                  Previous
-                </button>
+              {/* Buttons */}
+              <div className="flex items-center gap-2">
+                {demoStep > 0 && (
+                  <button onClick={() => setDemoStep(demoStep - 1)} className="px-4 py-2 rounded-xl font-bold text-sm transition-all" style={{ background: '#F0E8DE', color: '#2C2416' }}>
+                    Back
+                  </button>
+                )}
                 {demoStep < demoSteps.length - 1 ? (
-                  <button
-                    onClick={() => setDemoStep(demoStep + 1)}
-                    className="px-8 py-3 bg-gradient-to-r from-brand-500 to-brand-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                  >
+                  <button onClick={() => setDemoStep(demoStep + 1)} className="px-5 py-2 rounded-xl font-bold text-sm text-white flex items-center gap-2 transition-all hover:opacity-90" style={{ background: 'linear-gradient(135deg, #FF8170, #E8543D)' }}>
                     {demoSteps[demoStep].action}
-                    <ArrowRight className="w-5 h-5" />
+                    <ArrowRight className="w-4 h-4" />
                   </button>
                 ) : (
-                  <button
-                    onClick={() => navigate('/register')}
-                    className="px-8 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl font-bold shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-                  >
+                  <button onClick={() => navigate('/register')} className="px-5 py-2 rounded-xl font-bold text-sm text-white flex items-center gap-2 transition-all hover:opacity-90" style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
                     {demoSteps[demoStep].action}
-                    <ArrowRight className="w-5 h-5" />
+                    <ArrowRight className="w-4 h-4" />
                   </button>
                 )}
               </div>
