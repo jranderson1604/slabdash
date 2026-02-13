@@ -29,6 +29,13 @@ const emailService = require('./emailService');
  * whose priority interval has elapsed since their last refresh.
  */
 async function runSmartRefresh() {
+  // Check global rate limit before doing anything
+  const rl = psaService.isRateLimited();
+  if (rl.limited) {
+    console.log(`[SmartRefresh] Skipped — PSA rate limited for ${rl.retryAfterMin} more minutes`);
+    return;
+  }
+
   console.log('[SmartRefresh] Starting priority-based refresh cycle...');
 
   let companiesResult;
@@ -116,9 +123,21 @@ async function refreshCompanySubmissions(company) {
   const changeLog = [];
 
   for (const sub of dueForRefresh) {
+    // Check rate limit before each request
+    if (psaService.isRateLimited().limited) {
+      console.log(`[SmartRefresh] Rate limited — stopping refresh for ${company.name}`);
+      break;
+    }
+
     const orderNumber = sub.psa_submission_number || sub.psa_order_number;
     try {
       const result = await psaService.getSubmissionProgress(company.psa_api_key, orderNumber);
+
+      // Stop immediately on rate limit
+      if (result.rateLimited) {
+        console.log(`[SmartRefresh] Rate limited for ${company.name}, stopping this cycle`);
+        break;
+      }
 
       if (result.success && result.data) {
         const { changes } = await psaService.updateSubmissionFromPsa(sub.id, result.data);
@@ -129,15 +148,10 @@ async function refreshCompanySubmissions(company) {
         changeLog.push({ submissionNumber: orderNumber, hadChanges: false, error: result.error || 'Unknown' });
       }
 
-      // Rate limit: 2 seconds between requests (PSA allows ~15/min)
+      // Rate limit: 2 seconds between requests
       await new Promise(r => setTimeout(r, 2000));
 
     } catch (error) {
-      // On 429 rate limit, stop refreshing this company for now
-      if (error.response?.status === 429) {
-        console.log(`[SmartRefresh] Rate limited for ${company.name}, stopping this cycle`);
-        break;
-      }
       errorCount++;
       changeLog.push({ submissionNumber: orderNumber, hadChanges: false, error: error.message });
     }
@@ -323,7 +337,14 @@ function formatEmailReport(companyName, results, changeLog) {
  * Run refresh for a specific company (used by manual "Send Weekly Update")
  */
 async function runCompanyRefresh(company, psaApiKey) {
-  console.log(`Running full refresh for company: ${company.name} (ID: ${company.id})`);
+  // Check rate limit before starting
+  const rl = psaService.isRateLimited();
+  if (rl.limited) {
+    console.log(`[Refresh] Skipped ${company.name} — PSA rate limited for ${rl.retryAfterMin} more minutes`);
+    return { success: false, totalSubmissions: 0, updatedCount: 0, errorCount: 0, changeLog: [], submissions: [], rateLimited: true, retryAfterMin: rl.retryAfterMin };
+  }
+
+  console.log(`[Refresh] Running full refresh for ${company.name} (ID: ${company.id})`);
 
   const submissionsResult = await db.query(
     `SELECT id, psa_submission_number, psa_order_number, shipped, service_level
@@ -345,9 +366,21 @@ async function runCompanyRefresh(company, psaApiKey) {
   for (const submission of submissions) {
     if (!submission.psa_submission_number && !submission.psa_order_number) continue;
 
+    // Check rate limit before each request
+    if (psaService.isRateLimited().limited) {
+      console.log(`[Refresh] Rate limited — stopping refresh for ${company.name}`);
+      break;
+    }
+
     try {
       const orderNumber = submission.psa_submission_number || submission.psa_order_number;
       const progress = await psaService.getSubmissionProgress(psaApiKey, orderNumber);
+
+      // Stop immediately on rate limit
+      if (progress.rateLimited) {
+        console.log(`[Refresh] Rate limited for ${company.name}, stopping`);
+        break;
+      }
 
       if (!progress || !progress.success || !progress.data) {
         errorCount++;
@@ -359,7 +392,8 @@ async function runCompanyRefresh(company, psaApiKey) {
       if (changes.hadChanges) updatedCount++;
       changeLog.push(changes);
 
-      await new Promise(resolve => setTimeout(resolve, 300));
+      // 2 seconds between requests to stay well under PSA limits
+      await new Promise(resolve => setTimeout(resolve, 2000));
     } catch (error) {
       errorCount++;
       changeLog.push({

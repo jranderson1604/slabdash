@@ -113,40 +113,26 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
     // Send initial progress
     res.write(`data: ${JSON.stringify({ type: 'start', total, updated: 0, errors: 0 })}\n\n`);
 
-    const { getSubmissionProgress, updateSubmissionFromPsa } = require('../services/psaService');
+    const { getSubmissionProgress, updateSubmissionFromPsa, isRateLimited } = require('../services/psaService');
 
-    // Helper function to retry with exponential backoff on rate limit
-    const getSubmissionWithRetry = async (apiKey, submissionNumber, maxRetries = 3) => {
-      let lastError;
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        try {
-          const result = await getSubmissionProgress(apiKey, submissionNumber);
-          return result;
-        } catch (err) {
-          lastError = err;
-          // Check if it's a rate limit error (429)
-          if (err.response?.status === 429 && attempt < maxRetries) {
-            // Very aggressive backoff: 10s, 30s, 60s
-            const backoffDelay = Math.pow(3, attempt) * 10000;
-            // Add random jitter to prevent synchronized retries
-            const jitter = Math.random() * 5000;
-            const totalDelay = backoffDelay + jitter;
-            console.log(`Rate limited on ${submissionNumber}, retrying in ${Math.round(totalDelay/1000)}s (attempt ${attempt + 1}/${maxRetries})`);
-            await new Promise(resolve => setTimeout(resolve, totalDelay));
-            continue;
-          }
-          throw err;
-        }
-      }
-      throw lastError;
-    };
-
-    // Refresh each submission with rate limiting and retries
+    // Refresh each submission with rate limit protection
     for (let i = 0; i < submissions.rows.length; i++) {
       const submission = submissions.rows[i];
+
+      // Check global rate limit before each request
+      if (isRateLimited().limited) {
+        res.write(`data: ${JSON.stringify({ type: 'rate_limited', message: 'PSA rate limit reached — stopping refresh', total, current: i, updated, errors })}\n\n`);
+        break;
+      }
+
       try {
-        // Get submission progress from PSA API with retry logic
-        const result = await getSubmissionWithRetry(psaApiKey, submission.psa_submission_number);
+        const result = await getSubmissionProgress(psaApiKey, submission.psa_submission_number);
+
+        // Stop immediately on rate limit
+        if (result.rateLimited) {
+          res.write(`data: ${JSON.stringify({ type: 'rate_limited', message: 'PSA rate limit reached — stopping refresh', total, current: i, updated, errors })}\n\n`);
+          break;
+        }
 
         if (result.success && result.data) {
           // Update submission with latest data (this also triggers email notifications)
@@ -487,6 +473,13 @@ router.post("/send-weekly-update", authenticate, requireRole("owner", "admin"), 
 
     // Run the refresh
     const results = await runCompanyRefresh(company, company.psa_api_key);
+
+    if (results.rateLimited) {
+      return res.status(429).json({
+        error: `PSA API rate limited — try again in ${results.retryAfterMin} minutes`,
+        retryAfterMin: results.retryAfterMin
+      });
+    }
 
     // Send the email report
     const emailTo = req.body.email || company.owner_email || req.user.email;
