@@ -351,6 +351,22 @@ async function startServer() {
       await db.query(`CREATE INDEX IF NOT EXISTS idx_push_sub_customer ON push_subscriptions(customer_id) WHERE customer_id IS NOT NULL`);
       console.log("✓ Migration: Customer push subscription column ensured");
 
+      // PSA refresh logs table
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS psa_refresh_logs (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
+          total_submissions INTEGER DEFAULT 0,
+          updated_count INTEGER DEFAULT 0,
+          error_count INTEGER DEFAULT 0,
+          change_log JSONB,
+          created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_refresh_logs_company ON psa_refresh_logs(company_id, created_at DESC)`);
+      console.log("✓ Migration: PSA refresh logs table ensured");
+
     } catch (migrationError) {
       // Don't fail startup if migration has issues, just log it
       console.warn("⚠ Migration warning:", migrationError.message);
