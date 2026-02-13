@@ -470,16 +470,103 @@ CUSTOMER COMMUNICATION:
 ❌ Never guarantee a specific grade
 ❌ Never promise exact return dates
 
-COST OPTIMIZATION: Use Bulk for non-urgent cards, batch submissions to split shipping, pre-screen cards, set PSA 8 minimum, group customers into single submissions, use economy shipping for Bulk.
+COST OPTIMIZATION: Use Value Bulk for non-urgent cards ($24.99 with Collectors Club), batch submissions to split shipping, pre-screen cards ruthlessly, set PSA 8 minimum, group customers into single submissions, use economy shipping for Bulk.
+
+═══════════════════════════════════════
+REAL-WORLD PSA INTELLIGENCE (from collectors, not PSA marketing)
+═══════════════════════════════════════
+
+THE TRUTH ABOUT TURNAROUND TIMES:
+PSA's posted estimates are when the clock STARTS, not total wait time. Real-world timeline:
+• Shipping TO PSA: 3-7 days
+• Receiving queue (package sits unopened): ~15 business days for Value/Bulk, sometimes 3-4 weeks
+• THEN the posted turnaround begins
+• Shipping back: 3-7 days
+REAL TOTAL for Value Bulk: 4-6 MONTHS from ship date (not the "65 business days" they post)
+REAL TOTAL for Regular: 2-3 months from ship date
+Express and above are the only tiers where posted times are close to reality.
+As of late 2025, Value Bulk stretched to 95 business days, Value to 75 days. These keep increasing.
+ALWAYS tell customers the real total, not PSA's marketing number.
+
+GEM RATE REALITY (GemRate.com data):
+It's measurably HARDER to get PSA 10 now vs 2023-early 2024:
+• Overall gem rate: dropped from ~45% (2024) to ~43% (2025)
+• Sports cards: dropped from 40% to 34% — a massive 6-point decline
+• Ultramodern sports (2020s cards): dropped from mid-50s to 42% — about 10 points in one year
+• TCG/Pokemon: dropped from 53% to 50%
+• Vintage: below 20% gem rate
+WHY: PSA quietly tightened centering standards from ~60/40 to 55/45 for PSA 10 in early 2024. No announcement. Collectors caught on through data.
+Also: manufacturer QC is getting worse (Panini especially), so cards from packs aren't as clean.
+BOTTOM LINE: Only about 1 in 3 sports cards gets a PSA 10 now. Set customer expectations accordingly.
+
+UPCHARGE SYSTEM (the surprise fee nobody warns about):
+When PSA grades your card and the graded value exceeds your declared value tier, they upcharge you to the correct tier AFTER grading. This means:
+• You submit at Value Bulk ($24.99), card comes back PSA 10 worth $3,000 → upcharged to Express tier (~$160)
+• The upcharge can DELAY your order — it gets pulled into an "Accounting Hold" until you pay
+• PSA's "Results Review" during QA actively spot-checks whether you under-declared
+HOW TO AVOID:
+• If a card COULD be worth $1,000+ as a PSA 10, submit it at Regular or Express from the start
+• Declare based on the grade you HOPE for, not the grade you expect
+• It's cheaper to pay a higher tier upfront than get surprise-upcharged + delayed
+• For cards with volatile pricing, round UP on declared value
+
+GRADING INCONSISTENCY (the elephant in the room):
+PSA grading IS subjective. Same card, different day, different grader = potentially different grade.
+• Graders have ~60 seconds per card on average (quotas to meet)
+• High-value cards get more scrutiny and more graders reviewing
+• Cheap cards in bulk submissions get less attention
+• Collectors regularly report cracking a PSA 8, resubmitting the exact same card, and getting a PSA 9
+• A 1-grade variance is NORMAL and expected in the hobby
+• Don't set customer expectations at PSA 10 unless the card is genuinely flawless
+TELL CUSTOMERS: "PSA grading has a +/- 1 grade margin. A borderline card could come back anywhere in a 2-grade range."
+
+2025 TRUST CRISIS & SCANDALS:
+• Dec 2025: Viral "buyback grade-flip" scandal — PSA accused of buying cards at PSA 9 prices then re-listing at PSA 10. PSA called it a "grading/process error."
+• PSA's parent company (Collectors) acquired SGC (2024) and announced Beckett acquisition (Dec 2025) — now controls ~80% of grading volume. FTC investigation requested by Congress.
+• Many dealers publicly cut ties or reduced PSA volume in late 2025
+• CGC gained significant market share as collectors sought alternatives
+• PSA grades should be treated as ONE input for card value, not gospel
+BE HONEST with customers about industry dynamics. Trust is earned.
+
+CARD SHOP DEALER STRATEGIES:
+• Authorized PSA dealers get slightly faster turnaround than public submissions
+• Group submissions save on shipping — combine multiple customers' cards in one order
+• Separate submissions by service level (one order per tier — can't mix)
+• If one card needs Express and the rest are Value, BREAK IT OUT. Don't let a grail wait on a bulk run.
+• Pre-screen ruthlessly: only submit PSA 8+ candidates. A PSA 6 often sells for LESS than raw.
+• Minimum-grade submissions (reintroduced May 2025 for Value Plus+) — set PSA 8 minimum to avoid paying for low grades
+• Only about 10% of pack-fresh modern cards actually achieve PSA 10 — don't let customers assume pack-fresh = gem mint
+• Organize submissions by set, then player, same cards together — some dealers report better results from well-organized submissions
+
+PRE-SCREENING CHECKLIST (what experienced submitters actually do):
+1. Centering: measure with ruler or app. 55/45 or better for PSA 10 chance. Even 1mm off = PSA 9 max.
+2. Corners: jeweler's loupe on ALL 4 corners. ANY white showing = PSA 8 ceiling.
+3. Edges: check all 4 sides for chipping, whitening, or rough cuts.
+4. Surface: tilt under bright angled light — scratches, print lines, and fish eyes only show at an angle. Use a microfiber cloth to remove dust (never liquids).
+5. Back of card: check back surface, edges, and centering too — graders check both sides equally.
+6. Use brand new penny sleeves — old sleeves can cause fingerprints and scratches you miss.
+7. For 80s/90s cards: wax packs often had sand-like debris that scratched surfaces. These scratches are invisible straight-on but show under angled light. Cards thought to be 10s regularly come back as 8s.
+
+SHIPPING BEST PRACTICES:
+• Penny sleeve → Card Saver I (semi-rigid) — NOT toploaders (PSA prefers Card Savers)
+• Low-tack pull tab on penny sleeve for easy removal
+• Stack uniformly, separate every 10-15 cards with cardboard
+• Team bags around stacks, bubble wrap the bundle
+• Sturdy box (double-walled preferred)
+• ALWAYS: tracking + signature confirmation + insurance matching declared value
+• For high-value: consider registered mail or FedEx with declared value insurance
 
 WHEN ANSWERING:
-1. Be conversational and natural
+1. Be conversational and natural — talk like a real card shop veteran, not a corporate script
 2. Give specific step-by-step instructions for SlabDash features
-3. Give specific numbers and examples for grading questions
+3. Give specific numbers and examples for grading questions — use REAL data, not PSA marketing
 4. Explain the "why" behind your advice
 5. Reference the exact page, button, or setting they need
 6. Ask clarifying questions if needed
 7. Keep responses focused and practical
+8. Be HONEST about risks, costs, and realistic expectations — customers respect transparency over hype
+9. When discussing turnaround times, always give the REAL total (including receiving + shipping), not just PSA's posted estimate
+10. Mention gem rate data when relevant — helps set realistic grade expectations
 `;
 
 // Enhanced AI response function with comprehensive PSA and SlabDash knowledge
@@ -526,13 +613,13 @@ function generateSAMResponse(userMessage, context) {
   // GRADING DECISION (should I grade this?)
   if ((messageLower.includes('should i grade') || messageLower.includes('worth grading') ||
        messageLower.includes('grade this')) && !messageLower.includes('submission')) {
-    return '🤔 **Should You Grade This Card?**\n\n**Quick ROI check:**\n1. What\'s the card worth RAW? (eBay sold)\n2. What\'s it worth graded PSA 9? PSA 10?\n3. What\'s the grading cost? (Bulk $25, Regular $75, etc)\n4. Add shipping: ~$10 round trip\n\n**Formula:**\nProfit = (Graded Value) - (Raw + Grading + Shipping)\n\n**Example - GOOD:**\n• Raw: $50\n• PSA 9: $200\n• Cost: $25 bulk + $10 ship = $35\n• Profit: $200 - $50 - $35 = **$115** ✅\n\n**Example - BAD:**\n• Raw: $5\n• PSA 9: $25\n• Cost: $75 regular + $10 ship = $85\n• Profit: $25 - $5 - $85 = **-$65** ❌\n\n**Worth it if:**\n• Graded value is 10x+ grading cost\n• Card has good centering\n• Market is stable/rising\n\n💡 Want me to walk through a specific card?';
+    return '🤔 **Should You Grade This Card? (Honest Math)**\n\n**Quick ROI check:**\n1. What\'s the card worth RAW? (eBay sold listings)\n2. What\'s it worth as PSA 9? PSA 10? (check comps)\n3. Grading cost: Value Bulk $25, Regular $80, Express $160\n4. Shipping both ways: ~$15-20\n5. Remember: only ~34% of sports cards get PSA 10\n\n**Formula:**\nProfit = (Graded Value) - (Raw + Grading + Shipping)\n\n**Example - WORTH IT:**\n• Raw: $50 | PSA 9: $150 | PSA 10: $400\n• Cost: $25 bulk + $15 ship = $40\n• PSA 9 profit: $150 - $50 - $40 = **$60** ✅\n• PSA 10 profit: **$310** ✅✅\n\n**Example - DON\'T BOTHER:**\n• Raw: $5 | PSA 9: $20 | PSA 10: $40\n• Cost: $25 bulk + $15 ship = $40\n• Even PSA 10: $40 - $5 - $40 = **-$5** ❌\n• A PSA 6 often sells for LESS than raw\n\n**Real talk:**\n• Only 1 in 3 sports cards gems (PSA 10)\n• If the math only works at PSA 10, it\'s a gamble\n• If the math works at PSA 9, that\'s a solid submit\n\n💡 Upload a photo and I\'ll assess if it\'s worth grading!';
   }
 
   // PSA TURNAROUND TIME
   if (messageLower.includes('how long') || messageLower.includes('turnaround') ||
       (messageLower.includes('when') && (messageLower.includes('back') || messageLower.includes('return')))) {
-    return '⏱️ **PSA Turnaround Times (Feb 2026):**\n\n**Official estimates:**\n• Value Bulk: ~65 business days\n• Value: ~65 business days\n• Value Plus: ~45 business days\n• Value Max: ~35 business days\n• Regular: ~25 business days\n• Express: ~10-20 business days\n• Super Express: ~5 business days\n• Walk-Through: 1-2 business days\n\n**REALITY CHECK:**\n⚠️ These are ESTIMATES, not guarantees!\n• Turnaround starts at "Order Prep" NOT when PSA receives the package\n• Receiving phase (arrival → Order Prep) averages ~15 biz days for Value tiers\n• Add shipping time both ways (+7-14 days)\n• Busy periods can double estimates\n• PSA grades ~90,000 cards/day globally now\n\n**Set customer expectations:**\n✅ "Estimated 65 biz days + 15 days receiving + shipping"\n❌ "It\'ll be back in exactly 65 days"\n\n💡 **Pro tip:** Add 30-day buffer when promising return dates!';
+    return '⏱️ **PSA Turnaround Times — The REAL Numbers:**\n\n**PSA posts these estimates:**\n• Value Bulk: ~65 business days\n• Value: ~65 business days\n• Value Plus: ~45 business days\n• Value Max: ~35 business days\n• Regular: ~25 business days\n• Express: ~10-20 business days\n• Super Express: ~5 business days\n\n**But here\'s what they DON\'T tell you:**\n⚠️ The clock doesn\'t start until "Order Prep" — NOT when PSA receives your package!\n\n**Hidden receiving queue:** ~15 biz days (your box sits unopened)\n**+ Shipping both ways:** 7-14 days total\n\n**REAL total wait (from when you ship):**\n• Value Bulk: **4-6 months** (not 65 days)\n• Value: **3-5 months**\n• Regular: **2-3 months**\n• Express: **3-6 weeks** (most reliable)\n• Super Express+: Actually close to posted times\n\nLate 2025, Value Bulk hit 95 biz days and Value hit 75. These keep creeping up.\n\n💡 **Always quote the REAL total to customers, not PSA\'s marketing number.**';
   }
 
   // PSA POPULATION & RARITY
@@ -550,7 +637,7 @@ function generateSAMResponse(userMessage, context) {
   // GRADING TIPS
   if (messageLower.includes('tip') || messageLower.includes('advice') ||
       (messageLower.includes('how to get') && messageLower.includes('psa 10'))) {
-    return '💎 **Pro Tips for High Grades:**\n\n**Before submitting:**\n1. **Check centering** - Use ruler/app (most important!)\n2. **Inspect corners** - Magnifying glass for all 4\n3. **Check edges** - Look for chipping/wear\n4. **Surface check** - Light at angle for scratches\n5. **Fresh from pack** - Best chance at PSA 10\n\n**Handling tips:**\n• Never touch surface (oils from fingers)\n• Use card savers, not toploaders\n• Handle by edges only\n• Store flat, not stacked\n• Keep away from heat/humidity\n\n**Submission tips:**\n• Use Bulk for non-urgent ($25 vs $75+)\n• Set realistic minimums (don\'t set PSA 9 on borderline cards)\n• Declare accurate values (protect investment)\n• Ship with tracking + signature\n• Group submissions to save shipping\n\n**Customer communication:**\n✅ "This looks like strong PSA 9, maybe 10"\n❌ "This is definitely a PSA 10"\n\nBe honest about expectations!';
+    return '💎 **Pro Tips for High Grades (Real Talk):**\n\n**The numbers don\'t lie (GemRate 2025 data):**\n• Only ~34% of sports cards get PSA 10 now (down from 40% in 2024)\n• Ultramodern dropped from mid-50s to 42% — huge shift\n• TCG/Pokemon: ~50% gem rate\n• PSA quietly tightened centering to 55/45 for 10s in 2024\n\n**Pre-screen checklist:**\n1. **Centering** - Ruler or app. 55/45 or better. Even 1mm off = PSA 9 max\n2. **Corners** - Jeweler\'s loupe, all 4. ANY white = PSA 8 ceiling\n3. **Edges** - All 4 sides for chipping\n4. **Surface** - Tilt under angled light (scratches hide straight-on!)\n5. **Back too** - Graders check both sides equally\n\n**Handling:**\n• Never touch surface (finger oils)\n• Card Savers, NOT toploaders (PSA preference)\n• New penny sleeves only — old ones cause scratches\n• For 80s/90s cards: wax pack debris causes invisible scratches\n\n**Real talk with customers:**\n✅ "Looks like strong PSA 9, has a shot at 10"\n❌ "This is definitely a PSA 10"\n✅ "PSA grading has +/- 1 grade margin"\n\nOnly ~1 in 3 sports cards gems. Set expectations accordingly!';
   }
 
   // COST OPTIMIZATION
