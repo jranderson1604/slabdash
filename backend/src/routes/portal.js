@@ -774,13 +774,14 @@ router.get('/me', authenticateCustomer, async (req, res) => {
 // Get customer's submissions (includes submission_customers links + pickup data + estimated progress)
 router.get('/submissions', authenticateCustomer, async (req, res) => {
     try {
-        const { estimateSubmissionProgress } = require('../services/psaService');
+        const { estimateSubmissionProgress, getHistoricalDurations } = require('../services/psaService');
 
         const result = await db.query(
             `SELECT s.id, s.internal_id, s.psa_submission_number, s.service_level,
                     s.current_step, s.progress_percent, s.grades_ready, s.shipped, s.problem_order,
                     s.date_sent, s.return_tracking, s.admin_notes, s.prep_notes,
                     s.last_refreshed_at, s.last_api_update, s.created_at,
+                    s.company_id,
                     COALESCE(sc.pickup_code, s.pickup_code) as pickup_code,
                     COALESCE(sc.picked_up, s.picked_up, false) as picked_up,
                     COALESCE(sc.picked_up_at, s.picked_up_at) as picked_up_at,
@@ -792,10 +793,14 @@ router.get('/submissions', authenticateCustomer, async (req, res) => {
             [req.customer.id]
         );
 
-        // Enrich with estimated progress
+        // Load historical durations for the company (cached, 1hr TTL)
+        const companyId = result.rows[0]?.company_id || req.customer.company_id;
+        const historicalDurations = companyId ? await getHistoricalDurations(companyId) : {};
+
+        // Enrich with estimated progress using real historical data
         const enriched = result.rows.map(sub => ({
             ...sub,
-            estimated: estimateSubmissionProgress(sub),
+            estimated: estimateSubmissionProgress(sub, historicalDurations),
         }));
 
         res.json(enriched);
@@ -808,13 +813,13 @@ router.get('/submissions', authenticateCustomer, async (req, res) => {
 // Customers poll this every 2 minutes; it's fast because it only returns changed data
 router.get('/submissions/poll', authenticateCustomer, async (req, res) => {
     try {
-        const { estimateSubmissionProgress } = require('../services/psaService');
+        const { estimateSubmissionProgress, getHistoricalDurations } = require('../services/psaService');
         const since = req.query.since; // ISO timestamp
 
         let query = `
             SELECT s.id, s.current_step, s.progress_percent, s.grades_ready, s.shipped,
                    s.problem_order, s.last_refreshed_at, s.last_api_update, s.service_level,
-                   s.return_tracking, s.created_at,
+                   s.return_tracking, s.created_at, s.company_id,
                    COALESCE(sc.picked_up, s.picked_up, false) as picked_up
             FROM submissions s
             LEFT JOIN submission_customers sc ON s.id = sc.submission_id AND sc.customer_id = $1
@@ -830,9 +835,12 @@ router.get('/submissions/poll', authenticateCustomer, async (req, res) => {
 
         const result = await db.query(query, params);
 
+        const companyId = result.rows[0]?.company_id || req.customer.company_id;
+        const historicalDurations = companyId ? await getHistoricalDurations(companyId) : {};
+
         const enriched = result.rows.map(sub => ({
             ...sub,
-            estimated: estimateSubmissionProgress(sub),
+            estimated: estimateSubmissionProgress(sub, historicalDurations),
         }));
 
         res.json({
@@ -848,7 +856,7 @@ router.get('/submissions/poll', authenticateCustomer, async (req, res) => {
 // Get single submission (includes submission_customers access + estimated progress)
 router.get('/submissions/:id', authenticateCustomer, async (req, res) => {
     try {
-        const { estimateSubmissionProgress } = require('../services/psaService');
+        const { estimateSubmissionProgress, getHistoricalDurations } = require('../services/psaService');
 
         const result = await db.query(
             `SELECT s.* FROM submissions s
@@ -862,16 +870,99 @@ router.get('/submissions/:id', authenticateCustomer, async (req, res) => {
         const cards = await db.query('SELECT * FROM cards WHERE submission_id = $1', [req.params.id]);
         const steps = await db.query('SELECT * FROM submission_steps WHERE submission_id = $1 ORDER BY step_index', [req.params.id]);
 
+        // Fetch activity history (step transitions)
+        let activity = [];
+        try {
+            const activityResult = await db.query(
+                `SELECT event_type, from_step, to_step, from_progress, to_progress, details, created_at
+                 FROM submission_status_history
+                 WHERE submission_id = $1
+                 ORDER BY created_at DESC
+                 LIMIT 50`,
+                [req.params.id]
+            );
+            activity = activityResult.rows;
+        } catch (e) { /* table may not exist yet */ }
+
         const submission = result.rows[0];
+        const historicalDurations = await getHistoricalDurations(submission.company_id);
         res.json({
             ...submission,
             cards: cards.rows,
             steps: steps.rows,
-            estimated: estimateSubmissionProgress(submission),
+            activity,
+            estimated: estimateSubmissionProgress(submission, historicalDurations),
         });
     } catch (error) {
         res.status(500).json({ error: 'Failed to get submission' });
     }
+});
+
+// ============================================
+// CUSTOMER PUSH NOTIFICATIONS
+// ============================================
+
+// Subscribe to push notifications (portal customers)
+router.post('/push/subscribe', authenticateCustomer, async (req, res) => {
+    try {
+        const { subscription } = req.body;
+        if (!subscription?.endpoint || !subscription?.keys) {
+            return res.status(400).json({ error: 'Invalid subscription data' });
+        }
+
+        await db.query(
+            `INSERT INTO push_subscriptions (customer_id, company_id, endpoint, p256dh_key, auth_key, user_agent)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (endpoint)
+             DO UPDATE SET
+                customer_id = $1,
+                company_id = $2,
+                p256dh_key = $4,
+                auth_key = $5,
+                user_agent = $6,
+                last_used_at = CURRENT_TIMESTAMP`,
+            [req.customer.id, req.customer.company_id, subscription.endpoint,
+             subscription.keys.p256dh, subscription.keys.auth, req.headers['user-agent'] || 'Unknown']
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to subscribe' });
+    }
+});
+
+// Unsubscribe from push notifications
+router.post('/push/unsubscribe', authenticateCustomer, async (req, res) => {
+    try {
+        const { endpoint } = req.body;
+        if (!endpoint) return res.status(400).json({ error: 'Endpoint required' });
+
+        await db.query(
+            `DELETE FROM push_subscriptions WHERE endpoint = $1 AND customer_id = $2`,
+            [endpoint, req.customer.id]
+        );
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to unsubscribe' });
+    }
+});
+
+// Get push subscription status
+router.get('/push/status', authenticateCustomer, async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT COUNT(*) as count FROM push_subscriptions WHERE customer_id = $1`,
+            [req.customer.id]
+        );
+        res.json({ subscribed: parseInt(result.rows[0].count) > 0 });
+    } catch (error) {
+        res.json({ subscribed: false });
+    }
+});
+
+// Get VAPID public key (needed by the frontend to subscribe)
+router.get('/push/vapid-key', (req, res) => {
+    res.json({ key: process.env.VAPID_PUBLIC_KEY || '' });
 });
 
 // Get customer stats (includes submission_customers links)

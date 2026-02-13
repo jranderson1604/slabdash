@@ -241,7 +241,7 @@ const updateSubmissionFromPsa = async (submissionId, psaData) => {
 
     // Get current state before update to detect changes
     const currentResult = await db.query(
-        `SELECT psa_submission_number, current_step, progress_percent, grades_ready, shipped,
+        `SELECT company_id, psa_submission_number, current_step, progress_percent, grades_ready, shipped,
                 problem_order, date_received, date_graded, date_shipped, service_level
          FROM submissions WHERE id = $1`,
         [submissionId]
@@ -343,6 +343,45 @@ const updateSubmissionFromPsa = async (submissionId, psaData) => {
     if (updateFields.date_graded && !prev.date_graded) changes.milestonesSet.graded = true;
     if (updateFields.date_shipped && !prev.date_shipped) changes.milestonesSet.shipped = true;
 
+    // Log step transition to history table (for activity feeds and analytics)
+    if (changes.hadChanges && prev.company_id) {
+        try {
+            const events = [];
+
+            if (changes.stepChanged) {
+                events.push({
+                    type: 'step_change',
+                    details: { from: prev.current_step, to: parsed.currentStep }
+                });
+            }
+            if (parsed.gradesReady && !prev.grades_ready) {
+                events.push({ type: 'grades_ready', details: {} });
+            }
+            if (parsed.shipped && !prev.shipped) {
+                events.push({ type: 'shipped', details: {} });
+            }
+            if (parsed.problemOrder && !prev.problem_order) {
+                events.push({ type: 'problem_flagged', details: {} });
+            }
+            if (prev.problem_order && !parsed.problemOrder) {
+                events.push({ type: 'problem_resolved', details: {} });
+            }
+
+            for (const evt of events) {
+                await db.query(
+                    `INSERT INTO submission_status_history
+                     (submission_id, company_id, from_step, to_step, from_progress, to_progress, event_type, details)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                    [submissionId, prev.company_id, prev.current_step, parsed.currentStep,
+                     prev.progress_percent, parsed.progressPercent, evt.type, JSON.stringify(evt.details)]
+                );
+            }
+        } catch (histErr) {
+            // Don't fail the update if history logging fails
+            console.error('Failed to log status history:', histErr.message);
+        }
+    }
+
     // Send email notification if step changed
     if (prev.current_step !== parsed.currentStep && parsed.currentStep) {
         try {
@@ -350,6 +389,26 @@ const updateSubmissionFromPsa = async (submissionId, psaData) => {
             await sendSubmissionUpdateEmail(submissionId, parsed.currentStep, parsed.progressPercent);
         } catch (emailError) {
             console.error('Failed to send email notification:', emailError);
+        }
+    }
+
+    // Send push notifications to linked portal customers on significant changes
+    if (changes.hadChanges && prev.company_id) {
+        try {
+            const { notifyCustomersOfStatusChange } = require('../routes/push');
+            const significantEvents = [];
+            if (changes.stepChanged) significantEvents.push({ type: 'step_change', details: { from: prev.current_step, to: parsed.currentStep } });
+            if (parsed.gradesReady && !prev.grades_ready) significantEvents.push({ type: 'grades_ready', details: {} });
+            if (parsed.shipped && !prev.shipped) significantEvents.push({ type: 'shipped', details: {} });
+            if (parsed.problemOrder && !prev.problem_order) significantEvents.push({ type: 'problem_flagged', details: {} });
+            if (prev.problem_order && !parsed.problemOrder) significantEvents.push({ type: 'problem_resolved', details: {} });
+
+            for (const evt of significantEvents) {
+                await notifyCustomersOfStatusChange(submissionId, prev.company_id, evt.type, evt.details);
+            }
+        } catch (pushError) {
+            // Silent fail — push notifications shouldn't block the update
+            console.error('Customer push notification failed:', pushError.message);
         }
     }
 
@@ -472,11 +531,81 @@ const STEP_DURATION_ESTIMATES = {
 
 const DEFAULT_DURATIONS = { 'Arrived': 1, 'Order Prep': 8, 'Research & ID': 3, 'Grading': 12, 'Assembly': 3, 'Grades Ready': 3, 'QA Checks': 6, 'Shipped': 2 };
 
+// In-memory cache for historical durations (1 hour TTL)
+let _historicalCache = {};
+let _historicalCacheTime = {};
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Load actual average step durations from submission_status_history.
+ * Uses real transition data to improve time estimates over static defaults.
+ * Returns a map of { serviceLevel: { step: avgDays } }.
+ */
+const getHistoricalDurations = async (companyId) => {
+    const cacheKey = companyId;
+    if (_historicalCache[cacheKey] && Date.now() - _historicalCacheTime[cacheKey] < CACHE_TTL_MS) {
+        return _historicalCache[cacheKey];
+    }
+
+    try {
+        // Calculate average step durations from consecutive step_change events
+        const result = await db.query(`
+            WITH ordered_events AS (
+                SELECT
+                    ssh.submission_id,
+                    ssh.from_step,
+                    ssh.to_step,
+                    ssh.created_at,
+                    LAG(ssh.created_at) OVER (
+                        PARTITION BY ssh.submission_id ORDER BY ssh.created_at
+                    ) AS prev_event_at,
+                    s.service_level
+                FROM submission_status_history ssh
+                JOIN submissions s ON s.id = ssh.submission_id
+                WHERE ssh.company_id = $1
+                  AND ssh.event_type = 'step_change'
+            ),
+            step_durations AS (
+                SELECT
+                    service_level,
+                    from_step,
+                    EXTRACT(EPOCH FROM (created_at - prev_event_at)) / 86400.0 AS days_at_step
+                FROM ordered_events
+                WHERE prev_event_at IS NOT NULL
+                  AND service_level IS NOT NULL
+            )
+            SELECT
+                service_level,
+                from_step AS step_name,
+                ROUND(AVG(days_at_step)::numeric, 1) AS avg_days,
+                COUNT(*) AS sample_count
+            FROM step_durations
+            WHERE days_at_step > 0 AND days_at_step < 365
+            GROUP BY service_level, from_step
+            HAVING COUNT(*) >= 2
+        `, [companyId]);
+
+        const historical = {};
+        for (const row of result.rows) {
+            if (!historical[row.service_level]) historical[row.service_level] = {};
+            historical[row.service_level][row.step_name] = parseFloat(row.avg_days);
+        }
+
+        _historicalCache[cacheKey] = historical;
+        _historicalCacheTime[cacheKey] = Date.now();
+        return historical;
+    } catch (err) {
+        // Table might not exist yet or no data — return empty
+        return {};
+    }
+};
+
 /**
  * Calculate estimated progress with time-based sub-step interpolation.
  * Makes customers see movement even when PSA hasn't moved to a new step.
+ * Accepts optional historicalDurations to use real data over static defaults.
  */
-const estimateSubmissionProgress = (submission) => {
+const estimateSubmissionProgress = (submission, historicalDurations) => {
     if (!submission || submission.shipped || submission.picked_up) return null;
 
     const currentStep = submission.current_step;
@@ -486,7 +615,21 @@ const estimateSubmissionProgress = (submission) => {
     if (stepIndex < 0) return null;
 
     const serviceLevel = submission.service_level || 'Regular';
-    const durations = STEP_DURATION_ESTIMATES[serviceLevel] || DEFAULT_DURATIONS;
+    const staticDurations = STEP_DURATION_ESTIMATES[serviceLevel] || DEFAULT_DURATIONS;
+
+    // Merge: prefer historical data when available, fall back to static estimates
+    const histForLevel = historicalDurations?.[serviceLevel] || {};
+    const durations = {};
+    let historicalStepCount = 0;
+    for (const step of STEP_ORDER) {
+        if (histForLevel[step]) {
+            durations[step] = histForLevel[step];
+            historicalStepCount++;
+        } else {
+            durations[step] = staticDurations[step] || DEFAULT_DURATIONS[step] || 5;
+        }
+    }
+    const usesHistoricalData = historicalStepCount > 0;
 
     // Total expected days across all steps
     let totalExpectedDays = 0;
@@ -533,6 +676,7 @@ const estimateSubmissionProgress = (submission) => {
             ? `Started ${currentStep} today`
             : `Day ${Math.ceil(daysAtStep)} of ~${Math.round(expectedStepDays)} at ${currentStep}`,
         totalExpectedDays: Math.round(totalExpectedDays),
+        usesHistoricalData,
     };
 };
 
@@ -628,6 +772,7 @@ module.exports = {
     autoFetchCertData,
     refreshAllSubmissions,
     estimateSubmissionProgress,
+    getHistoricalDurations,
     getRefreshPriority,
     logApiCall,
     STEP_NAMES,

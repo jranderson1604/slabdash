@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const { authenticate, requireRole } = require("../middleware/auth");
-const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa, getCertificate, getCertWithImages, parseCertData, estimateSubmissionProgress, getRefreshPriority } = require("../services/psaService");
+const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa, getCertificate, getCertWithImages, parseCertData, estimateSubmissionProgress, getHistoricalDurations, getRefreshPriority } = require("../services/psaService");
 const { normalizeServiceLevel } = require("../utils/serviceLevel");
 
 // List submissions
@@ -40,6 +40,9 @@ router.get("/", authenticate, async (req, res) => {
 
     const result = await db.query(query, params);
 
+    // Load historical step durations once for accurate estimates
+    const historicalDurations = await getHistoricalDurations(req.user.company_id);
+
     // Get linked customers and cards for each submission
     const submissionsWithCustomers = await Promise.all(
       result.rows.map(async (submission) => {
@@ -73,8 +76,8 @@ router.get("/", authenticate, async (req, res) => {
           [submission.id]
         );
 
-        // Add estimated progress and refresh priority
-        const estimate = estimateSubmissionProgress(submission);
+        // Add estimated progress and refresh priority (using historical data when available)
+        const estimate = estimateSubmissionProgress(submission, historicalDurations);
         const priority = getRefreshPriority(submission);
 
         return {
@@ -142,7 +145,8 @@ router.get("/:id", authenticate, async (req, res) => {
     );
 
     const submission = result.rows[0];
-    const estimate = estimateSubmissionProgress(submission);
+    const historicalDurations = await getHistoricalDurations(req.user.company_id);
+    const estimate = estimateSubmissionProgress(submission, historicalDurations);
     const priority = getRefreshPriority(submission);
 
     res.json({

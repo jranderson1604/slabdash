@@ -324,6 +324,33 @@ async function startServer() {
       `);
       console.log("✓ Migration: PSA refresh tracking columns ensured");
 
+      // Step transition history — logs every status change for activity feeds and analytics
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS submission_status_history (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          submission_id UUID NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+          company_id UUID NOT NULL,
+          from_step VARCHAR(100),
+          to_step VARCHAR(100),
+          from_progress INTEGER,
+          to_progress INTEGER,
+          event_type VARCHAR(50) NOT NULL DEFAULT 'step_change',
+          details JSONB DEFAULT '{}',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_status_history_submission ON submission_status_history(submission_id, created_at DESC)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_status_history_company ON submission_status_history(company_id, created_at DESC)`);
+      console.log("✓ Migration: Step transition history table ensured");
+
+      // Push subscriptions: add customer_id for portal customer push notifications
+      await db.query(`
+        ALTER TABLE push_subscriptions
+        ADD COLUMN IF NOT EXISTS customer_id UUID REFERENCES customers(id) ON DELETE CASCADE;
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_push_sub_customer ON push_subscriptions(customer_id) WHERE customer_id IS NOT NULL`);
+      console.log("✓ Migration: Customer push subscription column ensured");
+
     } catch (migrationError) {
       // Don't fail startup if migration has issues, just log it
       console.warn("⚠ Migration warning:", migrationError.message);

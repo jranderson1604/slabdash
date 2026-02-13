@@ -224,6 +224,13 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
               <AlertCircle className="w-3 h-3" /> Problem
             </span>
           )}
+
+          {/* Stale indicator: step duration exceeded expected time by 50%+ */}
+          {!submission.shipped && !submission.problem_order && submission.estimated?.stepProgressPercent > 150 && (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200" title={`At ${submission.current_step} for ${submission.estimated.daysAtCurrentStep} days (expected ~${submission.estimated.expectedStepDuration})`}>
+              <Clock className="w-3 h-3" /> Slow
+            </span>
+          )}
         </div>
 
         {/* Row 4: Customers + Cards + Date + Last Refreshed */}
@@ -576,6 +583,7 @@ export default function Submissions() {
     if (filter === 'active' && (s.shipped || s.progress_percent >= 100)) return false;
     if (filter === 'completed' && !(s.shipped || s.progress_percent >= 100)) return false;
     if (filter === 'problems' && !s.problem_order) return false;
+    if (filter === 'slow' && (s.shipped || s.problem_order || !(s.estimated?.stepProgressPercent > 150))) return false;
 
     if (search) {
       const q = search.toLowerCase();
@@ -619,6 +627,7 @@ export default function Submissions() {
   const activeCount = subs.filter(s => !s.shipped && s.progress_percent < 100).length;
   const completedCount = subs.filter(s => s.shipped || s.progress_percent >= 100).length;
   const problemCount = subs.filter(s => s.problem_order).length;
+  const staleCount = subs.filter(s => !s.shipped && !s.problem_order && s.estimated?.stepProgressPercent > 150).length;
   const totalCards = subs.reduce((sum, s) => sum + (s.card_count || s.cards?.length || 0), 0);
   const totalCustomers = new Set(subs.flatMap(s => (s.linked_customers || []).map(c => c.id))).size;
 
@@ -744,6 +753,7 @@ export default function Submissions() {
             { key: 'active', label: 'Active', count: activeCount },
             { key: 'completed', label: 'Done', count: completedCount },
             { key: 'problems', label: 'Problems', count: problemCount },
+            ...(staleCount > 0 ? [{ key: 'slow', label: 'Slow', count: staleCount }] : []),
           ].map(tab => (
             <button
               key={tab.key}

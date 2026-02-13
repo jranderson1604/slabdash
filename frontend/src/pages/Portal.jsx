@@ -625,8 +625,62 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
   const [data, setData] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
   const [lastPollTime, setLastPollTime] = useState(null);
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
 
-  useEffect(() => { loadData(); }, [jwtToken]);
+  useEffect(() => { loadData(); checkPushStatus(); }, [jwtToken]);
+
+  const checkPushStatus = async () => {
+    try {
+      const res = await fetch(`${API_URL}/portal/push/status`, { headers: { Authorization: `Bearer ${jwtToken}` } });
+      if (res.ok) { const d = await res.json(); setPushSubscribed(d.subscribed); }
+    } catch {}
+  };
+
+  const togglePush = async () => {
+    if (pushLoading) return;
+    setPushLoading(true);
+    try {
+      if (pushSubscribed) {
+        // Unsubscribe
+        const reg = await navigator.serviceWorker?.ready;
+        const sub = await reg?.pushManager?.getSubscription();
+        if (sub) {
+          await fetch(`${API_URL}/portal/push/unsubscribe`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+            body: JSON.stringify({ endpoint: sub.endpoint }),
+          });
+          await sub.unsubscribe();
+        }
+        setPushSubscribed(false);
+      } else {
+        // Subscribe
+        const keyRes = await fetch(`${API_URL}/portal/push/vapid-key`);
+        const { key } = await keyRes.json();
+        if (!key) { alert('Push notifications not configured.'); setPushLoading(false); return; }
+
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') { setPushLoading(false); return; }
+
+        const reg = await navigator.serviceWorker?.ready;
+        if (!reg) { setPushLoading(false); return; }
+
+        const sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: Uint8Array.from(atob(key.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)),
+        });
+
+        await fetch(`${API_URL}/portal/push/subscribe`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+          body: JSON.stringify({ subscription: sub.toJSON() }),
+        });
+        setPushSubscribed(true);
+      }
+    } catch (err) {
+      console.error('Push toggle error:', err);
+    }
+    setPushLoading(false);
+  };
 
   // Auto-poll for submission updates every 2 minutes
   useEffect(() => {
@@ -954,6 +1008,14 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
               </div>
             </div>
             <div className="flex items-center gap-1.5">
+              {'Notification' in window && 'serviceWorker' in navigator && (
+                <button onClick={togglePush} disabled={pushLoading}
+                  className="p-2 rounded-xl relative" style={{ background: pushSubscribed ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.1)' }}
+                  title={pushSubscribed ? 'Notifications on' : 'Enable notifications'}>
+                  {pushSubscribed ? <Bell className="w-4 h-4 text-white" /> : <BellOff className="w-4 h-4 text-white/60" />}
+                  {pushSubscribed && <div className="absolute top-1 right-1 w-2 h-2 rounded-full bg-green-400" />}
+                </button>
+              )}
               <button onClick={handleRefresh} disabled={refreshing}
                 className="p-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.15)' }}>
                 <RefreshCw className={`w-4 h-4 text-white ${refreshing ? 'animate-spin' : ''}`} />
@@ -1550,34 +1612,101 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
         </div>
       )}
 
-      {isExpanded && submission.cards?.length > 0 && (
-        <div className="px-4 pb-4 space-y-2" style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}>
-          <p className="text-xs font-bold pt-3" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>CARDS ({submission.cards.length})</p>
-          {submission.cards.map(card => (
-            <div key={card.id} className="flex items-center gap-3 p-3 rounded-xl"
-              style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(0,0,0,0.05)' }}>
-              {card.before_photos?.[0] && (
-                <img src={card.before_photos[0].url || card.before_photos[0]} alt=""
-                  className="w-10 h-14 rounded-lg object-cover shrink-0" style={{ border: '1px solid rgba(0,0,0,0.08)' }} />
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-sm truncate" style={{ color: 'rgb(var(--dark))' }}>
-                  {card.player_name || card.description || 'Card'}
-                </p>
-                <p className="text-[11px] truncate" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
-                  {[card.year, card.brand, card.card_number ? `#${card.card_number}` : ''].filter(Boolean).join(' ')}
-                  {card.psa_cert_number && ` \u00B7 Cert ${card.psa_cert_number}`}
-                </p>
+      {isExpanded && (
+        <div className="px-4 pb-4 space-y-3" style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}>
+
+          {/* Activity Timeline — shows status change history */}
+          {submission.activity?.length > 0 && (
+            <div className="pt-3">
+              <p className="text-xs font-bold mb-2" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>ACTIVITY</p>
+              <div className="space-y-0">
+                {submission.activity.slice(0, 5).map((evt, i) => (
+                  <div key={i} className="flex items-start gap-2.5 py-1.5">
+                    <div className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{
+                      background: evt.event_type === 'grades_ready' ? 'rgba(37, 99, 235, 0.1)' :
+                        evt.event_type === 'shipped' ? 'rgba(16, 185, 129, 0.1)' :
+                        evt.event_type === 'problem_flagged' ? 'rgba(239, 68, 68, 0.1)' :
+                        'rgba(var(--brand-500), 0.08)',
+                    }}>
+                      {evt.event_type === 'grades_ready' ? <Sparkles className="w-3 h-3" style={{ color: '#2563EB' }} /> :
+                       evt.event_type === 'shipped' ? <Truck className="w-3 h-3" style={{ color: '#059669' }} /> :
+                       evt.event_type === 'problem_flagged' ? <AlertTriangle className="w-3 h-3" style={{ color: '#DC2626' }} /> :
+                       <ArrowRight className="w-3 h-3" style={{ color: 'rgb(var(--brand-500))' }} />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-semibold" style={{ color: 'rgb(var(--dark))' }}>
+                        {evt.event_type === 'step_change' ? `Moved to ${evt.to_step}` :
+                         evt.event_type === 'grades_ready' ? 'Grades are ready!' :
+                         evt.event_type === 'shipped' ? 'Order shipped!' :
+                         evt.event_type === 'problem_flagged' ? 'Issue flagged by PSA' :
+                         evt.event_type === 'problem_resolved' ? 'Issue resolved' :
+                         evt.event_type}
+                      </p>
+                      <p className="text-[10px]" style={{ color: 'rgba(44, 36, 22, 0.3)' }}>
+                        {new Date(evt.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                        {evt.event_type === 'step_change' && evt.from_step && (
+                          <span> — from {evt.from_step}</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                ))}
               </div>
-              {card.grade && (
-                <div className="w-9 h-9 rounded-lg flex flex-col items-center justify-center"
-                  style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.12)' }}>
-                  <span className="text-sm font-black leading-none" style={{ color: '#059669' }}>{card.grade}</span>
-                  <span className="text-[7px] font-bold" style={{ color: 'rgba(5, 150, 105, 0.6)' }}>PSA</span>
-                </div>
-              )}
             </div>
-          ))}
+          )}
+
+          {/* Cards with grade display */}
+          {submission.cards?.length > 0 && (
+            <div>
+              <p className="text-xs font-bold pt-1 mb-2" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
+                CARDS ({submission.cards.length})
+                {submission.cards.some(c => c.grade) && (
+                  <span className="ml-1.5 text-[10px] font-bold px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(16, 185, 129, 0.08)', color: '#059669' }}>
+                    {submission.cards.filter(c => c.grade).length} graded
+                  </span>
+                )}
+              </p>
+              {submission.cards.map(card => (
+                <div key={card.id} className="flex items-center gap-3 p-3 rounded-xl mb-1.5"
+                  style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(0,0,0,0.05)' }}>
+                  {card.before_photos?.[0] && (
+                    <img src={card.before_photos[0].url || card.before_photos[0]} alt=""
+                      className="w-10 h-14 rounded-lg object-cover shrink-0" style={{ border: '1px solid rgba(0,0,0,0.08)' }} />
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm truncate" style={{ color: 'rgb(var(--dark))' }}>
+                      {card.player_name || card.description || 'Card'}
+                    </p>
+                    <p className="text-[11px] truncate" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
+                      {[card.year, card.brand, card.card_number ? `#${card.card_number}` : ''].filter(Boolean).join(' ')}
+                      {card.psa_cert_number && ` \u00B7 Cert ${card.psa_cert_number}`}
+                    </p>
+                  </div>
+                  {card.grade ? (
+                    <div className="px-2 py-1.5 rounded-xl flex flex-col items-center justify-center"
+                      style={{
+                        background: parseFloat(card.grade) >= 9 ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(5, 150, 105, 0.06))'
+                          : parseFloat(card.grade) >= 7 ? 'rgba(37, 99, 235, 0.08)'
+                          : 'rgba(245, 158, 11, 0.08)',
+                        border: parseFloat(card.grade) >= 9 ? '1px solid rgba(16, 185, 129, 0.2)'
+                          : parseFloat(card.grade) >= 7 ? '1px solid rgba(37, 99, 235, 0.15)'
+                          : '1px solid rgba(245, 158, 11, 0.15)',
+                      }}>
+                      <span className="text-base font-black leading-none" style={{
+                        color: parseFloat(card.grade) >= 9 ? '#059669' : parseFloat(card.grade) >= 7 ? '#2563EB' : '#D97706'
+                      }}>{card.grade}</span>
+                      <span className="text-[7px] font-bold mt-0.5" style={{ color: 'rgba(44, 36, 22, 0.3)' }}>PSA</span>
+                    </div>
+                  ) : card.psa_cert_number && isGradesReady ? (
+                    <div className="px-2 py-1.5 rounded-xl flex items-center justify-center"
+                      style={{ background: 'rgba(99, 102, 241, 0.06)', border: '1px solid rgba(99, 102, 241, 0.1)' }}>
+                      <span className="text-[10px] font-bold" style={{ color: '#6366F1' }}>Pending</span>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
