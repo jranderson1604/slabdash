@@ -448,6 +448,129 @@ const autoFetchCertData = async (submissionId) => {
 };
 
 // ============================================
+// PROGRESS ESTIMATION ENGINE
+// ============================================
+
+/**
+ * Expected business days per step, by service level.
+ * Based on real-world collector data (not PSA marketing numbers).
+ */
+const STEP_DURATION_ESTIMATES = {
+    'Value Bulk':    { 'Arrived': 1, 'Order Prep': 15, 'Research & ID': 5, 'Grading': 20, 'Assembly': 5, 'Grades Ready': 5, 'QA Checks': 10, 'Shipped': 2 },
+    'Bulk':          { 'Arrived': 1, 'Order Prep': 15, 'Research & ID': 5, 'Grading': 20, 'Assembly': 5, 'Grades Ready': 5, 'QA Checks': 10, 'Shipped': 2 },
+    'Value':         { 'Arrived': 1, 'Order Prep': 12, 'Research & ID': 5, 'Grading': 18, 'Assembly': 5, 'Grades Ready': 5, 'QA Checks': 8, 'Shipped': 2 },
+    'Value Plus':    { 'Arrived': 1, 'Order Prep': 8, 'Research & ID': 4, 'Grading': 12, 'Assembly': 4, 'Grades Ready': 4, 'QA Checks': 6, 'Shipped': 2 },
+    'Plus':          { 'Arrived': 1, 'Order Prep': 8, 'Research & ID': 4, 'Grading': 12, 'Assembly': 4, 'Grades Ready': 4, 'QA Checks': 6, 'Shipped': 2 },
+    'Value Max':     { 'Arrived': 1, 'Order Prep': 6, 'Research & ID': 3, 'Grading': 10, 'Assembly': 3, 'Grades Ready': 3, 'QA Checks': 5, 'Shipped': 2 },
+    'Regular':       { 'Arrived': 1, 'Order Prep': 3, 'Research & ID': 2, 'Grading': 8, 'Assembly': 2, 'Grades Ready': 2, 'QA Checks': 4, 'Shipped': 2 },
+    'Standard':      { 'Arrived': 1, 'Order Prep': 3, 'Research & ID': 2, 'Grading': 8, 'Assembly': 2, 'Grades Ready': 2, 'QA Checks': 4, 'Shipped': 2 },
+    'Express':       { 'Arrived': 1, 'Order Prep': 2, 'Research & ID': 1, 'Grading': 4, 'Assembly': 1, 'Grades Ready': 1, 'QA Checks': 2, 'Shipped': 1 },
+    'Super Express': { 'Arrived': 0.5, 'Order Prep': 1, 'Research & ID': 0.5, 'Grading': 1.5, 'Assembly': 0.5, 'Grades Ready': 0.5, 'QA Checks': 1, 'Shipped': 0.5 },
+    'Walk-Through':  { 'Arrived': 0.25, 'Order Prep': 0.5, 'Research & ID': 0.25, 'Grading': 0.5, 'Assembly': 0.25, 'Grades Ready': 0.25, 'QA Checks': 0.25, 'Shipped': 0.25 },
+    'Walk-Thru':     { 'Arrived': 0.25, 'Order Prep': 0.5, 'Research & ID': 0.25, 'Grading': 0.5, 'Assembly': 0.25, 'Grades Ready': 0.25, 'QA Checks': 0.25, 'Shipped': 0.25 },
+};
+
+const DEFAULT_DURATIONS = { 'Arrived': 1, 'Order Prep': 8, 'Research & ID': 3, 'Grading': 12, 'Assembly': 3, 'Grades Ready': 3, 'QA Checks': 6, 'Shipped': 2 };
+
+/**
+ * Calculate estimated progress with time-based sub-step interpolation.
+ * Makes customers see movement even when PSA hasn't moved to a new step.
+ */
+const estimateSubmissionProgress = (submission) => {
+    if (!submission || submission.shipped || submission.picked_up) return null;
+
+    const currentStep = submission.current_step;
+    if (!currentStep) return null;
+
+    const stepIndex = STEP_ORDER.indexOf(currentStep);
+    if (stepIndex < 0) return null;
+
+    const serviceLevel = submission.service_level || 'Regular';
+    const durations = STEP_DURATION_ESTIMATES[serviceLevel] || DEFAULT_DURATIONS;
+
+    // Total expected days across all steps
+    let totalExpectedDays = 0;
+    let completedDays = 0;
+    for (let i = 0; i < STEP_ORDER.length; i++) {
+        const dur = durations[STEP_ORDER[i]] || 5;
+        totalExpectedDays += dur;
+        if (i < stepIndex) completedDays += dur;
+    }
+
+    // How long at current step (use last_api_update as the best indicator of when step changed)
+    const stepEnteredAt = submission.last_api_update || submission.last_refreshed_at || submission.created_at;
+    const msAtStep = Date.now() - new Date(stepEnteredAt).getTime();
+    const daysAtStep = msAtStep / (1000 * 60 * 60 * 24);
+    const expectedStepDays = durations[currentStep] || 5;
+
+    // Sub-step progress within current step (0 to 0.95, never reaches 1.0 — that's the next step's job)
+    const subStepProgress = Math.min(daysAtStep / expectedStepDays, 0.95);
+
+    // Smooth estimated progress: base + sub-step contribution
+    const stepsCount = STEP_ORDER.length;
+    const baseProgress = (stepIndex / stepsCount) * 100;
+    const stepSliceWidth = (1 / stepsCount) * 100;
+    const estimatedProgress = Math.min(Math.round(baseProgress + (subStepProgress * stepSliceWidth)), 99);
+
+    // Estimated days remaining from current position
+    const currentStepRemaining = Math.max(0, expectedStepDays - daysAtStep);
+    let remainingDays = currentStepRemaining;
+    for (let i = stepIndex + 1; i < STEP_ORDER.length; i++) {
+        remainingDays += durations[STEP_ORDER[i]] || 5;
+    }
+
+    // Estimated completion date
+    const estCompletion = new Date(Date.now() + remainingDays * 24 * 60 * 60 * 1000);
+
+    return {
+        estimatedProgress,
+        daysAtCurrentStep: Math.round(daysAtStep * 10) / 10,
+        expectedStepDuration: Math.round(expectedStepDays),
+        stepProgressPercent: Math.round(subStepProgress * 100),
+        estimatedDaysRemaining: Math.round(remainingDays),
+        estimatedCompletionDate: estCompletion.toISOString(),
+        currentStepLabel: daysAtStep < 1
+            ? `Started ${currentStep} today`
+            : `Day ${Math.ceil(daysAtStep)} of ~${Math.round(expectedStepDays)} at ${currentStep}`,
+        totalExpectedDays: Math.round(totalExpectedDays),
+    };
+};
+
+/**
+ * Determine how frequently a submission should be refreshed (in hours).
+ * Higher-priority submissions get refreshed more often.
+ */
+const getRefreshPriority = (submission) => {
+    const step = submission.current_step;
+    const service = (submission.service_level || '').toLowerCase();
+    const isExpress = service.includes('express') || service.includes('walk');
+
+    // Shipped or picked up — no refresh needed
+    if (submission.shipped || submission.picked_up) return { hours: 0, tier: 'none' };
+
+    // Problem orders — check frequently for resolution
+    if (submission.problem_order) return { hours: isExpress ? 2 : 4, tier: 'urgent' };
+
+    // Express/premium tiers — always faster refresh
+    if (isExpress) {
+        if (!step || step === 'Arrived' || step === 'Order Prep') return { hours: 2, tier: 'high' };
+        return { hours: 3, tier: 'high' };
+    }
+
+    // Early stages (Arrived, Order Prep) — package just landed, things move
+    if (!step || step === 'Arrived' || step === 'Order Prep') return { hours: 6, tier: 'medium' };
+
+    // Active processing (Research & ID through Assembly) — core pipeline
+    if (['Research & ID', 'Grading', 'Assembly'].includes(step)) return { hours: 8, tier: 'medium' };
+
+    // Grades Ready / QA — waiting for shipping, less urgency
+    if (['Grades Ready', 'QA Checks'].includes(step)) return { hours: 12, tier: 'low' };
+
+    // Fallback
+    return { hours: 8, tier: 'medium' };
+};
+
+// ============================================
 // BATCH / UTILITY FUNCTIONS
 // ============================================
 
@@ -504,8 +627,11 @@ module.exports = {
     updateSubmissionFromPsa,
     autoFetchCertData,
     refreshAllSubmissions,
+    estimateSubmissionProgress,
+    getRefreshPriority,
     logApiCall,
     STEP_NAMES,
     STEP_ORDER,
+    STEP_DURATION_ESTIMATES,
     createPsaClient,
 };

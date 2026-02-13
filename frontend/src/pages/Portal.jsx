@@ -624,8 +624,38 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [lastPollTime, setLastPollTime] = useState(null);
 
   useEffect(() => { loadData(); }, [jwtToken]);
+
+  // Auto-poll for submission updates every 2 minutes
+  useEffect(() => {
+    if (!data || !jwtToken) return;
+    const interval = setInterval(async () => {
+      try {
+        const headers = { Authorization: `Bearer ${jwtToken}` };
+        const since = lastPollTime || new Date(Date.now() - 120000).toISOString();
+        const res = await fetch(`${API_URL}/portal/submissions/poll?since=${encodeURIComponent(since)}`, { headers });
+        if (!res.ok) return;
+        const poll = await res.json();
+        setLastPollTime(poll.serverTime);
+
+        if (poll.hasChanges && poll.submissions?.length > 0) {
+          // Merge updated submissions into existing data
+          setData(prev => {
+            if (!prev) return prev;
+            const updatedMap = {};
+            for (const s of poll.submissions) updatedMap[s.id] = s;
+            const merged = prev.submissions.map(sub =>
+              updatedMap[sub.id] ? { ...sub, ...updatedMap[sub.id] } : sub
+            );
+            return { ...prev, submissions: merged };
+          });
+        }
+      } catch {} // Silent fail — polling shouldn't disrupt UX
+    }, 120000); // 2 minutes
+    return () => clearInterval(interval);
+  }, [data, jwtToken, lastPollTime]);
 
   const loadData = async () => {
     try {
@@ -659,6 +689,7 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
       );
 
       setData({ customer: me.customer, company: me.company, submissions: subsWithCards, buybackOffers: offers, cards });
+      setLastPollTime(new Date().toISOString());
       setLoading(false);
     } catch (err) {
       console.error('JWT portal load error:', err);
@@ -694,6 +725,18 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
 // ============================================
 // Shared helpers
 // ============================================
+function formatTimeAgo(dateStr) {
+  if (!dateStr) return '';
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 const PSA_STEPS = ['Arrived', 'Order Prep', 'Research & ID', 'Grading', 'Assembly', 'Grades Ready', 'QA Checks', 'Shipped', 'Picked Up'];
 
 function getStepIndex(currentStep) {
@@ -721,21 +764,34 @@ function getServiceColor(level) {
   return '#6B7280';
 }
 
-function ProgressPipeline({ currentStep, shipped, pickedUp }) {
+function ProgressPipeline({ currentStep, shipped, pickedUp, estimated }) {
   let stepIdx;
-  if (pickedUp) stepIdx = PSA_STEPS.length; // all complete
-  else if (shipped) stepIdx = 7; // at "Picked Up" step (waiting)
+  if (pickedUp) stepIdx = PSA_STEPS.length;
+  else if (shipped) stepIdx = 7;
   else stepIdx = getStepIndex(currentStep);
 
   const totalSteps = PSA_STEPS.length;
-  const progress = pickedUp ? 100 : shipped ? Math.round((7 / totalSteps) * 100) : stepIdx >= 0 ? Math.round(((stepIdx + 0.5) / totalSteps) * 100) : 0;
+
+  // Use estimated progress for smooth sub-step interpolation (customers see movement even without step changes)
+  let progress;
+  if (pickedUp) progress = 100;
+  else if (shipped) progress = Math.round((7 / totalSteps) * 100);
+  else if (estimated?.estimatedProgress) progress = estimated.estimatedProgress;
+  else if (stepIdx >= 0) progress = Math.round(((stepIdx + 0.5) / totalSteps) * 100);
+  else progress = 0;
+
   const isComplete = pickedUp;
 
   return (
     <div>
-      <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.06)' }}>
-        <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
+      <div className="relative h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.06)' }}>
+        <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-1000 ease-out"
           style={{ width: `${progress}%`, background: isComplete ? 'linear-gradient(90deg, #10B981, #059669)' : shipped ? 'linear-gradient(90deg, #10B981, #2563EB)' : 'linear-gradient(90deg, rgb(var(--brand-400)), rgb(var(--brand-600)))' }} />
+        {/* Animated pulse on the leading edge when actively processing */}
+        {!isComplete && !shipped && stepIdx >= 0 && (
+          <div className="absolute inset-y-0 rounded-full animate-pulse"
+            style={{ left: `${Math.max(0, progress - 3)}%`, width: '3%', background: 'rgba(255,255,255,0.4)' }} />
+        )}
       </div>
       <div className="flex justify-between mt-1.5">
         {PSA_STEPS.map((step, i) => (
@@ -1403,14 +1459,39 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
           </div>
         </div>
 
-        {/* Progress pipeline - always show, with picked_up state */}
-        <ProgressPipeline currentStep={submission.current_step} shipped={isShipped} pickedUp={isPickedUp} />
+        {/* Progress pipeline with estimated sub-step interpolation */}
+        <ProgressPipeline currentStep={submission.current_step} shipped={isShipped} pickedUp={isPickedUp} estimated={submission.estimated} />
 
-        <div className="flex items-center justify-between mt-3 text-xs" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
+        {/* Estimated time info — shows movement even when step hasn't changed */}
+        {submission.estimated && !isShipped && !isPickedUp && !isProblem && (
+          <div className="flex items-center gap-2 mt-2 px-1">
+            <div className="flex-1 flex items-center gap-1.5">
+              <Clock className="w-3 h-3 shrink-0" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
+              <span className="text-[10px] font-semibold" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
+                {submission.estimated.currentStepLabel}
+              </span>
+            </div>
+            {submission.estimated.estimatedDaysRemaining > 0 && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md" style={{
+                background: 'rgba(var(--brand-500), 0.06)',
+                color: 'rgb(var(--brand-600))',
+              }}>
+                ~{submission.estimated.estimatedDaysRemaining}d left
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between mt-2 text-xs" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
           <span className="font-semibold">{submission.card_count || submission.cards?.length || 0} cards</span>
           {isPickedUp && submission.picked_up_at && (
             <span className="font-semibold" style={{ color: '#059669' }}>
               Picked up {new Date(submission.picked_up_at).toLocaleDateString()}
+            </span>
+          )}
+          {!isPickedUp && submission.last_refreshed_at && (
+            <span className="text-[10px]" style={{ color: 'rgba(44, 36, 22, 0.2)' }}>
+              Updated {formatTimeAgo(submission.last_refreshed_at)}
             </span>
           )}
           {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}

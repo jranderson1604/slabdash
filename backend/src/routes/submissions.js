@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const { authenticate, requireRole } = require("../middleware/auth");
-const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa, getCertificate, getCertWithImages, parseCertData } = require("../services/psaService");
+const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa, getCertificate, getCertWithImages, parseCertData, estimateSubmissionProgress, getRefreshPriority } = require("../services/psaService");
 const { normalizeServiceLevel } = require("../utils/serviceLevel");
 
 // List submissions
@@ -73,10 +73,16 @@ router.get("/", authenticate, async (req, res) => {
           [submission.id]
         );
 
+        // Add estimated progress and refresh priority
+        const estimate = estimateSubmissionProgress(submission);
+        const priority = getRefreshPriority(submission);
+
         return {
           ...submission,
           linked_customers: linkedCustomers,
-          cards: cardsResult.rows
+          cards: cardsResult.rows,
+          estimated: estimate,
+          refreshPriority: priority,
         };
       })
     );
@@ -135,11 +141,17 @@ router.get("/:id", authenticate, async (req, res) => {
       [req.params.id]
     );
 
+    const submission = result.rows[0];
+    const estimate = estimateSubmissionProgress(submission);
+    const priority = getRefreshPriority(submission);
+
     res.json({
-      ...result.rows[0],
+      ...submission,
       cards: cardsResult.rows,
       linked_customers: linkedCustomersResult.rows,
-      steps: stepsResult.rows
+      steps: stepsResult.rows,
+      estimated: estimate,
+      refreshPriority: priority,
     });
   } catch (error) {
     console.error("Get submission error:", error);

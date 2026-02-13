@@ -771,13 +771,16 @@ router.get('/me', authenticateCustomer, async (req, res) => {
     });
 });
 
-// Get customer's submissions (includes submission_customers links + pickup data)
+// Get customer's submissions (includes submission_customers links + pickup data + estimated progress)
 router.get('/submissions', authenticateCustomer, async (req, res) => {
     try {
+        const { estimateSubmissionProgress } = require('../services/psaService');
+
         const result = await db.query(
             `SELECT s.id, s.internal_id, s.psa_submission_number, s.service_level,
                     s.current_step, s.progress_percent, s.grades_ready, s.shipped, s.problem_order,
                     s.date_sent, s.return_tracking, s.admin_notes, s.prep_notes,
+                    s.last_refreshed_at, s.last_api_update, s.created_at,
                     COALESCE(sc.pickup_code, s.pickup_code) as pickup_code,
                     COALESCE(sc.picked_up, s.picked_up, false) as picked_up,
                     COALESCE(sc.picked_up_at, s.picked_up_at) as picked_up_at,
@@ -788,15 +791,65 @@ router.get('/submissions', authenticateCustomer, async (req, res) => {
              ORDER BY s.created_at DESC`,
             [req.customer.id]
         );
-        res.json(result.rows);
+
+        // Enrich with estimated progress
+        const enriched = result.rows.map(sub => ({
+            ...sub,
+            estimated: estimateSubmissionProgress(sub),
+        }));
+
+        res.json(enriched);
     } catch (error) {
         res.status(500).json({ error: 'Failed to get submissions' });
     }
 });
 
-// Get single submission (includes submission_customers access)
+// Lightweight polling endpoint — returns only status changes since a given timestamp
+// Customers poll this every 2 minutes; it's fast because it only returns changed data
+router.get('/submissions/poll', authenticateCustomer, async (req, res) => {
+    try {
+        const { estimateSubmissionProgress } = require('../services/psaService');
+        const since = req.query.since; // ISO timestamp
+
+        let query = `
+            SELECT s.id, s.current_step, s.progress_percent, s.grades_ready, s.shipped,
+                   s.problem_order, s.last_refreshed_at, s.last_api_update, s.service_level,
+                   s.return_tracking, s.created_at,
+                   COALESCE(sc.picked_up, s.picked_up, false) as picked_up
+            FROM submissions s
+            LEFT JOIN submission_customers sc ON s.id = sc.submission_id AND sc.customer_id = $1
+            WHERE (s.customer_id = $1 OR sc.customer_id IS NOT NULL)`;
+        const params = [req.customer.id];
+
+        if (since) {
+            query += ` AND s.last_api_update > $2`;
+            params.push(since);
+        }
+
+        query += ` ORDER BY s.last_api_update DESC`;
+
+        const result = await db.query(query, params);
+
+        const enriched = result.rows.map(sub => ({
+            ...sub,
+            estimated: estimateSubmissionProgress(sub),
+        }));
+
+        res.json({
+            submissions: enriched,
+            serverTime: new Date().toISOString(),
+            hasChanges: enriched.length > 0,
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to poll submissions' });
+    }
+});
+
+// Get single submission (includes submission_customers access + estimated progress)
 router.get('/submissions/:id', authenticateCustomer, async (req, res) => {
     try {
+        const { estimateSubmissionProgress } = require('../services/psaService');
+
         const result = await db.query(
             `SELECT s.* FROM submissions s
              WHERE s.id = $1 AND (s.customer_id = $2 OR s.id IN (
@@ -809,7 +862,13 @@ router.get('/submissions/:id', authenticateCustomer, async (req, res) => {
         const cards = await db.query('SELECT * FROM cards WHERE submission_id = $1', [req.params.id]);
         const steps = await db.query('SELECT * FROM submission_steps WHERE submission_id = $1 ORDER BY step_index', [req.params.id]);
 
-        res.json({ ...result.rows[0], cards: cards.rows, steps: steps.rows });
+        const submission = result.rows[0];
+        res.json({
+            ...submission,
+            cards: cards.rows,
+            steps: steps.rows,
+            estimated: estimateSubmissionProgress(submission),
+        });
     } catch (error) {
         res.status(500).json({ error: 'Failed to get submission' });
     }

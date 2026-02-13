@@ -316,6 +316,14 @@ async function startServer() {
       `);
       console.log("✓ Migration: SAM token system columns ensured");
 
+      // Ensure PSA refresh tracking columns exist on submissions
+      await db.query(`
+        ALTER TABLE submissions
+        ADD COLUMN IF NOT EXISTS last_api_update TIMESTAMP WITH TIME ZONE,
+        ADD COLUMN IF NOT EXISTS last_refreshed_at TIMESTAMP;
+      `);
+      console.log("✓ Migration: PSA refresh tracking columns ensured");
+
     } catch (migrationError) {
       // Don't fail startup if migration has issues, just log it
       console.warn("⚠ Migration warning:", migrationError.message);
