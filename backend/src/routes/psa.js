@@ -46,7 +46,7 @@ router.get("/test", authenticate, async (req, res) => {
       throw error;
     }
   } catch (error) {
-    console.error("PSA test error:", error);
+    console.error("PSA test error:", error.message);
     res.status(500).json({
       error: "Failed to test PSA connection",
       details: error.message
@@ -108,135 +108,113 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
     const total = submissions.rows.length;
     let updated = 0;
     let errors = 0;
-    const changeLog = []; // Track all changes for CSV report
+    const changeLog = [];
+    let clientDisconnected = false;
 
-    // Send initial progress
-    res.write(`data: ${JSON.stringify({ type: 'start', total, updated: 0, errors: 0 })}\n\n`);
+    // Handle client disconnect — stop refreshing if browser closes
+    req.on('close', () => { clientDisconnected = true; });
+
+    // Safe write helper — won't throw if client disconnected
+    const send = (data) => {
+      if (clientDisconnected) return;
+      try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch { clientDisconnected = true; }
+    };
+
+    send({ type: 'start', total, updated: 0, errors: 0 });
 
     const { getSubmissionProgress, updateSubmissionFromPsa, isRateLimited } = require('../services/psaService');
 
-    // Refresh each submission with rate limit protection
     for (let i = 0; i < submissions.rows.length; i++) {
+      if (clientDisconnected) break;
+
       const submission = submissions.rows[i];
 
       // Check global rate limit before each request
       if (isRateLimited().limited) {
-        res.write(`data: ${JSON.stringify({ type: 'rate_limited', message: 'PSA rate limit reached — stopping refresh', total, current: i, updated, errors })}\n\n`);
+        send({ type: 'rate_limited', message: 'PSA rate limit reached — stopping refresh', total, current: i, updated, errors });
         break;
       }
 
       try {
         const result = await getSubmissionProgress(psaApiKey, submission.psa_submission_number);
 
-        // Stop immediately on rate limit
         if (result.rateLimited) {
-          res.write(`data: ${JSON.stringify({ type: 'rate_limited', message: 'PSA rate limit reached — stopping refresh', total, current: i, updated, errors })}\n\n`);
+          send({ type: 'rate_limited', message: 'PSA rate limit reached — stopping refresh', total, current: i, updated, errors });
           break;
         }
 
         if (result.success && result.data) {
-          // Update submission with latest data (this also triggers email notifications)
           const updateResult = await updateSubmissionFromPsa(submission.id, result.data);
           const { changes } = updateResult;
 
-          // Log all changes for the report
-          if (changes.hadChanges) {
-            changeLog.push({
-              submissionNumber: changes.submissionNumber,
-              stepChanged: changes.stepChanged,
-              previousStep: changes.previousStep,
-              newStep: changes.newStep,
-              progressChanged: changes.progressChanged,
-              previousProgress: changes.previousProgress,
-              newProgress: changes.newProgress,
-              progressDelta: changes.progressDelta || 0,
-              statusChanged: changes.statusChanged,
-              gradesReady: changes.newGradesReady,
-              shipped: changes.newShipped,
-              problem: changes.newProblem,
-              timestamp: new Date().toISOString()
-            });
-          } else {
-            // Log no change
-            changeLog.push({
-              submissionNumber: changes.submissionNumber,
-              noChange: true,
-              currentStep: changes.newStep,
-              currentProgress: changes.newProgress,
-              timestamp: new Date().toISOString()
-            });
-          }
+          changeLog.push(changes.hadChanges
+            ? {
+                submissionNumber: changes.submissionNumber,
+                hadChanges: true,
+                stepChanged: changes.stepChanged,
+                previousStep: changes.previousStep,
+                newStep: changes.newStep,
+                progressChanged: changes.progressChanged,
+                previousProgress: changes.previousProgress,
+                newProgress: changes.newProgress,
+                progressDelta: changes.progressDelta || 0,
+                statusChanged: changes.statusChanged,
+                gradesReady: changes.newGradesReady,
+                shipped: changes.newShipped,
+                problem: changes.newProblem,
+                timestamp: new Date().toISOString()
+              }
+            : {
+                submissionNumber: changes.submissionNumber,
+                noChange: true,
+                currentStep: changes.newStep,
+                currentProgress: changes.newProgress,
+                timestamp: new Date().toISOString()
+              }
+          );
 
           updated++;
-
-          // Send progress update with change info
-          res.write(`data: ${JSON.stringify({
-            type: 'progress',
-            total,
-            current: i + 1,
-            updated,
-            errors,
+          send({
+            type: 'progress', total, current: i + 1, updated, errors,
             submissionNumber: submission.psa_submission_number,
             status: 'success',
             hadChanges: changes.hadChanges,
             stepChanged: changes.stepChanged,
             progressDelta: changes.progressDelta
-          })}\n\n`);
+          });
         } else {
           errors++;
-
           changeLog.push({
             submissionNumber: submission.psa_submission_number,
-            error: true,
-            errorMessage: result.error || 'Unknown error',
+            error: true, errorMessage: result.error || 'Unknown error',
             timestamp: new Date().toISOString()
           });
-
-          // Send error update
-          res.write(`data: ${JSON.stringify({
-            type: 'progress',
-            total,
-            current: i + 1,
-            updated,
-            errors,
-            submissionNumber: submission.psa_submission_number,
-            status: 'error'
-          })}\n\n`);
+          send({
+            type: 'progress', total, current: i + 1, updated, errors,
+            submissionNumber: submission.psa_submission_number, status: 'error'
+          });
         }
 
-        // Rate limit: wait 8-12 seconds between requests to avoid 429 errors
-        const baseDelay = 8000;
-        const jitter = Math.random() * 4000; // 0-4s random jitter
-        await new Promise(resolve => setTimeout(resolve, baseDelay + jitter));
+        // 3-5 seconds between successful requests
+        await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 2000));
       } catch (err) {
-        console.error(`Failed to refresh submission ${submission.psa_submission_number}:`, err.message);
+        console.error(`[PSA] Refresh error for ${submission.psa_submission_number}: ${err.message}`);
         errors++;
-
         changeLog.push({
           submissionNumber: submission.psa_submission_number,
-          error: true,
-          errorMessage: err.message,
+          error: true, errorMessage: err.message,
           timestamp: new Date().toISOString()
         });
-
-        // Send error update
-        res.write(`data: ${JSON.stringify({
-          type: 'progress',
-          total,
-          current: i + 1,
-          updated,
-          errors,
-          submissionNumber: submission.psa_submission_number,
-          status: 'error',
-          error: err.message
-        })}\n\n`);
-
-        // After error, wait even longer (15-20s) before next request
-        await new Promise(resolve => setTimeout(resolve, 15000 + Math.random() * 5000));
+        send({
+          type: 'progress', total, current: i + 1, updated, errors,
+          submissionNumber: submission.psa_submission_number, status: 'error'
+        });
+        // Longer wait after errors
+        await new Promise(resolve => setTimeout(resolve, 5000 + Math.random() * 3000));
       }
     }
 
-    // Store change log in the database for later retrieval
+    // Store change log
     try {
       await db.query(
         `INSERT INTO psa_refresh_logs (company_id, total_submissions, updated_count, error_count, change_log, created_by)
@@ -244,33 +222,24 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
         [req.user.company_id, total, updated, errors, JSON.stringify(changeLog), req.user.id]
       );
     } catch (dbError) {
-      console.error('Failed to save refresh log:', dbError);
-      // Don't fail the whole refresh if logging fails
+      console.error('[PSA] Failed to save refresh log:', dbError.message);
     }
 
-    // Send completion with change summary
     const changedCount = changeLog.filter(c => c.hadChanges).length;
     const noChangeCount = changeLog.filter(c => c.noChange).length;
-    res.write(`data: ${JSON.stringify({
-      type: 'complete',
-      total,
-      updated,
-      errors,
-      changedCount,
-      noChangeCount,
+    send({
+      type: 'complete', total, updated, errors, changedCount, noChangeCount,
       message: `Refresh completed: ${changedCount} changed, ${noChangeCount} unchanged, ${errors} errors`,
       changeLogAvailable: true
-    })}\n\n`);
+    });
 
-    res.end();
+    if (!clientDisconnected) res.end();
   } catch (error) {
-    console.error("Refresh all error:", error);
-    res.write(`data: ${JSON.stringify({
-      type: 'error',
-      error: 'Failed to refresh submissions',
-      details: error.message
-    })}\n\n`);
-    res.end();
+    console.error('[PSA] Refresh all error:', error.message);
+    try {
+      res.write(`data: ${JSON.stringify({ type: 'error', error: 'Failed to refresh submissions', details: error.message })}\n\n`);
+      res.end();
+    } catch { /* client already gone */ }
   }
 });
 
@@ -302,7 +271,7 @@ router.post("/normalize-service-levels", authenticate, requireRole("owner", "adm
       updated
     });
   } catch (error) {
-    console.error("Normalize service levels error:", error);
+    console.error("Normalize service levels error:", error.message);
     res.status(500).json({
       error: "Failed to normalize service levels",
       details: error.message
@@ -328,7 +297,7 @@ router.get("/refresh-log/latest", authenticate, async (req, res) => {
 
     res.json({ hasLog: true, log: result.rows[0] });
   } catch (error) {
-    console.error("Get refresh log error:", error);
+    console.error("Get refresh log error:", error.message);
     res.status(500).json({
       error: "Failed to get refresh log",
       details: error.message
@@ -414,7 +383,7 @@ router.get("/refresh-log/:id/csv", authenticate, async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(csv);
   } catch (error) {
-    console.error("Export CSV error:", error);
+    console.error("Export CSV error:", error.message);
     res.status(500).json({
       error: "Failed to export CSV",
       details: error.message
@@ -497,7 +466,7 @@ router.post("/send-weekly-update", authenticate, requireRole("owner", "admin"), 
       changesCount: results.changeLog.filter(c => c.hadChanges).length,
     });
   } catch (error) {
-    console.error("Send weekly update error:", error);
+    console.error("Send weekly update error:", error.message);
     res.status(500).json({ error: "Failed to send weekly update", details: error.message });
   }
 });

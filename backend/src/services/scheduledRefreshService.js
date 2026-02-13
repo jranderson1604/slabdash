@@ -439,7 +439,7 @@ async function sendRefreshReport(company, results, changeLog) {
 
     console.log(`Sent refresh report email to ${emailTo}`);
   } catch (error) {
-    console.error('Failed to send refresh report email:', error);
+    console.error('Failed to send refresh report email:', error.message);
   }
 }
 
