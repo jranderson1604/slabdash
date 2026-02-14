@@ -142,7 +142,7 @@ export default function Landing() {
         'Email support',
         'Basic analytics'
       ],
-      cta: 'Start Free Trial'
+      cta: 'Get Started Free'
     },
     {
       id: 'pro',
@@ -160,7 +160,7 @@ export default function Landing() {
         'CSV import/export',
         'Custom branding'
       ],
-      cta: 'Start Free Trial',
+      cta: 'Get Started Free',
       popular: true
     },
     {
@@ -238,7 +238,7 @@ export default function Landing() {
     { title: "Your customers get a portal", description: "Each customer gets a private tracking page — they scan a QR code or click a link.", action: "Next" },
     { title: "Grades come in? Customers know.", description: "Push notifications, emails, and portal updates fire automatically when PSA updates.", action: "Next" },
     { title: "Pickup made easy", description: "Customers get a unique pickup code. Verify it in-store — done.", action: "Next" },
-    { title: "Ready to try it?", description: "Start your free trial — no credit card, no commitment. See why shops love SlabDash.", action: "Start Free Trial" },
+    { title: "Ready to try it?", description: "SlabDash is free during early access — no credit card, no limits, no catch.", action: "Get Started Free" },
   ];
 
   // Mock data for demo screens
@@ -437,15 +437,37 @@ export default function Landing() {
 
     // Step 5: CTA
     if (step === 5) return (
-      <div style={{ textAlign: 'center', padding: '20px 0' }}>
-        <div style={{ fontSize: 64, marginBottom: 16 }}>🚀</div>
-        <p style={{ fontSize: 28, fontWeight: 900, color: '#2C2416', marginBottom: 8 }}>That's SlabDash.</p>
-        <p style={{ fontSize: 16, color: 'rgba(44,36,22,0.55)', maxWidth: 400, margin: '0 auto 24px', lineHeight: 1.6 }}>
-          Submissions, tracking, customer portals, notifications, pickup codes — all in one place. Your customers will love it.
-        </p>
-        <div className="flex justify-center gap-3">
-          <div style={{ background: '#10b981', borderRadius: 14, padding: '14px 28px', color: '#fff', fontWeight: 800, fontSize: 16 }}>14-day free trial</div>
-          <div style={{ background: tan, borderRadius: 14, padding: '14px 28px', color: '#2C2416', fontWeight: 700, fontSize: 16 }}>No credit card</div>
+      <div style={{ padding: '8px 0' }}>
+        <div style={{ textAlign: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 52, marginBottom: 12 }}>🚀</div>
+          <p style={{ fontSize: 26, fontWeight: 900, color: '#2C2416', marginBottom: 6 }}>That's SlabDash.</p>
+          <p style={{ fontSize: 14, color: 'rgba(44,36,22,0.5)', maxWidth: 360, margin: '0 auto', lineHeight: 1.5 }}>
+            Everything you just saw — ready for your shop in minutes.
+          </p>
+        </div>
+        <div style={{ background: cream, borderRadius: 16, border: '1px solid rgba(44,36,22,0.08)', padding: 20, marginBottom: 12 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(16,185,129,0.1)', color: '#065f46', borderRadius: 20, padding: '4px 12px', fontSize: 12, fontWeight: 800, marginBottom: 12 }}>
+            <Zap size={12} /> Early Access — 100% Free
+          </div>
+          <p style={{ fontWeight: 800, fontSize: 16, color: '#2C2416', marginBottom: 12 }}>Everything included, no limits:</p>
+          <div className="space-y-2">
+            {[
+              'Unlimited submissions & customers',
+              'Live PSA tracking with auto-refresh',
+              'Customer portal with QR codes',
+              'Email & push notifications',
+              'Pickup codes & invoicing',
+              'SAM AI assistant',
+            ].map((f, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <CheckCircle2 size={16} color="#10b981" />
+                <p style={{ fontSize: 14, fontWeight: 600, color: '#2C2416' }}>{f}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: 12, padding: '12px 16px', textAlign: 'center' }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#065f46' }}>No credit card. No time limit. Free while we're in early access — early shops get the best deal when paid plans launch.</p>
         </div>
       </div>
     );
@@ -497,7 +519,7 @@ export default function Landing() {
                 Admin Sign In
               </Link>
               <Link to="/register" className="px-4 py-2 bg-[#FF8170] hover:bg-[#ff6b59] text-white rounded-lg font-medium transition-colors shadow-md">
-                Start Free Trial
+                Get Started Free
               </Link>
             </div>
           </div>
@@ -527,7 +549,7 @@ export default function Landing() {
                 onClick={() => navigate('/register')}
                 className="bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-700 hover:to-brand-600 text-white text-lg px-10 py-4 rounded-xl font-bold transition-all flex items-center gap-3 group shadow-wix hover:shadow-wix-lg transform hover:-translate-y-1"
               >
-                Start Free Trial
+                Get Started Free
                 <ArrowRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
               </button>
               <button
@@ -538,7 +560,7 @@ export default function Landing() {
               </button>
             </div>
             <p className="text-base text-gray-500 font-medium">
-              14-day free trial • No credit card required • Cancel anytime
+              Free during early access • No credit card • All features included
             </p>
           </div>
 
@@ -744,11 +766,15 @@ export default function Landing() {
                 />
               </div>
             </div>
+            <div className="inline-flex items-center gap-2 px-5 py-2 bg-green-100 text-green-800 rounded-full text-sm font-bold mb-6">
+              <Zap className="w-4 h-4" />
+              Free During Early Access
+            </div>
             <h2 className="text-5xl sm:text-6xl font-extrabold text-gray-900 mb-6 leading-tight">
               Simple, Transparent Pricing
             </h2>
             <p className="text-2xl text-gray-600 font-medium">
-              Choose the plan that's right for your business
+              These are our planned prices — right now everything is <strong className="text-gray-900">completely free</strong>
             </p>
           </div>
 
@@ -808,6 +834,45 @@ export default function Landing() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Early access explanation */}
+          <div className="max-w-3xl mx-auto mt-16 p-8 rounded-2xl border-2 border-brand-200 bg-brand-50/50">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-green-100 text-green-800 rounded-full text-sm font-bold mb-4 mx-auto block w-fit">
+              <Zap className="w-4 h-4" />
+              Early Access — 100% Free
+            </div>
+            <h3 className="text-2xl font-extrabold text-gray-900 text-center mb-2">We're in early access</h3>
+            <p className="text-center text-gray-600 mb-6">SlabDash is free right now with no limits while we refine the platform with real shops.</p>
+            <div className="grid sm:grid-cols-3 gap-6 mb-6">
+              <div className="text-center">
+                <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span className="text-2xl font-black text-brand-600">1</span>
+                </div>
+                <p className="font-bold text-gray-900 mb-1">Sign up in 30 seconds</p>
+                <p className="text-sm text-gray-600">No credit card. Just your name, email, and shop name.</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span className="text-2xl font-black text-brand-600">2</span>
+                </div>
+                <p className="font-bold text-gray-900 mb-1">Use everything, no limits</p>
+                <p className="text-sm text-gray-600">Every feature unlocked — submissions, portal, emails, PSA tracking, SAM AI.</p>
+              </div>
+              <div className="text-center">
+                <div className="w-12 h-12 bg-brand-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <span className="text-2xl font-black text-brand-600">3</span>
+                </div>
+                <p className="font-bold text-gray-900 mb-1">We'll let you know</p>
+                <p className="text-sm text-gray-600">When paid plans launch, you'll get plenty of notice. Early users get the best deal.</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-gray-600 font-medium">
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-green-500" /> No credit card ever</span>
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-green-500" /> No usage limits</span>
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-green-500" /> All features included</span>
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="w-4 h-4 text-green-500" /> Early adopter pricing when we launch</span>
+            </div>
           </div>
         </div>
       </section>
@@ -933,12 +998,12 @@ export default function Landing() {
               onClick={() => navigate('/register')}
               className="bg-gradient-to-r from-[#FF8170] to-[#ff6b59] hover:from-[#ff6b59] hover:to-[#FF8170] text-white px-12 py-5 rounded-xl font-black text-xl transition-all flex items-center gap-3 shadow-2xl hover:shadow-[0_20px_50px_rgba(255,129,112,0.5)] transform hover:-translate-y-1 hover:scale-105"
             >
-              Start Free Trial
+              Get Started Free
               <ArrowRight className="w-6 h-6" />
             </button>
           </div>
           <p className="mt-8 text-gray-400 text-lg font-medium">
-            No credit card required • 14-day free trial
+            Free during early access • No credit card • No limits
           </p>
         </div>
       </section>
