@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 
 /**
- * Reusable StatCard component with liquid glass styling
+ * Reusable StatCard component with liquid glass styling and glowing icons
  */
 export default function StatCard({
   icon: Icon,
@@ -54,21 +54,29 @@ export default function StatCard({
     orange: { background: 'linear-gradient(135deg, #F97316, #EA580C)', color: '#FFF' },
   };
 
+  const glowClass = {
+    brand: 'icon-glow',
+    green: 'icon-glow-green',
+    blue: 'icon-glow-blue',
+    yellow: 'icon-glow-yellow',
+    purple: 'icon-glow-purple',
+    orange: 'icon-glow-orange',
+  };
+
   const style = variant === 'solid' ? solidIconStyles[color] : iconStyles[color];
 
   const content = (
     <div className="flex items-center gap-4">
-      <div
-        className="w-12 h-12 rounded-2xl flex items-center justify-center"
-        style={{
-          background: style.background,
-          border: style.border || 'none',
-          boxShadow: variant === 'solid'
-            ? '0 4px 12px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.2)'
-            : 'inset 0 1px 0 rgba(255,255,255,0.5)',
-        }}
-      >
-        <Icon className="w-6 h-6" style={{ color: style.color }} />
+      <div className="relative">
+        <div
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center ${glowClass[color] || 'icon-glow'}`}
+          style={{
+            background: style.background,
+            border: style.border || 'none',
+          }}
+        >
+          <Icon className="w-6 h-6" style={{ color: style.color, filter: `drop-shadow(0 0 6px ${style.color}40)` }} />
+        </div>
       </div>
       <div>
         <p className="text-2xl font-bold" style={{ color: 'rgb(var(--dark))' }}>{value}</p>

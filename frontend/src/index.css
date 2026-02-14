@@ -549,6 +549,50 @@
     50% { transform: translateY(-4px); }
   }
 
+  /* Icon glow pulse - soft breathing glow behind icons */
+  @keyframes iconGlow {
+    0%, 100% { box-shadow: 0 0 8px rgba(var(--glow-color, 255, 129, 112), 0.2), inset 0 1px 0 rgba(255,255,255,0.5); }
+    50% { box-shadow: 0 0 20px rgba(var(--glow-color, 255, 129, 112), 0.4), 0 0 40px rgba(var(--glow-color, 255, 129, 112), 0.15), inset 0 1px 0 rgba(255,255,255,0.5); }
+  }
+  /* Sparkle burst - quick flash of light */
+  @keyframes sparkle {
+    0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+    50% { opacity: 1; transform: scale(1) rotate(180deg); }
+  }
+  /* Orbit ring - rotating ring around elements */
+  @keyframes orbitRing {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  /* Pulse ring - expanding ring that fades out */
+  @keyframes pulseRing {
+    0% { transform: scale(0.8); opacity: 0.6; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+  /* Gradient border rotation */
+  @keyframes borderRotate {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  /* Ambient float - gentle floating movement */
+  @keyframes ambientFloat {
+    0%, 100% { transform: translate(0, 0) scale(1); }
+    25% { transform: translate(10px, -15px) scale(1.05); }
+    50% { transform: translate(-5px, -25px) scale(1); }
+    75% { transform: translate(-15px, -10px) scale(1.02); }
+  }
+  /* Nav icon glow on hover */
+  @keyframes navIconGlow {
+    0%, 100% { filter: drop-shadow(0 0 3px rgba(255, 129, 112, 0.3)); }
+    50% { filter: drop-shadow(0 0 8px rgba(255, 129, 112, 0.6)); }
+  }
+  /* Shimmer sweep across element */
+  @keyframes shimmerSweep {
+    0% { transform: translateX(-100%) skewX(-15deg); }
+    100% { transform: translateX(200%) skewX(-15deg); }
+  }
+
   .slide-in-right { animation: slideInRight 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
   .fade-in { animation: fadeIn 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
   .slide-up { animation: slideUp 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
@@ -556,6 +600,14 @@
   .liquid-shift { animation: liquidShift 8s ease infinite; background-size: 200% 200%; }
   .glass-glow { animation: glassGlow 4s ease-in-out infinite; }
   .float-up { animation: floatUp 3s ease-in-out infinite; }
+  .icon-glow { animation: iconGlow 3s ease-in-out infinite; }
+  .icon-glow-green { --glow-color: 16, 185, 129; animation: iconGlow 3s ease-in-out infinite; }
+  .icon-glow-blue { --glow-color: 59, 130, 246; animation: iconGlow 3s ease-in-out infinite; }
+  .icon-glow-yellow { --glow-color: 245, 158, 11; animation: iconGlow 3s ease-in-out infinite; }
+  .icon-glow-purple { --glow-color: 168, 85, 247; animation: iconGlow 3s ease-in-out infinite; }
+  .icon-glow-orange { --glow-color: 249, 115, 22; animation: iconGlow 3s ease-in-out infinite; }
+  .pulse-ring { animation: pulseRing 2s cubic-bezier(0, 0, 0.2, 1) infinite; }
+  .nav-icon-glow { animation: navIconGlow 2s ease-in-out infinite; }
 
   .animation-delay-100 { animation-delay: 100ms; }
   .animation-delay-200 { animation-delay: 200ms; }

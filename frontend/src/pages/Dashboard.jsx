@@ -109,7 +109,30 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {/* Ambient floating orbs for background depth */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
+        <div className="absolute top-20 right-20 w-64 h-64 rounded-full opacity-30"
+          style={{
+            background: 'radial-gradient(circle, rgba(255, 129, 112, 0.15) 0%, transparent 70%)',
+            animation: 'ambientFloat 12s ease-in-out infinite',
+          }}
+        />
+        <div className="absolute top-1/2 left-10 w-48 h-48 rounded-full opacity-20"
+          style={{
+            background: 'radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)',
+            animation: 'ambientFloat 15s ease-in-out infinite reverse',
+          }}
+        />
+        <div className="absolute bottom-32 right-1/3 w-56 h-56 rounded-full opacity-25"
+          style={{
+            background: 'radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, transparent 70%)',
+            animation: 'ambientFloat 18s ease-in-out infinite',
+            animationDelay: '-5s',
+          }}
+        />
+      </div>
+
       {/* Header with refresh button */}
       <PageHeader
         title="Dashboard"
@@ -204,7 +227,7 @@ export default function Dashboard() {
           <div className="p-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold flex items-center gap-2" style={{ color: 'rgb(var(--dark))' }}>
-                <Bell className="w-5 h-5" style={{ color: 'rgb(var(--brand-500))' }} />
+                <Bell className="w-5 h-5" style={{ color: 'rgb(var(--brand-500))', filter: 'drop-shadow(0 0 6px rgba(255, 129, 112, 0.5))' }} />
                 Recent Activity
               </h2>
             </div>
@@ -243,7 +266,7 @@ export default function Dashboard() {
           <div className="p-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
             <div className="flex items-center justify-between">
               <h2 className="text-base font-bold flex items-center gap-2" style={{ color: 'rgb(var(--dark))' }}>
-                <DollarSign className="w-5 h-5" style={{ color: '#059669' }} />
+                <DollarSign className="w-5 h-5" style={{ color: '#059669', filter: 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.5))' }} />
                 Buyback Offers
               </h2>
               <Link
@@ -327,10 +350,10 @@ export default function Dashboard() {
           />
           <div className="relative flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+              <div className="w-14 h-14 rounded-2xl flex items-center justify-center icon-glow-purple"
                 style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.15)' }}
               >
-                <PlayCircle className="w-8 h-8 text-white" />
+                <PlayCircle className="w-8 h-8 text-white" style={{ filter: 'drop-shadow(0 0 8px rgba(196, 181, 253, 0.6))' }} />
               </div>
               <div>
                 <h3 className="text-xl font-black text-white mb-1">Interactive Admin Tutorial</h3>
@@ -360,10 +383,10 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link to="/submissions/new" className="card p-6 transition-all group cursor-pointer">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all"
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all icon-glow group-hover:scale-110"
               style={{ background: 'rgba(255, 129, 112, 0.1)', border: '1px solid rgba(255, 129, 112, 0.12)' }}
             >
-              <Package className="w-5 h-5" style={{ color: '#E8543D' }} />
+              <Package className="w-5 h-5" style={{ color: '#E8543D', filter: 'drop-shadow(0 0 4px rgba(232, 84, 61, 0.4))' }} />
             </div>
             <div>
               <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>New Submission</p>
@@ -374,10 +397,10 @@ export default function Dashboard() {
 
         <Link to="/customers/new" className="card p-6 transition-all group cursor-pointer">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all"
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all icon-glow-green group-hover:scale-110"
               style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.12)' }}
             >
-              <Users className="w-5 h-5" style={{ color: '#059669' }} />
+              <Users className="w-5 h-5" style={{ color: '#059669', filter: 'drop-shadow(0 0 4px rgba(5, 150, 105, 0.4))' }} />
             </div>
             <div>
               <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>Add Customer</p>
@@ -388,10 +411,10 @@ export default function Dashboard() {
 
         <Link to="/settings" className="card p-6 transition-all group cursor-pointer">
           <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all"
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all icon-glow-blue group-hover:scale-110"
               style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.12)' }}
             >
-              <TrendingUp className="w-5 h-5" style={{ color: '#2563EB' }} />
+              <TrendingUp className="w-5 h-5" style={{ color: '#2563EB', filter: 'drop-shadow(0 0 4px rgba(37, 99, 235, 0.4))' }} />
             </div>
             <div>
               <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>Connect PSA</p>

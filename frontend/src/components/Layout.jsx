@@ -88,7 +88,7 @@ export default function Layout({ children }) {
               src="/images/logo-icon.png.svg"
               alt="SlabDash"
               className="h-12 w-12 object-contain"
-              style={{ filter: 'brightness(1.1)' }}
+              style={{ filter: 'brightness(1.1) drop-shadow(0 0 12px rgba(255, 129, 112, 0.4))' }}
             />
           </Link>
         </div>
@@ -137,18 +137,18 @@ export default function Layout({ children }) {
             const isActive = location.pathname === item.href ||
               (item.href !== '/dashboard' && item.href !== '/' && location.pathname.startsWith(item.href));
 
-            // Special styling for SAM AI (highlighted)
+            // Special styling for SAM AI (highlighted) with glow effects
             if (item.highlight) {
               return (
                 <Link
                   key={item.name}
                   to={item.href}
                   onClick={() => setSidebarOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative overflow-hidden"
                   style={isActive ? {
                     background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.5), rgba(255, 107, 89, 0.4))',
                     color: '#FFF8F0',
-                    boxShadow: '0 4px 20px rgba(255, 107, 89, 0.3), inset 0 1px 0 rgba(255,255,255,0.1)',
+                    boxShadow: '0 4px 20px rgba(255, 107, 89, 0.3), 0 0 30px rgba(255, 107, 89, 0.15), inset 0 1px 0 rgba(255,255,255,0.1)',
                     border: '1px solid rgba(255, 129, 112, 0.3)',
                     transform: 'scale(1.02)',
                   } : {
@@ -158,11 +158,12 @@ export default function Layout({ children }) {
                     border: '1px solid rgba(255, 129, 112, 0.12)',
                   }}
                 >
-                  <item.icon className="w-5 h-5 flex-shrink-0" />
+                  <item.icon className="w-5 h-5 flex-shrink-0 nav-icon-glow" />
                   <span className="slabdash-label font-bold">{item.name}</span>
                   <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full" style={{
                     background: 'rgba(255, 248, 240, 0.15)',
                     color: 'rgba(255, 248, 240, 0.8)',
+                    boxShadow: '0 0 8px rgba(255, 129, 112, 0.3)',
                   }}>AI</span>
                 </Link>
               );
@@ -177,12 +178,12 @@ export default function Layout({ children }) {
                 style={isActive ? {
                   background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.35), rgba(255, 107, 89, 0.25))',
                   color: '#FFF8F0',
-                  boxShadow: '0 2px 12px rgba(255, 107, 89, 0.15), inset 0 1px 0 rgba(255,255,255,0.06)',
+                  boxShadow: '0 2px 12px rgba(255, 107, 89, 0.15), 0 0 20px rgba(255, 107, 89, 0.1), inset 0 1px 0 rgba(255,255,255,0.06)',
                 } : {
                   color: 'rgba(255, 248, 240, 0.65)',
                 }}
               >
-                <item.icon className="w-5 h-5 flex-shrink-0" />
+                <item.icon className="w-5 h-5 flex-shrink-0" style={isActive ? { filter: 'drop-shadow(0 0 6px rgba(255, 129, 112, 0.6))' } : {}} />
                 <span className="slabdash-label">{item.name}</span>
               </Link>
             );
