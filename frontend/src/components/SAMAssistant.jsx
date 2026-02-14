@@ -87,41 +87,51 @@ export default function SAMAssistant() {
 
   return (
     <>
-      {/* Floating SAM Button - Liquid glass */}
+      {/* Floating SAM Button - Liquid glass with pulsing glow ring */}
       {!isOpen && (
-        <button
-          onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 z-50 group glass-glow"
-          style={{
-            background: 'rgba(255, 255, 255, 0.65)',
-            backdropFilter: 'blur(40px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-            border: '2px solid rgba(255, 129, 112, 0.35)',
-            boxShadow: '0 8px 32px rgba(255, 107, 89, 0.2), 0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.7)',
-          }}
-          aria-label="Open SAM Assistant"
-        >
-          <div className="relative w-16 h-16 flex items-center justify-center">
-            <img
-              src={SAM_IMAGE}
-              alt="SAM"
-              className="w-full h-full object-contain"
-              onError={(e) => {
-                e.target.style.display = 'none';
-                e.target.parentElement.innerHTML = '<div class="text-4xl">S</div>';
-              }}
-            />
-          </div>
-          <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
+        <div className="fixed bottom-6 right-6 z-50">
+          {/* Pulsing glow rings */}
+          <div className="absolute inset-0 rounded-full pulse-ring"
+            style={{ border: '2px solid rgba(255, 129, 112, 0.3)' }}
+          />
+          <div className="absolute inset-0 rounded-full pulse-ring"
+            style={{ border: '2px solid rgba(255, 129, 112, 0.2)', animationDelay: '0.7s' }}
+          />
+          <button
+            onClick={() => setIsOpen(true)}
+            className="relative w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 group glass-glow"
             style={{
-              background: 'linear-gradient(135deg, #10B981, #059669)',
-              boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4)',
-              border: '2px solid rgba(255,255,255,0.8)',
+              background: 'rgba(255, 255, 255, 0.65)',
+              backdropFilter: 'blur(40px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+              border: '2px solid rgba(255, 129, 112, 0.35)',
+              boxShadow: '0 8px 32px rgba(255, 107, 89, 0.25), 0 0 20px rgba(255, 107, 89, 0.15), 0 2px 8px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.7)',
             }}
+            aria-label="Open SAM Assistant"
           >
-            <MessageCircle className="w-3 h-3 text-white" />
-          </div>
-        </button>
+            <div className="relative w-16 h-16 flex items-center justify-center">
+              <img
+                src={SAM_IMAGE}
+                alt="SAM"
+                className="w-full h-full object-contain"
+                style={{ filter: 'drop-shadow(0 0 8px rgba(255, 129, 112, 0.3))' }}
+                onError={(e) => {
+                  e.target.style.display = 'none';
+                  e.target.parentElement.innerHTML = '<div class="text-4xl">S</div>';
+                }}
+              />
+            </div>
+            <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, #10B981, #059669)',
+                boxShadow: '0 2px 8px rgba(16, 185, 129, 0.4), 0 0 12px rgba(16, 185, 129, 0.3)',
+                border: '2px solid rgba(255,255,255,0.8)',
+              }}
+            >
+              <MessageCircle className="w-3 h-3 text-white" />
+            </div>
+          </button>
+        </div>
       )}
 
       {/* Chat Window - Liquid glass */}

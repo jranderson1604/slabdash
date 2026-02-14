@@ -33,6 +33,24 @@ export default function PageHeader({
       <div className="absolute top-0 left-0 right-0 h-px"
         style={{ background: 'linear-gradient(90deg, transparent, rgba(255, 216, 196, 0.5), transparent)' }}
       />
+      {/* Shimmer sweep effect */}
+      <div className="absolute inset-0 pointer-events-none"
+        style={{
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '40%',
+            height: '100%',
+            background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent)',
+            animation: 'shimmerSweep 4s ease-in-out infinite',
+          }}
+        />
+      </div>
 
       <div className="relative">
         {/* Header content */}
