@@ -148,8 +148,8 @@ async function refreshCompanySubmissions(company) {
         changeLog.push({ submissionNumber: orderNumber, hadChanges: false, error: result.error || 'Unknown' });
       }
 
-      // Rate limit: 2 seconds between requests
-      await new Promise(r => setTimeout(r, 2000));
+      // Throttle: 6-8 seconds between requests to stay under PSA limits
+      await new Promise(r => setTimeout(r, 6000 + Math.random() * 2000));
 
     } catch (error) {
       errorCount++;
@@ -392,8 +392,8 @@ async function runCompanyRefresh(company, psaApiKey) {
       if (changes.hadChanges) updatedCount++;
       changeLog.push(changes);
 
-      // 2 seconds between requests to stay well under PSA limits
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 6-8 seconds between requests to stay well under PSA limits
+      await new Promise(resolve => setTimeout(resolve, 6000 + Math.random() * 2000));
     } catch (error) {
       errorCount++;
       changeLog.push({

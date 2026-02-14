@@ -195,8 +195,8 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
           });
         }
 
-        // 3-5 seconds between successful requests
-        await new Promise(resolve => setTimeout(resolve, 3000 + Math.random() * 2000));
+        // 6-10 seconds between successful requests to stay under PSA limits
+        await new Promise(resolve => setTimeout(resolve, 6000 + Math.random() * 4000));
       } catch (err) {
         console.error(`[PSA] Refresh error for ${submission.psa_submission_number}: ${err.message}`);
         errors++;
@@ -210,7 +210,7 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
           submissionNumber: submission.psa_submission_number, status: 'error'
         });
         // Longer wait after errors
-        await new Promise(resolve => setTimeout(resolve, 5000 + Math.random() * 3000));
+        await new Promise(resolve => setTimeout(resolve, 10000 + Math.random() * 5000));
       }
     }
 
