@@ -1,6 +1,6 @@
 /**
  * Scheduler - Cron jobs for automated tasks
- * Smart priority-based PSA refresh runs every 30 minutes
+ * Smart priority-based PSA refresh runs every 2 hours to stay well under PSA rate limits
  */
 
 const cron = require('node-cron');
@@ -13,10 +13,11 @@ const { isRateLimited } = require('./services/psaService');
 function initializeScheduler() {
   console.log('Initializing scheduler...');
 
-  // Smart PSA refresh every 30 minutes
+  // Smart PSA refresh every 2 hours
   // Only refreshes submissions whose priority interval has elapsed
-  // (e.g., Express orders every 2-3h, Bulk every 6-8h)
-  cron.schedule('*/30 * * * *', async () => {
+  // (e.g., Express orders every 4h, Bulk every 8-12h)
+  // Runs at minute 15 to avoid top-of-hour traffic
+  cron.schedule('15 */2 * * *', async () => {
     const rl = isRateLimited();
     if (rl.limited) {
       console.log(`[Cron] Skipped — PSA rate limited for ${rl.retryAfterMin} more minutes`);
@@ -30,7 +31,7 @@ function initializeScheduler() {
     }
   });
 
-  console.log('Scheduler initialized (smart refresh every 30 min)');
+  console.log('Scheduler initialized (smart refresh every 2 hours)');
 }
 
 module.exports = {

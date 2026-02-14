@@ -4,9 +4,13 @@ const db = require('../db');
 const PSA_API_BASE = process.env.PSA_API_BASE || 'https://api.psacard.com/publicapi';
 
 // ============================================
-// GLOBAL RATE LIMIT TRACKING
+// GLOBAL RATE LIMIT & THROTTLE TRACKING
 // ============================================
 let _rateLimitedUntil = 0; // Unix timestamp (ms) when rate limit expires
+let _lastRequestAt = 0;    // Unix timestamp (ms) of last PSA API request
+const MIN_REQUEST_INTERVAL_MS = 5000; // 5 seconds minimum between any PSA API call
+const MAX_COOLDOWN_MS = 30 * 60 * 1000; // Cap cooldown at 30 minutes max
+const DEFAULT_COOLDOWN_MS = 15 * 60 * 1000; // 15 min default cooldown on 429
 
 /**
  * Check if we're currently rate limited by PSA.
@@ -22,8 +26,23 @@ const isRateLimited = () => {
 };
 
 /**
+ * Wait until the minimum interval between requests has elapsed.
+ * Prevents hammering PSA even when multiple refresh paths fire.
+ */
+const throttle = async () => {
+    const now = Date.now();
+    const elapsed = now - _lastRequestAt;
+    if (elapsed < MIN_REQUEST_INTERVAL_MS) {
+        const waitMs = MIN_REQUEST_INTERVAL_MS - elapsed;
+        await new Promise(r => setTimeout(r, waitMs));
+    }
+    _lastRequestAt = Date.now();
+};
+
+/**
  * Set global rate limit cooldown from a 429 response.
- * Respects the retry-after header if present, otherwise defaults to 30 minutes.
+ * Respects the retry-after header but caps at MAX_COOLDOWN_MS (30 min)
+ * to avoid absurdly long lockouts from PSA's aggressive headers.
  */
 const setRateLimited = (error) => {
     const retryAfterHeader = error.response?.headers?.['retry-after'];
@@ -32,12 +51,12 @@ const setRateLimited = (error) => {
     if (retryAfterHeader) {
         const retryAfterSec = parseInt(retryAfterHeader, 10);
         if (!isNaN(retryAfterSec) && retryAfterSec > 0) {
-            cooldownMs = retryAfterSec * 1000;
+            cooldownMs = Math.min(retryAfterSec * 1000, MAX_COOLDOWN_MS);
         } else {
-            cooldownMs = 30 * 60 * 1000; // 30 min default
+            cooldownMs = DEFAULT_COOLDOWN_MS;
         }
     } else {
-        cooldownMs = 30 * 60 * 1000; // 30 min default
+        cooldownMs = DEFAULT_COOLDOWN_MS;
     }
 
     _rateLimitedUntil = Date.now() + cooldownMs;
@@ -96,6 +115,8 @@ const getSubmissionProgress = async (apiKey, submissionNumber, retries = 2) => {
 
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
+            // Enforce minimum interval between PSA requests
+            await throttle();
             const response = await createPsaClient(apiKey).get(`/order/GetSubmissionProgress/${submissionNumber}`);
             const raw = response.data;
             const data = raw?.PSAOrder || raw?.psaOrder || raw;
@@ -129,6 +150,7 @@ const getSubmissionProgress = async (apiKey, submissionNumber, retries = 2) => {
 
 const getCertificate = async (apiKey, certNumber) => {
     try {
+        await throttle();
         const response = await createPsaClient(apiKey).get(`/cert/GetByCertNumber/${certNumber}`);
         const data = response.data;
         if (data.ServerMessage === 'No data found') return { success: false, error: 'Certificate not found' };
@@ -144,6 +166,7 @@ const getCertificate = async (apiKey, certNumber) => {
 
 const getCertImages = async (apiKey, certNumber) => {
     try {
+        await throttle();
         const response = await createPsaClient(apiKey).get(`/cert/GetImagesByCertNumber/${certNumber}`);
         const data = response.data;
         if (!data || data.ServerMessage === 'No data found') {
@@ -544,8 +567,8 @@ const autoFetchCertData = async (submissionId) => {
                 );
                 updated++;
             }
-            // Rate limit between cert lookups
-            await new Promise(r => setTimeout(r, 300));
+            // Throttle between cert lookups (throttle() enforces 5s min)
+            await new Promise(r => setTimeout(r, 3000));
         } catch (err) {
             console.error(`Auto cert fetch failed for ${card.psa_cert_number}:`, err.message);
         }
@@ -740,26 +763,26 @@ const getRefreshPriority = (submission) => {
     // Shipped or picked up — no refresh needed
     if (submission.shipped || submission.picked_up) return { hours: 0, tier: 'none' };
 
-    // Problem orders — check frequently for resolution
-    if (submission.problem_order) return { hours: isExpress ? 2 : 4, tier: 'urgent' };
+    // Problem orders — check for resolution
+    if (submission.problem_order) return { hours: isExpress ? 4 : 8, tier: 'urgent' };
 
-    // Express/premium tiers — always faster refresh
+    // Express/premium tiers — faster refresh but conservative
     if (isExpress) {
-        if (!step || step === 'Arrived' || step === 'Order Prep') return { hours: 2, tier: 'high' };
-        return { hours: 3, tier: 'high' };
+        if (!step || step === 'Arrived' || step === 'Order Prep') return { hours: 4, tier: 'high' };
+        return { hours: 6, tier: 'high' };
     }
 
-    // Early stages (Arrived, Order Prep) — package just landed, things move
-    if (!step || step === 'Arrived' || step === 'Order Prep') return { hours: 6, tier: 'medium' };
+    // Early stages (Arrived, Order Prep) — package just landed
+    if (!step || step === 'Arrived' || step === 'Order Prep') return { hours: 8, tier: 'medium' };
 
     // Active processing (Research & ID through Assembly) — core pipeline
-    if (['Research & ID', 'Grading', 'Assembly'].includes(step)) return { hours: 8, tier: 'medium' };
+    if (['Research & ID', 'Grading', 'Assembly'].includes(step)) return { hours: 12, tier: 'medium' };
 
-    // Grades Ready / QA — waiting for shipping, less urgency
-    if (['Grades Ready', 'QA Checks'].includes(step)) return { hours: 12, tier: 'low' };
+    // Grades Ready / QA — waiting for shipping, low urgency
+    if (['Grades Ready', 'QA Checks'].includes(step)) return { hours: 24, tier: 'low' };
 
     // Fallback
-    return { hours: 8, tier: 'medium' };
+    return { hours: 12, tier: 'medium' };
 };
 
 // ============================================
@@ -805,7 +828,8 @@ const refreshAllSubmissions = async () => {
                     console.error(`[PSA] Update failed for ${sub.psa_submission_number}: ${err.message}`);
                 }
             }
-            await new Promise(r => setTimeout(r, 2000));
+            // 6-8 seconds between requests to stay under PSA limits
+            await new Promise(r => setTimeout(r, 6000 + Math.random() * 2000));
         }
     }
 };
@@ -835,6 +859,7 @@ module.exports = {
     getHistoricalDurations,
     getRefreshPriority,
     isRateLimited,
+    throttle,
     logApiCall,
     STEP_NAMES,
     STEP_ORDER,
