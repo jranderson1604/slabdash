@@ -1580,7 +1580,7 @@ export default function SubmissionDetail() {
             </div>
 
             {/* Add customer section */}
-            <div className="mb-4 p-5 bg-brand-50 rounded-lg border-2 border-brand-200">
+            <div className="mb-4 p-5 bg-gray-50 rounded-lg border border-gray-200">
               <div className="flex items-center justify-between mb-3">
                 <label className="block text-base font-semibold text-gray-900">
                   Add Customer to This Submission
@@ -1600,49 +1600,55 @@ export default function SubmissionDetail() {
                   }}
                   onFocus={() => setShowCustomerDropdown(true)}
                   disabled={assigningCustomer}
-                  className="input pl-10 w-full"
+                  className="input pl-10 w-full bg-white"
                 />
 
-                {/* Dropdown results */}
-                {showCustomerDropdown && customerSearchQuery && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {/* Dropdown results — shows on focus, no search required */}
+                {showCustomerDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-72 overflow-y-auto">
+                    {!customerSearchQuery && (
+                      <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100">
+                        All customers
+                      </div>
+                    )}
                     {customerList
-                      .filter(c =>
-                        !submission.linked_customers?.some(lc => lc.id === c.id) &&
-                        (c.name?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
-                         c.email?.toLowerCase().includes(customerSearchQuery.toLowerCase()))
-                      )
+                      .filter(c => {
+                        if (submission.linked_customers?.some(lc => lc.id === c.id)) return false;
+                        if (!customerSearchQuery) return true;
+                        const q = customerSearchQuery.toLowerCase();
+                        return c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q);
+                      })
                       .map((c) => (
                         <button
                           key={c.id}
                           onClick={() => {
                             setCustomerToAdd(c.id);
-                            setCustomerSearchQuery(c.name);
+                            setCustomerSearchQuery('');
                             setShowCustomerDropdown(false);
                             handleAddLinkedCustomer(c.id);
-                            setCustomerSearchQuery('');
                           }}
-                          className="w-full text-left px-4 py-3 hover:bg-brand-50 transition-colors border-b border-gray-100 last:border-b-0"
+                          className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
                         >
-                          <p className="font-medium text-gray-900">{c.name}</p>
+                          <p className="font-bold text-gray-900">{c.name}</p>
                           <p className="text-sm text-gray-500">{c.email}</p>
                         </button>
                       ))}
-                    {customerList.filter(c =>
-                      !submission.linked_customers?.some(lc => lc.id === c.id) &&
-                      (c.name?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
-                       c.email?.toLowerCase().includes(customerSearchQuery.toLowerCase()))
-                    ).length === 0 && (
+                    {customerList.filter(c => {
+                      if (submission.linked_customers?.some(lc => lc.id === c.id)) return false;
+                      if (!customerSearchQuery) return true;
+                      const q = customerSearchQuery.toLowerCase();
+                      return c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q);
+                    }).length === 0 && (
                       <div className="px-4 py-3 text-gray-500 text-sm">
-                        No customers found matching "{customerSearchQuery}"
+                        {customerSearchQuery ? `No customers found matching "${customerSearchQuery}"` : 'No customers available'}
                       </div>
                     )}
                   </div>
                 )}
               </div>
 
-              <p className="text-xs text-brand-700 font-medium">
-                💡 Search for a customer by name or email and click to add them
+              <p className="text-xs text-gray-500 font-medium">
+                Click the search box to see all customers, or type to filter
               </p>
             </div>
 
