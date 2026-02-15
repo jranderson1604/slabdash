@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Hide scrollbar for tab bar */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
 /* SlabDash - Apple Liquid Glass Design System */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
