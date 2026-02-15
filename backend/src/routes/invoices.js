@@ -257,7 +257,7 @@ router.get('/preview/:submissionId', authenticate, requireRole('owner', 'admin')
 
     } catch (error) {
         console.error('Invoice preview error:', error);
-        res.status(500).json({ error: 'Failed to generate preview', details: error.message });
+        res.status(500).json({ error: 'Failed to generate preview' });
     }
 });
 
@@ -546,7 +546,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
 
     } catch (error) {
         console.error('Generate invoices error:', error);
-        res.status(500).json({ error: 'Failed to generate invoices', details: error.message });
+        res.status(500).json({ error: 'Failed to generate invoices' });
     }
 });
 

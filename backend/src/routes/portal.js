@@ -282,17 +282,18 @@ router.post('/auth/login', authLimiter, async (req, res) => {
 
     if (!passwordMatch) {
       const newAttempts = (customer.failed_login_attempts || 0) + 1;
-      const lockUpdate = newAttempts >= LOCKOUT_THRESHOLD
-        ? `, locked_until = '${new Date(Date.now() + LOCKOUT_DURATION_MS).toISOString()}'`
-        : '';
-
-      await db.query(
-        `UPDATE customers SET failed_login_attempts = $1${lockUpdate} WHERE id = $2`,
-        [newAttempts, customer.id]
-      );
 
       if (newAttempts >= LOCKOUT_THRESHOLD) {
-        console.log(`Account locked: ${email} after ${newAttempts} failed attempts`);
+        await db.query(
+          `UPDATE customers SET failed_login_attempts = $1, locked_until = $2 WHERE id = $3`,
+          [newAttempts, new Date(Date.now() + LOCKOUT_DURATION_MS), customer.id]
+        );
+        console.log(`Account locked: customer ${customer.id} after ${newAttempts} failed attempts`);
+      } else {
+        await db.query(
+          `UPDATE customers SET failed_login_attempts = $1 WHERE id = $2`,
+          [newAttempts, customer.id]
+        );
       }
 
       return res.status(401).json({ error: 'Invalid credentials' });
@@ -372,13 +373,18 @@ router.post('/auth/pin/verify', authenticateCustomer, async (req, res) => {
     const match = await bcrypt.compare(pin, customer.pin_hash);
     if (!match) {
       const newAttempts = (customer.failed_login_attempts || 0) + 1;
-      const lockUpdate = newAttempts >= LOCKOUT_THRESHOLD
-        ? `, locked_until = '${new Date(Date.now() + LOCKOUT_DURATION_MS).toISOString()}'`
-        : '';
-      await db.query(
-        `UPDATE customers SET failed_login_attempts = $1${lockUpdate} WHERE id = $2`,
-        [newAttempts, req.customer.id]
-      );
+
+      if (newAttempts >= LOCKOUT_THRESHOLD) {
+        await db.query(
+          `UPDATE customers SET failed_login_attempts = $1, locked_until = $2 WHERE id = $3`,
+          [newAttempts, new Date(Date.now() + LOCKOUT_DURATION_MS), req.customer.id]
+        );
+      } else {
+        await db.query(
+          `UPDATE customers SET failed_login_attempts = $1 WHERE id = $2`,
+          [newAttempts, req.customer.id]
+        );
+      }
       return res.status(401).json({ error: 'Incorrect PIN' });
     }
 
@@ -579,8 +585,17 @@ const scanUpload = multer({
   }
 });
 
+// Rate limiter for unauthenticated portal endpoints
+const portalAccessLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests. Please try again later.' }
+});
+
 // Quick access endpoint for portal links (GET with token query param)
-router.get('/access', async (req, res) => {
+router.get('/access', portalAccessLimiter, async (req, res) => {
     try {
         const token = req.query.token;
 
@@ -608,7 +623,7 @@ router.get('/access', async (req, res) => {
             `SELECT
                 s.id, s.internal_id, s.psa_submission_number, s.service_level,
                 s.current_step, s.progress_percent, s.grades_ready, s.shipped,
-                s.problem_order, s.date_sent, s.return_tracking, s.admin_notes, s.prep_notes,
+                s.problem_order, s.date_sent, s.return_tracking,
                 (SELECT COUNT(*) FROM cards WHERE submission_id = s.id) as card_count,
                 (SELECT json_agg(json_build_object(
                     'id', c.id,
@@ -618,10 +633,7 @@ router.get('/access', async (req, res) => {
                     'year', c.year,
                     'grade', c.grade,
                     'psa_cert_number', c.psa_cert_number,
-                    'before_photos', c.before_photos,
-                    'admin_notes', c.admin_notes,
-                    'prep_notes', c.prep_notes,
-                    'price_estimate', c.price_estimate
+                    'before_photos', c.before_photos
                 )) FROM cards c WHERE c.submission_id = s.id) as cards
              FROM submissions s
              WHERE s.customer_id = $1 OR s.id IN (
@@ -675,7 +687,7 @@ router.get('/access', async (req, res) => {
 });
 
 // Toggle email notification preference (token-based portal access)
-router.patch('/email-preference', async (req, res) => {
+router.patch('/email-preference', portalAccessLimiter, async (req, res) => {
     try {
         const token = req.query.token;
         const { email_opt_in } = req.body;
@@ -1581,11 +1593,17 @@ const checkSAMTokens = async (customerId, companyId, type = 'message') => {
 
     if (isFree) {
         // Free message — increment count
-        const col = type === 'scan' ? 'scan_count' : 'message_count';
-        await db.query(
-            `UPDATE sam_usage SET ${col} = ${col} + 1, updated_at = NOW() WHERE id = $1`,
-            [record.id]
-        );
+        if (type === 'scan') {
+            await db.query(
+                `UPDATE sam_usage SET scan_count = scan_count + 1, updated_at = NOW() WHERE id = $1`,
+                [record.id]
+            );
+        } else {
+            await db.query(
+                `UPDATE sam_usage SET message_count = message_count + 1, updated_at = NOW() WHERE id = $1`,
+                [record.id]
+            );
+        }
         return {
             allowed: true,
             free: true,
@@ -1620,11 +1638,17 @@ const checkSAMTokens = async (customerId, companyId, type = 'message') => {
         `UPDATE customers SET sam_token_balance = sam_token_balance - 1 WHERE id = $1 AND sam_token_balance > 0`,
         [customerId]
     );
-    const col = type === 'scan' ? 'scan_count' : 'message_count';
-    await db.query(
-        `UPDATE sam_usage SET ${col} = ${col} + 1, tokens_used = tokens_used + 1, updated_at = NOW() WHERE id = $1`,
-        [record.id]
-    );
+    if (type === 'scan') {
+        await db.query(
+            `UPDATE sam_usage SET scan_count = scan_count + 1, tokens_used = tokens_used + 1, updated_at = NOW() WHERE id = $1`,
+            [record.id]
+        );
+    } else {
+        await db.query(
+            `UPDATE sam_usage SET message_count = message_count + 1, tokens_used = tokens_used + 1, updated_at = NOW() WHERE id = $1`,
+            [record.id]
+        );
+    }
 
     return {
         allowed: true,
@@ -2197,7 +2221,6 @@ Only include fields you can actually read from the card.`
         res.status(500).json({
             error: 'Failed to analyze card image',
             message: 'Having trouble analyzing that image. Make sure it\'s a clear photo of the card and try again!',
-            details: error.message
         });
     }
 });

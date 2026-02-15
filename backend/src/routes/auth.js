@@ -2,11 +2,40 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 
+// Rate limiter for login: 5 attempts per 15 minutes per IP
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many login attempts. Please try again in 15 minutes.' }
+});
+
+// Rate limiter for registration: 3 per hour per IP
+const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 3,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many registration attempts. Please try again later.' }
+});
+
+// Input validation helpers
+const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const isValidPassword = (password) => {
+    if (!password || password.length < 8) return 'Password must be at least 8 characters';
+    if (password.length > 128) return 'Password is too long';
+    if (!/[a-zA-Z]/.test(password)) return 'Password must contain at least one letter';
+    if (!/[0-9]/.test(password)) return 'Password must contain at least one number';
+    return null;
+};
+
 // User login
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
 
@@ -14,8 +43,13 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ error: 'Email and password required' });
         }
 
+        if (!isValidEmail(email)) {
+            return res.status(400).json({ error: 'Invalid email format' });
+        }
+
         const result = await db.query(
-            `SELECT u.*, c.name as company_name, c.slug as company_slug, c.shop_code as company_shop_code,
+            `SELECT u.id, u.company_id, u.email, u.name, u.role, u.password_hash,
+             c.name as company_name, c.slug as company_slug, c.shop_code as company_shop_code,
              c.psa_api_key IS NOT NULL as has_psa_key,
              c.primary_color, c.background_color, c.sidebar_color
              FROM users u JOIN companies c ON u.company_id = c.id
@@ -37,7 +71,7 @@ router.post('/login', async (req, res) => {
         const token = jwt.sign(
             { userId: user.id, companyId: user.company_id, role: user.role },
             process.env.JWT_SECRET,
-            { expiresIn: '7d' }
+            { expiresIn: '7d', algorithm: 'HS256' }
         );
 
         res.json({
@@ -66,12 +100,25 @@ router.post('/login', async (req, res) => {
 });
 
 // User registration
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
     try {
         const { email, password, name, companyName } = req.body;
 
         if (!email || !password || !name || !companyName) {
             return res.status(400).json({ error: 'All fields required' });
+        }
+
+        if (!isValidEmail(email)) {
+            return res.status(400).json({ error: 'Invalid email format' });
+        }
+
+        const passwordError = isValidPassword(password);
+        if (passwordError) {
+            return res.status(400).json({ error: passwordError });
+        }
+
+        if (name.length > 255 || companyName.length > 255) {
+            return res.status(400).json({ error: 'Name or company name is too long' });
         }
 
         // Check if user already exists
@@ -81,21 +128,21 @@ router.post('/register', async (req, res) => {
         }
 
         // Create company
-        const companySlug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        const companySlug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 100);
         const companyResult = await db.query(
             'INSERT INTO companies (name, slug, email) VALUES ($1, $2, $3) RETURNING id, name, slug',
-            [companyName, companySlug, email.toLowerCase()]
+            [companyName.slice(0, 255), companySlug, email.toLowerCase()]
         );
         const company = companyResult.rows[0];
 
-        // Hash password
-        const passwordHash = await bcrypt.hash(password, 10);
+        // Hash password with cost factor 12
+        const passwordHash = await bcrypt.hash(password, 12);
 
         // Create user
         const userResult = await db.query(
             `INSERT INTO users (company_id, email, password_hash, name, role)
              VALUES ($1, $2, $3, $4, 'admin') RETURNING id, email, name, role`,
-            [company.id, email.toLowerCase(), passwordHash, name]
+            [company.id, email.toLowerCase(), passwordHash, name.slice(0, 255)]
         );
         const user = userResult.rows[0];
 
@@ -103,7 +150,7 @@ router.post('/register', async (req, res) => {
         const token = jwt.sign(
             { userId: user.id, companyId: company.id, role: user.role },
             process.env.JWT_SECRET,
-            { expiresIn: '7d' }
+            { expiresIn: '7d', algorithm: 'HS256' }
         );
 
         res.json({
@@ -148,8 +195,6 @@ router.get('/me', authenticate, (req, res) => {
         }
     });
 });
-
-// /set-owner endpoint removed for security
 
 // Version check (no secrets exposed)
 router.get('/version', (req, res) => {

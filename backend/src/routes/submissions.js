@@ -8,7 +8,9 @@ const { normalizeServiceLevel } = require("../utils/serviceLevel");
 // List submissions
 router.get("/", authenticate, async (req, res) => {
   try {
-    const { limit = 10000, offset = 0, customer_id, status } = req.query;
+    const { customer_id, status } = req.query;
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 500, 1), 1000);
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
 
     let query = `
       SELECT s.*, c.name as customer_name, c.email as customer_email,
@@ -331,9 +333,7 @@ router.post("/", authenticate, async (req, res) => {
     console.error("Create submission error:", error);
     console.error("Error stack:", error.stack);
     res.status(500).json({
-      error: "Failed to create submission",
-      details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: "Failed to create submission"
     });
   }
 });
@@ -580,8 +580,7 @@ router.post("/:id/refresh", authenticate, async (req, res) => {
   } catch (error) {
     console.error("Refresh submission error:", error);
     res.status(500).json({
-      error: "Failed to refresh submission",
-      details: error.message
+      error: "Failed to refresh submission"
     });
   }
 });
@@ -599,6 +598,15 @@ router.post("/:id/customers", authenticate, async (req, res) => {
 
     if (submissionCheck.rows.length === 0) {
       return res.status(404).json({ error: "Submission not found" });
+    }
+
+    // Verify customer belongs to the same company
+    const customerCheck = await db.query(
+      "SELECT id FROM customers WHERE id = $1 AND company_id = $2",
+      [customer_id, req.user.company_id]
+    );
+    if (customerCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Customer not found" });
     }
 
     // Add customer link
@@ -849,8 +857,7 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
   } catch (error) {
     console.error("CSV import error:", error);
     res.status(500).json({
-      error: "Failed to import CSV",
-      details: error.message
+      error: "Failed to import CSV"
     });
   }
 });

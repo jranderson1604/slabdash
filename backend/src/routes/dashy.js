@@ -224,7 +224,6 @@ router.post('/chat', authenticate, async (req, res) => {
     console.error('Dashy chat error:', error);
     res.status(500).json({
       error: 'Failed to process chat message',
-      details: error.message
     });
   }
 });

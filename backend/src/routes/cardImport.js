@@ -154,7 +154,7 @@ router.post('/upload-csv', authenticate, upload.single('csv'), async (req, res) 
 
   } catch (error) {
     console.error('CSV upload error:', error);
-    res.status(500).json({ error: 'Failed to process CSV file', details: error.message });
+    res.status(500).json({ error: 'Failed to process CSV file' });
   }
 });
 

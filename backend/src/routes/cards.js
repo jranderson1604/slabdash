@@ -328,7 +328,7 @@ router.post('/auto-detect-sports', authenticate, async (req, res) => {
         });
     } catch (error) {
         console.error('Auto-detect sports error:', error);
-        res.status(500).json({ error: 'Failed to auto-detect sports', details: error.message });
+        res.status(500).json({ error: 'Failed to auto-detect sports' });
     }
 });
 
@@ -454,7 +454,7 @@ router.post('/bulk-assign', authenticate, async (req, res) => {
         });
     } catch (error) {
         console.error('Bulk assign error:', error);
-        res.status(500).json({ error: 'Failed to bulk assign cards', details: error.message });
+        res.status(500).json({ error: 'Failed to bulk assign cards' });
     }
 });
 
@@ -530,7 +530,7 @@ router.post('/:id/lookup-price', authenticate, async (req, res) => {
         });
     } catch (error) {
         console.error('Price comp lookup error:', error);
-        res.status(500).json({ error: 'Failed to lookup price comps', details: error.message });
+        res.status(500).json({ error: 'Failed to lookup price comps' });
     }
 });
 

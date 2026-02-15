@@ -15,7 +15,9 @@ const isValidEmail = (email) => {
 // List customers
 router.get('/', authenticate, async (req, res) => {
     try {
-        const { search, limit = 100000, offset = 0 } = req.query;
+        const { search } = req.query;
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 500, 1), 1000);
+        const offset = Math.max(parseInt(req.query.offset) || 0, 0);
 
         // Count query
         let countQuery = `SELECT COUNT(*) FROM customers WHERE company_id = $1`;
@@ -309,8 +311,7 @@ router.post('/import-csv', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Customer CSV import error:', error);
         res.status(500).json({
-            error: 'Failed to import CSV',
-            details: error.message
+            error: 'Failed to import CSV'
         });
     }
 });
