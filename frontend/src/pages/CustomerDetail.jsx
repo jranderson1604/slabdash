@@ -291,41 +291,56 @@ export default function CustomerDetail() {
                 />
 
                 {/* Dropdown results */}
-                {showSubmissionDropdown && submissionSearchQuery && (
-                  <div className="absolute z-10 w-full mt-1 bg-brand-50 border border-brand-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {showSubmissionDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-72 overflow-y-auto">
+                    {submissionSearchQuery === '' && (
+                      <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100">
+                        Recent submissions
+                      </div>
+                    )}
                     {submissionList
-                      .filter(sub =>
-                        !customer.recent_submissions?.some(rs => rs.id === sub.id) &&
-                        (sub.psa_submission_number?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
-                         sub.psa_order_number?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
-                         sub.internal_id?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
-                         sub.service_level?.toLowerCase().includes(submissionSearchQuery.toLowerCase()))
-                      )
+                      .filter(sub => {
+                        if (customer.recent_submissions?.some(rs => rs.id === sub.id)) return false;
+                        if (!submissionSearchQuery) return true;
+                        const q = submissionSearchQuery.toLowerCase();
+                        return (sub.psa_submission_number?.toLowerCase().includes(q) ||
+                         sub.psa_order_number?.toLowerCase().includes(q) ||
+                         sub.internal_id?.toLowerCase().includes(q) ||
+                         sub.service_level?.toLowerCase().includes(q));
+                      })
                       .slice(0, 10)
                       .map((sub) => (
                         <button
                           key={sub.id}
                           onClick={() => handleAssignToSubmission(sub.id)}
                           disabled={assigningSubmission}
-                          className="w-full text-left px-4 py-3 hover:bg-brand-50 transition-colors border-b border-gray-100 last:border-b-0 disabled:opacity-50"
+                          className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 disabled:opacity-50"
                         >
-                          <p className="font-medium text-gray-900">
-                            {sub.psa_submission_number || sub.internal_id || 'No ID'}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {sub.service_level || 'Unknown service'} • {sub.card_count || 0} cards
+                          <div className="flex items-center justify-between">
+                            <p className="font-bold text-gray-900 text-base">
+                              PSA #{sub.psa_submission_number || sub.internal_id || '—'}
+                            </p>
+                            <span className="text-xs font-medium px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
+                              {sub.current_step || 'New'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-0.5">
+                            {sub.service_level || 'Unknown service'} · {sub.card_count || 0} cards
+                            {sub.progress_percent > 0 ? ` · ${sub.progress_percent}%` : ''}
                           </p>
                         </button>
                       ))}
-                    {submissionList.filter(sub =>
-                      !customer.recent_submissions?.some(rs => rs.id === sub.id) &&
-                      (sub.psa_submission_number?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
-                       sub.psa_order_number?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
-                       sub.internal_id?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
-                       sub.service_level?.toLowerCase().includes(submissionSearchQuery.toLowerCase()))
-                    ).length === 0 && (
+                    {submissionList.filter(sub => {
+                      if (customer.recent_submissions?.some(rs => rs.id === sub.id)) return false;
+                      if (!submissionSearchQuery) return true;
+                      const q = submissionSearchQuery.toLowerCase();
+                      return (sub.psa_submission_number?.toLowerCase().includes(q) ||
+                       sub.psa_order_number?.toLowerCase().includes(q) ||
+                       sub.internal_id?.toLowerCase().includes(q) ||
+                       sub.service_level?.toLowerCase().includes(q));
+                    }).length === 0 && (
                       <div className="px-4 py-3 text-gray-500 text-sm">
-                        No submissions found matching "{submissionSearchQuery}"
+                        No submissions found {submissionSearchQuery ? `matching "${submissionSearchQuery}"` : ''}
                       </div>
                     )}
                   </div>

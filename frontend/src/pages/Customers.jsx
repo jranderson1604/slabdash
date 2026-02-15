@@ -114,7 +114,7 @@ function CustomerRow({ customer, onDelete, onSendPortalLink, selected, onSelect 
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 z-20 mt-1 w-48 bg-brand-50 rounded-lg shadow-lg border border-gray-200 py-1 fade-in">
+              <div className="absolute right-0 z-20 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 fade-in">
                 <Link
                   to={`/customers/${customer.id}`}
                   className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -602,7 +602,7 @@ export default function Customers() {
       {/* Add to Submission Modal */}
       {showAddToSubmissionModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Package className="w-6 h-6 text-brand-600" />
@@ -636,43 +636,67 @@ export default function Customers() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
                       type="text"
-                      placeholder="Search by submission number..."
+                      placeholder="Search by PSA #, order #, or customer name..."
                       value={submissionSearch}
                       onChange={(e) => setSubmissionSearch(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white text-gray-900"
                     />
                   </div>
 
-                  {/* Submission dropdown */}
-                  <select
-                    value={selectedSubmission}
-                    onChange={(e) => setSelectedSubmission(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent mb-2"
-                  >
-                    <option value="">Choose a submission...</option>
+                  {/* Submission list — clickable cards instead of a dropdown */}
+                  <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white">
                     {submissionsList
                       .filter((sub) => {
                         if (!submissionSearch) return true;
-                        const searchLower = submissionSearch.toLowerCase();
-                        const psaNum = (sub.psa_submission_number || '').toLowerCase();
-                        const internalId = (sub.internal_id || '').toLowerCase();
-                        const customerName = (sub.customer_name || '').toLowerCase();
-                        return psaNum.includes(searchLower) ||
-                               internalId.includes(searchLower) ||
-                               customerName.includes(searchLower);
+                        const q = submissionSearch.toLowerCase();
+                        return (sub.psa_submission_number || '').toLowerCase().includes(q) ||
+                               (sub.internal_id || '').toLowerCase().includes(q) ||
+                               (sub.customer_name || '').toLowerCase().includes(q);
                       })
                       .map((sub) => (
-                        <option key={sub.id} value={sub.id}>
-                          {sub.psa_submission_number || sub.internal_id} - {sub.customer_name || 'No customer'}
-                        </option>
+                        <button
+                          key={sub.id}
+                          onClick={() => setSelectedSubmission(sub.id)}
+                          className={`w-full text-left px-4 py-3 border-b border-gray-100 last:border-b-0 transition-colors ${
+                            selectedSubmission === sub.id
+                              ? 'bg-blue-50 border-l-4 border-l-blue-500'
+                              : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <p className="font-bold text-gray-900">
+                              PSA #{sub.psa_submission_number || sub.internal_id || '—'}
+                            </p>
+                            {sub.current_step && (
+                              <span className="text-xs font-medium px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
+                                {sub.current_step}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-500 mt-0.5">
+                            {sub.service_level || 'Unknown service'} · {sub.card_count || 0} cards
+                            {sub.customer_name ? ` · ${sub.customer_name}` : ''}
+                          </p>
+                        </button>
                       ))}
-                  </select>
+                    {submissionsList.filter((sub) => {
+                      if (!submissionSearch) return true;
+                      const q = submissionSearch.toLowerCase();
+                      return (sub.psa_submission_number || '').toLowerCase().includes(q) ||
+                             (sub.internal_id || '').toLowerCase().includes(q) ||
+                             (sub.customer_name || '').toLowerCase().includes(q);
+                    }).length === 0 && (
+                      <div className="px-4 py-3 text-gray-500 text-sm text-center">
+                        No submissions found
+                      </div>
+                    )}
+                  </div>
 
-                  {/* Clear selection button */}
+                  {/* Selected indicator */}
                   {selectedSubmission && (
                     <button
                       onClick={() => setSelectedSubmission('')}
-                      className="text-sm text-gray-600 hover:text-gray-800 flex items-center gap-1"
+                      className="mt-2 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
                     >
                       <X className="w-3 h-3" />
                       Clear selection
@@ -705,7 +729,7 @@ export default function Customers() {
       {/* Test Introduction Email Modal */}
       {showTestEmailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Mail className="w-6 h-6 text-blue-600" />
@@ -779,7 +803,7 @@ export default function Customers() {
       {/* Email Progress Modal */}
       {showEmailProgressModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-brand-50 rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
             <div className="text-center">
               <div className="mb-4">
                 <Mail className="w-12 h-12 text-blue-600 mx-auto animate-pulse" />

@@ -71,32 +71,34 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
       });
     }
 
-    // Get submissions that need refreshing:
-    // 1. All active submissions (progress < 100 and not shipped)
-    // 2. The most recent completed submission (to catch any final updates)
-    // This saves API calls by not refreshing old completed orders
+    // Smart filtering: only refresh submissions that actually need it
+    // 1. Active (not shipped) with a PSA number
+    // 2. Skip ones refreshed in the last 30 minutes (they're fresh)
+    // 3. Prioritize by urgency (problem orders first, then by staleness)
+    // 4. Cap at 30 per batch to avoid rate limits
     const submissions = await db.query(
-      `SELECT id, psa_submission_number, progress_percent, shipped, date_sent
+      `SELECT id, psa_submission_number, progress_percent, shipped, date_sent,
+              current_step, service_level, problem_order, grades_ready,
+              last_refreshed_at, picked_up
        FROM submissions
        WHERE company_id = $1
          AND psa_submission_number IS NOT NULL
-         AND (
-           -- Active submissions (not complete)
-           (progress_percent < 100 AND shipped = false)
-           OR
-           -- Most recent completed submission only
-           id = (
-             SELECT id FROM submissions
-             WHERE company_id = $1
-               AND psa_submission_number IS NOT NULL
-               AND (progress_percent >= 100 OR shipped = true)
-             ORDER BY date_sent DESC, created_at DESC
-             LIMIT 1
-           )
-         )
-       ORDER BY date_sent DESC, created_at DESC`,
+         AND shipped = false
+         AND (last_refreshed_at IS NULL OR last_refreshed_at < NOW() - INTERVAL '30 minutes')
+       ORDER BY
+         problem_order DESC,
+         last_refreshed_at ASC NULLS FIRST,
+         created_at DESC
+       LIMIT 30`,
       [req.user.company_id]
     );
+
+    // Also get the total active count so user knows scope
+    const totalActiveResult = await db.query(
+      `SELECT COUNT(*) FROM submissions WHERE company_id = $1 AND psa_submission_number IS NOT NULL AND shipped = false`,
+      [req.user.company_id]
+    );
+    const totalActive = parseInt(totalActiveResult.rows[0].count);
 
     // Set up Server-Sent Events for real-time progress
     res.writeHead(200, {
@@ -120,9 +122,9 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
       try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch { clientDisconnected = true; }
     };
 
-    send({ type: 'start', total, updated: 0, errors: 0 });
-
-    const { getSubmissionProgress, updateSubmissionFromPsa, isRateLimited } = require('../services/psaService');
+    const { getSubmissionProgress, updateSubmissionFromPsa, isRateLimited, getDailyUsage } = require('../services/psaService');
+    const usage = getDailyUsage();
+    send({ type: 'start', total, totalActive, updated: 0, errors: 0, dailyUsage: usage });
 
     for (let i = 0; i < submissions.rows.length; i++) {
       if (clientDisconnected) break;
@@ -136,10 +138,14 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
       }
 
       try {
-        const result = await getSubmissionProgress(psaApiKey, submission.psa_submission_number);
+        // batch: true uses 10s spacing instead of 1.5s — stays under PSA limits
+        const result = await getSubmissionProgress(psaApiKey, submission.psa_submission_number, { batch: true });
 
         if (result.rateLimited) {
-          send({ type: 'rate_limited', message: 'PSA rate limit reached — stopping refresh', total, current: i, updated, errors });
+          const msg = result.dailyLimitReached
+            ? 'Daily API limit reached — refresh will resume tomorrow'
+            : 'PSA rate limit reached — stopping refresh';
+          send({ type: 'rate_limited', message: msg, total, current: i, updated, errors, dailyUsage: getDailyUsage() });
           break;
         }
 
@@ -194,9 +200,6 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
             submissionNumber: submission.psa_submission_number, status: 'error'
           });
         }
-
-        // 6-10 seconds between successful requests to stay under PSA limits
-        await new Promise(resolve => setTimeout(resolve, 6000 + Math.random() * 4000));
       } catch (err) {
         console.error(`[PSA] Refresh error for ${submission.psa_submission_number}: ${err.message}`);
         errors++;
@@ -209,8 +212,6 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
           type: 'progress', total, current: i + 1, updated, errors,
           submissionNumber: submission.psa_submission_number, status: 'error'
         });
-        // Longer wait after errors
-        await new Promise(resolve => setTimeout(resolve, 10000 + Math.random() * 5000));
       }
     }
 
@@ -227,9 +228,12 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
 
     const changedCount = changeLog.filter(c => c.hadChanges).length;
     const noChangeCount = changeLog.filter(c => c.noChange).length;
+    const skippedCount = totalActive - total;
     send({
-      type: 'complete', total, updated, errors, changedCount, noChangeCount,
-      message: `Refresh completed: ${changedCount} changed, ${noChangeCount} unchanged, ${errors} errors`,
+      type: 'complete', total, totalActive, updated, errors, changedCount, noChangeCount, skippedCount,
+      message: `Refresh completed: ${changedCount} changed, ${noChangeCount} unchanged, ${errors} errors` +
+        (skippedCount > 0 ? `, ${skippedCount} skipped (recently refreshed)` : ''),
+      dailyUsage: getDailyUsage(),
       changeLogAvailable: true
     });
 
@@ -468,6 +472,24 @@ router.post("/send-weekly-update", authenticate, requireRole("owner", "admin"), 
   } catch (error) {
     console.error("Send weekly update error:", error.message);
     res.status(500).json({ error: "Failed to send weekly update", details: error.message });
+  }
+});
+
+// Get current PSA API usage stats
+router.get("/usage", authenticate, async (req, res) => {
+  try {
+    const { getDailyUsage, isRateLimited } = require('../services/psaService');
+    const usage = getDailyUsage();
+    const rl = isRateLimited();
+
+    res.json({
+      ...usage,
+      rateLimited: rl.limited,
+      rateLimitedUntil: rl.limited ? new Date(Date.now() + rl.retryAfterMs).toISOString() : null,
+      retryAfterMin: rl.limited ? rl.retryAfterMin : 0,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get usage stats" });
   }
 });
 

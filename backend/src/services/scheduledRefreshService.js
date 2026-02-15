@@ -116,6 +116,13 @@ async function refreshCompanySubmissions(company) {
   const tierOrder = { urgent: 0, high: 1, medium: 2, low: 3 };
   dueForRefresh.sort((a, b) => (tierOrder[a.priority.tier] || 9) - (tierOrder[b.priority.tier] || 9));
 
+  // Cap at 30 per company per cycle to stay under daily API limits
+  const maxPerCycle = 30;
+  if (dueForRefresh.length > maxPerCycle) {
+    console.log(`[SmartRefresh] ${company.name}: Capping from ${dueForRefresh.length} to ${maxPerCycle} (highest priority first)`);
+    dueForRefresh.length = maxPerCycle;
+  }
+
   console.log(`[SmartRefresh] ${company.name}: ${dueForRefresh.length}/${subsResult.rows.length} submissions due for refresh`);
 
   let updatedCount = 0;
@@ -131,7 +138,8 @@ async function refreshCompanySubmissions(company) {
 
     const orderNumber = sub.psa_submission_number || sub.psa_order_number;
     try {
-      const result = await psaService.getSubmissionProgress(company.psa_api_key, orderNumber);
+      // batch: true uses 10s spacing to stay safely under PSA limits
+      const result = await psaService.getSubmissionProgress(company.psa_api_key, orderNumber, { batch: true });
 
       // Stop immediately on rate limit
       if (result.rateLimited) {
@@ -147,9 +155,6 @@ async function refreshCompanySubmissions(company) {
         errorCount++;
         changeLog.push({ submissionNumber: orderNumber, hadChanges: false, error: result.error || 'Unknown' });
       }
-
-      // Throttle: 6-8 seconds between requests to stay under PSA limits
-      await new Promise(r => setTimeout(r, 6000 + Math.random() * 2000));
 
     } catch (error) {
       errorCount++;
@@ -374,7 +379,7 @@ async function runCompanyRefresh(company, psaApiKey) {
 
     try {
       const orderNumber = submission.psa_submission_number || submission.psa_order_number;
-      const progress = await psaService.getSubmissionProgress(psaApiKey, orderNumber);
+      const progress = await psaService.getSubmissionProgress(psaApiKey, orderNumber, { batch: true });
 
       // Stop immediately on rate limit
       if (progress.rateLimited) {
@@ -391,9 +396,6 @@ async function runCompanyRefresh(company, psaApiKey) {
       const { changes } = await psaService.updateSubmissionFromPsa(submission.id, progress.data);
       if (changes.hadChanges) updatedCount++;
       changeLog.push(changes);
-
-      // 6-8 seconds between requests to stay well under PSA limits
-      await new Promise(resolve => setTimeout(resolve, 6000 + Math.random() * 2000));
     } catch (error) {
       errorCount++;
       changeLog.push({

@@ -8,9 +8,15 @@ const PSA_API_BASE = process.env.PSA_API_BASE || 'https://api.psacard.com/public
 // ============================================
 let _rateLimitedUntil = 0; // Unix timestamp (ms) when rate limit expires
 let _lastRequestAt = 0;    // Unix timestamp (ms) of last PSA API request
-const MIN_REQUEST_INTERVAL_MS = 5000; // 5 seconds minimum between any PSA API call
-const MAX_COOLDOWN_MS = 30 * 60 * 1000; // Cap cooldown at 30 minutes max
-const DEFAULT_COOLDOWN_MS = 15 * 60 * 1000; // 15 min default cooldown on 429
+const MIN_REQUEST_INTERVAL_MS = 1500; // 1.5s between single user-initiated requests
+const BATCH_INTERVAL_MS = 10000;      // 10s between requests during batch refreshes
+const MAX_COOLDOWN_MS = 15 * 60 * 1000; // Cap cooldown at 15 minutes max
+const DEFAULT_COOLDOWN_MS = 5 * 60 * 1000; // 5 min default cooldown on 429
+
+// Daily API call tracking — resets at midnight UTC
+let _dailyCallCount = 0;
+let _dailyCallDate = new Date().toISOString().split('T')[0];
+const DAILY_CALL_LIMIT = 500; // Conservative daily limit
 
 /**
  * Check if we're currently rate limited by PSA.
@@ -27,7 +33,7 @@ const isRateLimited = () => {
 
 /**
  * Wait until the minimum interval between requests has elapsed.
- * Prevents hammering PSA even when multiple refresh paths fire.
+ * Uses short interval for single user-initiated requests.
  */
 const throttle = async () => {
     const now = Date.now();
@@ -37,7 +43,42 @@ const throttle = async () => {
         await new Promise(r => setTimeout(r, waitMs));
     }
     _lastRequestAt = Date.now();
+    _trackDailyCall();
 };
+
+/**
+ * Longer throttle for batch operations (refresh-all, scheduled refresh).
+ * 10 seconds between requests keeps us safely under PSA limits.
+ */
+const batchThrottle = async () => {
+    const now = Date.now();
+    const elapsed = now - _lastRequestAt;
+    if (elapsed < BATCH_INTERVAL_MS) {
+        const waitMs = BATCH_INTERVAL_MS - elapsed;
+        await new Promise(r => setTimeout(r, waitMs));
+    }
+    _lastRequestAt = Date.now();
+    _trackDailyCall();
+};
+
+/** Track daily API calls and reset counter at midnight UTC. */
+const _trackDailyCall = () => {
+    const today = new Date().toISOString().split('T')[0];
+    if (today !== _dailyCallDate) {
+        _dailyCallCount = 0;
+        _dailyCallDate = today;
+    }
+    _dailyCallCount++;
+};
+
+/** Get current daily API usage stats. */
+const getDailyUsage = () => ({
+    callsToday: _dailyCallCount,
+    limit: DAILY_CALL_LIMIT,
+    remaining: Math.max(0, DAILY_CALL_LIMIT - _dailyCallCount),
+    nearLimit: _dailyCallCount >= DAILY_CALL_LIMIT * 0.8,
+    atLimit: _dailyCallCount >= DAILY_CALL_LIMIT,
+});
 
 /**
  * Set global rate limit cooldown from a 429 response.
@@ -106,17 +147,23 @@ const createPsaClient = (apiKey) => axios.create({
 // CORE API FUNCTIONS
 // ============================================
 
-const getSubmissionProgress = async (apiKey, submissionNumber, retries = 2) => {
+const getSubmissionProgress = async (apiKey, submissionNumber, { retries = 2, batch = false } = {}) => {
     // Check global rate limit before making any request
     const rl = isRateLimited();
     if (rl.limited) {
         return { success: false, error: `Rate limited — retry in ${rl.retryAfterMin}m`, status: 429, rateLimited: true };
     }
 
+    // Check daily limit
+    const usage = getDailyUsage();
+    if (usage.atLimit) {
+        return { success: false, error: `Daily API limit reached (${usage.limit} calls). Resets at midnight UTC.`, status: 429, rateLimited: true, dailyLimitReached: true };
+    }
+
     for (let attempt = 0; attempt <= retries; attempt++) {
         try {
-            // Enforce minimum interval between PSA requests
-            await throttle();
+            // Use longer interval for batch operations
+            if (batch) { await batchThrottle(); } else { await throttle(); }
             const response = await createPsaClient(apiKey).get(`/order/GetSubmissionProgress/${submissionNumber}`);
             const raw = response.data;
             const data = raw?.PSAOrder || raw?.psaOrder || raw;
@@ -816,7 +863,7 @@ const refreshAllSubmissions = async () => {
         );
 
         for (const sub of submissions.rows) {
-            const result = await getSubmissionProgress(company.psa_api_key, sub.psa_submission_number);
+            const result = await getSubmissionProgress(company.psa_api_key, sub.psa_submission_number, { batch: true });
             if (result.rateLimited) {
                 console.log(`[PSA] Rate limited — stopping refresh`);
                 break;
@@ -828,8 +875,6 @@ const refreshAllSubmissions = async () => {
                     console.error(`[PSA] Update failed for ${sub.psa_submission_number}: ${err.message}`);
                 }
             }
-            // 6-8 seconds between requests to stay under PSA limits
-            await new Promise(r => setTimeout(r, 6000 + Math.random() * 2000));
         }
     }
 };
@@ -860,6 +905,8 @@ module.exports = {
     getRefreshPriority,
     isRateLimited,
     throttle,
+    batchThrottle,
+    getDailyUsage,
     logApiCall,
     STEP_NAMES,
     STEP_ORDER,

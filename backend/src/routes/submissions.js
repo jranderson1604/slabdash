@@ -39,56 +39,82 @@ router.get("/", authenticate, async (req, res) => {
     params.push(limit, offset);
 
     const result = await db.query(query, params);
+    const submissionIds = result.rows.map(s => s.id);
 
-    // Load historical step durations once for accurate estimates
-    const historicalDurations = await getHistoricalDurations(req.user.company_id);
+    if (submissionIds.length === 0) {
+      return res.json({ submissions: [], total: 0, limit: parseInt(limit), offset: parseInt(offset) });
+    }
 
-    // Get linked customers and cards for each submission
-    const submissionsWithCustomers = await Promise.all(
-      result.rows.map(async (submission) => {
-        const linkedCustomersResult = await db.query(
-          `SELECT c.id, c.name, c.email, c.phone
-           FROM submission_customers sc
-           JOIN customers c ON sc.customer_id = c.id
-           WHERE sc.submission_id = $1
-           ORDER BY c.name`,
-          [submission.id]
-        );
+    // Batch load all related data in 3 parallel queries instead of N+1
+    const [historicalDurations, linkedCustomersResult, cardsResult] = await Promise.all([
+      getHistoricalDurations(req.user.company_id),
+      db.query(
+        `SELECT sc.submission_id, c.id, c.name, c.email, c.phone
+         FROM submission_customers sc
+         JOIN customers c ON sc.customer_id = c.id
+         WHERE sc.submission_id = ANY($1::uuid[])
+         ORDER BY c.name`,
+        [submissionIds]
+      ),
+      db.query(
+        `SELECT id, submission_id, player_name, description, year, card_set as brand, grade, psa_cert_number
+         FROM cards
+         WHERE submission_id = ANY($1::uuid[])
+         ORDER BY id`,
+        [submissionIds]
+      ),
+    ]);
 
-        // If no linked customers via junction table, check if there's a direct customer_id
-        let linkedCustomers = linkedCustomersResult.rows;
-        if (linkedCustomers.length === 0 && submission.customer_id) {
-          const directCustomerResult = await db.query(
-            `SELECT id, name, email, phone FROM customers WHERE id = $1`,
-            [submission.customer_id]
-          );
-          if (directCustomerResult.rows.length > 0) {
-            linkedCustomers = directCustomerResult.rows;
-          }
-        }
+    // Index linked customers by submission_id
+    const customersBySubmission = {};
+    for (const row of linkedCustomersResult.rows) {
+      if (!customersBySubmission[row.submission_id]) customersBySubmission[row.submission_id] = [];
+      customersBySubmission[row.submission_id].push({ id: row.id, name: row.name, email: row.email, phone: row.phone });
+    }
 
-        // Load cards for search functionality (player names, descriptions, etc.)
-        const cardsResult = await db.query(
-          `SELECT id, player_name, description, year, card_set as brand, grade, psa_cert_number
-           FROM cards
-           WHERE submission_id = $1
-           ORDER BY id`,
-          [submission.id]
-        );
+    // For submissions with no junction-table customers, collect their direct customer_ids
+    const directCustomerIds = [];
+    for (const sub of result.rows) {
+      if (!customersBySubmission[sub.id] && sub.customer_id) {
+        directCustomerIds.push(sub.customer_id);
+      }
+    }
 
-        // Add estimated progress and refresh priority (using historical data when available)
-        const estimate = estimateSubmissionProgress(submission, historicalDurations);
-        const priority = getRefreshPriority(submission);
+    // Batch load direct customers if any
+    const directCustomerMap = {};
+    if (directCustomerIds.length > 0) {
+      const directResult = await db.query(
+        `SELECT id, name, email, phone FROM customers WHERE id = ANY($1::uuid[])`,
+        [directCustomerIds]
+      );
+      for (const c of directResult.rows) {
+        directCustomerMap[c.id] = [{ id: c.id, name: c.name, email: c.email, phone: c.phone }];
+      }
+    }
 
-        return {
-          ...submission,
-          linked_customers: linkedCustomers,
-          cards: cardsResult.rows,
-          estimated: estimate,
-          refreshPriority: priority,
-        };
-      })
-    );
+    // Index cards by submission_id
+    const cardsBySubmission = {};
+    for (const card of cardsResult.rows) {
+      if (!cardsBySubmission[card.submission_id]) cardsBySubmission[card.submission_id] = [];
+      cardsBySubmission[card.submission_id].push(card);
+    }
+
+    // Assemble final results
+    const submissionsWithCustomers = result.rows.map(submission => {
+      const linkedCustomers = customersBySubmission[submission.id]
+        || (submission.customer_id && directCustomerMap[submission.customer_id])
+        || [];
+      const estimate = estimateSubmissionProgress(submission, historicalDurations);
+      const priority = getRefreshPriority(submission);
+
+      return {
+        ...submission,
+        linked_customers: linkedCustomers,
+        cards: cardsBySubmission[submission.id] || [],
+        estimated: estimate,
+        refreshPriority: priority,
+      };
+    });
 
     const countResult = await db.query(
       `SELECT COUNT(*) FROM submissions WHERE company_id = $1`,

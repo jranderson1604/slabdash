@@ -29,21 +29,39 @@ router.get('/', authenticate, async (req, res) => {
         const countResult = await db.query(countQuery, countParams);
         const total = parseInt(countResult.rows[0].count);
 
-        // Data query
-        let query = `SELECT * FROM customers WHERE company_id = $1`;
+        // Data query with accurate submission and card counts
+        let query = `
+            SELECT c.*,
+                COALESCE(sub_counts.submission_count, 0) AS total_submissions,
+                COALESCE(sub_counts.card_count, 0) AS total_cards
+            FROM customers c
+            LEFT JOIN LATERAL (
+                SELECT
+                    COUNT(DISTINCT sc.submission_id) AS submission_count,
+                    COALESCE(SUM(card_counts.cnt), 0) AS card_count
+                FROM submission_customers sc
+                LEFT JOIN (
+                    SELECT submission_id, COUNT(*) AS cnt
+                    FROM cards
+                    GROUP BY submission_id
+                ) card_counts ON card_counts.submission_id = sc.submission_id
+                WHERE sc.customer_id = c.id
+            ) sub_counts ON true
+            WHERE c.company_id = $1`;
         const params = [req.companyId];
 
         if (search) {
-            query += ` AND (name ILIKE $2 OR email ILIKE $2)`;
+            query += ` AND (c.name ILIKE $2 OR c.email ILIKE $2)`;
             params.push(`%${search}%`);
         }
 
-        query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+        query += ` ORDER BY c.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
         params.push(parseInt(limit), parseInt(offset));
 
         const result = await db.query(query, params);
         res.json({ customers: result.rows, total });
     } catch (error) {
+        console.error('List customers error:', error);
         res.status(500).json({ error: 'Failed to list customers' });
     }
 });

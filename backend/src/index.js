@@ -112,6 +112,10 @@ app.get("/", (req, res) => {
   res.send("SlabDash API is running v2");
 });
 
+app.get("/pitch", (req, res) => {
+  res.sendFile(path.join(__dirname, '../public/pitch-deck.html'));
+});
+
 // Serve manifest.json publicly (no auth required)
 app.get("/manifest.json", (req, res) => {
   res.json({
