@@ -66,8 +66,7 @@ router.post('/subscribe', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Subscribe error:', error);
         res.status(500).json({
-            error: 'Failed to save push subscription',
-            details: error.message
+            error: 'Failed to save push subscription'
         });
     }
 });
@@ -99,8 +98,7 @@ router.post('/unsubscribe', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Unsubscribe error:', error);
         res.status(500).json({
-            error: 'Failed to remove push subscription',
-            details: error.message
+            error: 'Failed to remove push subscription'
         });
     }
 });
@@ -132,8 +130,7 @@ router.get('/status', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Status check error:', error);
         res.status(500).json({
-            error: 'Failed to check subscription status',
-            details: error.message
+            error: 'Failed to check subscription status'
         });
     }
 });
@@ -207,8 +204,7 @@ router.post('/test', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Test push error:', error);
         res.status(500).json({
-            error: 'Failed to send test notification',
-            details: error.message
+            error: 'Failed to send test notification'
         });
     }
 });

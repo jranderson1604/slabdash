@@ -2,11 +2,40 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 
+// Rate limiter for login: 5 attempts per 15 minutes per IP
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many login attempts. Please try again in 15 minutes.' }
+});
+
+// Rate limiter for registration: 3 per hour per IP
+const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 3,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many registration attempts. Please try again later.' }
+});
+
+// Input validation helpers
+const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const isValidPassword = (password) => {
+    if (!password || password.length < 8) return 'Password must be at least 8 characters';
+    if (password.length > 128) return 'Password is too long';
+    if (!/[a-zA-Z]/.test(password)) return 'Password must contain at least one letter';
+    if (!/[0-9]/.test(password)) return 'Password must contain at least one number';
+    return null;
+};
+
 // User login
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
 
@@ -14,8 +43,13 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ error: 'Email and password required' });
         }
 
+        if (!isValidEmail(email)) {
+            return res.status(400).json({ error: 'Invalid email format' });
+        }
+
         const result = await db.query(
-            `SELECT u.*, c.name as company_name, c.slug as company_slug, c.shop_code as company_shop_code,
+            `SELECT u.id, u.company_id, u.email, u.name, u.role, u.password_hash,
+             c.name as company_name, c.slug as company_slug, c.shop_code as company_shop_code,
              c.psa_api_key IS NOT NULL as has_psa_key,
              c.primary_color, c.background_color, c.sidebar_color
              FROM users u JOIN companies c ON u.company_id = c.id
@@ -37,7 +71,7 @@ router.post('/login', async (req, res) => {
         const token = jwt.sign(
             { userId: user.id, companyId: user.company_id, role: user.role },
             process.env.JWT_SECRET,
-            { expiresIn: '7d' }
+            { expiresIn: '7d', algorithm: 'HS256' }
         );
 
         res.json({
@@ -66,12 +100,25 @@ router.post('/login', async (req, res) => {
 });
 
 // User registration
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
     try {
         const { email, password, name, companyName } = req.body;
 
         if (!email || !password || !name || !companyName) {
             return res.status(400).json({ error: 'All fields required' });
+        }
+
+        if (!isValidEmail(email)) {
+            return res.status(400).json({ error: 'Invalid email format' });
+        }
+
+        const passwordError = isValidPassword(password);
+        if (passwordError) {
+            return res.status(400).json({ error: passwordError });
+        }
+
+        if (name.length > 255 || companyName.length > 255) {
+            return res.status(400).json({ error: 'Name or company name is too long' });
         }
 
         // Check if user already exists
@@ -81,21 +128,21 @@ router.post('/register', async (req, res) => {
         }
 
         // Create company
-        const companySlug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        const companySlug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 100);
         const companyResult = await db.query(
             'INSERT INTO companies (name, slug, email) VALUES ($1, $2, $3) RETURNING id, name, slug',
-            [companyName, companySlug, email.toLowerCase()]
+            [companyName.slice(0, 255), companySlug, email.toLowerCase()]
         );
         const company = companyResult.rows[0];
 
-        // Hash password
-        const passwordHash = await bcrypt.hash(password, 10);
+        // Hash password with cost factor 12
+        const passwordHash = await bcrypt.hash(password, 12);
 
         // Create user
         const userResult = await db.query(
             `INSERT INTO users (company_id, email, password_hash, name, role)
              VALUES ($1, $2, $3, $4, 'admin') RETURNING id, email, name, role`,
-            [company.id, email.toLowerCase(), passwordHash, name]
+            [company.id, email.toLowerCase(), passwordHash, name.slice(0, 255)]
         );
         const user = userResult.rows[0];
 
@@ -103,7 +150,7 @@ router.post('/register', async (req, res) => {
         const token = jwt.sign(
             { userId: user.id, companyId: company.id, role: user.role },
             process.env.JWT_SECRET,
-            { expiresIn: '7d' }
+            { expiresIn: '7d', algorithm: 'HS256' }
         );
 
         res.json({
@@ -145,125 +192,16 @@ router.get('/me', authenticate, (req, res) => {
             primary_color: req.user.primary_color || '#8842f0',
             background_color: req.user.background_color || '#f5f5f5',
             sidebar_color: req.user.sidebar_color || '#ffffff'
-        },
-        // Debug info
-        debug: {
-            userRole: req.user.role,
-            isOwner: req.user.role === 'owner',
-            userObject: req.user
         }
     });
 });
 
-// ONE-TIME ENDPOINT: Set your own account to 'owner' role
-// Visit: https://yoursite.com/api/auth/set-owner?email=your@email.com&secret=YOUR_SECRET
-// Then DELETE this endpoint for security!
-router.get('/set-owner', async (req, res) => {
-    try {
-        const { email, secret } = req.query;
-
-        // Security: Require a secret key from environment
-        const OWNER_SECRET = process.env.OWNER_SETUP_SECRET || 'change-me-in-production';
-
-        if (!email || !secret) {
-            return res.status(400).json({ error: 'Missing email or secret parameter' });
-        }
-
-        if (secret !== OWNER_SECRET) {
-            return res.status(403).json({ error: 'Invalid secret key' });
-        }
-
-        // Set the user's role to 'owner'
-        const result = await db.query(
-            'UPDATE users SET role = $1 WHERE email = $2 RETURNING id, name, email, role',
-            ['owner', email.toLowerCase()]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: `No user found with email: ${email}` });
-        }
-
-        const user = result.rows[0];
-
-        res.json({
-            success: true,
-            message: `✅ Successfully set ${user.name} (${user.email}) to OWNER role!`,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role
-            },
-            next_steps: [
-                '1. Log out of SlabDash',
-                '2. Log back in with your account',
-                '3. You will see "Platform Control" at the top of your sidebar',
-                '4. DELETE this /set-owner endpoint from auth.js for security!'
-            ]
-        });
-    } catch (error) {
-        console.error('Set owner error:', error);
-        res.status(500).json({ error: 'Failed to set owner role' });
-    }
-});
-
-// Debug endpoint - check if latest code is deployed
+// Version check (no secrets exposed)
 router.get('/version', (req, res) => {
     res.json({
-        version: '2.1.0-owner-fix',
-        jwtIncludesRole: true,
-        jwtSecretExists: !!process.env.JWT_SECRET,
-        jwtSecretFirst10: process.env.JWT_SECRET?.substring(0, 10),
+        version: '2.2.0',
         timestamp: new Date().toISOString()
     });
-});
-
-// Test login that shows JWT info
-router.post('/test-login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const result = await db.query(
-            `SELECT u.*, c.name as company_name FROM users u JOIN companies c ON u.company_id = c.id WHERE u.email = $1`,
-            [email.toLowerCase()]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(401).json({ error: 'User not found' });
-        }
-
-        const user = result.rows[0];
-        const passwordMatch = await bcrypt.compare(password, user.password_hash);
-
-        if (!passwordMatch) {
-            return res.status(401).json({ error: 'Wrong password' });
-        }
-
-        const token = jwt.sign(
-            { userId: user.id, companyId: user.company_id, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: '7d' }
-        );
-
-        // Verify the token we just created
-        try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            res.json({
-                success: true,
-                tokenWorks: true,
-                decoded: decoded,
-                userRole: user.role,
-                jwtSecretFirst10: process.env.JWT_SECRET?.substring(0, 10)
-            });
-        } catch (verifyError) {
-            res.json({
-                success: false,
-                tokenWorks: false,
-                error: verifyError.message
-            });
-        }
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
 });
 
 module.exports = router;

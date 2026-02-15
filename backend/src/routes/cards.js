@@ -93,6 +93,7 @@ router.post('/bulk', authenticate, async (req, res) => {
     try {
         const { submission_id, cards } = req.body;
         if (!submission_id || !Array.isArray(cards)) return res.status(400).json({ error: 'Submission ID and cards array required' });
+        if (cards.length > 500) return res.status(400).json({ error: 'Maximum 500 cards per bulk operation' });
         
         const subCheck = await db.query('SELECT customer_id FROM submissions WHERE id = $1 AND company_id = $2', [submission_id, req.companyId]);
         if (subCheck.rows.length === 0) return res.status(404).json({ error: 'Submission not found' });
@@ -249,7 +250,7 @@ router.delete('/:id/images/:imageIndex', authenticate, async (req, res) => {
         const images = card.card_images || [];
         const imageIndex = parseInt(req.params.imageIndex);
 
-        if (imageIndex < 0 || imageIndex >= images.length) {
+        if (isNaN(imageIndex) || imageIndex < 0 || imageIndex >= images.length) {
             return res.status(400).json({ error: 'Invalid image index' });
         }
 
@@ -327,7 +328,7 @@ router.post('/auto-detect-sports', authenticate, async (req, res) => {
         });
     } catch (error) {
         console.error('Auto-detect sports error:', error);
-        res.status(500).json({ error: 'Failed to auto-detect sports', details: error.message });
+        res.status(500).json({ error: 'Failed to auto-detect sports' });
     }
 });
 
@@ -453,7 +454,7 @@ router.post('/bulk-assign', authenticate, async (req, res) => {
         });
     } catch (error) {
         console.error('Bulk assign error:', error);
-        res.status(500).json({ error: 'Failed to bulk assign cards', details: error.message });
+        res.status(500).json({ error: 'Failed to bulk assign cards' });
     }
 });
 
@@ -529,7 +530,7 @@ router.post('/:id/lookup-price', authenticate, async (req, res) => {
         });
     } catch (error) {
         console.error('Price comp lookup error:', error);
-        res.status(500).json({ error: 'Failed to lookup price comps', details: error.message });
+        res.status(500).json({ error: 'Failed to lookup price comps' });
     }
 });
 

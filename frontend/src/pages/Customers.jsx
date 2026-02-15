@@ -510,7 +510,7 @@ export default function Customers() {
           </div>
         ) : customerList.length === 0 ? (
           <div className="p-12 text-center">
-            <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <Users className="w-12 h-12 text-brand-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
               {search ? 'No matching customers' : 'No customers yet'}
             </h3>

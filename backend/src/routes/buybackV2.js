@@ -118,7 +118,7 @@ router.post('/', authenticate, async (req, res) => {
   } catch (error) {
     await client.query('ROLLBACK');
     console.error('Create buyback offer error:', error);
-    res.status(500).json({ error: 'Failed to create buyback offer', details: error.message });
+    res.status(500).json({ error: 'Failed to create buyback offer' });
   } finally {
     client.release();
   }

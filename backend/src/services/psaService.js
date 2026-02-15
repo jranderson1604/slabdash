@@ -850,7 +850,19 @@ const refreshAllSubmissions = async () => {
         throw err;
     }
 
-    for (const company of companiesResult.rows) {
+    // Deduplicate: skip companies sharing the same PSA API key to avoid
+    // doubling API calls against the same PSA account
+    const seenKeys = new Set();
+    const companies = companiesResult.rows.filter(c => {
+        if (seenKeys.has(c.psa_api_key)) {
+            console.log(`[PSA] Skipping company ${c.id} — duplicate PSA API key`);
+            return false;
+        }
+        seenKeys.add(c.psa_api_key);
+        return true;
+    });
+
+    for (const company of companies) {
         // Check rate limit before each company
         if (isRateLimited().limited) {
             console.log('[PSA] Rate limited — skipping remaining companies');

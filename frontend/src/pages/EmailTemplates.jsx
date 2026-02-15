@@ -287,8 +287,14 @@ function TemplateEditorModal({ template, onClose, onSave }) {
                 <p className="text-sm text-gray-500">Subject:</p>
                 <p className="font-semibold text-gray-900">{preview.subject}</p>
               </div>
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <div dangerouslySetInnerHTML={{ __html: preview.body_html }} />
+              <div className="border border-gray-200 rounded-lg bg-gray-50 overflow-hidden">
+                <iframe
+                  srcDoc={preview.body_html}
+                  sandbox=""
+                  title="Email Preview"
+                  className="w-full border-0"
+                  style={{ minHeight: '300px' }}
+                />
               </div>
             </div>
             <div className="p-4 border-t border-gray-200">
@@ -461,7 +467,7 @@ export default function EmailTemplates() {
         {templates.length === 0 && (
           <div className="col-span-full">
             <div className="card p-12 text-center">
-              <Mail className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <Mail className="w-12 h-12 text-brand-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No email templates yet</h3>
               <p className="text-gray-500 mb-4">Create templates for PSA steps to start sending notifications</p>
               <button onClick={handleNew} className="btn btn-primary">

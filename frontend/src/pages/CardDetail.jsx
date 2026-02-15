@@ -183,7 +183,7 @@ export default function CardDetail() {
             </>
           ) : (
             <>
-              {card.grade && card.customer_id && (
+              {card.grade && (
                 <button
                   onClick={() => navigate(`/buyback/new?card_id=${card.id}`)}
                   className="btn btn-primary bg-green-600 hover:bg-green-700"
@@ -414,7 +414,7 @@ export default function CardDetail() {
 
           {images.length === 0 && !uploading && (
             <div className="mt-6 text-center py-8">
-              <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <ImageIcon className="w-12 h-12 text-brand-300 mx-auto mb-3" />
               <p className="text-gray-500 text-sm">No images uploaded yet</p>
             </div>
           )}

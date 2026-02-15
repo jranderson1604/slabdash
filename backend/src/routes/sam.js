@@ -990,8 +990,7 @@ router.post('/chat', authenticate, async (req, res) => {
   } catch (error) {
     console.error('❌ SAM chat error:', error);
     res.status(500).json({
-      error: 'Failed to process chat message',
-      details: error.message
+      error: 'Failed to process chat message'
     });
   }
 });
@@ -1217,7 +1216,6 @@ Only include fields you can actually read from the card.`
     res.status(500).json({
       error: 'Failed to analyze card image',
       message: '😅 Hmm, I\'m having trouble analyzing that image. Make sure it\'s a clear photo of the card! Try again?',
-      details: error.message
     });
   }
 });

@@ -180,7 +180,7 @@ export default function Layout({ children }) {
                   color: '#FFF8F0',
                   boxShadow: '0 2px 12px rgba(255, 107, 89, 0.15), 0 0 20px rgba(255, 107, 89, 0.1), inset 0 1px 0 rgba(255,255,255,0.06)',
                 } : {
-                  color: 'rgba(255, 248, 240, 0.65)',
+                  color: 'rgba(255, 248, 240, 0.75)',
                 }}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" style={isActive ? { filter: 'drop-shadow(0 0 6px rgba(255, 129, 112, 0.6))' } : {}} />
@@ -196,7 +196,7 @@ export default function Layout({ children }) {
             <div className={`w-2 h-2 rounded-full ${company?.hasPsaKey ? 'bg-emerald-400' : 'bg-amber-400'}`}
               style={{ boxShadow: company?.hasPsaKey ? '0 0 6px rgba(52, 211, 153, 0.4)' : '0 0 6px rgba(251, 191, 36, 0.4)' }}
             />
-            <span className="text-xs" style={{ color: 'rgba(255, 248, 240, 0.45)' }}>
+            <span className="text-xs font-medium" style={{ color: 'rgba(255, 248, 240, 0.6)' }}>
               PSA API: {company?.hasPsaKey ? 'Connected' : 'Not configured'}
             </span>
           </div>
@@ -276,7 +276,7 @@ export default function Layout({ children }) {
                     >
                       <div className="px-4 py-2" style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
                         <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>{user?.name}</p>
-                        <p className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>{user?.email}</p>
+                        <p className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>{user?.email}</p>
                       </div>
                       <Link
                         to="/settings"

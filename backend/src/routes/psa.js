@@ -48,8 +48,7 @@ router.get("/test", authenticate, async (req, res) => {
   } catch (error) {
     console.error("PSA test error:", error.message);
     res.status(500).json({
-      error: "Failed to test PSA connection",
-      details: error.message
+      error: "Failed to test PSA connection"
     });
   }
 });
@@ -241,7 +240,7 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
   } catch (error) {
     console.error('[PSA] Refresh all error:', error.message);
     try {
-      res.write(`data: ${JSON.stringify({ type: 'error', error: 'Failed to refresh submissions', details: error.message })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'error', error: 'Failed to refresh submissions' })}\n\n`);
       res.end();
     } catch { /* client already gone */ }
   }
@@ -277,8 +276,7 @@ router.post("/normalize-service-levels", authenticate, requireRole("owner", "adm
   } catch (error) {
     console.error("Normalize service levels error:", error.message);
     res.status(500).json({
-      error: "Failed to normalize service levels",
-      details: error.message
+      error: "Failed to normalize service levels"
     });
   }
 });
@@ -303,8 +301,7 @@ router.get("/refresh-log/latest", authenticate, async (req, res) => {
   } catch (error) {
     console.error("Get refresh log error:", error.message);
     res.status(500).json({
-      error: "Failed to get refresh log",
-      details: error.message
+      error: "Failed to get refresh log"
     });
   }
 });
@@ -389,8 +386,7 @@ router.get("/refresh-log/:id/csv", authenticate, async (req, res) => {
   } catch (error) {
     console.error("Export CSV error:", error.message);
     res.status(500).json({
-      error: "Failed to export CSV",
-      details: error.message
+      error: "Failed to export CSV"
     });
   }
 });
@@ -471,7 +467,7 @@ router.post("/send-weekly-update", authenticate, requireRole("owner", "admin"), 
     });
   } catch (error) {
     console.error("Send weekly update error:", error.message);
-    res.status(500).json({ error: "Failed to send weekly update", details: error.message });
+    res.status(500).json({ error: "Failed to send weekly update" });
   }
 });
 

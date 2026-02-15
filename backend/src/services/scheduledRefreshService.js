@@ -61,7 +61,20 @@ async function runSmartRefresh() {
     return;
   }
 
+  // Deduplicate: if multiple companies share the same PSA API key, only refresh
+  // the first one found (avoids doubling API calls against the same PSA account).
+  const seenKeys = new Set();
+  const companies = [];
   for (const company of companiesResult.rows) {
+    if (seenKeys.has(company.psa_api_key)) {
+      console.log(`[SmartRefresh] Skipping ${company.name} — duplicate PSA API key (already refreshing another company with same key)`);
+      continue;
+    }
+    seenKeys.add(company.psa_api_key);
+    companies.push(company);
+  }
+
+  for (const company of companies) {
     try {
       await refreshCompanySubmissions(company);
     } catch (error) {

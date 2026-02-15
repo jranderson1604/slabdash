@@ -92,7 +92,7 @@ router.post('/psa-key', authenticate, async (req, res) => {
     try {
         const { apiKey } = req.body;
         if (!apiKey) return res.status(400).json({ error: 'API key required' });
-        
+
         // Test the key
         const axios = require('axios');
         try {
@@ -104,8 +104,23 @@ router.post('/psa-key', authenticate, async (req, res) => {
         } catch (e) {
             if (e.response?.status === 401) return res.status(400).json({ error: 'Invalid PSA API key' });
         }
-        
+
+        // Check if another company is already using this key
+        const duplicateCheck = await db.query(
+            'SELECT id, name FROM companies WHERE psa_api_key = $1 AND id != $2',
+            [apiKey, req.user.company_id]
+        );
+
         await db.query('UPDATE companies SET psa_api_key = $1 WHERE id = $2', [apiKey, req.user.company_id]);
+
+        if (duplicateCheck.rows.length > 0) {
+            const otherNames = duplicateCheck.rows.map(r => r.name).join(', ');
+            return res.json({
+                message: 'PSA API key saved',
+                warning: `This API key is also used by: ${otherNames}. Sharing a key across companies doubles API usage and can cause rate limiting. Consider removing the key from unused companies.`
+            });
+        }
+
         res.json({ message: 'PSA API key saved' });
     } catch (error) {
         res.status(500).json({ error: 'Failed to save API key' });

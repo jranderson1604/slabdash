@@ -192,7 +192,7 @@ export default function CustomerDetail() {
   }
 
   if (!customer) {
-    return <div className="text-center py-12"><User className="w-12 h-12 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900">Customer not found</h3><Link to="/customers" className="text-brand-600 hover:underline mt-2 inline-block">Back to customers</Link></div>;
+    return <div className="text-center py-12"><User className="w-12 h-12 text-brand-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900">Customer not found</h3><Link to="/customers" className="text-brand-600 hover:underline mt-2 inline-block">Back to customers</Link></div>;
   }
 
   return (
@@ -390,7 +390,7 @@ export default function CustomerDetail() {
                 ))}
               </div>
             ) : (
-              <div className="p-8 text-center"><Package className="w-10 h-10 text-gray-300 mx-auto mb-3" /><p className="text-gray-500">No submissions yet</p><Link to="/submissions/new" className="btn btn-primary mt-3">Create First Submission</Link></div>
+              <div className="p-8 text-center"><Package className="w-10 h-10 text-brand-300 mx-auto mb-3" /><p className="text-gray-500">No submissions yet</p><Link to="/submissions/new" className="btn btn-primary mt-3">Create First Submission</Link></div>
             )}
           </div>
 
@@ -404,7 +404,7 @@ export default function CustomerDetail() {
             </div>
             <div className="p-6">
               <div className="text-center py-8">
-                <DollarSign className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <DollarSign className="w-10 h-10 text-brand-300 mx-auto mb-3" />
                 <p className="text-gray-500 mb-3">No buyback transactions yet</p>
                 <p className="text-xs text-gray-400">Buyback offers and transactions will appear here</p>
               </div>

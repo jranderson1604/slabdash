@@ -54,7 +54,6 @@ router.post('/add-card-count', authenticate, requireRole('owner', 'admin'), asyn
         res.status(500).json({
             success: false,
             error: 'Failed to run migration',
-            details: error.message
         });
     }
 });
@@ -200,7 +199,6 @@ router.post('/add-invoice-columns', authenticate, requireRole('owner', 'admin'),
         res.status(500).json({
             success: false,
             error: 'Failed to run invoice migration',
-            details: error.message
         });
     }
 });
@@ -295,7 +293,6 @@ router.get('/check-invoice-status', authenticate, async (req, res) => {
         console.error('Check migration error:', error);
         res.status(500).json({
             error: 'Failed to check migration status',
-            details: error.message
         });
     }
 });
@@ -395,7 +392,6 @@ router.post('/add-portal-enhancements', authenticate, requireRole('owner', 'admi
         res.status(500).json({
             success: false,
             error: 'Failed to run portal enhancements migration',
-            details: error.message
         });
     }
 });
@@ -490,7 +486,6 @@ router.get('/check-portal-status', authenticate, async (req, res) => {
         console.error('Check migration error:', error);
         res.status(500).json({
             error: 'Failed to check migration status',
-            details: error.message
         });
     }
 });

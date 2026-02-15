@@ -1,6 +1,7 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 const db = require("./db");
@@ -31,6 +32,25 @@ const invoiceRoutes = require("./routes/invoices");
 const dashyRoutes = require("./routes/dashy");
 const samRoutes = require("./routes/sam");
 
+/* -------------------- STARTUP VALIDATION -------------------- */
+const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`❌ Missing required environment variable: ${envVar}`);
+    process.exit(1);
+  }
+}
+
+/* -------------------- GLOBAL ERROR HANDLERS -------------------- */
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('⚠️  Unhandled Promise Rejection:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  process.exit(1);
+});
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -56,11 +76,10 @@ const corsOptions = {
       'http://localhost:3000'
     ];
 
-    // Allow all Vercel preview and production URLs
+    // Allow listed origins and Vercel preview deployments for this project
     if (
       allowedOrigins.includes(origin) ||
-      origin.includes('vercel.app') ||
-      origin.includes('slabdash-8n99')
+      origin.match(/^https:\/\/slabdash[a-z0-9-]*\.vercel\.app$/)
     ) {
       callback(null, true);
     } else {
@@ -71,9 +90,15 @@ const corsOptions = {
   optionsSuccessStatus: 200
 };
 
+app.use(helmet({
+  contentSecurityPolicy: false, // Frontend handles CSP
+  crossOriginEmbedderPolicy: false, // Allow embedded resources
+}));
 app.use(cors(corsOptions));
-app.use(express.json({ limit: "10mb" }));
-app.use(morgan("dev"));
+app.use(express.json({ limit: "2mb" }));
+if (process.env.NODE_ENV !== 'production') {
+  app.use(morgan("dev"));
+}
 
 /* -------------------- RATE LIMITING -------------------- */
 
@@ -179,9 +204,11 @@ app.use((req, res) => {
 /* -------------------- ERROR HANDLER -------------------- */
 
 app.use((err, req, res, next) => {
-  console.error("API Error:", err);
-  res.status(err.status || 500).json({
-    error: err.message || "Internal server error"
+  // Log full error server-side, never expose internals to client
+  console.error("API Error:", err.message);
+  const status = err.status || 500;
+  res.status(status).json({
+    error: status === 500 ? "Internal server error" : (err.message || "Internal server error")
   });
 });
 

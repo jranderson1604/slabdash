@@ -249,7 +249,7 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
           </div>
           <div className="flex items-center gap-2">
             {submission.last_refreshed_at && (
-              <span className="text-[10px] text-gray-300" title={`Last refreshed: ${new Date(submission.last_refreshed_at).toLocaleString()}`}>
+              <span className="text-[10px] text-gray-400" title={`Last refreshed: ${new Date(submission.last_refreshed_at).toLocaleString()}`}>
                 <RefreshCw className="w-3 h-3 inline mr-0.5" />
                 {formatTimeAgo(submission.last_refreshed_at)}
               </span>
@@ -833,7 +833,7 @@ export default function Submissions() {
         </div>
       ) : filteredSubs.length === 0 ? (
         <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
-          <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <Package className="w-12 h-12 text-brand-300 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             {search ? 'No matching submissions' : filter !== 'all' ? 'No submissions in this view' : 'No submissions yet'}
           </h3>
