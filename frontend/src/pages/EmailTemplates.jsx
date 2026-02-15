@@ -287,8 +287,14 @@ function TemplateEditorModal({ template, onClose, onSave }) {
                 <p className="text-sm text-gray-500">Subject:</p>
                 <p className="font-semibold text-gray-900">{preview.subject}</p>
               </div>
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <div dangerouslySetInnerHTML={{ __html: preview.body_html }} />
+              <div className="border border-gray-200 rounded-lg bg-gray-50 overflow-hidden">
+                <iframe
+                  srcDoc={preview.body_html}
+                  sandbox=""
+                  title="Email Preview"
+                  className="w-full border-0"
+                  style={{ minHeight: '300px' }}
+                />
               </div>
             </div>
             <div className="p-4 border-t border-gray-200">

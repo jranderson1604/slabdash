@@ -183,7 +183,7 @@ export default function CardDetail() {
             </>
           ) : (
             <>
-              {card.grade && card.customer_id && (
+              {card.grade && (
                 <button
                   onClick={() => navigate(`/buyback/new?card_id=${card.id}`)}
                   className="btn btn-primary bg-green-600 hover:bg-green-700"

@@ -75,11 +75,10 @@ const corsOptions = {
       'http://localhost:3000'
     ];
 
-    // Allow all Vercel preview and production URLs
+    // Allow listed origins and Vercel preview deployments for this project
     if (
       allowedOrigins.includes(origin) ||
-      origin.includes('vercel.app') ||
-      origin.includes('slabdash-8n99')
+      origin.match(/^https:\/\/slabdash[a-z0-9-]*\.vercel\.app$/)
     ) {
       callback(null, true);
     } else {
@@ -91,7 +90,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "2mb" }));
 app.use(morgan("dev"));
 
 /* -------------------- RATE LIMITING -------------------- */
