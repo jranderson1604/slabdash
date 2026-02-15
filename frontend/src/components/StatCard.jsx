@@ -81,7 +81,7 @@ export default function StatCard({
       <div>
         <p className="text-2xl font-bold" style={{ color: 'rgb(var(--dark))' }}>{value}</p>
         <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>{label}</p>
-        {subtext && <p className="text-xs mt-0.5" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>{subtext}</p>}
+        {subtext && <p className="text-xs mt-0.5" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>{subtext}</p>}
       </div>
     </div>
   );

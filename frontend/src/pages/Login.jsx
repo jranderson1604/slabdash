@@ -149,7 +149,7 @@ export default function Login() {
           </div>
         </div>
 
-        <p className="mt-6 text-center text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>
+        <p className="mt-6 text-center text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
           Track your PSA submissions in real-time.
           <br />
           Give customers visibility into their orders.

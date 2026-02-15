@@ -58,6 +58,9 @@ const checkAccountLock = (customer) => {
 router.get('/auth/shop-lookup/:code', async (req, res) => {
   try {
     const code = req.params.code.trim();
+    if (!code || code.length > 50) {
+      return res.status(400).json({ error: 'Invalid shop code' });
+    }
     // Support both shop_code (4-digit) and slug for backwards compatibility
     const result = await db.query(
       `SELECT name, slug, shop_code, primary_color, logo_url FROM companies

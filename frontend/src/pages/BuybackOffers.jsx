@@ -105,7 +105,7 @@ export default function BuybackOffers() {
               <div>
                 <p className="text-2xl font-bold text-gray-900">{stats.pending_offers}</p>
                 <p className="text-sm text-gray-500">Pending</p>
-                <p className="text-xs text-gray-400">${parseFloat(stats.pending_value).toFixed(2)}</p>
+                <p className="text-xs text-gray-600 font-medium">${(parseFloat(stats.pending_value) || 0).toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -118,7 +118,7 @@ export default function BuybackOffers() {
               <div>
                 <p className="text-2xl font-bold text-gray-900">{stats.accepted_offers}</p>
                 <p className="text-sm text-gray-500">Accepted</p>
-                <p className="text-xs text-gray-400">${parseFloat(stats.accepted_value).toFixed(2)}</p>
+                <p className="text-xs text-gray-600 font-medium">${(parseFloat(stats.accepted_value) || 0).toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -131,7 +131,7 @@ export default function BuybackOffers() {
               <div>
                 <p className="text-2xl font-bold text-gray-900">{stats.paid_offers}</p>
                 <p className="text-sm text-gray-500">Paid</p>
-                <p className="text-xs text-gray-400">${parseFloat(stats.paid_value).toFixed(2)}</p>
+                <p className="text-xs text-gray-600 font-medium">${(parseFloat(stats.paid_value) || 0).toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -244,7 +244,7 @@ export default function BuybackOffers() {
                     </td>
                     <td className="text-sm text-gray-600">{offer.psa_cert_number || '—'}</td>
                     <td className="font-semibold text-green-600">
-                      ${parseFloat(offer.offer_price).toFixed(2)}
+                      ${(parseFloat(offer.offer_price) || 0).toFixed(2)}
                     </td>
                     <td>
                       <span className={getStatusBadge(offer.status)}>

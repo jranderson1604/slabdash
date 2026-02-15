@@ -828,7 +828,7 @@ export default function Settings() {
             <div className="grid md:grid-cols-3 gap-4">
               <div className="border border-gray-200 rounded-lg p-4 hover:border-brand-500 transition-colors">
                 <h4 className="font-semibold text-gray-900 mb-1">Starter</h4>
-                <div className="text-2xl font-bold text-gray-900 mb-2">$29<span className="text-sm font-normal text-gray-500">/mo</span></div>
+                <div className="text-2xl font-bold text-gray-900 mb-2">$29<span className="text-sm font-medium text-gray-500">/mo</span></div>
                 <p className="text-xs text-gray-600 mb-3">Perfect for small shops</p>
                 <button
                   onClick={() => handleUpgrade('starter')}
@@ -844,7 +844,7 @@ export default function Settings() {
                   <span className="px-3 py-1 bg-brand-600 text-white rounded-full text-xs font-medium">Most Popular</span>
                 </div>
                 <h4 className="font-semibold text-gray-900 mb-1">Professional</h4>
-                <div className="text-2xl font-bold text-gray-900 mb-2">$79<span className="text-sm font-normal text-gray-500">/mo</span></div>
+                <div className="text-2xl font-bold text-gray-900 mb-2">$79<span className="text-sm font-medium text-gray-500">/mo</span></div>
                 <p className="text-xs text-gray-600 mb-3">For growing businesses</p>
                 <button
                   onClick={() => handleUpgrade('pro')}
@@ -857,7 +857,7 @@ export default function Settings() {
 
               <div className="border border-gray-200 rounded-lg p-4 hover:border-brand-500 transition-colors">
                 <h4 className="font-semibold text-gray-900 mb-1">Enterprise</h4>
-                <div className="text-2xl font-bold text-gray-900 mb-2">$199<span className="text-sm font-normal text-gray-500">/mo</span></div>
+                <div className="text-2xl font-bold text-gray-900 mb-2">$199<span className="text-sm font-medium text-gray-500">/mo</span></div>
                 <p className="text-xs text-gray-600 mb-3">For large operations</p>
                 <button
                   onClick={() => handleUpgrade('enterprise')}

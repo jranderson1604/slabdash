@@ -231,7 +231,7 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
                     .sort(([a], [b]) => a.localeCompare(b))
                     .map(([level, price]) => (
                       <option key={level} value={level}>
-                        {level} - ${parseFloat(price).toFixed(2)}
+                        {level} - ${(parseFloat(price) || 0).toFixed(2)}
                       </option>
                     ))}
                 </select>

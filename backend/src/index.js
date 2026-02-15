@@ -31,6 +31,25 @@ const invoiceRoutes = require("./routes/invoices");
 const dashyRoutes = require("./routes/dashy");
 const samRoutes = require("./routes/sam");
 
+/* -------------------- STARTUP VALIDATION -------------------- */
+const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`❌ Missing required environment variable: ${envVar}`);
+    process.exit(1);
+  }
+}
+
+/* -------------------- GLOBAL ERROR HANDLERS -------------------- */
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('⚠️  Unhandled Promise Rejection:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  process.exit(1);
+});
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 

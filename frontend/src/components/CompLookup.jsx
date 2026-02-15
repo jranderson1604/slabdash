@@ -140,7 +140,7 @@ export default function CompLookup({ cardId, token, initialCard, onUpdate, readO
         <div className="bg-white rounded-lg p-4 mb-4 border border-green-200">
           <div className="text-sm text-green-700 mb-1">Estimated Market Value</div>
           <div className="text-3xl font-bold text-green-900">
-            ${parseFloat(card.price_estimate).toFixed(2)}
+            ${(parseFloat(card.price_estimate) || 0).toFixed(2)}
           </div>
           {hasComps && latestComp.totalListings && (
             <div className="text-sm text-green-600 mt-1">
