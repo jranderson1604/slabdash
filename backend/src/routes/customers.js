@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { v4: uuidv4 } = require('uuid');
+const { getLimits } = require('../config/tierLimits');
 
 // Helper function to validate email addresses
 const isValidEmail = (email) => {
@@ -108,7 +109,22 @@ router.post('/', authenticate, async (req, res) => {
     try {
         const { email, name, phone, address_line1, city, state, postal_code, notes } = req.body;
         if (!email || !name) return res.status(400).json({ error: 'Email and name required' });
-        
+
+        // Enforce customer count limit
+        const limits = getLimits(req.user.plan);
+        if (limits.customers !== Infinity) {
+            const countResult = await db.query('SELECT COUNT(*) FROM customers WHERE company_id = $1', [req.companyId]);
+            const customerCount = parseInt(countResult.rows[0].count, 10);
+            if (customerCount >= limits.customers) {
+                return res.status(403).json({
+                    error: 'Customer limit reached for your plan',
+                    limit: limits.customers,
+                    current: customerCount,
+                    upgrade: true
+                });
+            }
+        }
+
         const trimmedEmail = email.trim().toLowerCase();
         const existing = await db.query('SELECT id FROM customers WHERE company_id = $1 AND LOWER(TRIM(email)) = $2', [req.companyId, trimmedEmail]);
         if (existing.rows.length > 0) return res.status(400).json({ error: 'Customer already exists' });
@@ -184,6 +200,21 @@ router.post('/:id/send-portal-link', authenticate, async (req, res) => {
 router.post('/import-csv', authenticate, async (req, res) => {
     try {
         const { csvData } = req.body;
+
+        // Enforce customer count limit before import
+        const limits = getLimits(req.user.plan);
+        if (limits.customers !== Infinity) {
+            const countResult = await db.query('SELECT COUNT(*) FROM customers WHERE company_id = $1', [req.companyId]);
+            const customerCount = parseInt(countResult.rows[0].count, 10);
+            if (customerCount >= limits.customers) {
+                return res.status(403).json({
+                    error: 'Customer limit reached for your plan',
+                    limit: limits.customers,
+                    current: customerCount,
+                    upgrade: true
+                });
+            }
+        }
 
         // Helper function to parse CSV line with quoted fields
         const parseCSVLine = (line) => {

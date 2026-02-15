@@ -9,6 +9,17 @@ const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const upload = multer({ storage: multer.memoryStorage() });
 const { detectSport } = require('../utils/sportDetection');
+const { getLimits } = require('../config/tierLimits');
+
+// Helper: count cards created this calendar month for a company
+async function getMonthlyCardCount(companyId) {
+    const result = await db.query(
+        `SELECT COUNT(*) FROM cards WHERE company_id = $1
+         AND created_at >= date_trunc('month', NOW())`,
+        [companyId]
+    );
+    return parseInt(result.rows[0].count, 10);
+}
 
 // List cards
 router.get('/', authenticate, async (req, res) => {
@@ -73,7 +84,21 @@ router.post('/', authenticate, async (req, res) => {
     try {
         const { submission_id, description, year, brand, card_number, player_name, team, variation, psa_cert_number } = req.body;
         if (!submission_id || !description) return res.status(400).json({ error: 'Submission ID and description required' });
-        
+
+        // Enforce card/month limit
+        const limits = getLimits(req.user.plan);
+        if (limits.cards_per_month !== Infinity) {
+            const monthlyCount = await getMonthlyCardCount(req.companyId);
+            if (monthlyCount >= limits.cards_per_month) {
+                return res.status(403).json({
+                    error: 'Monthly card limit reached',
+                    limit: limits.cards_per_month,
+                    current: monthlyCount,
+                    upgrade: true
+                });
+            }
+        }
+
         const subCheck = await db.query('SELECT customer_id FROM submissions WHERE id = $1 AND company_id = $2', [submission_id, req.companyId]);
         if (subCheck.rows.length === 0) return res.status(404).json({ error: 'Submission not found' });
         
@@ -94,7 +119,31 @@ router.post('/bulk', authenticate, async (req, res) => {
         const { submission_id, cards } = req.body;
         if (!submission_id || !Array.isArray(cards)) return res.status(400).json({ error: 'Submission ID and cards array required' });
         if (cards.length > 500) return res.status(400).json({ error: 'Maximum 500 cards per bulk operation' });
-        
+
+        // Enforce card/month limit
+        const limits = getLimits(req.user.plan);
+        if (limits.cards_per_month !== Infinity) {
+            const monthlyCount = await getMonthlyCardCount(req.companyId);
+            const remaining = limits.cards_per_month - monthlyCount;
+            if (remaining <= 0) {
+                return res.status(403).json({
+                    error: 'Monthly card limit reached',
+                    limit: limits.cards_per_month,
+                    current: monthlyCount,
+                    upgrade: true
+                });
+            }
+            if (cards.length > remaining) {
+                return res.status(403).json({
+                    error: `Bulk import would exceed monthly card limit. ${remaining} of ${limits.cards_per_month} cards remaining this month.`,
+                    limit: limits.cards_per_month,
+                    current: monthlyCount,
+                    remaining,
+                    upgrade: true
+                });
+            }
+        }
+
         const subCheck = await db.query('SELECT customer_id FROM submissions WHERE id = $1 AND company_id = $2', [submission_id, req.companyId]);
         if (subCheck.rows.length === 0) return res.status(404).json({ error: 'Submission not found' });
         

@@ -3,11 +3,11 @@ const router = express.Router();
 const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 const stripeService = require('../services/stripe');
+const { getLimits } = require('../config/tierLimits');
 
-// Stripe Price IDs (you'll need to create these in Stripe Dashboard)
+// Stripe Price IDs (create these in Stripe Dashboard)
 const PRICE_IDS = {
-  starter: process.env.STRIPE_PRICE_STARTER || 'price_starter',
-  pro: process.env.STRIPE_PRICE_PRO || 'price_pro',
+  shop: process.env.STRIPE_PRICE_SHOP || 'price_shop',
   enterprise: process.env.STRIPE_PRICE_ENTERPRISE || 'price_enterprise'
 };
 
@@ -15,9 +15,9 @@ const PRICE_IDS = {
 router.post('/create-checkout', authenticate, async (req, res) => {
   try {
     const { company_id, user } = req.user;
-    const { plan } = req.body; // 'starter', 'pro', or 'enterprise'
+    const { plan } = req.body; // 'shop' or 'enterprise'
 
-    if (!['starter', 'pro', 'enterprise'].includes(plan)) {
+    if (!['shop', 'enterprise'].includes(plan)) {
       return res.status(400).json({ error: 'Invalid plan' });
     }
 
@@ -121,7 +121,8 @@ router.get('/status', authenticate, async (req, res) => {
       plan_expires_at: company.plan_expires_at,
       has_stripe_customer: !!company.stripe_customer_id,
       has_active_subscription: !!company.stripe_subscription_id,
-      subscription: subscriptionDetails
+      subscription: subscriptionDetails,
+      limits: getLimits(company.plan)
     });
   } catch (error) {
     console.error('Get subscription status error:', error);
