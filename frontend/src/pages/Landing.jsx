@@ -29,7 +29,12 @@ import {
   Eye,
   Mail,
   QrCode,
-  TrendingUp
+  TrendingUp,
+  Home,
+  Search,
+  Tag,
+  MessageCircle,
+  LayoutGrid
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -44,6 +49,7 @@ export default function Landing() {
   const [shopError, setShopError] = useState('');
   const [shopFound, setShopFound] = useState(null);
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
+  const [activeTab, setActiveTab] = useState('home');
   const shopCodeRefs = [useRef(), useRef(), useRef(), useRef()];
 
   useEffect(() => {
@@ -264,6 +270,14 @@ export default function Landing() {
   const demoPipeline = ['Received', 'Research & ID', 'Grading', 'Assembly', 'Grades Ready'];
   const demoActiveIdx = 2;
 
+  const tabs = [
+    { id: 'home', label: 'Home', icon: Home },
+    { id: 'portal', label: 'Customer Portal', icon: Search },
+    { id: 'features', label: 'Features', icon: LayoutGrid },
+    { id: 'pricing', label: 'Pricing', icon: Tag },
+    { id: 'faq', label: 'FAQ & Reviews', icon: MessageCircle },
+  ];
+
   const DemoScreen = ({ step }) => {
     const coralGrad = 'linear-gradient(135deg, #FF8170 0%, #E8543D 100%)';
     const cream = '#FBF7F2';
@@ -481,38 +495,19 @@ export default function Landing() {
     <div className="min-h-screen" style={{ background: '#FEFCFA' }}>
       {/* ─── Navigation ─── */}
       <nav className="fixed top-0 left-0 right-0 z-50 transition-all duration-300"
-        style={{ background: 'rgba(254, 252, 250, 0.85)', backdropFilter: 'blur(20px) saturate(180%)', WebkitBackdropFilter: 'blur(20px) saturate(180%)', borderBottom: '1px solid rgba(44,36,22,0.06)' }}>
+        style={{ background: 'rgba(254, 252, 250, 0.95)', backdropFilter: 'blur(20px) saturate(180%)', WebkitBackdropFilter: 'blur(20px) saturate(180%)', borderBottom: '1px solid rgba(44,36,22,0.06)' }}>
         <div className="max-w-6xl mx-auto px-5 sm:px-8">
-          <div className="flex justify-between items-center h-16 sm:h-18">
-            <Link to="/" className="flex items-center gap-2">
+          <div className="flex justify-between items-center h-14 sm:h-16">
+            <Link to="/" className="flex items-center gap-2" onClick={() => setActiveTab('home')}>
               <img src="/images/logo-icon.png.svg" alt="SlabDash" className="h-10 w-10 sm:h-12 sm:w-12" />
               <span className="text-xl sm:text-2xl font-black" style={{ color: '#2C2416' }}>SlabDash</span>
             </Link>
 
-            <div className="hidden md:flex items-center gap-8">
-              <a href="#features" className="text-sm font-semibold transition-colors" style={{ color: 'rgba(44,36,22,0.55)' }}
-                onMouseEnter={e => e.target.style.color = '#2C2416'} onMouseLeave={e => e.target.style.color = 'rgba(44,36,22,0.55)'}>
-                Features
-              </a>
-              <a href="#pricing" className="text-sm font-semibold transition-colors" style={{ color: 'rgba(44,36,22,0.55)' }}
-                onMouseEnter={e => e.target.style.color = '#2C2416'} onMouseLeave={e => e.target.style.color = 'rgba(44,36,22,0.55)'}>
-                Pricing
-              </a>
-              <a href="#faq" className="text-sm font-semibold transition-colors" style={{ color: 'rgba(44,36,22,0.55)' }}
-                onMouseEnter={e => e.target.style.color = '#2C2416'} onMouseLeave={e => e.target.style.color = 'rgba(44,36,22,0.55)'}>
-                FAQ
-              </a>
+            <div className="flex items-center gap-3">
               <button onClick={() => setShowDemo(true)}
-                className="text-sm font-semibold transition-colors flex items-center gap-1.5" style={{ color: '#FF8170' }}>
+                className="text-sm font-semibold transition-colors flex items-center gap-1.5 hidden sm:flex" style={{ color: '#FF8170' }}>
                 <PlayCircle className="w-4 h-4" /> Demo
               </button>
-              <a href="#track" className="text-sm font-semibold transition-colors flex items-center gap-1.5" style={{ color: 'rgba(44,36,22,0.55)' }}
-                onMouseEnter={e => e.target.style.color = '#2C2416'} onMouseLeave={e => e.target.style.color = 'rgba(44,36,22,0.55)'}>
-                <Package className="w-3.5 h-3.5" /> Track My Cards
-              </a>
-            </div>
-
-            <div className="flex items-center gap-3">
               <Link to="/login" className="text-sm font-semibold transition-colors hidden sm:block" style={{ color: 'rgba(44,36,22,0.55)' }}>
                 Sign In
               </Link>
@@ -524,10 +519,40 @@ export default function Landing() {
             </div>
           </div>
         </div>
+
+        {/* ─── Tab Bar ─── */}
+        <div style={{ borderTop: '1px solid rgba(44,36,22,0.04)' }}>
+          <div className="max-w-6xl mx-auto px-3 sm:px-8">
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                const TabIcon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => { setActiveTab(tab.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold whitespace-nowrap transition-all duration-200 relative shrink-0"
+                    style={{
+                      color: isActive ? '#E8543D' : 'rgba(44,36,22,0.5)',
+                      background: isActive ? 'rgba(255,129,112,0.06)' : 'transparent',
+                      borderRadius: '10px 10px 0 0',
+                    }}
+                  >
+                    <TabIcon className="w-4 h-4" />
+                    {tab.label}
+                    {isActive && (
+                      <div className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full" style={{ background: 'linear-gradient(90deg, #FF8170, #E8543D)' }} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </nav>
 
-      {/* ─── Hero Section ─── */}
-      <section className="relative pt-32 sm:pt-40 pb-20 sm:pb-28 px-5 sm:px-8 overflow-hidden">
+      {/* ─── Hero Section (Home Tab) ─── */}
+      {activeTab === 'home' && <><section className="relative pt-36 sm:pt-44 pb-20 sm:pb-28 px-5 sm:px-8 overflow-hidden">
         {/* Background gradient orbs */}
         <div className="absolute top-20 left-1/4 w-[500px] h-[500px] rounded-full opacity-[0.08]"
           style={{ background: 'radial-gradient(circle, #FF8170 0%, transparent 70%)', filter: 'blur(80px)' }} />
@@ -648,8 +673,10 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ─── Customer Card Tracking ─── */}
-      <section id="track" className="py-20 sm:py-28 px-5 sm:px-8">
+      </>}
+
+      {/* ─── Customer Portal Tab ─── */}
+      {activeTab === 'portal' && <section className="pt-36 sm:pt-44 pb-20 sm:pb-28 px-5 sm:px-8">
         <div className="max-w-5xl mx-auto">
           <div className="relative rounded-3xl overflow-hidden" style={{ background: '#1A1714', boxShadow: '0 32px 80px rgba(0,0,0,0.15)' }}>
             <div className="absolute top-0 right-0 w-80 h-80 rounded-full opacity-[0.06]"
@@ -735,8 +762,10 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ─── Features ─── */}
-      <section id="features" className="py-20 sm:py-28 px-5 sm:px-8" style={{ background: '#F8F4EF' }}>
+      }
+
+      {/* ─── Features Tab ─── */}
+      {activeTab === 'features' && <><section className="pt-36 sm:pt-44 pb-20 sm:pb-28 px-5 sm:px-8" style={{ background: '#F8F4EF' }}>
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#FF8170' }}>Features</p>
@@ -792,8 +821,10 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ─── Pricing ─── */}
-      <section id="pricing" className="py-20 sm:py-28 px-5 sm:px-8" style={{ background: '#F8F4EF' }}>
+      </>}
+
+      {/* ─── Pricing Tab ─── */}
+      {activeTab === 'pricing' && <section className="pt-36 sm:pt-44 pb-20 sm:pb-28 px-5 sm:px-8" style={{ background: '#F8F4EF' }}>
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs font-bold mb-6"
@@ -887,8 +918,10 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* ─── Testimonials ─── */}
-      <section className="py-20 sm:py-28 px-5 sm:px-8">
+      }
+
+      {/* ─── FAQ & Reviews Tab ─── */}
+      {activeTab === 'faq' && <><section className="pt-36 sm:pt-44 pb-12 sm:pb-16 px-5 sm:px-8">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#FF8170' }}>Testimonials</p>
@@ -968,6 +1001,8 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      </>}
 
       {/* ─── Final CTA ─── */}
       <section className="py-24 sm:py-32 px-5 sm:px-8 relative overflow-hidden" style={{ background: '#1A1714' }}>
