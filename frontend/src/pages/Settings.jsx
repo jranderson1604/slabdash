@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { companies, psa, migration } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import {
   Settings as SettingsIcon,
   Key,
@@ -47,7 +48,7 @@ function SettingsSection({ icon: Icon, title, description, children }) {
         </div>
         <div>
           <h2 className="text-lg font-bold" style={{ color: 'rgb(var(--dark))' }}>{title}</h2>
-          <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>{description}</p>
+          <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.65)' }}>{description}</p>
         </div>
       </div>
       {children}
@@ -59,6 +60,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 export default function Settings() {
   const { company, refreshUser } = useAuth();
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingPsa, setTestingPsa] = useState(false);
@@ -126,12 +128,12 @@ export default function Settings() {
           critical: true
         })) || []
       });
-      alert('✓ Migration completed successfully!\n\n' + (res.data.results?.join('\n') || ''));
+      toast.success('Migration completed successfully!');
       // Refresh migration status
       await checkMigrationStatus();
     } catch (error) {
       console.error('Migration failed:', error);
-      alert('Migration failed: ' + (error.response?.data?.details || error.message));
+      toast.error('Migration failed: ' + (error.response?.data?.details || error.message));
     } finally {
       setRunningMigration(false);
     }
@@ -216,7 +218,7 @@ export default function Settings() {
       }
     } catch (error) {
       console.error('Failed to create checkout session:', error);
-      alert('Failed to start upgrade process');
+      toast.error('Failed to start upgrade process');
     } finally {
       setLoadingSubscription(false);
     }
@@ -237,7 +239,7 @@ export default function Settings() {
       }
     } catch (error) {
       console.error('Failed to open customer portal:', error);
-      alert('Failed to open subscription management');
+      toast.error('Failed to open subscription management');
     } finally {
       setLoadingSubscription(false);
     }
@@ -248,14 +250,14 @@ export default function Settings() {
     try {
       await companies.update(settings);
       await refreshUser();
-      alert('Settings saved!');
+      toast.success('Settings saved!');
       // Force page reload to apply theme changes immediately
       if (section === 'branding') {
         window.location.reload();
       }
     } catch (error) {
       console.error('Failed to save settings:', error);
-      alert('Failed to save settings');
+      toast.error('Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -263,7 +265,7 @@ export default function Settings() {
 
   const handleTestPsa = async () => {
     if (!settings.psa_api_key) {
-      alert('Please enter a PSA API key first');
+      toast.error('Please enter a PSA API key first');
       return;
     }
 
@@ -519,7 +521,7 @@ export default function Settings() {
                       });
                       setNewServiceLevel('');
                     } else {
-                      alert('This service level already exists');
+                      toast.error('This service level already exists');
                     }
                   }
                 }}
@@ -538,7 +540,7 @@ export default function Settings() {
                       });
                       setNewServiceLevel('');
                     } else {
-                      alert('This service level already exists');
+                      toast.error('This service level already exists');
                     }
                   }
                 }}
@@ -1318,7 +1320,7 @@ function PortalQRCode({ shopCode, slug, shopName, logoUrl, primaryColor }) {
               <img src={logoUrl} alt="" className="w-16 h-16 rounded-xl object-cover mx-auto mb-3" />
             )}
             <h3 className="text-lg font-bold text-gray-900">{shopName || slug}</h3>
-            <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-4">Customer Portal</p>
+            <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-4">Customer Portal</p>
             <div className="qr-container inline-block p-3 bg-gray-50 rounded-xl border border-gray-200">
               <QRCodeSVG
                 value={portalUrl}
@@ -1330,7 +1332,7 @@ function PortalQRCode({ shopCode, slug, shopName, logoUrl, primaryColor }) {
               />
             </div>
             <p className="text-2xl font-black text-gray-900 mt-4 tracking-[6px]">{displayCode}</p>
-            <p className="text-[9px] uppercase tracking-wider text-gray-400 mt-0.5 mb-2">Shop Code</p>
+            <p className="text-[9px] uppercase tracking-wider text-gray-500 mt-0.5 mb-2">Shop Code</p>
             <p className="text-xs font-semibold text-gray-600">Scan QR or enter code to get started</p>
           </div>
         </div>
@@ -1342,7 +1344,7 @@ function PortalQRCode({ shopCode, slug, shopName, logoUrl, primaryColor }) {
               <label className="label">Shop Code</label>
               <div className="flex items-center gap-3">
                 <span className="text-3xl font-black tracking-[8px] text-gray-900 pl-1">{shopCode}</span>
-                <span className="text-xs text-gray-400">Give this code to customers</span>
+                <span className="text-xs text-gray-500">Give this code to customers</span>
               </div>
             </div>
           )}

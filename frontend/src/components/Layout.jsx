@@ -207,7 +207,7 @@ export default function Layout({ children }) {
       <div className="lg:pl-64">
         {/* Top header - hidden on SAM page */}
         {location.pathname !== '/sam' && (
-        <header style={{
+        <header className="relative z-30" style={{
           background: 'rgba(255, 255, 255, 0.6)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
@@ -276,7 +276,7 @@ export default function Layout({ children }) {
                     >
                       <div className="px-4 py-2" style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
                         <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>{user?.name}</p>
-                        <p className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>{user?.email}</p>
+                        <p className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.7)' }}>{user?.email}</p>
                       </div>
                       <Link
                         to="/settings"

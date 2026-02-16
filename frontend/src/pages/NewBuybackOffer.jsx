@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 import { buyback, customers, cards as cardsApi } from '../api/client';
 import {
   ArrowLeft,
@@ -14,6 +15,7 @@ import { Link } from 'react-router-dom';
 
 export default function NewBuybackOffer() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [customerList, setCustomerList] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState('');
   const [customerCards, setCustomerCards] = useState([]);
@@ -92,17 +94,17 @@ export default function NewBuybackOffer() {
 
   const handleCreate = async () => {
     if (!selectedCustomer) {
-      alert('Please select a customer');
+      toast.error('Please select a customer');
       return;
     }
 
     if (selectedCards.length === 0) {
-      alert('Please select at least one card');
+      toast.error('Please select at least one card');
       return;
     }
 
     if (selectedCards.some((c) => !c.offer_amount || c.offer_amount <= 0)) {
-      alert('Please enter offer amounts for all cards');
+      toast.error('Please enter offer amounts for all cards');
       return;
     }
 
@@ -124,7 +126,7 @@ export default function NewBuybackOffer() {
       navigate('/buyback');
     } catch (error) {
       console.error('Failed to create offer:', error);
-      alert(error.response?.data?.error || 'Failed to create buyback offer');
+      toast.error(error.response?.data?.error || 'Failed to create buyback offer');
     } finally {
       setLoading(false);
     }

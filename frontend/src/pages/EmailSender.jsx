@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useToast } from '../context/ToastContext';
 import { customers, submissions, emailTemplates } from '../api/client';
 import {
   Mail,
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 
 export default function EmailSender() {
+  const toast = useToast();
   const [sendMode, setSendMode] = useState('customer'); // 'customer', 'submission', 'bulk'
   const [customerList, setCustomerList] = useState([]);
   const [submissionList, setSubmissionList] = useState([]);
@@ -96,17 +98,17 @@ export default function EmailSender() {
 
   const handleSendEmail = async () => {
     if (!emailSubject || !emailBody) {
-      alert('Please enter both subject and body');
+      toast.error('Please enter both subject and body');
       return;
     }
 
     if (sendMode === 'customer' && !selectedCustomer) {
-      alert('Please select a customer');
+      toast.error('Please select a customer');
       return;
     }
 
     if (sendMode === 'submission' && !selectedSubmission) {
-      alert('Please select a submission');
+      toast.error('Please select a submission');
       return;
     }
 

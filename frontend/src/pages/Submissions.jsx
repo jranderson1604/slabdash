@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 import { submissions, emailTemplates, psaImport, psa } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import ProgressBar from '../components/ProgressBar';
@@ -111,7 +112,7 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
               {submission.psa_submission_number || submission.internal_id || 'No #'}
             </span>
             {submission.psa_order_number && (
-              <span className="text-xs text-gray-400 hidden sm:inline">
+              <span className="text-xs text-gray-500 hidden sm:inline">
                 Order: {submission.psa_order_number}
               </span>
             )}
@@ -123,7 +124,7 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
               <span className="text-xs text-green-600 font-medium animate-pulse">Updated!</span>
             )}
             {refreshResult === 'no-change' && (
-              <span className="text-xs text-gray-400">No changes</span>
+              <span className="text-xs text-gray-500">No changes</span>
             )}
             {refreshResult === 'error' && (
               <span className="text-xs text-red-500">Failed</span>
@@ -192,7 +193,7 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
           {/* Estimated time remaining */}
           {submission.estimated?.estimatedDaysRemaining > 0 && !submission.shipped && (
             <div className="flex items-center justify-between mt-1">
-              <span className="text-[10px] text-gray-400">
+              <span className="text-[10px] text-gray-500">
                 ~{submission.estimated.estimatedDaysRemaining} days remaining
               </span>
               {submission.refreshPriority && (
@@ -249,7 +250,7 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
           </div>
           <div className="flex items-center gap-2">
             {submission.last_refreshed_at && (
-              <span className="text-[10px] text-gray-400" title={`Last refreshed: ${new Date(submission.last_refreshed_at).toLocaleString()}`}>
+              <span className="text-[10px] text-gray-500" title={`Last refreshed: ${new Date(submission.last_refreshed_at).toLocaleString()}`}>
                 <RefreshCw className="w-3 h-3 inline mr-0.5" />
                 {formatTimeAgo(submission.last_refreshed_at)}
               </span>
@@ -344,6 +345,7 @@ function ServiceLevelGroup({ level, submissions: groupSubs, onRefresh, onDelete,
 export default function Submissions() {
   const { company } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('active');
@@ -383,7 +385,7 @@ export default function Submissions() {
   // ============================================
   const handleSendWeeklyUpdate = async () => {
     if (!company?.hasPsaKey) {
-      alert('PSA API key not configured. Add it in Company Settings.');
+      toast.error('PSA API key not configured. Add it in Company Settings.');
       return;
     }
 
@@ -420,7 +422,7 @@ export default function Submissions() {
   // ============================================
   const handleRefreshAll = async () => {
     if (!company?.hasPsaKey) {
-      alert('PSA API key not configured. Add it in Company Settings.');
+      toast.error('PSA API key not configured. Add it in Company Settings.');
       return;
     }
 
@@ -530,7 +532,7 @@ export default function Submissions() {
       if (!autoRefresh) {
         const response = await psaImport.importCsv(csvData);
         const { created, updated, skipped } = response.data;
-        alert(`Import Complete!\n\nCreated: ${created}\nUpdated: ${updated}\nSkipped: ${skipped}`);
+        toast.success(`Import complete: ${created} created, ${updated} updated, ${skipped} skipped`);
         await loadSubmissions();
         setShowCsvImport(false);
       } else {
@@ -561,7 +563,7 @@ export default function Submissions() {
                   setImportProgress(prev => ({ ...prev, ...data }));
                 } else if (data.type === 'complete') {
                   await loadSubmissions();
-                  alert(`Import & Refresh Complete!\n\nCreated: ${data.created}\nRefreshed: ${data.refreshed}\nErrors: ${data.refreshErrors || 0}`);
+                  toast.success(`Import & refresh complete: ${data.created} created, ${data.refreshed} refreshed${data.refreshErrors ? `, ${data.refreshErrors} errors` : ''}`);
                   setShowCsvImport(false);
                 }
               } catch {}
@@ -570,7 +572,7 @@ export default function Submissions() {
         }
       }
     } catch (error) {
-      alert(error.message || 'Failed to import CSV');
+      toast.error(error.message || 'Failed to import CSV');
     } finally {
       setImporting(false);
     }
@@ -862,7 +864,7 @@ export default function Submissions() {
       )}
 
       {filteredSubs.length > 0 && (
-        <p className="text-xs text-gray-400 text-center pb-4">
+        <p className="text-xs text-gray-500 text-center pb-4">
           {filteredSubs.length} submission{filteredSubs.length !== 1 ? 's' : ''} across {sortedGroups.length} service level{sortedGroups.length !== 1 ? 's' : ''}
         </p>
       )}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import { Navigate } from 'react-router-dom';
 import StatCard from '../components/StatCard';
 import {
@@ -20,6 +21,7 @@ const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export default function OwnerDashboard() {
   const { user } = useAuth();
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [companies, setCompanies] = useState([]);
@@ -82,11 +84,11 @@ export default function OwnerDashboard() {
       if (!response.ok) throw new Error('Failed to send newsletter');
 
       const result = await response.json();
-      alert(`Newsletter prepared for ${result.recipientCount} shops!\n\nNote: Email integration pending.`);
+      toast.success(`Newsletter prepared for ${result.recipientCount} shops!`);
       setShowNewsletter(false);
       setNewsletterForm({ subject: '', message: '', targetPlan: 'all' });
     } catch (err) {
-      alert('Failed to send newsletter: ' + err.message);
+      toast.error('Failed to send newsletter: ' + err.message);
     } finally {
       setSending(false);
     }

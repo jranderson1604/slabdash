@@ -56,7 +56,7 @@ function AddToHomeScreenBanner({ onDismiss }) {
           </p>
         </div>
         <button onClick={onDismiss} className="p-1 rounded-lg shrink-0" style={{ background: 'rgba(0,0,0,0.04)' }}>
-          <X className="w-3.5 h-3.5" style={{ color: 'rgba(44, 36, 22, 0.3)' }} />
+          <X className="w-3.5 h-3.5" style={{ color: 'rgba(44, 36, 22, 0.5)' }} />
         </button>
       </div>
     </div>
@@ -118,7 +118,7 @@ function PINScreen({ onVerified, onFallback, jwtToken, customerName }) {
         <Shield className="w-7 h-7 text-white" />
       </div>
       <h2 className="text-xl font-black mb-1" style={{ color: 'rgb(var(--dark))' }}>Welcome back</h2>
-      <p className="text-sm mb-8" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>{customerName}</p>
+      <p className="text-sm mb-8" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>{customerName}</p>
       <div className={`flex gap-4 mb-8 ${shake ? 'animate-shake' : ''}`}>
         {dots.map((filled, i) => (
           <div key={i} className="w-4 h-4 rounded-full transition-all duration-200"
@@ -150,7 +150,7 @@ function PINScreen({ onVerified, onFallback, jwtToken, customerName }) {
         })}
       </div>
       <button onClick={onFallback} className="text-xs font-semibold py-2 px-4 rounded-lg"
-        style={{ color: 'rgba(44, 36, 22, 0.35)' }}>Use password instead</button>
+        style={{ color: 'rgba(44, 36, 22, 0.55)' }}>Use password instead</button>
       {loading && <Loader2 className="w-5 h-5 animate-spin mt-4" style={{ color: 'rgb(var(--brand-500))' }} />}
       <style>{`
         @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-8px); } 40%, 80% { transform: translateX(8px); } }
@@ -258,7 +258,7 @@ function PINSetupPrompt({ jwtToken, onComplete, onSkip }) {
             );
           })}
         </div>
-        <button onClick={onSkip} className="text-xs font-semibold py-2" style={{ color: 'rgba(44, 36, 22, 0.3)' }}>Skip for now</button>
+        <button onClick={onSkip} className="text-xs font-semibold py-2" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Skip for now</button>
         {loading && <Loader2 className="w-5 h-5 animate-spin mx-auto mt-2" style={{ color: 'rgb(var(--brand-500))' }} />}
       </div>
     </div>
@@ -414,7 +414,7 @@ function PortalLogin({ onLoginSuccess, initialShop }) {
           </div>
           {error && <div className="flex items-center gap-2 justify-center mb-4 text-xs font-semibold" style={{ color: '#DC2626' }}><AlertTriangle className="w-3.5 h-3.5" />{error}</div>}
           {loading && <div className="flex items-center gap-2 justify-center mb-4"><Loader2 className="w-4 h-4 animate-spin" style={{ color: 'rgb(var(--brand-500))' }} /><span className="text-sm font-semibold" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>Looking up shop...</span></div>}
-          <p className="text-[11px] mt-8" style={{ color: 'rgba(44, 36, 22, 0.25)' }}>The code is on your receipt or the QR poster in-store</p>
+          <p className="text-[11px] mt-8" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>The code is on your receipt or the QR poster in-store</p>
         </div>
       </div>
     );
@@ -436,7 +436,7 @@ function PortalLogin({ onLoginSuccess, initialShop }) {
           )}
           <h2 className="text-xl font-black" style={{ color: 'rgb(var(--dark))' }}>{shop?.name}</h2>
           <button onClick={changeShop} className="text-[11px] font-semibold mt-1 flex items-center gap-1 mx-auto"
-            style={{ color: 'rgba(44, 36, 22, 0.3)' }}><ArrowLeft className="w-3 h-3" /> Different shop</button>
+            style={{ color: 'rgba(44, 36, 22, 0.5)' }}><ArrowLeft className="w-3 h-3" /> Different shop</button>
         </div>
 
         {step !== 'forgot' && (
@@ -446,7 +446,7 @@ function PortalLogin({ onLoginSuccess, initialShop }) {
                 className="flex-1 py-2.5 rounded-lg text-sm font-bold transition-all"
                 style={{
                   background: step === tab ? 'white' : 'transparent',
-                  color: step === tab ? 'rgb(var(--dark))' : 'rgba(44, 36, 22, 0.35)',
+                  color: step === tab ? 'rgb(var(--dark))' : 'rgba(44, 36, 22, 0.55)',
                   boxShadow: step === tab ? '0 1px 4px rgba(0,0,0,0.06)' : 'none',
                 }}>
                 {tab === 'signin' ? 'Sign In' : 'Create Account'}
@@ -458,12 +458,12 @@ function PortalLogin({ onLoginSuccess, initialShop }) {
         {step === 'forgot' && (
           <form onSubmit={handleForgotPassword} className="space-y-4">
             <div className="text-center mb-4">
-              <KeyRound className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(44, 36, 22, 0.2)' }} />
+              <KeyRound className="w-8 h-8 mx-auto mb-2" style={{ color: 'rgba(44, 36, 22, 0.55)' }} />
               <h3 className="text-lg font-bold" style={{ color: 'rgb(var(--dark))' }}>Reset Password</h3>
               <p className="text-xs mt-1" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>Enter your email and we'll send you a reset link</p>
             </div>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.45)' }} />
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" required className="w-full pl-10 pr-4 py-3 rounded-xl text-sm" style={inputStyle} />
             </div>
             {error && <p className="text-xs font-semibold" style={{ color: '#DC2626' }}>{error}</p>}
@@ -471,21 +471,21 @@ function PortalLogin({ onLoginSuccess, initialShop }) {
             <button type="submit" disabled={loading} className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50" style={{ background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))' }}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Send Reset Link'}
             </button>
-            <button type="button" onClick={() => { setStep('signin'); setError(''); setSuccess(''); }} className="w-full text-xs font-semibold py-2" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>Back to sign in</button>
+            <button type="button" onClick={() => { setStep('signin'); setError(''); setSuccess(''); }} className="w-full text-xs font-semibold py-2" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>Back to sign in</button>
           </form>
         )}
 
         {step === 'signin' && (
           <form onSubmit={handleSignIn} className="space-y-3">
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.45)' }} />
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" required autoComplete="email" className="w-full pl-10 pr-4 py-3 rounded-xl text-sm" style={inputStyle} />
             </div>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.45)' }} />
               <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" required autoComplete="current-password" className="w-full pl-10 pr-10 py-3 rounded-xl text-sm" style={inputStyle} />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2">
-                {showPassword ? <EyeOff className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} /> : <Eye className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />}
+                {showPassword ? <EyeOff className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.45)' }} /> : <Eye className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.45)' }} />}
               </button>
             </div>
             {error && <p className="text-xs font-semibold" style={{ color: '#DC2626' }}>{error}</p>}
@@ -493,28 +493,28 @@ function PortalLogin({ onLoginSuccess, initialShop }) {
               style={{ background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))' }}>
               {loading ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Sign In'}
             </button>
-            <button type="button" onClick={() => { setStep('forgot'); setError(''); }} className="w-full text-xs font-semibold py-1" style={{ color: 'rgba(44, 36, 22, 0.3)' }}>Forgot password?</button>
+            <button type="button" onClick={() => { setStep('forgot'); setError(''); }} className="w-full text-xs font-semibold py-1" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Forgot password?</button>
           </form>
         )}
 
         {step === 'signup' && (
           <form onSubmit={handleSignUp} className="space-y-3">
             <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.45)' }} />
               <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" required autoComplete="name" className="w-full pl-10 pr-4 py-3 rounded-xl text-sm" style={inputStyle} />
             </div>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.45)' }} />
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" required autoComplete="email" className="w-full pl-10 pr-4 py-3 rounded-xl text-sm" style={inputStyle} />
             </div>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.45)' }} />
               <input type={showPassword ? 'text' : 'password'} value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password (8+ chars, letters & numbers)" required autoComplete="new-password" className="w-full pl-10 pr-10 py-3 rounded-xl text-sm" style={inputStyle} />
               <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2">
-                {showPassword ? <EyeOff className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} /> : <Eye className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />}
+                {showPassword ? <EyeOff className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.45)' }} /> : <Eye className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.45)' }} />}
               </button>
             </div>
-            <p className="text-[10px] px-1" style={{ color: 'rgba(44, 36, 22, 0.3)' }}>If your shop already has your email on file, your account will be linked automatically.</p>
+            <p className="text-[10px] px-1" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>If your shop already has your email on file, your account will be linked automatically.</p>
             {error && <p className="text-xs font-semibold" style={{ color: '#DC2626' }}>{error}</p>}
             <button type="submit" disabled={loading} className="w-full py-3 rounded-xl font-bold text-white text-sm disabled:opacity-50"
               style={{ background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))' }}>
@@ -522,7 +522,7 @@ function PortalLogin({ onLoginSuccess, initialShop }) {
             </button>
           </form>
         )}
-        <p className="text-center text-[10px] mt-6" style={{ color: 'rgba(44, 36, 22, 0.2)' }}>Powered by SlabDash</p>
+        <p className="text-center text-[10px] mt-6" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>Powered by SlabDash</p>
       </div>
     </div>
   );
@@ -658,7 +658,7 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
         // Subscribe
         const keyRes = await fetch(`${API_URL}/portal/push/vapid-key`);
         const { key } = await keyRes.json();
-        if (!key) { alert('Push notifications not configured.'); setPushLoading(false); return; }
+        if (!key) { setPushLoading(false); return; }
 
         const permission = await Notification.requestPermission();
         if (permission !== 'granted') { setPushLoading(false); return; }
@@ -756,7 +756,7 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
     <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'rgb(var(--bg-color))' }}>
       <div className="text-center">
         <Loader2 className="w-12 h-12 animate-spin mx-auto mb-3" style={{ color: 'rgb(var(--brand-500))' }} />
-        <p className="text-sm font-bold" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>Loading your portal...</p>
+        <p className="text-sm font-bold" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>Loading your portal...</p>
       </div>
     </div>
   );
@@ -915,7 +915,7 @@ function ProgressPipeline({ currentStep, shipped, pickedUp, estimated }) {
                 {/* Label */}
                 <span className="text-[9px] sm:text-[10px] font-bold mt-1.5 text-center leading-tight"
                   style={{
-                    color: isPast || isLastComplete ? '#059669' : isCurrent ? 'rgb(var(--brand-600))' : 'rgba(44, 36, 22, 0.22)',
+                    color: isPast || isLastComplete ? '#059669' : isCurrent ? 'rgb(var(--brand-600))' : 'rgba(44, 36, 22, 0.45)',
                     fontWeight: isCurrent ? 900 : isPast ? 700 : 600,
                   }}>
                   {isLastComplete ? 'Done!' : m.short}
@@ -1118,7 +1118,7 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
               className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all"
               style={{
-                color: activeTab === tab.id ? 'rgb(var(--brand-600))' : 'rgba(44, 36, 22, 0.3)',
+                color: activeTab === tab.id ? 'rgb(var(--brand-600))' : 'rgba(44, 36, 22, 0.5)',
                 background: activeTab === tab.id ? 'rgba(var(--brand-500), 0.1)' : 'transparent',
               }}>
               <tab.icon className="w-5 h-5" />
@@ -1139,9 +1139,9 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
                 background: '#FBF7F2',
                 border: '1px solid rgba(44,36,22,0.06)',
               }}>
-                <Package className="w-12 h-12 mx-auto mb-4" style={{ color: 'rgba(44, 36, 22, 0.15)' }} />
+                <Package className="w-12 h-12 mx-auto mb-4" style={{ color: 'rgba(44, 36, 22, 0.55)' }} />
                 <h3 className="text-lg font-bold mb-2" style={{ color: 'rgb(var(--dark))' }}>No Submissions Yet</h3>
-                <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>Your submissions will show up here once you drop off cards at the shop.</p>
+                <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>Your submissions will show up here once you drop off cards at the shop.</p>
               </div>
             ) : (
               <>
@@ -1195,7 +1195,7 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
                 {completedSubmissions.length > 0 && (
                   <section>
                     <div className="flex items-center gap-2 mb-3">
-                      <h2 className="text-base font-black" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>Completed</h2>
+                      <h2 className="text-base font-black" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>Completed</h2>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold" style={{ background: 'rgba(16, 185, 129, 0.06)', color: '#059669' }}>{completedSubmissions.length}</span>
                     </div>
                     <div className="space-y-3">
@@ -1219,15 +1219,15 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
                 background: '#FBF7F2',
                 border: '1px solid rgba(44,36,22,0.06)',
               }}>
-                <Layers className="w-12 h-12 mx-auto mb-4" style={{ color: 'rgba(44, 36, 22, 0.15)' }} />
+                <Layers className="w-12 h-12 mx-auto mb-4" style={{ color: 'rgba(44, 36, 22, 0.55)' }} />
                 <h3 className="text-lg font-bold mb-2" style={{ color: 'rgb(var(--dark))' }}>No Cards Yet</h3>
-                <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>Cards from your submissions will appear here once assigned.</p>
+                <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>Cards from your submissions will appear here once assigned.</p>
               </div>
             ) : (
               <>
                 {/* Search bar */}
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.25)' }} />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.45)' }} />
                   <input type="text" value={cardSearch} onChange={(e) => setCardSearch(e.target.value)}
                     placeholder="Search cards..." className="w-full pl-10 pr-4 py-3 rounded-xl text-sm"
                     style={{ background: 'rgba(44,36,22,0.03)', border: '1px solid rgba(44,36,22,0.06)', outline: 'none', color: 'rgb(var(--dark))' }} />
@@ -1242,7 +1242,7 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
                   ].map(s => (
                     <div key={s.label} className="flex-1 px-3 py-2 rounded-xl text-center" style={{ background: s.color }}>
                       <p className="text-lg font-black leading-none" style={{ color: s.textColor }}>{s.value}</p>
-                      <p className="text-[9px] font-semibold mt-0.5" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>{s.label}</p>
+                      <p className="text-[9px] font-semibold mt-0.5" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>{s.label}</p>
                     </div>
                   ))}
                 </div>
@@ -1253,7 +1253,7 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
                     <CardRow key={card.id} card={card} />
                   ))}
                   {filteredCards.length === 0 && cardSearch && (
-                    <p className="text-center text-sm py-8" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>No cards match "{cardSearch}"</p>
+                    <p className="text-center text-sm py-8" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>No cards match "{cardSearch}"</p>
                   )}
                 </div>
               </>
@@ -1293,13 +1293,13 @@ function CardRow({ card }) {
             <p className="font-bold text-sm truncate" style={{ color: 'rgb(var(--dark))' }}>
               {card.player_name || card.description || 'Card'}
             </p>
-            <p className="text-[11px] truncate" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
+            <p className="text-[11px] truncate" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
               {[card.year, card.brand, card.card_number ? `#${card.card_number}` : ''].filter(Boolean).join(' \u00B7 ')}
               {card.psa_cert_number && ` \u00B7 Cert ${card.psa_cert_number}`}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {hasPhotos && <Camera className="w-3.5 h-3.5" style={{ color: 'rgba(44, 36, 22, 0.2)' }} />}
+            {hasPhotos && <Camera className="w-3.5 h-3.5" style={{ color: 'rgba(44, 36, 22, 0.55)' }} />}
             {card.grade ? (() => {
               const g = parseFloat(card.grade);
               const gc = g >= 9 ? '#059669' : g >= 7 ? '#2563EB' : '#D97706';
@@ -1321,7 +1321,7 @@ function CardRow({ card }) {
                 <Clock className="w-4 h-4" style={{ color: '#D97706' }} />
               </div>
             )}
-            {expanded ? <ChevronUp className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.2)' }} /> : <ChevronDown className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.2)' }} />}
+            {expanded ? <ChevronUp className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.55)' }} /> : <ChevronDown className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.55)' }} />}
           </div>
         </div>
       </button>
@@ -1339,7 +1339,7 @@ function CardRow({ card }) {
               { label: 'Submission', value: card.psa_submission_number || card.internal_id },
             ].filter(d => d.value).map(d => (
               <div key={d.label} className="px-3 py-2 rounded-lg" style={{ background: 'rgba(0,0,0,0.02)' }}>
-                <p className="text-[9px] font-bold uppercase" style={{ color: 'rgba(44, 36, 22, 0.3)' }}>{d.label}</p>
+                <p className="text-[9px] font-bold uppercase" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>{d.label}</p>
                 <p className="text-xs font-bold" style={{ color: 'rgb(var(--dark))' }}>{d.value}</p>
               </div>
             ))}
@@ -1348,7 +1348,7 @@ function CardRow({ card }) {
           {/* Before photos */}
           {card.before_photos?.length > 0 && (
             <div>
-              <p className="text-[10px] font-bold uppercase mb-2" style={{ color: 'rgba(44, 36, 22, 0.3)' }}>Before Photos</p>
+              <p className="text-[10px] font-bold uppercase mb-2" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Before Photos</p>
               <div className="flex gap-2 overflow-x-auto no-scrollbar">
                 {card.before_photos.map((photo, i) => (
                   <img key={i} src={photo.url || photo} alt="" className="w-20 h-28 rounded-lg object-cover shrink-0"
@@ -1361,7 +1361,7 @@ function CardRow({ card }) {
           {/* Card images */}
           {card.card_images?.length > 0 && (
             <div>
-              <p className="text-[10px] font-bold uppercase mb-2" style={{ color: 'rgba(44, 36, 22, 0.3)' }}>Card Images</p>
+              <p className="text-[10px] font-bold uppercase mb-2" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Card Images</p>
               <div className="flex gap-2 overflow-x-auto no-scrollbar">
                 {card.card_images.map((img, i) => (
                   <img key={i} src={typeof img === 'string' ? img : img.url} alt="" className="w-20 h-28 rounded-lg object-cover shrink-0"
@@ -1425,7 +1425,7 @@ function PortalSettingsTab({ data, jwtToken, onRefresh, onLogout, setShowProfile
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>{section.title}</p>
-            <p className="text-[11px] truncate" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>{section.desc}</p>
+            <p className="text-[11px] truncate" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>{section.desc}</p>
           </div>
           {section.action && (
             <button onClick={section.action} className="text-xs font-bold px-3 py-1.5 rounded-lg shrink-0"
@@ -1452,7 +1452,7 @@ function PortalSettingsTab({ data, jwtToken, onRefresh, onLogout, setShowProfile
             </div>
             <div>
               <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>Buyback Offers</p>
-              <p className="text-[11px]" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>{allOffers.length} total offers</p>
+              <p className="text-[11px]" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>{allOffers.length} total offers</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -1463,7 +1463,7 @@ function PortalSettingsTab({ data, jwtToken, onRefresh, onLogout, setShowProfile
             ].map(s => (
               <div key={s.label} className="flex-1 px-3 py-2 rounded-lg text-center" style={{ background: 'rgba(0,0,0,0.02)' }}>
                 <p className="text-sm font-black leading-none" style={{ color: s.color }}>{s.value}</p>
-                <p className="text-[9px] font-semibold mt-0.5" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>{s.label}</p>
+                <p className="text-[9px] font-semibold mt-0.5" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>{s.label}</p>
               </div>
             ))}
           </div>
@@ -1480,7 +1480,7 @@ function PortalSettingsTab({ data, jwtToken, onRefresh, onLogout, setShowProfile
             </div>
             <div>
               <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>Install App</p>
-              <p className="text-[11px]" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>Add to your home screen for quick access</p>
+              <p className="text-[11px]" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>Add to your home screen for quick access</p>
             </div>
           </div>
           <div className="rounded-xl p-3" style={{ background: 'rgba(99, 102, 241, 0.04)' }}>
@@ -1510,7 +1510,7 @@ function PortalSettingsTab({ data, jwtToken, onRefresh, onLogout, setShowProfile
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>{data.company.name}</p>
-            <p className="text-[11px]" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>Questions? Contact your shop directly.</p>
+            <p className="text-[11px]" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>Questions? Contact your shop directly.</p>
           </div>
         </div>
       </div>
@@ -1522,7 +1522,7 @@ function PortalSettingsTab({ data, jwtToken, onRefresh, onLogout, setShowProfile
         Sign Out
       </button>
 
-      <p className="text-center text-[10px] py-4" style={{ color: 'rgba(44, 36, 22, 0.15)' }}>Powered by SlabDash</p>
+      <p className="text-center text-[10px] py-4" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>Powered by SlabDash</p>
     </div>
   );
 }
@@ -1581,7 +1581,7 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
             <span className="text-xl font-black tracking-tight" style={{ color: 'rgb(var(--dark))' }}>
               #{submission.psa_submission_number || submission.internal_id || '\u2014'}
             </span>
-            <p className="text-xs font-semibold mt-0.5" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
+            <p className="text-xs font-semibold mt-0.5" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
               {submission.service_level || 'Standard'} \u00B7 {cardCount} card{cardCount !== 1 ? 's' : ''}
             </p>
           </div>
@@ -1597,7 +1597,7 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
 
         {/* Simple time estimate */}
         {submission.estimated && !isShipped && !isPickedUp && submission.estimated.estimatedDaysRemaining > 0 && (
-          <p className="text-xs font-semibold mt-3" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
+          <p className="text-xs font-semibold mt-3" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
             {encouragement || `~${submission.estimated.estimatedDaysRemaining} days remaining`}
           </p>
         )}
@@ -1605,7 +1605,7 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
         {/* Expand indicator */}
         <div className="flex items-center justify-end mt-2">
           <ChevronDown className="w-5 h-5 transition-transform duration-300"
-            style={{ color: 'rgba(44, 36, 22, 0.15)', transform: isExpanded ? 'rotate(180deg)' : 'none' }} />
+            style={{ color: 'rgba(44, 36, 22, 0.45)', transform: isExpanded ? 'rotate(180deg)' : 'none' }} />
         </div>
       </button>
 
@@ -1622,7 +1622,7 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
           }}>
             {submission.pickup_code}
           </p>
-          <p className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
+          <p className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
             Show this code at the shop
           </p>
         </div>
@@ -1665,7 +1665,7 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
                        evt.event_type === 'problem_resolved' ? 'Resolved' :
                        evt.event_type}
                     </span>
-                    <span className="font-medium" style={{ color: 'rgba(44, 36, 22, 0.25)' }}>
+                    <span className="font-medium" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>
                       {' \u00B7 '}{new Date(evt.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </span>
                   </p>
@@ -1692,7 +1692,7 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
                       <p className="font-bold text-sm truncate" style={{ color: 'rgb(var(--dark))' }}>
                         {card.player_name || card.description || 'Card'}
                       </p>
-                      <p className="text-xs truncate mt-0.5" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
+                      <p className="text-xs truncate mt-0.5" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
                         {[card.year, card.brand].filter(Boolean).join(' \u00B7 ')}
                       </p>
                     </div>
@@ -1740,7 +1740,7 @@ function JWTBuybackCard({ offer, jwtToken, onRefresh }) {
         body: JSON.stringify({ response })
       });
       onRefresh();
-    } catch { alert('Failed to respond'); }
+    } catch { console.error('Failed to respond to offer'); }
     setResponding(false);
   };
 
@@ -1754,7 +1754,7 @@ function JWTBuybackCard({ offer, jwtToken, onRefresh }) {
           <h3 className="text-base font-bold truncate" style={{ color: 'rgb(var(--dark))' }}>
             {offer.card_description || offer.player_name || 'Card'}
           </h3>
-          <p className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
+          <p className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
             {[offer.card_grade && `PSA ${offer.card_grade}`, offer.psa_cert_number && `Cert #${offer.psa_cert_number}`].filter(Boolean).join(' \u00B7 ')}
           </p>
         </div>

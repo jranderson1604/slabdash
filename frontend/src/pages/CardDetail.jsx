@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 import { cards } from '../api/client';
 import CompLookup from '../components/CompLookup';
 import {
@@ -17,6 +18,7 @@ import {
 export default function CardDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -80,7 +82,7 @@ export default function CardDetail() {
 
   const uploadImages = async (files) => {
     if (files.length > 5) {
-      alert('Maximum 5 images at a time');
+      toast.error('Maximum 5 images at a time');
       return;
     }
 
@@ -93,7 +95,7 @@ export default function CardDetail() {
       setCard(res.data.card);
     } catch (error) {
       console.error('Upload failed:', error);
-      alert('Failed to upload images');
+      toast.error('Failed to upload images');
     } finally {
       setUploading(false);
     }
@@ -107,7 +109,7 @@ export default function CardDetail() {
       setCard(res.data.card);
     } catch (error) {
       console.error('Failed to delete image:', error);
-      alert('Failed to delete image');
+      toast.error('Failed to delete image');
     }
   };
 
@@ -118,7 +120,7 @@ export default function CardDetail() {
       setEditing(false);
     } catch (error) {
       console.error('Failed to update card:', error);
-      alert('Failed to update card');
+      toast.error('Failed to update card');
     }
   };
 
@@ -130,7 +132,7 @@ export default function CardDetail() {
       navigate('/cards');
     } catch (error) {
       console.error('Failed to delete card:', error);
-      alert('Failed to delete card');
+      toast.error('Failed to delete card');
     }
   };
 
