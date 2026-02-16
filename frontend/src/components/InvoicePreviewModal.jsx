@@ -3,9 +3,11 @@ import { createPortal } from 'react-dom';
 import { X, Send, Edit2, DollarSign, Loader2, Eye, ChevronDown, AlertCircle, Zap } from 'lucide-react';
 import { invoices } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 export default function InvoicePreviewModal({ submission, onClose, onSent }) {
   const { company } = useAuth();
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -42,11 +44,7 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
 
   const handleSend = async () => {
     if (!preview?.customers || preview.customers.length === 0) {
-      alert('No customers found. Please add customers to this submission first.');
-      return;
-    }
-
-    if (!confirm(`Send invoices to ${preview.customers.length} customer(s)?\n\nThis will email invoices and mark the submission as invoiced.`)) {
+      toast.error('No customers found. Please add customers to this submission first.');
       return;
     }
 
@@ -58,13 +56,7 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
       });
       const { emails_sent, emails_failed, invoice_number } = response.data;
 
-      // Show success message
-      alert(
-        `✅ Invoices Sent!\n\n` +
-        `Invoice #${invoice_number}\n` +
-        `Sent: ${emails_sent}\n` +
-        `Failed: ${emails_failed}`
-      );
+      toast.success(`Invoices sent! Invoice #${invoice_number} — ${emails_sent} sent, ${emails_failed} failed`);
 
       // Close modal first
       onClose();
@@ -75,7 +67,7 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
       }
     } catch (error) {
       console.error('Failed to send invoices:', error);
-      alert(error.response?.data?.error || 'Failed to send invoices');
+      toast.error(error.response?.data?.error || 'Failed to send invoices');
       setSending(false);
     }
   };

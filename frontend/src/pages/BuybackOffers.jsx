@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import apiClient from '../api/client';
 
 export default function BuybackOffers() {
+  const toast = useToast();
   const [offers, setOffers] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -46,7 +47,7 @@ export default function BuybackOffers() {
       fetchStats();
     } catch (err) {
       console.error('Failed to update offer status:', err);
-      alert('Failed to update offer status');
+      toast.error('Failed to update offer status');
     }
   };
 
