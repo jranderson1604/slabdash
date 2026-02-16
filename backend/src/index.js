@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
+const compression = require("compression");
 const rateLimit = require("express-rate-limit");
 const db = require("./db");
 const { initializeScheduler } = require("./scheduler");
@@ -76,6 +77,11 @@ const corsOptions = {
       'http://localhost:3000'
     ];
 
+    // Include FRONTEND_URL from environment if set
+    if (process.env.FRONTEND_URL) {
+      allowedOrigins.push(process.env.FRONTEND_URL.replace(/\/+$/, ''));
+    }
+
     // Allow listed origins and Vercel preview deployments for this project
     if (
       allowedOrigins.includes(origin) ||
@@ -94,6 +100,7 @@ app.use(helmet({
   contentSecurityPolicy: false, // Frontend handles CSP
   crossOriginEmbedderPolicy: false, // Allow embedded resources
 }));
+app.use(compression());
 app.use(cors(corsOptions));
 app.use(express.json({ limit: "2mb" }));
 if (process.env.NODE_ENV !== 'production') {
@@ -285,6 +292,36 @@ async function startServer() {
       `);
       console.log("✓ Migration: Company stripe/sam/shop_code columns ensured");
 
+      // Portal enhancements (migration 019): before photos, notes, price estimates
+      await db.query(`
+        ALTER TABLE cards
+        ADD COLUMN IF NOT EXISTS before_photos JSONB DEFAULT '[]'::jsonb,
+        ADD COLUMN IF NOT EXISTS admin_notes TEXT,
+        ADD COLUMN IF NOT EXISTS prep_notes TEXT,
+        ADD COLUMN IF NOT EXISTS price_estimate DECIMAL(10,2),
+        ADD COLUMN IF NOT EXISTS last_comp_check TIMESTAMP WITH TIME ZONE,
+        ADD COLUMN IF NOT EXISTS comp_lookups JSONB DEFAULT '[]'::jsonb;
+      `);
+      await db.query(`
+        ALTER TABLE submissions
+        ADD COLUMN IF NOT EXISTS admin_notes TEXT,
+        ADD COLUMN IF NOT EXISTS prep_notes TEXT;
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_cards_before_photos ON cards USING GIN (before_photos)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_cards_comp_lookups ON cards USING GIN (comp_lookups)`);
+      console.log("✓ Migration: Portal enhancements columns ensured (before_photos, notes, comps)");
+
+      // Auto-refresh scheduling (migration 021)
+      await db.query(`
+        ALTER TABLE companies
+        ADD COLUMN IF NOT EXISTS auto_refresh_schedule VARCHAR(50) DEFAULT 'weekly',
+        ADD COLUMN IF NOT EXISTS auto_refresh_day_of_week INTEGER DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS auto_refresh_hour INTEGER DEFAULT 9,
+        ADD COLUMN IF NOT EXISTS auto_refresh_email TEXT,
+        ADD COLUMN IF NOT EXISTS last_auto_refresh TIMESTAMP WITH TIME ZONE;
+      `);
+      console.log("✓ Migration: Auto-refresh scheduling columns ensured");
+
       // Auto-enable SAM for all companies (it's a core feature)
       await db.query(`UPDATE companies SET sam_enabled = TRUE WHERE sam_enabled IS NOT TRUE`);
 
@@ -411,7 +448,7 @@ async function startServer() {
       console.warn("⚠ Scheduler initialization warning:", schedulerError.message);
     }
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`
 ╔══════════════════════════════════════════════════╗
 ║                  SLABDASH API                   ║
@@ -424,6 +461,25 @@ async function startServer() {
 ╚══════════════════════════════════════════════════╝
       `);
     });
+
+    // Graceful shutdown for Railway redeploys (SIGTERM)
+    const shutdown = (signal) => {
+      console.log(`\n⏳ ${signal} received — shutting down gracefully...`);
+      server.close(() => {
+        console.log('✓ HTTP server closed');
+        db.end().then(() => {
+          console.log('✓ Database pool closed');
+          process.exit(0);
+        }).catch(() => process.exit(0));
+      });
+      // Force exit after 10s if graceful shutdown stalls
+      setTimeout(() => {
+        console.error('⚠ Forced shutdown after timeout');
+        process.exit(1);
+      }, 10000);
+    };
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+    process.on('SIGINT', () => shutdown('SIGINT'));
   } catch (err) {
     console.error("❌ Failed to start server:", err);
     process.exit(1);
@@ -431,8 +487,3 @@ async function startServer() {
 }
 
 startServer();
-
-
-
- 
-// Railway redeploy trigger

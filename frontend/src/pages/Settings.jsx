@@ -825,29 +825,16 @@ export default function Settings() {
 
           {/* Upgrade Options */}
           {(!company?.plan || company.plan === 'free') && (
-            <div className="grid md:grid-cols-3 gap-4">
-              <div className="border border-gray-200 rounded-lg p-4 hover:border-brand-500 transition-colors">
-                <h4 className="font-semibold text-gray-900 mb-1">Starter</h4>
-                <div className="text-2xl font-bold text-gray-900 mb-2">$29<span className="text-sm font-medium text-gray-500">/mo</span></div>
-                <p className="text-xs text-gray-600 mb-3">Perfect for small shops</p>
-                <button
-                  onClick={() => handleUpgrade('starter')}
-                  disabled={loadingSubscription}
-                  className="w-full btn btn-secondary text-sm py-2"
-                >
-                  {loadingSubscription ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Upgrade'}
-                </button>
-              </div>
-
+            <div className="grid md:grid-cols-2 gap-4">
               <div className="border-2 border-brand-500 rounded-lg p-4 relative">
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className="px-3 py-1 bg-brand-600 text-white rounded-full text-xs font-medium">Most Popular</span>
                 </div>
-                <h4 className="font-semibold text-gray-900 mb-1">Professional</h4>
-                <div className="text-2xl font-bold text-gray-900 mb-2">$79<span className="text-sm font-medium text-gray-500">/mo</span></div>
-                <p className="text-xs text-gray-600 mb-3">For growing businesses</p>
+                <h4 className="font-semibold text-gray-900 mb-1">Shop</h4>
+                <div className="text-2xl font-bold text-gray-900 mb-2">$99<span className="text-sm font-medium text-gray-500">/mo</span></div>
+                <p className="text-xs text-gray-600 mb-3">500 cards/mo &middot; 200 customers</p>
                 <button
-                  onClick={() => handleUpgrade('pro')}
+                  onClick={() => handleUpgrade('shop')}
                   disabled={loadingSubscription}
                   className="w-full btn btn-primary text-sm py-2"
                 >
@@ -857,8 +844,8 @@ export default function Settings() {
 
               <div className="border border-gray-200 rounded-lg p-4 hover:border-brand-500 transition-colors">
                 <h4 className="font-semibold text-gray-900 mb-1">Enterprise</h4>
-                <div className="text-2xl font-bold text-gray-900 mb-2">$199<span className="text-sm font-medium text-gray-500">/mo</span></div>
-                <p className="text-xs text-gray-600 mb-3">For large operations</p>
+                <div className="text-2xl font-bold text-gray-900 mb-2">$249<span className="text-sm font-medium text-gray-500">/mo</span></div>
+                <p className="text-xs text-gray-600 mb-3">Unlimited &middot; Multi-location &middot; API</p>
                 <button
                   onClick={() => handleUpgrade('enterprise')}
                   disabled={loadingSubscription}

@@ -14,7 +14,7 @@ const authenticate = async (req, res, next) => {
         const result = await db.query(
             `SELECT u.id, u.company_id, u.email, u.name, u.role, u.is_active,
              c.name as company_name, c.slug as company_slug, c.shop_code as company_shop_code,
-             c.psa_api_key, c.primary_color, c.background_color, c.sidebar_color
+             c.psa_api_key, c.primary_color, c.background_color, c.sidebar_color, c.plan
              FROM users u JOIN companies c ON u.company_id = c.id
              WHERE u.id = $1 AND u.is_active = true`,
             [decoded.userId]

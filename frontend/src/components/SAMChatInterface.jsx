@@ -83,7 +83,7 @@ function RecentSalesList({ tier }) {
             {sale.title ? sale.title.substring(0, 40) : sale.condition || 'Sale'}
             {sale.title && sale.title.length > 40 ? '...' : ''}
           </span>
-          <span className="text-xs font-bold text-white">${sale.price.toFixed(2)}</span>
+          <span className="text-xs font-bold text-white">${(sale.price || 0).toFixed(2)}</span>
         </div>
       ))}
     </div>
@@ -92,6 +92,7 @@ function RecentSalesList({ tier }) {
 
 // Beautiful scan results + graded pricing card
 function ScanResultsCard({ scanResults }) {
+  if (!scanResults || typeof scanResults !== 'object') return null;
   const { cardInfo, pricing, estimatedGrade } = scanResults;
 
   const hasGradedData = pricing?.psa8?.available || pricing?.psa9?.available || pricing?.psa10?.available;
@@ -462,7 +463,14 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
             headers: { Authorization: `Bearer ${jwtToken}` },
             body: formData,
           });
-          response = { data: await res.json() };
+          let scanData;
+          try {
+            scanData = await res.json();
+          } catch {
+            throw new Error('Server returned an invalid response');
+          }
+          if (!res.ok) throw new Error(scanData.error || 'Scan failed');
+          response = { data: scanData };
         } else {
           const endpoint = isCustomerPortal
             ? `/portal/sam/scan?token=${token}`
@@ -474,7 +482,7 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
 
         const analysisMessage = {
           role: 'assistant',
-          content: response.data.message || response.data.analysis,
+          content: response.data.message || response.data.analysis || 'Card scan complete.',
           timestamp: new Date(),
           scanResults: response.data
         };
@@ -601,7 +609,12 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
           body: JSON.stringify({ message: messageText, history: messages.slice(-10) }),
         });
-        const data = await res.json();
+        let data;
+        try {
+          data = await res.json();
+        } catch {
+          throw new Error('Server returned an invalid response');
+        }
 
         // Handle out-of-tokens response
         if (res.status === 429 && data.error === 'out_of_tokens') {
@@ -641,12 +654,12 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
       console.log('═══════════════════════════════════');
       console.log(`🤖 SAM Response Mode: ${response.data.mode || 'Unknown'}`);
       console.log(`🔑 AI Powered: ${response.data.ai_powered ? 'YES' : 'NO'}`);
-      console.log(`📝 Response: ${response.data.message.substring(0, 150)}...`);
+      console.log(`📝 Response: ${(response.data.message || '').substring(0, 150)}...`);
       console.log('═══════════════════════════════════');
 
       const assistantMessage = {
         role: 'assistant',
-        content: response.data.message,
+        content: response.data.message || 'Sorry, I couldn\'t generate a response. Please try again!',
         timestamp: new Date()
       };
 

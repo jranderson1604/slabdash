@@ -1831,10 +1831,19 @@ router.post('/sam/chat', async (req, res) => {
             });
         }
 
+        // Check API key before creating client
+        const samApiKey = process.env.ANTHROPIC_API_KEY;
+        if (!samApiKey) {
+            return res.status(503).json({
+                error: 'SAM is not configured yet',
+                message: 'The AI assistant is being set up. Please try again later!'
+            });
+        }
+
         // Import SAM service (same as admin SAM)
         const Anthropic = require('@anthropic-ai/sdk');
         const anthropic = new Anthropic({
-            apiKey: process.env.ANTHROPIC_API_KEY
+            apiKey: samApiKey
         });
 
         // SAM knowledge base (customer-focused, honest)
@@ -1974,7 +1983,13 @@ You can scan cards! Tell customers they can upload a card photo for instant ID, 
             ]
         });
 
-        const assistantMessage = response.content[0].text;
+        const assistantMessage = response.content?.[0]?.text;
+        if (!assistantMessage) {
+            return res.status(502).json({
+                error: 'SAM received an empty response',
+                message: 'Oops! SAM is having trouble right now. Please try again in a moment!'
+            });
+        }
 
         res.json({
             message: assistantMessage,
@@ -2123,7 +2138,13 @@ Only include fields you can actually read from the card.`
             ]
         });
 
-        const rawAnalysis = response.content[0].text;
+        const rawAnalysis = response.content?.[0]?.text;
+        if (!rawAnalysis) {
+            return res.status(502).json({
+                error: 'Card scanning received an empty response from AI',
+                message: 'Having trouble analyzing that image. Please try again with a clearer photo!'
+            });
+        }
         console.log('📝 Portal scan response length:', rawAnalysis.length);
 
         // Extract the hidden card ID JSON

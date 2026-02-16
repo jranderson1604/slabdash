@@ -914,10 +914,13 @@ async function generateAIResponse(message, history) {
       ]
     });
 
-    // Extract text from response
-    const aiMessage = response.content[0].text;
+    // Extract text from response (with safety check)
+    const aiMessage = response.content?.[0]?.text;
+    if (!aiMessage) {
+      throw new Error('Anthropic API returned an empty or unexpected response');
+    }
 
-    console.log(`✅ SAM AI response generated (${response.usage.input_tokens} in, ${response.usage.output_tokens} out)`);
+    console.log(`✅ SAM AI response generated (${response.usage?.input_tokens || 0} in, ${response.usage?.output_tokens || 0} out)`);
 
     return aiMessage;
 
@@ -1087,7 +1090,13 @@ Only include fields you can actually read from the card.`
       ]
     });
 
-    const rawAnalysis = response.content[0].text;
+    const rawAnalysis = response.content?.[0]?.text;
+    if (!rawAnalysis) {
+      return res.status(502).json({
+        error: 'Card scanning received an empty response from AI',
+        message: '😅 I couldn\'t analyze that image. Please try again with a clearer photo!'
+      });
+    }
     console.log('📝 Raw scan response length:', rawAnalysis.length);
 
     // Extract the hidden card ID JSON from the analysis

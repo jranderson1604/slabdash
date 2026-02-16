@@ -148,37 +148,21 @@ export default function Landing() {
 
   const pricing = [
     {
-      id: 'solo',
-      name: 'Solo',
-      price: 19,
-      period: 'month',
-      description: 'For individual collectors and consignment operators working from home.',
-      features: [
-        'Up to 50 cards/month',
-        '5 active submissions',
-        '25 customers',
-        'Customer portal access',
-        'Email notifications',
-        'Basic analytics',
-        'SAM AI assistant'
-      ],
-      cta: 'Get Started Free'
-    },
-    {
       id: 'shop',
       name: 'Shop',
-      price: 79,
+      price: 99,
       period: 'month',
-      description: 'For card shops with a physical location handling regular consignment.',
+      description: 'Everything a card shop needs to manage PSA submissions and customers.',
       features: [
         'Up to 500 cards/month',
+        'Up to 200 customers',
         'Unlimited submissions',
-        'Unlimited customers',
-        'Priority customer portal',
-        'Advanced analytics',
+        'Customer portal',
+        'SAM AI assistant',
+        'Custom branding (colors & logo)',
+        'Full analytics',
         'CSV import/export',
-        'Custom branding',
-        'Priority support'
+        'Email support'
       ],
       cta: 'Get Started Free',
       popular: true
@@ -186,21 +170,21 @@ export default function Landing() {
     {
       id: 'enterprise',
       name: 'Enterprise',
-      price: 199,
+      price: 249,
       period: 'month',
       description: 'For multi-location operations and high-volume bulk submitters.',
       features: [
-        'Unlimited everything',
+        'Unlimited cards/month',
+        'Unlimited customers',
+        'Everything in Shop, plus:',
         'Multi-location support',
-        'White-label portal',
-        'Dedicated account manager',
-        'Custom integrations',
+        'White-label portal (remove SlabDash branding)',
         'API access',
-        'SLA guarantee',
         'Team roles & permissions',
-        'Priority PSA refresh'
+        'Priority PSA refresh',
+        'Priority support'
       ],
-      cta: 'Contact Sales'
+      cta: 'Get Started Free'
     }
   ];
 
@@ -839,7 +823,7 @@ export default function Landing() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-5 lg:gap-6 items-start">
+          <div className="grid md:grid-cols-2 gap-5 lg:gap-6 items-start max-w-3xl mx-auto">
             {pricing.map((plan) => (
               <div key={plan.id}
                 className={`relative rounded-2xl p-7 sm:p-8 transition-all duration-300 ${plan.popular ? 'md:-mt-4 md:mb-0' : ''}`}
