@@ -87,6 +87,86 @@ async function runMigrationsAndStart() {
     await db.query(migration017);
     console.log('✓ Migration 017: Invoicing system with costs and delivery preferences added');
 
+    // Migration 018: PSA refresh logs
+    const migration018 = fs.readFileSync(
+      path.join(__dirname, 'migrations/018_add_psa_refresh_logs.sql'),
+      'utf8'
+    );
+    await db.query(migration018);
+    console.log('✓ Migration 018: PSA refresh logs added');
+
+    // Migration 019: Portal enhancements
+    const migration019 = fs.readFileSync(
+      path.join(__dirname, 'migrations/019_add_portal_enhancements.sql'),
+      'utf8'
+    );
+    await db.query(migration019);
+    console.log('✓ Migration 019: Portal enhancements added');
+
+    // Migration 020: Comp lookups
+    const migration020 = fs.readFileSync(
+      path.join(__dirname, 'migrations/020_add_comp_lookups.sql'),
+      'utf8'
+    );
+    await db.query(migration020);
+    console.log('✓ Migration 020: Comp lookups added');
+
+    // Migration 021: Auto refresh schedule
+    const migration021 = fs.readFileSync(
+      path.join(__dirname, 'migrations/021_add_auto_refresh_schedule.sql'),
+      'utf8'
+    );
+    await db.query(migration021);
+    console.log('✓ Migration 021: Auto refresh schedule added');
+
+    // Migration 022: Customer email opt-in
+    const migration022 = fs.readFileSync(
+      path.join(__dirname, 'migrations/022_add_customer_email_opt_in.sql'),
+      'utf8'
+    );
+    await db.query(migration022);
+    console.log('✓ Migration 022: Customer email opt-in added');
+
+    // Migration 023: Improve refresh system
+    const migration023 = fs.readFileSync(
+      path.join(__dirname, 'migrations/023_improve_refresh_system.sql'),
+      'utf8'
+    );
+    await db.query(migration023);
+    console.log('✓ Migration 023: Refresh system improvements added');
+
+    // Migration 024: Add submission milestone columns (date_received, date_graded, etc.)
+    const migration024 = fs.readFileSync(
+      path.join(__dirname, 'migrations/024_add_submission_milestone_columns.sql'),
+      'utf8'
+    );
+    await db.query(migration024);
+    console.log('✓ Migration 024: Submission milestone columns added');
+
+    // Migration: Add missing columns (admin_notes, prep_notes, etc.)
+    const migrationMissing = fs.readFileSync(
+      path.join(__dirname, 'migrations/add_missing_columns.sql'),
+      'utf8'
+    );
+    await db.query(migrationMissing);
+    console.log('✓ Migration: Missing columns added');
+
+    // Migration: Add SAM enabled flag
+    const migrationSam = fs.readFileSync(
+      path.join(__dirname, 'migrations/add_sam_enabled.sql'),
+      'utf8'
+    );
+    await db.query(migrationSam);
+    console.log('✓ Migration: SAM enabled flag added');
+
+    // Migration: Add submission images
+    const migrationImages = fs.readFileSync(
+      path.join(__dirname, 'migrations/add_submission_images.sql'),
+      'utf8'
+    );
+    await db.query(migrationImages);
+    console.log('✓ Migration: Submission images added');
+
     console.log('All migrations completed successfully!\n');
   } catch (error) {
     // Don't fail if columns already exist
