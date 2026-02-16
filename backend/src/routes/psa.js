@@ -192,11 +192,14 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
           changeLog.push({
             submissionNumber: submission.psa_submission_number,
             error: true, errorMessage: result.error || 'Unknown error',
+            errorType: result.errorType || 'unknown',
             timestamp: new Date().toISOString()
           });
           send({
             type: 'progress', total, current: i + 1, updated, errors,
-            submissionNumber: submission.psa_submission_number, status: 'error'
+            submissionNumber: submission.psa_submission_number, status: 'error',
+            errorType: result.errorType || 'unknown',
+            errorMessage: result.error
           });
         }
       } catch (err) {
@@ -205,11 +208,14 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
         changeLog.push({
           submissionNumber: submission.psa_submission_number,
           error: true, errorMessage: err.message,
+          errorType: 'unknown',
           timestamp: new Date().toISOString()
         });
         send({
           type: 'progress', total, current: i + 1, updated, errors,
-          submissionNumber: submission.psa_submission_number, status: 'error'
+          submissionNumber: submission.psa_submission_number, status: 'error',
+          errorType: 'unknown',
+          errorMessage: err.message
         });
       }
     }

@@ -50,6 +50,7 @@ export default function Dashboard() {
   const [recentSubs, setRecentSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshProgress, setRefreshProgress] = useState(null);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
 
   const loadData = async () => {
@@ -87,14 +88,68 @@ export default function Dashboard() {
   const handleRefreshAll = async () => {
     if (!company?.hasPsaKey) return;
     setRefreshing(true);
+    setRefreshProgress({ total: 0, current: 0, updated: 0, errors: 0 });
+
     try {
-      await psa.refreshAll();
-      await loadData();
+      const token = localStorage.getItem('slabdash_token');
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+      const response = await fetch(`${API_URL}/psa/refresh-all`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.type === 'start') {
+                setRefreshProgress({ total: data.total, totalActive: data.totalActive, current: 0, updated: 0, errors: 0 });
+              } else if (data.type === 'progress') {
+                setRefreshProgress(prev => ({
+                  ...prev,
+                  current: data.current,
+                  updated: data.updated,
+                  errors: data.errors,
+                }));
+              } else if (data.type === 'complete') {
+                setRefreshProgress(prev => ({ ...prev, ...data, done: true }));
+                const msg = data.changedCount > 0
+                  ? `Refresh complete! ${data.changedCount} submission${data.changedCount !== 1 ? 's' : ''} updated, ${data.noChangeCount} unchanged`
+                  : `Refresh complete — ${data.updated} checked, no changes found`;
+                toast.success(msg);
+                await loadData();
+              } else if (data.type === 'rate_limited') {
+                toast.error(data.message || 'PSA rate limit reached');
+              } else if (data.type === 'error') {
+                toast.error(data.error || 'Refresh failed');
+              }
+            } catch {}
+          }
+        }
+      }
     } catch (error) {
       console.error('Refresh failed:', error);
       toast.error('Failed to refresh submissions. Please try again.');
     } finally {
       setRefreshing(false);
+      setTimeout(() => setRefreshProgress(null), 5000);
     }
   };
 
@@ -221,6 +276,29 @@ export default function Dashboard() {
           link="/customers"
         />
       </div>
+
+      {/* Refresh progress indicator */}
+      {refreshing && refreshProgress && (
+        <div className="card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-brand-500" />
+              <span className="text-sm font-bold text-gray-900">Refreshing from PSA...</span>
+            </div>
+            <span className="text-sm font-mono text-gray-600">
+              {refreshProgress.current}/{refreshProgress.total}
+              {refreshProgress.updated > 0 && <span className="text-green-600 ml-2">+{refreshProgress.updated}</span>}
+              {refreshProgress.errors > 0 && <span className="text-red-500 ml-1">{refreshProgress.errors} err</span>}
+            </span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-brand-500 rounded-full transition-all duration-300"
+              style={{ width: `${refreshProgress.total > 0 ? (refreshProgress.current / refreshProgress.total) * 100 : 0}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Two-column layout for Notifications and Buyback */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

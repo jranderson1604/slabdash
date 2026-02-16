@@ -727,6 +727,9 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
 
     console.log('Column indices:', { certIndex, typeIndex, descIndex, gradeIndex, imagesIndex });
 
+    // Company's PSA API key (from auth middleware JOIN) for cert enrichment
+    const companyPsaApiKey = req.user.psa_api_key;
+
     let imported = 0;
     let skipped = 0;
     const errors = [];
@@ -799,10 +802,10 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
         const cardId = cardResult.rows[0].id;
         console.log(`Row ${i + 1}: Card created with ID ${cardId}`);
 
-        // Fetch cert data + images from PSA API
-        if (req.user.psa_api_key) {
+        // Fetch cert data + images from PSA API using company's key
+        if (companyPsaApiKey) {
           try {
-            const certResult = await getCertWithImages(req.user.psa_api_key, certNumber);
+            const certResult = await getCertWithImages(companyPsaApiKey, certNumber);
             if (certResult.success && certResult.data) {
               const cert = certResult.data;
               const parsed = parseCertData(cert);

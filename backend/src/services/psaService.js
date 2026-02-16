@@ -5,6 +5,7 @@ const PSA_API_BASE = process.env.PSA_API_BASE || 'https://api.psacard.com/public
 
 // ============================================
 // GLOBAL RATE LIMIT & THROTTLE TRACKING
+// (Persisted to database — survives server restarts)
 // ============================================
 let _rateLimitedUntil = 0; // Unix timestamp (ms) when rate limit expires
 let _lastRequestAt = 0;    // Unix timestamp (ms) of last PSA API request
@@ -17,6 +18,70 @@ const DEFAULT_COOLDOWN_MS = 5 * 60 * 1000; // 5 min default cooldown on 429
 let _dailyCallCount = 0;
 let _dailyCallDate = new Date().toISOString().split('T')[0];
 const DAILY_CALL_LIMIT = 500; // Conservative daily limit
+
+// Persistence: save/load rate limit state to survive server restarts
+let _stateLoaded = false;
+const _loadState = async () => {
+    if (_stateLoaded) return;
+    _stateLoaded = true;
+    try {
+        const result = await db.query(
+            `SELECT key, value FROM system_state WHERE key IN ('psa_rate_limited_until', 'psa_daily_usage')`
+        );
+        for (const row of result.rows) {
+            if (row.key === 'psa_rate_limited_until') {
+                const until = row.value?.until || 0;
+                if (until > Date.now()) {
+                    _rateLimitedUntil = until;
+                    console.log(`[PSA] Restored rate limit from DB — limited until ${new Date(until).toLocaleTimeString()}`);
+                }
+            }
+            if (row.key === 'psa_daily_usage') {
+                const date = row.value?.date;
+                const count = row.value?.count || 0;
+                const today = new Date().toISOString().split('T')[0];
+                if (date === today) {
+                    _dailyCallCount = count;
+                    _dailyCallDate = date;
+                    console.log(`[PSA] Restored daily usage from DB — ${count} calls today`);
+                }
+            }
+        }
+    } catch (err) {
+        // system_state table may not exist yet — that's fine
+        if (err.code !== '42P01') { // 42P01 = undefined_table
+            console.error('[PSA] Failed to load rate limit state:', err.message);
+        }
+    }
+};
+
+const _persistRateLimit = async () => {
+    try {
+        await db.query(
+            `INSERT INTO system_state (key, value, updated_at)
+             VALUES ('psa_rate_limited_until', $1, NOW())
+             ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [JSON.stringify({ until: _rateLimitedUntil })]
+        );
+    } catch { /* table may not exist */ }
+};
+
+const _persistDailyUsage = async () => {
+    try {
+        await db.query(
+            `INSERT INTO system_state (key, value, updated_at)
+             VALUES ('psa_daily_usage', $1, NOW())
+             ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [JSON.stringify({ date: _dailyCallDate, count: _dailyCallCount })]
+        );
+    } catch { /* table may not exist */ }
+};
+
+// Persist daily usage every 10 calls to avoid excessive DB writes
+let _persistCounter = 0;
+
+// Load persisted state on first import
+_loadState();
 
 /**
  * Check if we're currently rate limited by PSA.
@@ -69,6 +134,12 @@ const _trackDailyCall = () => {
         _dailyCallDate = today;
     }
     _dailyCallCount++;
+    // Persist every 10 calls to avoid excessive DB writes
+    _persistCounter++;
+    if (_persistCounter >= 10) {
+        _persistCounter = 0;
+        _persistDailyUsage().catch(() => {});
+    }
 };
 
 /** Get current daily API usage stats. */
@@ -82,8 +153,9 @@ const getDailyUsage = () => ({
 
 /**
  * Set global rate limit cooldown from a 429 response.
- * Respects the retry-after header but caps at MAX_COOLDOWN_MS (30 min)
+ * Respects the retry-after header but caps at MAX_COOLDOWN_MS (15 min)
  * to avoid absurdly long lockouts from PSA's aggressive headers.
+ * Persists to database so it survives server restarts.
  */
 const setRateLimited = (error) => {
     const retryAfterHeader = error.response?.headers?.['retry-after'];
@@ -103,6 +175,10 @@ const setRateLimited = (error) => {
     _rateLimitedUntil = Date.now() + cooldownMs;
     const cooldownMin = Math.ceil(cooldownMs / 60000);
     console.log(`[PSA] Rate limited — cooling down for ${cooldownMin} minutes (until ${new Date(_rateLimitedUntil).toLocaleTimeString()})`);
+
+    // Persist to DB so restart doesn't lose the rate limit
+    _persistRateLimit().catch(() => {});
+    _persistDailyUsage().catch(() => {});
 };
 
 const STEP_NAMES = {
@@ -173,12 +249,16 @@ const getSubmissionProgress = async (apiKey, submissionNumber, { retries = 2, ba
             const message = error.response?.data?.message || error.message;
 
             if (status === 404) {
-                return { success: false, error: 'Submission not found', status: 404 };
+                return { success: false, error: 'Submission not found', status: 404, errorType: 'not_found' };
+            }
+            // 401/403 — bad API key
+            if (status === 401 || status === 403) {
+                return { success: false, error: 'PSA API key is invalid or expired', status, errorType: 'auth_error' };
             }
             // 429 rate limit — set global cooldown and return failure (don't throw)
             if (status === 429) {
                 setRateLimited(error);
-                return { success: false, error: 'PSA rate limit reached', status: 429, rateLimited: true };
+                return { success: false, error: 'PSA rate limit reached', status: 429, rateLimited: true, errorType: 'rate_limit' };
             }
             // 5xx server errors and network timeouts — retry with backoff
             if ((status >= 500 || !status) && attempt < retries) {
@@ -188,11 +268,12 @@ const getSubmissionProgress = async (apiKey, submissionNumber, { retries = 2, ba
                 continue;
             }
 
-            console.error(`[PSA] API error for submission ${submissionNumber}: ${message}`);
-            return { success: false, error: message || 'Unknown PSA API error', status: status || 0 };
+            const errorType = status >= 500 ? 'server_error' : (!status ? 'network_error' : 'unknown');
+            console.error(`[PSA] API error for submission ${submissionNumber}: ${message} (${errorType})`);
+            return { success: false, error: message || 'Unknown PSA API error', status: status || 0, errorType };
         }
     }
-    return { success: false, error: 'Max retries exceeded', status: 0 };
+    return { success: false, error: 'Max retries exceeded', status: 0, errorType: 'network_error' };
 };
 
 const getCertificate = async (apiKey, certNumber) => {
@@ -379,6 +460,11 @@ const updateSubmissionFromPsa = async (submissionId, psaData) => {
         last_api_update: new Date(),
         last_refreshed_at: new Date(),
     };
+
+    // Track when step actually changed (for accurate days-at-step calculation)
+    if (prev.current_step !== parsed.currentStep) {
+        updateFields.step_entered_at = new Date();
+    }
 
     // Auto-set service level from PSA if we don't have one
     if (!prev.service_level && parsed.serviceLevel) {
@@ -758,11 +844,16 @@ const estimateSubmissionProgress = (submission, historicalDurations) => {
         if (i < stepIndex) completedDays += dur;
     }
 
-    // How long at current step (use last_api_update as the best indicator of when step changed)
-    const stepEnteredAt = submission.last_api_update || submission.last_refreshed_at || submission.created_at;
+    // How long at current step — use step_entered_at (tracks actual step transitions)
+    // Falls back to last_api_update or created_at if step_entered_at isn't set yet
+    const stepEnteredAt = submission.step_entered_at || submission.last_api_update || submission.last_refreshed_at || submission.created_at;
     const msAtStep = Date.now() - new Date(stepEnteredAt).getTime();
     const daysAtStep = msAtStep / (1000 * 60 * 60 * 24);
     const expectedStepDays = durations[currentStep] || 5;
+
+    // Detect overdue: step has taken 1.5x longer than expected
+    const isOverdue = daysAtStep > expectedStepDays * 1.5;
+    const overdueBy = isOverdue ? Math.round(daysAtStep - expectedStepDays) : 0;
 
     // Sub-step progress within current step (0 to 0.95, never reaches 1.0 — that's the next step's job)
     const subStepProgress = Math.min(daysAtStep / expectedStepDays, 0.95);
@@ -790,7 +881,11 @@ const estimateSubmissionProgress = (submission, historicalDurations) => {
         stepProgressPercent: Math.round(subStepProgress * 100),
         estimatedDaysRemaining: Math.round(remainingDays),
         estimatedCompletionDate: estCompletion.toISOString(),
-        currentStepLabel: daysAtStep < 1
+        isOverdue,
+        overdueBy,
+        currentStepLabel: isOverdue
+            ? `Overdue at ${currentStep} — day ${Math.ceil(daysAtStep)} (expected ~${Math.round(expectedStepDays)})`
+            : daysAtStep < 1
             ? `Started ${currentStep} today`
             : `Day ${Math.ceil(daysAtStep)} of ~${Math.round(expectedStepDays)} at ${currentStep}`,
         totalExpectedDays: Math.round(totalExpectedDays),
