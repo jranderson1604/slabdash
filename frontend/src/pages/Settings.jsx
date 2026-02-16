@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { companies, psa, migration } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import {
   Settings as SettingsIcon,
   Key,
@@ -59,6 +60,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 export default function Settings() {
   const { company, refreshUser } = useAuth();
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingPsa, setTestingPsa] = useState(false);
@@ -126,12 +128,12 @@ export default function Settings() {
           critical: true
         })) || []
       });
-      alert('✓ Migration completed successfully!\n\n' + (res.data.results?.join('\n') || ''));
+      toast.success('Migration completed successfully!');
       // Refresh migration status
       await checkMigrationStatus();
     } catch (error) {
       console.error('Migration failed:', error);
-      alert('Migration failed: ' + (error.response?.data?.details || error.message));
+      toast.error('Migration failed: ' + (error.response?.data?.details || error.message));
     } finally {
       setRunningMigration(false);
     }
@@ -216,7 +218,7 @@ export default function Settings() {
       }
     } catch (error) {
       console.error('Failed to create checkout session:', error);
-      alert('Failed to start upgrade process');
+      toast.error('Failed to start upgrade process');
     } finally {
       setLoadingSubscription(false);
     }
@@ -237,7 +239,7 @@ export default function Settings() {
       }
     } catch (error) {
       console.error('Failed to open customer portal:', error);
-      alert('Failed to open subscription management');
+      toast.error('Failed to open subscription management');
     } finally {
       setLoadingSubscription(false);
     }
@@ -248,14 +250,14 @@ export default function Settings() {
     try {
       await companies.update(settings);
       await refreshUser();
-      alert('Settings saved!');
+      toast.success('Settings saved!');
       // Force page reload to apply theme changes immediately
       if (section === 'branding') {
         window.location.reload();
       }
     } catch (error) {
       console.error('Failed to save settings:', error);
-      alert('Failed to save settings');
+      toast.error('Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -263,7 +265,7 @@ export default function Settings() {
 
   const handleTestPsa = async () => {
     if (!settings.psa_api_key) {
-      alert('Please enter a PSA API key first');
+      toast.error('Please enter a PSA API key first');
       return;
     }
 
@@ -519,7 +521,7 @@ export default function Settings() {
                       });
                       setNewServiceLevel('');
                     } else {
-                      alert('This service level already exists');
+                      toast.error('This service level already exists');
                     }
                   }
                 }}
@@ -538,7 +540,7 @@ export default function Settings() {
                       });
                       setNewServiceLevel('');
                     } else {
-                      alert('This service level already exists');
+                      toast.error('This service level already exists');
                     }
                   }
                 }}

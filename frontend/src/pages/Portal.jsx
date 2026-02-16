@@ -1139,7 +1139,7 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
                 background: '#FBF7F2',
                 border: '1px solid rgba(44,36,22,0.06)',
               }}>
-                <Package className="w-12 h-12 mx-auto mb-4" style={{ color: 'rgba(44, 36, 22, 0.15)' }} />
+                <Package className="w-12 h-12 mx-auto mb-4" style={{ color: 'rgba(44, 36, 22, 0.35)' }} />
                 <h3 className="text-lg font-bold mb-2" style={{ color: 'rgb(var(--dark))' }}>No Submissions Yet</h3>
                 <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>Your submissions will show up here once you drop off cards at the shop.</p>
               </div>
@@ -1219,7 +1219,7 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
                 background: '#FBF7F2',
                 border: '1px solid rgba(44,36,22,0.06)',
               }}>
-                <Layers className="w-12 h-12 mx-auto mb-4" style={{ color: 'rgba(44, 36, 22, 0.15)' }} />
+                <Layers className="w-12 h-12 mx-auto mb-4" style={{ color: 'rgba(44, 36, 22, 0.35)' }} />
                 <h3 className="text-lg font-bold mb-2" style={{ color: 'rgb(var(--dark))' }}>No Cards Yet</h3>
                 <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>Cards from your submissions will appear here once assigned.</p>
               </div>
@@ -1522,7 +1522,7 @@ function PortalSettingsTab({ data, jwtToken, onRefresh, onLogout, setShowProfile
         Sign Out
       </button>
 
-      <p className="text-center text-[10px] py-4" style={{ color: 'rgba(44, 36, 22, 0.15)' }}>Powered by SlabDash</p>
+      <p className="text-center text-[10px] py-4" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>Powered by SlabDash</p>
     </div>
   );
 }
@@ -1605,7 +1605,7 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
         {/* Expand indicator */}
         <div className="flex items-center justify-end mt-2">
           <ChevronDown className="w-5 h-5 transition-transform duration-300"
-            style={{ color: 'rgba(44, 36, 22, 0.15)', transform: isExpanded ? 'rotate(180deg)' : 'none' }} />
+            style={{ color: 'rgba(44, 36, 22, 0.35)', transform: isExpanded ? 'rotate(180deg)' : 'none' }} />
         </div>
       </button>
 

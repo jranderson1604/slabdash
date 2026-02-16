@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 import { submissions, customers } from '../api/client';
 import { ArrowLeft, Loader2, Plus, Camera } from 'lucide-react';
 import Scanner from '../components/Scanner';
@@ -7,6 +8,7 @@ import PageHeader from '../components/PageHeader';
 
 export default function NewSubmission() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [customerList, setCustomerList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
@@ -54,7 +56,7 @@ export default function NewSubmission() {
           navigate(`/submissions/${existingId}`);
         }
       } else {
-        alert(error.response?.data?.error || 'Failed to create submission');
+        toast.error(error.response?.data?.error || 'Failed to create submission');
       }
     } finally {
       setLoading(false);
@@ -108,7 +110,7 @@ export default function NewSubmission() {
                 service_level: data.submission?.service_level || formData.service_level,
                 date_sent: data.customer?.date || formData.date_sent
               });
-              alert('Form auto-filled with scanned data!');
+              toast.success('Form auto-filled with scanned data!');
             }
           }} />
         </div>

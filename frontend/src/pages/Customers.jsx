@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 import { customers, submissions } from '../api/client';
 import {
   Plus,
@@ -22,6 +23,7 @@ function CustomerRow({ customer, onDelete, onSendPortalLink, selected, onSelect 
   const [menuOpen, setMenuOpen] = useState(false);
   const [sendingLink, setSendingLink] = useState(false);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const handleDelete = async (e) => {
     e.stopPropagation();
@@ -41,10 +43,10 @@ function CustomerRow({ customer, onDelete, onSendPortalLink, selected, onSelect 
     setMenuOpen(false);
     try {
       const res = await customers.sendPortalLink(customer.id);
-      alert(`Portal link generated!\n\n${res.data.portalUrl}`);
+      toast.success('Portal link generated!');
     } catch (error) {
       console.error('Send portal link failed:', error);
-      alert('Failed to generate portal link');
+      toast.error('Failed to generate portal link');
     } finally {
       setSendingLink(false);
     }
@@ -146,6 +148,7 @@ function CustomerRow({ customer, onDelete, onSendPortalLink, selected, onSelect 
 }
 
 export default function Customers() {
+  const toast = useToast();
   const [customerList, setCustomerList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -229,10 +232,10 @@ export default function Customers() {
       await customers.bulkDelete(Array.from(selectedCustomers));
       setCustomerList(customerList.filter(c => !selectedCustomers.has(c.id)));
       setSelectedCustomers(new Set());
-      alert(`Successfully deleted ${count} customer(s)`);
+      toast.success(`Successfully deleted ${count} customer(s)`);
     } catch (error) {
       console.error('Bulk delete failed:', error);
-      alert('Failed to delete customers');
+      toast.error('Failed to delete customers');
     }
   };
 
@@ -253,7 +256,7 @@ export default function Customers() {
 
   const handleBulkAddToSubmission = async () => {
     if (!selectedSubmission) {
-      alert('Please select a submission');
+      toast.error('Please select a submission');
       return;
     }
 
@@ -262,13 +265,13 @@ export default function Customers() {
         Array.from(selectedCustomers),
         selectedSubmission
       );
-      alert(res.data.message);
+      toast.success(res.data.message);
       setShowAddToSubmissionModal(false);
       setSelectedCustomers(new Set());
       setSelectedSubmission('');
     } catch (error) {
       console.error('Bulk add to submission failed:', error);
-      alert('Failed to add customers to submission');
+      toast.error('Failed to add customers to submission');
     }
   };
 
@@ -277,7 +280,7 @@ export default function Customers() {
 
     const confirmation = prompt('Type YES to confirm deletion of ALL customers:');
     if (confirmation !== 'YES') {
-      alert('Deletion cancelled');
+      toast.error('Deletion cancelled');
       return;
     }
 
@@ -285,10 +288,10 @@ export default function Customers() {
       const res = await customers.deleteAll();
       setCustomerList([]);
       setSelectedCustomers(new Set());
-      alert(`Successfully deleted all ${res.data.deletedCount} customers`);
+      toast.success(`Successfully deleted all ${res.data.deletedCount} customers`);
     } catch (error) {
       console.error('Delete all failed:', error);
-      alert('Failed to delete all customers');
+      toast.error('Failed to delete all customers');
     }
   };
 
@@ -317,17 +320,13 @@ export default function Customers() {
       // Keep modal open for 2 seconds to show final results
       setTimeout(() => {
         setShowEmailProgressModal(false);
-        let message = `Introduction email results:\n\n✓ Sent: ${sent}\n`;
-        if (skipped > 0) message += `⊘ Skipped (invalid emails): ${skipped}\n`;
-        if (failed > 0) message += `✗ Failed: ${failed}\n`;
-        message += `\nTotal customers: ${total}`;
-        alert(message);
+        toast.success(`Introduction emails sent: ${sent} of ${total}${skipped > 0 ? `, ${skipped} skipped` : ''}${failed > 0 ? `, ${failed} failed` : ''}`);
       }, 2000);
     } catch (error) {
       clearInterval(progressTimer);
       setShowEmailProgressModal(false);
       console.error('Send bulk intro emails failed:', error);
-      alert(error.response?.data?.error || 'Failed to send introduction emails');
+      toast.error(error.response?.data?.error || 'Failed to send introduction emails');
     } finally {
       setSendingIntroEmails(false);
     }
@@ -335,19 +334,19 @@ export default function Customers() {
 
   const handleSendTestEmail = async () => {
     if (!testEmail || !testEmail.includes('@')) {
-      alert('Please enter a valid email address');
+      toast.error('Please enter a valid email address');
       return;
     }
 
     setSendingTestEmail(true);
     try {
       await customers.sendTestIntroductionEmail(testEmail);
-      alert(`Test introduction email sent to ${testEmail}!\n\nCheck your inbox to preview the email.`);
+      toast.success(`Test introduction email sent to ${testEmail}`);
       setShowTestEmailModal(false);
       setTestEmail('');
     } catch (error) {
       console.error('Send test email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send test email');
+      toast.error(error.response?.data?.error || 'Failed to send test email');
     } finally {
       setSendingTestEmail(false);
     }
@@ -366,15 +365,15 @@ export default function Customers() {
       let message = `Successfully imported ${imported} customer(s)`;
       if (skipped > 0) message += `, skipped ${skipped} duplicate(s)`;
       if (errors && errors.length > 0) {
-        message += `\n\n${errors.length} error(s):\n${errors.join('\n')}`;
+        message += ` with ${errors.length} error(s)`;
       }
-      alert(message);
+      toast.success(message);
 
       // Reload customers
       await loadCustomers();
     } catch (error) {
       console.error('CSV import failed:', error);
-      alert(error.response?.data?.error || 'Failed to import CSV');
+      toast.error(error.response?.data?.error || 'Failed to import CSV');
     } finally {
       setImportingCSV(false);
       e.target.value = '';

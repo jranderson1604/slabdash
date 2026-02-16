@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 import { emailTemplates } from '../api/client';
 import {
   Plus,
@@ -72,6 +73,7 @@ const TEMPLATE_VARIABLES = [
 ];
 
 function TemplateEditorModal({ template, onClose, onSave }) {
+  const toast = useToast();
   const [formData, setFormData] = useState({
     step_name: template?.step_name || '',
     subject: template?.subject || '',
@@ -85,7 +87,7 @@ function TemplateEditorModal({ template, onClose, onSave }) {
 
   const handleSave = async () => {
     if (!formData.step_name || !formData.subject || !formData.body_html) {
-      alert('Please fill in step name, subject, and email body');
+      toast.error('Please fill in step name, subject, and email body');
       return;
     }
 
@@ -99,7 +101,7 @@ function TemplateEditorModal({ template, onClose, onSave }) {
       onSave();
     } catch (error) {
       console.error('Failed to save template:', error);
-      alert('Failed to save template');
+      toast.error('Failed to save template');
     } finally {
       setSaving(false);
     }
@@ -107,7 +109,7 @@ function TemplateEditorModal({ template, onClose, onSave }) {
 
   const handlePreview = async () => {
     if (!template?.id) {
-      alert('Please save the template first to preview');
+      toast.error('Please save the template first to preview');
       return;
     }
 
@@ -117,7 +119,7 @@ function TemplateEditorModal({ template, onClose, onSave }) {
       setShowPreview(true);
     } catch (error) {
       console.error('Failed to load preview:', error);
-      alert('Failed to load preview');
+      toast.error('Failed to load preview');
     }
   };
 
@@ -310,6 +312,7 @@ function TemplateEditorModal({ template, onClose, onSave }) {
 }
 
 export default function EmailTemplates() {
+  const toast = useToast();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingTemplate, setEditingTemplate] = useState(null);
@@ -349,14 +352,14 @@ export default function EmailTemplates() {
       const response = await emailTemplates.createDefaults();
 
       if (response.data.success) {
-        alert(`Success! Created ${response.data.templates_created} new templates.`);
+        toast.success(`Created ${response.data.templates_created} new templates`);
         await loadTemplates();
       } else {
-        alert('Failed to create templates: ' + (response.data.error || 'Unknown error'));
+        toast.error('Failed to create templates: ' + (response.data.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Create defaults failed:', error);
-      alert('Failed to create default templates: ' + (error.response?.data?.error || error.message));
+      toast.error('Failed to create default templates: ' + (error.response?.data?.error || error.message));
     } finally {
       setCreatingDefaults(false);
     }
@@ -370,7 +373,7 @@ export default function EmailTemplates() {
       await loadTemplates();
     } catch (error) {
       console.error('Failed to delete template:', error);
-      alert('Failed to delete template');
+      toast.error('Failed to delete template');
     }
   };
 

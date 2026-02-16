@@ -319,7 +319,7 @@ export default function Landing() {
                       {j < activeStep && <CheckCircle2 size={14} color="#fff" />}
                       {j === activeStep && <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff' }} />}
                     </div>
-                    <p style={{ fontSize: 9, marginTop: 4, fontWeight: j === activeStep ? 800 : 500, color: j <= activeStep ? '#2C2416' : 'rgba(44,36,22,0.35)' }}>{s}</p>
+                    <p style={{ fontSize: 9, marginTop: 4, fontWeight: j === activeStep ? 800 : 500, color: j <= activeStep ? '#2C2416' : 'rgba(44,36,22,0.5)' }}>{s}</p>
                   </div>
                 ))}
               </div>
@@ -396,7 +396,7 @@ export default function Landing() {
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <p style={{ fontWeight: 800, fontSize: 14, color: '#2C2416' }}>{n.title}</p>
-                      <span style={{ fontSize: 11, color: 'rgba(44,36,22,0.4)' }}>{n.time}</span>
+                      <span style={{ fontSize: 11, color: 'rgba(44,36,22,0.55)' }}>{n.time}</span>
                     </div>
                     <p style={{ fontSize: 13, color: 'rgba(44,36,22,0.6)', marginTop: 2 }}>{n.body}</p>
                   </div>
@@ -416,7 +416,7 @@ export default function Landing() {
         </div>
         <div style={{ padding: 24, textAlign: 'center' }}>
           <div style={{ background: tan, borderRadius: 16, padding: '28px 20px', marginBottom: 20 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(44,36,22,0.4)', letterSpacing: 2, marginBottom: 8 }}>PICKUP CODE</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(44,36,22,0.55)', letterSpacing: 2, marginBottom: 8 }}>PICKUP CODE</p>
             <p style={{ fontSize: 44, fontWeight: 900, fontFamily: 'monospace', color: '#2C2416', letterSpacing: 6 }}>T4X-9KP</p>
           </div>
           <div className="flex gap-3 mb-4">
@@ -574,7 +574,7 @@ export default function Landing() {
               Watch Demo
             </button>
           </div>
-          <p className="text-sm" style={{ color: 'rgba(44,36,22,0.35)' }}>No credit card required</p>
+          <p className="text-sm" style={{ color: 'rgba(44,36,22,0.5)' }}>No credit card required</p>
         </div>
 
         {/* Dashboard preview */}
@@ -590,7 +590,7 @@ export default function Landing() {
                 <div className="w-3 h-3 rounded-full" style={{ background: '#2BC840' }} />
               </div>
               <div className="flex-1 flex justify-center">
-                <div className="px-6 py-1 rounded-lg text-xs font-medium" style={{ background: 'rgba(44,36,22,0.04)', color: 'rgba(44,36,22,0.4)' }}>
+                <div className="px-6 py-1 rounded-lg text-xs font-medium" style={{ background: 'rgba(44,36,22,0.04)', color: 'rgba(44,36,22,0.55)' }}>
                   slabdash.app/dashboard
                 </div>
               </div>
@@ -606,7 +606,7 @@ export default function Landing() {
                 ].map((stat, i) => (
                   <div key={i} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(44,36,22,0.05)' }}>
                     <p className="text-2xl sm:text-3xl font-black" style={{ color: stat.color }}>{stat.value}</p>
-                    <p className="text-xs font-semibold mt-1" style={{ color: 'rgba(44,36,22,0.4)' }}>{stat.label}</p>
+                    <p className="text-xs font-semibold mt-1" style={{ color: 'rgba(44,36,22,0.55)' }}>{stat.label}</p>
                   </div>
                 ))}
               </div>
@@ -624,13 +624,13 @@ export default function Landing() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold truncate" style={{ color: '#2C2416' }}>{sub.customer}</p>
-                      <p className="text-xs" style={{ color: 'rgba(44,36,22,0.4)' }}>#{sub.num} · {sub.service}</p>
+                      <p className="text-xs" style={{ color: 'rgba(44,36,22,0.55)' }}>#{sub.num} · {sub.service}</p>
                     </div>
                     <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                       <div className="h-1.5 w-20 rounded-full overflow-hidden" style={{ background: 'rgba(44,36,22,0.06)' }}>
                         <div className="h-full rounded-full" style={{ width: `${sub.progress}%`, background: 'linear-gradient(90deg, #FF8170, #E8543D)' }} />
                       </div>
-                      <span className="text-xs font-bold" style={{ color: 'rgba(44,36,22,0.4)' }}>{sub.step}</span>
+                      <span className="text-xs font-bold" style={{ color: 'rgba(44,36,22,0.55)' }}>{sub.step}</span>
                     </div>
                   </div>
                 ))}
@@ -651,7 +651,7 @@ export default function Landing() {
           ].map((stat, i) => (
             <div key={i} className="text-center">
               <p className="text-2xl sm:text-3xl font-black" style={{ color: '#2C2416' }}>{stat.value}</p>
-              <p className="text-xs font-semibold mt-1" style={{ color: 'rgba(44,36,22,0.4)' }}>{stat.label}</p>
+              <p className="text-xs font-semibold mt-1" style={{ color: 'rgba(44,36,22,0.55)' }}>{stat.label}</p>
             </div>
           ))}
         </div>
@@ -856,7 +856,7 @@ export default function Landing() {
                   </p>
                   <div className="flex items-baseline gap-1">
                     <span className="text-4xl sm:text-5xl font-black" style={{ color: plan.popular ? '#fff' : '#2C2416' }}>${plan.price}</span>
-                    <span className="text-sm font-semibold" style={{ color: plan.popular ? 'rgba(255,248,240,0.4)' : 'rgba(44,36,22,0.35)' }}>/{plan.period}</span>
+                    <span className="text-sm font-semibold" style={{ color: plan.popular ? 'rgba(255,248,240,0.5)' : 'rgba(44,36,22,0.5)' }}>/{plan.period}</span>
                   </div>
                 </div>
 
@@ -928,7 +928,7 @@ export default function Landing() {
                 </p>
                 <div>
                   <p className="text-sm font-bold" style={{ color: '#2C2416' }}>{t.name}</p>
-                  <p className="text-xs" style={{ color: 'rgba(44,36,22,0.4)' }}>{t.business}</p>
+                  <p className="text-xs" style={{ color: 'rgba(44,36,22,0.55)' }}>{t.business}</p>
                 </div>
               </div>
             ))}
@@ -963,7 +963,7 @@ export default function Landing() {
                   <span className="text-sm font-bold pr-4" style={{ color: '#2C2416' }}>{faq.question}</span>
                   <ChevronDown
                     className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
-                    style={{ color: 'rgba(44,36,22,0.3)', transform: openFaqIndex === i ? 'rotate(180deg)' : 'rotate(0)' }}
+                    style={{ color: 'rgba(44,36,22,0.5)', transform: openFaqIndex === i ? 'rotate(180deg)' : 'rotate(0)' }}
                   />
                 </button>
                 <div className="overflow-hidden transition-all duration-200"

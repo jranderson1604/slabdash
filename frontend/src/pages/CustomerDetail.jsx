@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 import { customers, submissions } from '../api/client';
 import PageHeader from '../components/PageHeader';
 import StatusBadge from '../components/StatusBadge';
@@ -32,6 +33,7 @@ import { format } from 'date-fns';
 export default function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -97,7 +99,7 @@ export default function CustomerDetail() {
       setShowSubmissionDropdown(false);
     } catch (error) {
       console.error('Failed to assign customer to submission:', error);
-      alert('Failed to assign customer to submission');
+      toast.error('Failed to assign customer to submission');
     } finally {
       setAssigningSubmission(false);
     }
@@ -133,7 +135,7 @@ export default function CustomerDetail() {
       setPortalLink(res.data.portalUrl);
     } catch (error) {
       console.error('Generate portal link failed:', error);
-      alert('Failed to generate portal link');
+      toast.error('Failed to generate portal link');
     } finally {
       setGeneratingLink(false);
     }
@@ -157,11 +159,11 @@ export default function CustomerDetail() {
     setSendingIntroEmail(true);
     try {
       const res = await customers.sendIntroductionEmail(id);
-      alert(`Introduction email sent successfully!\n\nPortal URL: ${res.data.portalUrl}`);
+      toast.success('Introduction email sent successfully!');
       setPortalLink(res.data.portalUrl);
     } catch (error) {
       console.error('Send introduction email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send introduction email');
+      toast.error(error.response?.data?.error || 'Failed to send introduction email');
     } finally {
       setSendingIntroEmail(false);
     }
@@ -169,19 +171,19 @@ export default function CustomerDetail() {
 
   const handleSendTestEmail = async () => {
     if (!testEmail || !testEmail.includes('@')) {
-      alert('Please enter a valid email address');
+      toast.error('Please enter a valid email address');
       return;
     }
 
     setSendingTestEmail(true);
     try {
       await customers.sendTestIntroductionEmail(testEmail);
-      alert(`Test introduction email sent to ${testEmail}!\n\nCheck your inbox to preview the email.`);
+      toast.success(`Test introduction email sent to ${testEmail}`);
       setShowTestEmailModal(false);
       setTestEmail('');
     } catch (error) {
       console.error('Send test email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send test email');
+      toast.error(error.response?.data?.error || 'Failed to send test email');
     } finally {
       setSendingTestEmail(false);
     }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 import { submissions, customers, psa } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import AdminWalkthrough from '../components/AdminWalkthrough';
@@ -44,6 +45,7 @@ function RecentSubmissionRow({ submission }) {
 
 export default function Dashboard() {
   const { company } = useAuth();
+  const toast = useToast();
   const [stats, setStats] = useState(null);
   const [recentSubs, setRecentSubs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -90,7 +92,7 @@ export default function Dashboard() {
       await loadData();
     } catch (error) {
       console.error('Refresh failed:', error);
-      alert('Failed to refresh submissions. Please try again.');
+      toast.error('Failed to refresh submissions. Please try again.');
     } finally {
       setRefreshing(false);
     }

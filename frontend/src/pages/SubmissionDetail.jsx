@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { submissions, cards, customers, emailTemplates } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import PickupCard from '../components/PickupCard';
 import InvoiceSection from '../components/InvoiceSection';
 import {
@@ -76,6 +77,7 @@ function CardRow({ card, onUpdate, onDelete }) {
   const [showImage, setShowImage] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const toast = useToast();
 
   const cardImages = card.card_images ? (Array.isArray(card.card_images) ? card.card_images : JSON.parse(card.card_images)) : [];
   const hasImages = cardImages.length > 0;
@@ -117,7 +119,7 @@ function CardRow({ card, onUpdate, onDelete }) {
       onUpdate(res.data);
     } catch (error) {
       console.error('Upload failed:', error);
-      alert('Failed to upload images');
+      toast.error('Failed to upload images');
     } finally {
       setUploading(false);
     }
@@ -311,6 +313,7 @@ function CardRow({ card, onUpdate, onDelete }) {
 function CustomerAssignmentSheet({ customer, submission, onClose, onUpdate }) {
   const [selectedCards, setSelectedCards] = useState(new Set());
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     // Pre-select cards that are already assigned to this customer
@@ -353,7 +356,7 @@ function CustomerAssignmentSheet({ customer, submission, onClose, onUpdate }) {
       onClose();
     } catch (error) {
       console.error('Failed to update card assignments:', error);
-      alert('Failed to update card assignments');
+      toast.error('Failed to update card assignments');
     } finally {
       setSaving(false);
     }
@@ -555,6 +558,7 @@ export default function SubmissionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { company } = useAuth();
+  const toast = useToast();
 
   const [submission, setSubmission] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -615,7 +619,7 @@ export default function SubmissionDetail() {
 
   const handleRefresh = async () => {
     if (!company?.hasPsaKey) {
-      alert('PSA API key not configured. Please add your PSA API key in Company Settings to refresh submissions.');
+      toast.error('PSA API key not configured. Please add your PSA API key in Company Settings to refresh submissions.');
       return;
     }
 
@@ -624,16 +628,13 @@ export default function SubmissionDetail() {
       const response = await submissions.refresh(id);
       await loadSubmission();
 
-      // Show success message with updated info
+      // Show success message
       const message = response.data?.message || 'Submission refreshed successfully';
-      const details = response.data?.currentStep
-        ? `\n\nStatus: ${response.data.currentStep}\nProgress: ${response.data.progressPercent}%`
-        : '';
-      alert(message + details);
+      toast.success(message);
     } catch (error) {
       console.error('Refresh failed:', error);
       const errorMsg = error.response?.data?.error || error.message || 'Failed to refresh from PSA';
-      alert(`Refresh failed: ${errorMsg}\n\nPlease check:\n- PSA submission number is correct\n- PSA API key is valid\n- Order exists in PSA system`);
+      toast.error('Refresh failed: ' + errorMsg);
     } finally {
       setRefreshing(false);
     }
@@ -652,7 +653,7 @@ export default function SubmissionDetail() {
   const handleSendUpdate = async () => {
     const customerCount = submission?.linked_customers?.length || 0;
     if (customerCount === 0) {
-      alert('No customers linked to this submission');
+      toast.error('No customers linked to this submission');
       return;
     }
 
@@ -663,10 +664,10 @@ export default function SubmissionDetail() {
     setSendingEmail(true);
     try {
       const response = await emailTemplates.sendSubmissionUpdate(id);
-      alert(response.data.message || `Email sent to ${response.data.emails_sent} customer(s)!`);
+      toast.success(response.data.message || `Email sent to ${response.data.emails_sent} customer(s)!`);
     } catch (error) {
       console.error('Send email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send status update');
+      toast.error(error.response?.data?.error || 'Failed to send status update');
     } finally {
       setSendingEmail(false);
     }
@@ -674,19 +675,19 @@ export default function SubmissionDetail() {
 
   const handleSendTestEmail = async () => {
     if (!testEmail || !testEmail.includes('@')) {
-      alert('Please enter a valid email address');
+      toast.error('Please enter a valid email address');
       return;
     }
 
     setSendingTestEmail(true);
     try {
       await emailTemplates.sendTestSubmissionUpdate(testEmail, id);
-      alert(`Test submission update email sent to ${testEmail}!\n\nCheck your inbox to preview the email.`);
+      toast.success(`Test submission update email sent to ${testEmail}! Check your inbox to preview.`);
       setShowTestEmailModal(false);
       setTestEmail('');
     } catch (error) {
       console.error('Send test email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send test email');
+      toast.error(error.response?.data?.error || 'Failed to send test email');
     } finally {
       setSendingTestEmail(false);
     }
@@ -721,7 +722,7 @@ export default function SubmissionDetail() {
       setEditForm({});
     } catch (error) {
       console.error('Save failed:', error);
-      alert('Failed to save changes');
+      toast.error('Failed to save changes');
     } finally {
       setSaving(false);
     }
@@ -774,7 +775,7 @@ export default function SubmissionDetail() {
       await loadSubmission();
     } catch (error) {
       console.error('Add customer failed:', error);
-      alert('Failed to add customer to submission');
+      toast.error('Failed to add customer to submission');
     } finally {
       setAssigningCustomer(false);
     }
@@ -787,13 +788,13 @@ export default function SubmissionDetail() {
       await loadSubmission();
     } catch (error) {
       console.error('Remove customer failed:', error);
-      alert('Failed to remove customer');
+      toast.error('Failed to remove customer');
     }
   };
 
   const handleExportCustomersCSV = () => {
     if (!submission.linked_customers || submission.linked_customers.length === 0) {
-      alert('No customers to export');
+      toast.error('No customers to export');
       return;
     }
 
@@ -829,7 +830,7 @@ export default function SubmissionDetail() {
 
   const handleBulkAssign = async () => {
     if (!bulkAssignCSV.trim()) {
-      alert('Please paste CSV data');
+      toast.error('Please paste CSV data');
       return;
     }
 
@@ -840,14 +841,7 @@ export default function SubmissionDetail() {
 
       // Show summary
       const summary = response.data.summary;
-      alert(
-        `✅ Bulk Assignment Complete!\n\n` +
-        `Total: ${summary.total}\n` +
-        `Assigned: ${summary.assigned}\n` +
-        `Unmatched Customers: ${summary.unmatched}\n` +
-        `Cards Not Found: ${summary.notFound}\n` +
-        `Errors: ${summary.errors}`
-      );
+      toast.success(`Bulk assignment complete: ${summary.assigned} of ${summary.total} cards assigned`);
 
       // Reload submission to show updated assignments
       await loadSubmission();
@@ -858,7 +852,7 @@ export default function SubmissionDetail() {
       }
     } catch (error) {
       console.error('Bulk assign failed:', error);
-      alert('Failed to assign cards: ' + (error.response?.data?.error || error.message));
+      toast.error('Failed to assign cards: ' + (error.response?.data?.error || error.message));
     } finally {
       setBulkAssigning(false);
     }
@@ -874,19 +868,14 @@ export default function SubmissionDetail() {
       const response = await cards.autoDetectSports(id);
       const summary = response.data.summary;
 
-      alert(
-        `✅ Sport Detection Complete!\n\n` +
-        `Total: ${summary.total}\n` +
-        `Detected: ${summary.detected}\n` +
-        `Skipped: ${summary.skipped} (already categorized)`
-      );
+      toast.success(`Sport detection complete: ${summary.detected} of ${summary.total} cards detected`);
 
       // Reload submission to show updated sports
       await loadSubmission();
     } catch (error) {
       console.error('Auto-detect failed:', error);
       const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message;
-      alert('Failed to auto-detect sports: ' + errorMsg);
+      toast.error('Failed to auto-detect sports: ' + errorMsg);
     } finally {
       setAutoDetecting(false);
     }
@@ -903,10 +892,10 @@ export default function SubmissionDetail() {
 
       await submissions.uploadImage(id, formData);
       await loadSubmission();
-      alert('Form image uploaded successfully!');
+      toast.success('Form image uploaded successfully!');
     } catch (error) {
       console.error('Upload failed:', error);
-      alert('Failed to upload image');
+      toast.error('Failed to upload image');
     } finally {
       setUploadingImage(false);
     }
@@ -924,20 +913,19 @@ export default function SubmissionDetail() {
       setCsvImportResult(res.data);
       await loadSubmission();
 
-      // Show success message
+      // Show result message
       const { imported, skipped, errors, total } = res.data;
-      let message = `Successfully imported ${imported} card(s)`;
-      if (skipped > 0) message += `, skipped ${skipped} duplicate(s)`;
-      if (errors && errors.length > 0) {
-        message += `\n\n${errors.length} error(s):\n${errors.join('\n')}`;
-      }
       if (imported === 0 && skipped === 0 && total === 0) {
-        message = 'No data rows found in CSV file. Check file format.';
+        toast.error('No data rows found in CSV file. Check file format.');
+      } else {
+        let message = `Successfully imported ${imported} card(s)`;
+        if (skipped > 0) message += `, skipped ${skipped} duplicate(s)`;
+        if (errors && errors.length > 0) message += `, ${errors.length} error(s)`;
+        toast.success(message);
       }
-      alert(message);
     } catch (error) {
       console.error('CSV import failed:', error);
-      alert(error.response?.data?.error || 'Failed to import CSV');
+      toast.error(error.response?.data?.error || 'Failed to import CSV');
     } finally {
       setImportingCSV(false);
       // Reset file input

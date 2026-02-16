@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 import { companies, emailTemplates } from '../api/client';
 import api from '../api/client';
 import { Mail, Send, CheckCircle, AlertCircle, Loader2, Save, Info, FileText, Users, Bell, BellOff, Eye, X, Settings as SettingsIcon } from 'lucide-react';
@@ -45,6 +46,7 @@ function EmailNav() {
 }
 
 export default function EmailSettings() {
+  const toast = useToast();
   const [settings, setSettings] = useState({
     email_notifications_enabled: false,
     use_custom_smtp: false,
@@ -123,10 +125,10 @@ export default function EmailSettings() {
       }
 
       await companies.update(dataToSave);
-      alert('Email settings saved successfully!');
+      toast.success('Email settings saved successfully!');
     } catch (error) {
       console.error('Failed to save settings:', error);
-      alert('Failed to save settings');
+      toast.error('Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -134,7 +136,7 @@ export default function EmailSettings() {
 
   const handleTestEmail = async () => {
     if (!testEmail) {
-      alert('Please enter a test email address');
+      toast.error('Please enter a test email address');
       return;
     }
 
@@ -156,7 +158,7 @@ export default function EmailSettings() {
 
   const handleBulkStatusUpdate = async () => {
     if (!settings.email_notifications_enabled) {
-      alert('Please enable email notifications first');
+      toast.error('Please enable email notifications first');
       return;
     }
 
@@ -189,19 +191,19 @@ export default function EmailSettings() {
 
   const handleSendBulkTestEmail = async () => {
     if (!bulkTestEmail || !bulkTestEmail.includes('@')) {
-      alert('Please enter a valid email address');
+      toast.error('Please enter a valid email address');
       return;
     }
 
     setSendingBulkTestEmail(true);
     try {
       await emailTemplates.sendTestSubmissionUpdate(bulkTestEmail, null);
-      alert(`Test bulk status update email sent to ${bulkTestEmail}!\n\nCheck your inbox to preview the email with sample data.`);
+      toast.success(`Test bulk status update email sent to ${bulkTestEmail}`);
       setShowBulkTestEmailModal(false);
       setBulkTestEmail('');
     } catch (error) {
       console.error('Send bulk test email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send test email');
+      toast.error(error.response?.data?.error || 'Failed to send test email');
     } finally {
       setSendingBulkTestEmail(false);
     }

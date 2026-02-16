@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 import { submissions, emailTemplates, psaImport, psa } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import ProgressBar from '../components/ProgressBar';
@@ -344,6 +345,7 @@ function ServiceLevelGroup({ level, submissions: groupSubs, onRefresh, onDelete,
 export default function Submissions() {
   const { company } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('active');
@@ -383,7 +385,7 @@ export default function Submissions() {
   // ============================================
   const handleSendWeeklyUpdate = async () => {
     if (!company?.hasPsaKey) {
-      alert('PSA API key not configured. Add it in Company Settings.');
+      toast.error('PSA API key not configured. Add it in Company Settings.');
       return;
     }
 
@@ -420,7 +422,7 @@ export default function Submissions() {
   // ============================================
   const handleRefreshAll = async () => {
     if (!company?.hasPsaKey) {
-      alert('PSA API key not configured. Add it in Company Settings.');
+      toast.error('PSA API key not configured. Add it in Company Settings.');
       return;
     }
 
@@ -530,7 +532,7 @@ export default function Submissions() {
       if (!autoRefresh) {
         const response = await psaImport.importCsv(csvData);
         const { created, updated, skipped } = response.data;
-        alert(`Import Complete!\n\nCreated: ${created}\nUpdated: ${updated}\nSkipped: ${skipped}`);
+        toast.success(`Import complete: ${created} created, ${updated} updated, ${skipped} skipped`);
         await loadSubmissions();
         setShowCsvImport(false);
       } else {
@@ -561,7 +563,7 @@ export default function Submissions() {
                   setImportProgress(prev => ({ ...prev, ...data }));
                 } else if (data.type === 'complete') {
                   await loadSubmissions();
-                  alert(`Import & Refresh Complete!\n\nCreated: ${data.created}\nRefreshed: ${data.refreshed}\nErrors: ${data.refreshErrors || 0}`);
+                  toast.success(`Import & refresh complete: ${data.created} created, ${data.refreshed} refreshed${data.refreshErrors ? `, ${data.refreshErrors} errors` : ''}`);
                   setShowCsvImport(false);
                 }
               } catch {}
@@ -570,7 +572,7 @@ export default function Submissions() {
         }
       }
     } catch (error) {
-      alert(error.message || 'Failed to import CSV');
+      toast.error(error.message || 'Failed to import CSV');
     } finally {
       setImporting(false);
     }
