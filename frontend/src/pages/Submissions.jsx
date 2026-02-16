@@ -111,7 +111,7 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
               {submission.psa_submission_number || submission.internal_id || 'No #'}
             </span>
             {submission.psa_order_number && (
-              <span className="text-xs text-gray-400 hidden sm:inline">
+              <span className="text-xs text-gray-500 hidden sm:inline">
                 Order: {submission.psa_order_number}
               </span>
             )}
@@ -123,7 +123,7 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
               <span className="text-xs text-green-600 font-medium animate-pulse">Updated!</span>
             )}
             {refreshResult === 'no-change' && (
-              <span className="text-xs text-gray-400">No changes</span>
+              <span className="text-xs text-gray-500">No changes</span>
             )}
             {refreshResult === 'error' && (
               <span className="text-xs text-red-500">Failed</span>
@@ -192,7 +192,7 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
           {/* Estimated time remaining */}
           {submission.estimated?.estimatedDaysRemaining > 0 && !submission.shipped && (
             <div className="flex items-center justify-between mt-1">
-              <span className="text-[10px] text-gray-400">
+              <span className="text-[10px] text-gray-500">
                 ~{submission.estimated.estimatedDaysRemaining} days remaining
               </span>
               {submission.refreshPriority && (
@@ -249,7 +249,7 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
           </div>
           <div className="flex items-center gap-2">
             {submission.last_refreshed_at && (
-              <span className="text-[10px] text-gray-400" title={`Last refreshed: ${new Date(submission.last_refreshed_at).toLocaleString()}`}>
+              <span className="text-[10px] text-gray-500" title={`Last refreshed: ${new Date(submission.last_refreshed_at).toLocaleString()}`}>
                 <RefreshCw className="w-3 h-3 inline mr-0.5" />
                 {formatTimeAgo(submission.last_refreshed_at)}
               </span>
@@ -862,7 +862,7 @@ export default function Submissions() {
       )}
 
       {filteredSubs.length > 0 && (
-        <p className="text-xs text-gray-400 text-center pb-4">
+        <p className="text-xs text-gray-500 text-center pb-4">
           {filteredSubs.length} submission{filteredSubs.length !== 1 ? 's' : ''} across {sortedGroups.length} service level{sortedGroups.length !== 1 ? 's' : ''}
         </p>
       )}

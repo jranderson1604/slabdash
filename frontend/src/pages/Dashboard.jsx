@@ -256,7 +256,7 @@ export default function Dashboard() {
               </div>
             )}
             {(!stats?.gradesReady && !stats?.problems) && (
-              <p className="text-sm font-medium text-center py-4" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>No new notifications</p>
+              <p className="text-sm font-medium text-center py-4" style={{ color: 'rgba(44, 36, 22, 0.65)' }}>No new notifications</p>
             )}
           </div>
         </div>
@@ -390,7 +390,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>New Submission</p>
-              <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Track a new PSA order</p>
+              <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.65)' }}>Track a new PSA order</p>
             </div>
           </div>
         </Link>
@@ -404,7 +404,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>Add Customer</p>
-              <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Create a new customer</p>
+              <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.65)' }}>Create a new customer</p>
             </div>
           </div>
         </Link>
@@ -418,7 +418,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>Connect PSA</p>
-              <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Set up API integration</p>
+              <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.65)' }}>Set up API integration</p>
             </div>
           </div>
         </Link>

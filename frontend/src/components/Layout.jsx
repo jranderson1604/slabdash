@@ -276,7 +276,7 @@ export default function Layout({ children }) {
                     >
                       <div className="px-4 py-2" style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
                         <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>{user?.name}</p>
-                        <p className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>{user?.email}</p>
+                        <p className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.7)' }}>{user?.email}</p>
                       </div>
                       <Link
                         to="/settings"

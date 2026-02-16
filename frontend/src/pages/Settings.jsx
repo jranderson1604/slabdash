@@ -47,7 +47,7 @@ function SettingsSection({ icon: Icon, title, description, children }) {
         </div>
         <div>
           <h2 className="text-lg font-bold" style={{ color: 'rgb(var(--dark))' }}>{title}</h2>
-          <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>{description}</p>
+          <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.65)' }}>{description}</p>
         </div>
       </div>
       {children}
@@ -1318,7 +1318,7 @@ function PortalQRCode({ shopCode, slug, shopName, logoUrl, primaryColor }) {
               <img src={logoUrl} alt="" className="w-16 h-16 rounded-xl object-cover mx-auto mb-3" />
             )}
             <h3 className="text-lg font-bold text-gray-900">{shopName || slug}</h3>
-            <p className="text-[10px] uppercase tracking-wider text-gray-400 mb-4">Customer Portal</p>
+            <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-4">Customer Portal</p>
             <div className="qr-container inline-block p-3 bg-gray-50 rounded-xl border border-gray-200">
               <QRCodeSVG
                 value={portalUrl}
@@ -1330,7 +1330,7 @@ function PortalQRCode({ shopCode, slug, shopName, logoUrl, primaryColor }) {
               />
             </div>
             <p className="text-2xl font-black text-gray-900 mt-4 tracking-[6px]">{displayCode}</p>
-            <p className="text-[9px] uppercase tracking-wider text-gray-400 mt-0.5 mb-2">Shop Code</p>
+            <p className="text-[9px] uppercase tracking-wider text-gray-500 mt-0.5 mb-2">Shop Code</p>
             <p className="text-xs font-semibold text-gray-600">Scan QR or enter code to get started</p>
           </div>
         </div>
@@ -1342,7 +1342,7 @@ function PortalQRCode({ shopCode, slug, shopName, logoUrl, primaryColor }) {
               <label className="label">Shop Code</label>
               <div className="flex items-center gap-3">
                 <span className="text-3xl font-black tracking-[8px] text-gray-900 pl-1">{shopCode}</span>
-                <span className="text-xs text-gray-400">Give this code to customers</span>
+                <span className="text-xs text-gray-500">Give this code to customers</span>
               </div>
             </div>
           )}

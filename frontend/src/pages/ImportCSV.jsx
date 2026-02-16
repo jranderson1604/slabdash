@@ -119,9 +119,9 @@ export default function ImportCSV() {
               }}
             >
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5" style={{ color: 'rgba(44, 36, 22, 0.35)' }} />
+                <FileText className="w-5 h-5" style={{ color: 'rgba(44, 36, 22, 0.55)' }} />
                 <span className="text-sm font-semibold" style={{ color: 'rgb(var(--dark))' }}>{file.name}</span>
-                <span className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
+                <span className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
                   ({(file.size / 1024).toFixed(1)} KB)
                 </span>
               </div>
@@ -201,7 +201,7 @@ export default function ImportCSV() {
                 onChange={(e) => setPsaSubmissionNumber(e.target.value)}
                 className="input w-full md:w-96"
               />
-              <p className="text-xs mt-1" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
+              <p className="text-xs mt-1" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
                 Enter the real PSA submission/order number from your account. If left empty, a placeholder will be generated.
               </p>
             </div>
@@ -217,7 +217,7 @@ export default function ImportCSV() {
                 onChange={(e) => setCustomerId(e.target.value)}
                 className="input w-full md:w-96"
               />
-              <p className="text-xs mt-1" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
+              <p className="text-xs mt-1" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
                 Leave empty to import without linking to a specific customer
               </p>
             </div>
@@ -249,7 +249,7 @@ export default function ImportCSV() {
               </tbody>
             </table>
             {preview.submissions.length > 10 && (
-              <p className="text-sm mt-2 text-center" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
+              <p className="text-sm mt-2 text-center" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
                 Showing 10 of {preview.submissions.length} submissions
               </p>
             )}
