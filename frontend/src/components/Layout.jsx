@@ -207,7 +207,7 @@ export default function Layout({ children }) {
       <div className="lg:pl-64">
         {/* Top header - hidden on SAM page */}
         {location.pathname !== '/sam' && (
-        <header style={{
+        <header className="relative z-30" style={{
           background: 'rgba(255, 255, 255, 0.6)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',

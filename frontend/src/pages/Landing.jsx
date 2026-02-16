@@ -492,8 +492,8 @@ export default function Landing() {
                 className="text-sm font-semibold transition-colors flex items-center gap-1.5 hidden sm:flex" style={{ color: '#FF8170' }}>
                 <PlayCircle className="w-4 h-4" /> Demo
               </button>
-              <Link to="/login" className="text-sm font-semibold transition-colors hidden sm:block" style={{ color: 'rgba(44,36,22,0.55)' }}>
-                Sign In
+              <Link to="/login" className="text-sm font-bold transition-colors" style={{ color: '#2C2416' }}>
+                Admin Login
               </Link>
               <Link to="/register"
                 className="px-4 py-2 text-sm font-bold text-white rounded-xl transition-all hover:opacity-90"
