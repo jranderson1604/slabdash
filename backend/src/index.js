@@ -292,6 +292,36 @@ async function startServer() {
       `);
       console.log("✓ Migration: Company stripe/sam/shop_code columns ensured");
 
+      // Portal enhancements (migration 019): before photos, notes, price estimates
+      await db.query(`
+        ALTER TABLE cards
+        ADD COLUMN IF NOT EXISTS before_photos JSONB DEFAULT '[]'::jsonb,
+        ADD COLUMN IF NOT EXISTS admin_notes TEXT,
+        ADD COLUMN IF NOT EXISTS prep_notes TEXT,
+        ADD COLUMN IF NOT EXISTS price_estimate DECIMAL(10,2),
+        ADD COLUMN IF NOT EXISTS last_comp_check TIMESTAMP WITH TIME ZONE,
+        ADD COLUMN IF NOT EXISTS comp_lookups JSONB DEFAULT '[]'::jsonb;
+      `);
+      await db.query(`
+        ALTER TABLE submissions
+        ADD COLUMN IF NOT EXISTS admin_notes TEXT,
+        ADD COLUMN IF NOT EXISTS prep_notes TEXT;
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_cards_before_photos ON cards USING GIN (before_photos)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_cards_comp_lookups ON cards USING GIN (comp_lookups)`);
+      console.log("✓ Migration: Portal enhancements columns ensured (before_photos, notes, comps)");
+
+      // Auto-refresh scheduling (migration 021)
+      await db.query(`
+        ALTER TABLE companies
+        ADD COLUMN IF NOT EXISTS auto_refresh_schedule VARCHAR(50) DEFAULT 'weekly',
+        ADD COLUMN IF NOT EXISTS auto_refresh_day_of_week INTEGER DEFAULT 1,
+        ADD COLUMN IF NOT EXISTS auto_refresh_hour INTEGER DEFAULT 9,
+        ADD COLUMN IF NOT EXISTS auto_refresh_email TEXT,
+        ADD COLUMN IF NOT EXISTS last_auto_refresh TIMESTAMP WITH TIME ZONE;
+      `);
+      console.log("✓ Migration: Auto-refresh scheduling columns ensured");
+
       // Auto-enable SAM for all companies (it's a core feature)
       await db.query(`UPDATE companies SET sam_enabled = TRUE WHERE sam_enabled IS NOT TRUE`);
 
