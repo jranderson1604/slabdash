@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -27,7 +27,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8 relative overflow-hidden"
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden"
       style={{ backgroundColor: 'rgb(var(--bg-color))' }}
     >
       {/* Background decorative blobs */}
@@ -41,34 +41,36 @@ export default function Login() {
         style={{ background: 'rgba(255, 216, 196, 0.08)' }}
       />
 
-      <div className="relative sm:mx-auto sm:w-full sm:max-w-2xl">
-        {/* SlabDash Logo */}
-        <div className="flex justify-center mb-8">
+      <div className="relative w-full max-w-sm">
+        {/* Logo + tagline */}
+        <div className="text-center mb-8">
           <img
             src="/images/logo-full.png.svg"
             alt="SlabDash"
-            className="h-80 w-full"
+            className="h-14 mx-auto"
           />
+          <p className="mt-3 text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>
+            PSA Submission Tracking for Card Shops
+          </p>
         </div>
-        <h2 className="mt-4 text-center text-xl font-semibold" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
-          PSA Submission Tracking for Card Shops
-        </h2>
-      </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative">
-        {/* Liquid glass login card */}
-        <div className="py-8 px-4 sm:px-10 rounded-3xl scale-in"
+        {/* Login card */}
+        <div className="p-6 sm:p-8 rounded-2xl scale-in"
           style={{
-            background: 'rgba(255, 255, 255, 0.5)',
+            background: 'rgba(255, 255, 255, 0.55)',
             backdropFilter: 'blur(40px) saturate(180%)',
             WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-            border: '1px solid rgba(255, 255, 255, 0.4)',
-            boxShadow: '0 24px 80px rgba(0,0,0,0.06), 0 8px 32px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.7)',
+            border: '1px solid rgba(255, 255, 255, 0.45)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.06), 0 4px 20px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.7)',
           }}
         >
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <h2 className="text-lg font-semibold mb-6" style={{ color: 'rgba(44, 36, 22, 0.85)' }}>
+            Sign in to your account
+          </h2>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="rounded-2xl p-3 flex items-center gap-2 text-sm font-medium"
+              <div className="rounded-xl p-3 flex items-center gap-2 text-sm font-medium"
                 style={{
                   background: 'rgba(239, 68, 68, 0.08)',
                   border: '1px solid rgba(239, 68, 68, 0.15)',
@@ -115,44 +117,38 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary w-full flex items-center justify-center"
+              className="btn btn-primary w-full flex items-center justify-center gap-2 mt-2"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                'Sign in'
+                <>
+                  Sign in
+                  <ArrowRight className="w-4 h-4" />
+                </>
               )}
             </button>
           </form>
-
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full" style={{ borderTop: '1px solid rgba(0,0,0,0.06)' }} />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-3 font-medium" style={{
-                  backgroundColor: 'rgba(255, 255, 255, 0.5)',
-                  color: 'rgba(44, 36, 22, 0.45)',
-                }}>New to SlabDash?</span>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <Link
-                to="/register"
-                className="btn btn-secondary w-full flex items-center justify-center"
-              >
-                Create an account
-              </Link>
-            </div>
-          </div>
         </div>
 
-        <p className="mt-6 text-center text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
-          Track your PSA submissions in real-time.
-          <br />
-          Give customers visibility into their orders.
+        {/* Register link */}
+        <div className="mt-6 text-center">
+          <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>
+            New to SlabDash?{' '}
+            <Link
+              to="/register"
+              className="font-semibold transition-colors"
+              style={{ color: '#FC7B62' }}
+              onMouseEnter={(e) => e.target.style.color = '#e8634c'}
+              onMouseLeave={(e) => e.target.style.color = '#FC7B62'}
+            >
+              Create an account
+            </Link>
+          </p>
+        </div>
+
+        <p className="mt-8 text-center text-xs font-medium" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
+          Track submissions in real-time. Give customers visibility into their orders.
         </p>
       </div>
     </div>
