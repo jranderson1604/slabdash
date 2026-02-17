@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { buyback, customers, cards as cardsApi } from '../api/client';
 import {
   ArrowLeft,
-  Plus,
   X,
   Save,
   DollarSign,
@@ -15,6 +14,7 @@ import { Link } from 'react-router-dom';
 
 export default function NewBuybackOffer() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const toast = useToast();
   const [customerList, setCustomerList] = useState([]);
   const [selectedCustomer, setSelectedCustomer] = useState('');
@@ -25,17 +25,30 @@ export default function NewBuybackOffer() {
   const [isBulkOffer, setIsBulkOffer] = useState(false);
   const [bulkDiscount, setBulkDiscount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [initialCardLoaded, setInitialCardLoaded] = useState(false);
 
+  // Load customers on mount
   useEffect(() => {
     loadCustomers();
   }, []);
 
+  // Handle card_id query parameter (from Cards page green dollar icon)
+  useEffect(() => {
+    const cardId = searchParams.get('card_id');
+    if (cardId && !initialCardLoaded) {
+      loadCardById(cardId);
+    }
+  }, [searchParams, initialCardLoaded]);
+
+  // Load customer cards when customer changes
   useEffect(() => {
     if (selectedCustomer) {
       loadCustomerCards(selectedCustomer);
     } else {
       setCustomerCards([]);
-      setSelectedCards([]);
+      if (!initialCardLoaded) {
+        setSelectedCards([]);
+      }
     }
   }, [selectedCustomer]);
 
@@ -45,6 +58,30 @@ export default function NewBuybackOffer() {
       setCustomerList(res.data.customers || []);
     } catch (error) {
       console.error('Failed to load customers:', error);
+    }
+  };
+
+  const loadCardById = async (cardId) => {
+    try {
+      const res = await cardsApi.get(cardId);
+      const card = res.data;
+
+      if (card.customer_id) {
+        setSelectedCustomer(card.customer_id);
+      }
+
+      setSelectedCards([{
+        card_id: card.id,
+        card_name: card.description,
+        grade: card.grade,
+        player_name: card.player_name,
+        offer_amount: 0,
+        grading_fee: 0,
+      }]);
+      setInitialCardLoaded(true);
+    } catch (error) {
+      console.error('Failed to load card:', error);
+      toast.error('Could not load the selected card');
     }
   };
 
@@ -67,6 +104,8 @@ export default function NewBuybackOffer() {
         {
           card_id: card.id,
           card_name: card.description,
+          grade: card.grade,
+          player_name: card.player_name,
           offer_amount: 0,
           grading_fee: 0,
         },
@@ -123,6 +162,7 @@ export default function NewBuybackOffer() {
         bulk_discount_percent: isBulkOffer ? bulkDiscount : 0,
       });
 
+      toast.success(`Created ${selectedCards.length} buyback offer${selectedCards.length > 1 ? 's' : ''}`);
       navigate('/buyback');
     } catch (error) {
       console.error('Failed to create offer:', error);
@@ -144,7 +184,7 @@ export default function NewBuybackOffer() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">New Buyback Offer</h1>
-            <p className="text-gray-500 text-sm mt-1">Create a multi-card purchase offer</p>
+            <p className="text-gray-500 text-sm mt-1">Create a purchase offer for customer cards</p>
           </div>
         </div>
       </div>
@@ -154,7 +194,11 @@ export default function NewBuybackOffer() {
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Customer</h2>
         <select
           value={selectedCustomer}
-          onChange={(e) => setSelectedCustomer(e.target.value)}
+          onChange={(e) => {
+            setSelectedCustomer(e.target.value);
+            setSelectedCards([]);
+            setInitialCardLoaded(false);
+          }}
           className="input"
         >
           <option value="">Choose a customer...</option>
@@ -238,6 +282,9 @@ export default function NewBuybackOffer() {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex-1">
                     <p className="font-medium text-gray-900">{card.card_name}</p>
+                    {card.grade && (
+                      <p className="text-sm text-gray-500">Grade: {card.grade}</p>
+                    )}
                   </div>
                   <button
                     onClick={() =>
@@ -371,7 +418,7 @@ export default function NewBuybackOffer() {
             <div className="text-sm text-yellow-800">
               <p className="font-medium mb-1">This will send an email to the customer</p>
               <p>
-                They will have {deadlineHours} hours to accept, decline, or make a counter-offer.
+                They will have {deadlineHours} hours to accept or decline the offer through their portal.
               </p>
             </div>
           </div>
@@ -390,7 +437,7 @@ export default function NewBuybackOffer() {
               ) : (
                 <>
                   <Save className="w-4 h-4" />
-                  Create Buyback Offer
+                  Create Buyback Offer{selectedCards.length > 1 ? 's' : ''}
                 </>
               )}
             </button>

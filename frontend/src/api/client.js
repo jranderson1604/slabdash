@@ -113,10 +113,10 @@ export const buyback = {
   list: (params) => api.get('/buyback', { params }),
   get: (id) => api.get(`/buyback/${id}`),
   create: (data) => api.post('/buyback', data),
-  update: (id, data) => api.put(`/buyback/${id}`, data),
-  delete: (id) => api.delete(`/buyback/${id}`),
-  accept: (id, message) => api.post(`/buyback/${id}/accept`, { message }),
-  decline: (id, message) => api.post(`/buyback/${id}/decline`, { message })
+  stats: () => api.get('/buyback/stats/summary'),
+  cancel: (id) => api.patch(`/buyback/${id}/cancel`),
+  markPaid: (id, data) => api.patch(`/buyback/${id}/mark-paid`, data),
+  delete: (id) => api.delete(`/buyback/${id}`)
 };
 
 export const cardImport = {
