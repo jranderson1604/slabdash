@@ -1718,6 +1718,52 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
               </p>
             </div>
           )}
+
+          {/* Invoice / Payment info */}
+          {(submission.invoice_sent || submission.customer_invoice_sent) && submission.customer_cost > 0 && (
+            <div className="p-4 rounded-xl" style={{ background: 'rgba(var(--brand-500), 0.04)', border: '1px solid rgba(var(--brand-500), 0.08)' }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" style={{ color: 'rgb(var(--brand-600))' }} />
+                  <span className="text-xs font-bold" style={{ color: 'rgb(var(--brand-600))' }}>INVOICE</span>
+                </div>
+                {submission.invoice_number && (
+                  <span className="text-xs font-semibold" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>
+                    {submission.invoice_number}
+                  </span>
+                )}
+              </div>
+              <div className="mt-3 flex items-end justify-between">
+                <div>
+                  <p className="text-2xl font-black" style={{ color: 'rgb(var(--dark))' }}>
+                    ${parseFloat(submission.customer_cost).toFixed(2)}
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
+                    {submission.invoice_sent_at
+                      ? `Invoiced ${new Date(submission.invoice_sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                      : 'Amount due'}
+                  </p>
+                </div>
+                <span className="text-xs font-bold px-2 py-1 rounded-lg"
+                  style={{ background: 'rgba(245, 158, 11, 0.08)', color: '#D97706' }}>
+                  Payment Due
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Problem order details */}
+          {isProblem && (
+            <div className="p-4 rounded-xl" style={{ background: 'rgba(220, 38, 38, 0.04)', border: '1px solid rgba(220, 38, 38, 0.1)' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="w-4 h-4" style={{ color: '#DC2626' }} />
+                <span className="text-xs font-bold" style={{ color: '#DC2626' }}>ISSUE FLAGGED</span>
+              </div>
+              <p className="text-sm" style={{ color: '#7F1D1D', lineHeight: '1.5' }}>
+                PSA has flagged an issue with this submission. Your shop is working on it. This is usually resolved within a few business days.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

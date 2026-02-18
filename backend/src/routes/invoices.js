@@ -444,12 +444,12 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
         const errors = [];
 
         for (const customer of customersWithEmails) {
-            // Generate unique pickup code for this customer if submission is ready
-            let customerPickupCode = null;
-            if (submission.grades_ready) {
+            // Generate pickup code for this customer if submission is ready and they don't have one
+            let customerPickupCode = customer.pickup_code || null;
+            if (submission.grades_ready && !customerPickupCode) {
                 customerPickupCode = generatePickupCode();
 
-                // Save pickup code to submission_customers table
+                // Save pickup code to submission_customers table (single source of truth)
                 try {
                     await db.query(
                         `UPDATE submission_customers
@@ -458,7 +458,6 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
                         [customerPickupCode, submissionId, customer.customer_id]
                     );
                 } catch (error) {
-                    // Column doesn't exist yet - pickup code will still be used in emails but not saved
                     console.log('Note: pickup_code column not found in submission_customers. Run migration to add it.');
                 }
             }

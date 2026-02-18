@@ -800,6 +800,11 @@ router.get('/submissions', authenticateCustomer, async (req, res) => {
                     COALESCE(sc.pickup_code, s.pickup_code) as pickup_code,
                     COALESCE(sc.picked_up, s.picked_up, false) as picked_up,
                     COALESCE(sc.picked_up_at, s.picked_up_at) as picked_up_at,
+                    s.invoice_sent,
+                    s.invoice_number,
+                    s.invoice_sent_at,
+                    sc.customer_cost,
+                    sc.invoice_sent as customer_invoice_sent,
                     (SELECT COUNT(*) FROM cards WHERE submission_id = s.id) as card_count
              FROM submissions s
              LEFT JOIN submission_customers sc ON s.id = sc.submission_id AND sc.customer_id = $1

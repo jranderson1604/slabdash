@@ -325,6 +325,16 @@ router.post("/", authenticate, async (req, res) => {
 
     const submission = result.rows[0];
 
+    // Send confirmation email to linked customers (fire and forget)
+    try {
+      const { sendSubmissionConfirmationEmail } = require('../services/emailService');
+      sendSubmissionConfirmationEmail(submission.id).catch(err =>
+        console.error('Confirmation email failed:', err.message)
+      );
+    } catch (emailError) {
+      console.error('Failed to queue confirmation email:', emailError.message);
+    }
+
     res.status(201).json({
       ...submission,
       psa_data_imported: !!parsedPsaData
@@ -380,8 +390,9 @@ router.put("/:id", authenticate, async (req, res) => {
 
     const updatedSubmission = result.rows[0];
 
-    // If grades_ready is being set to true and no pickup code exists, generate one
-    if (req.body.grades_ready === true && !updatedSubmission.pickup_code) {
+    // If grades_ready is being set to true, generate pickup codes for linked customers
+    // that don't have one yet (submission_customers is the source of truth for pickup codes)
+    if (req.body.grades_ready === true) {
       const generatePickupCode = () => {
         const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
         const numbers = '0123456789';
@@ -396,28 +407,35 @@ router.put("/:id", authenticate, async (req, res) => {
         return code;
       };
 
-      let pickupCode;
-      let attempts = 0;
-      let isUnique = false;
-
-      while (!isUnique && attempts < 10) {
-        pickupCode = generatePickupCode();
-        const existing = await db.query(
-          'SELECT id FROM submissions WHERE pickup_code = $1',
-          [pickupCode]
+      try {
+        // Get linked customers that don't have a pickup code yet
+        const linkedCustomers = await db.query(
+          `SELECT customer_id FROM submission_customers
+           WHERE submission_id = $1 AND (pickup_code IS NULL OR pickup_code = '')`,
+          [req.params.id]
         );
-        if (existing.rows.length === 0) {
-          isUnique = true;
+
+        for (const row of linkedCustomers.rows) {
+          const pickupCode = generatePickupCode();
+          await db.query(
+            `UPDATE submission_customers SET pickup_code = $1
+             WHERE submission_id = $2 AND customer_id = $3`,
+            [pickupCode, req.params.id, row.customer_id]
+          );
         }
-        attempts++;
-      }
 
-      if (isUnique) {
-        await db.query(
-          'UPDATE submissions SET pickup_code = $1 WHERE id = $2',
-          [pickupCode, req.params.id]
-        );
-        updatedSubmission.pickup_code = pickupCode;
+        // Read back for response (first customer's code as representative)
+        if (linkedCustomers.rows.length > 0) {
+          const codeResult = await db.query(
+            `SELECT pickup_code FROM submission_customers WHERE submission_id = $1 AND pickup_code IS NOT NULL LIMIT 1`,
+            [req.params.id]
+          );
+          if (codeResult.rows.length > 0) {
+            updatedSubmission.pickup_code = codeResult.rows[0].pickup_code;
+          }
+        }
+      } catch (pickupError) {
+        console.error('Failed to generate pickup codes for customers:', pickupError.message);
       }
     }
 

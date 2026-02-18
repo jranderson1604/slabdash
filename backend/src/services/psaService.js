@@ -596,6 +596,26 @@ const updateSubmissionFromPsa = async (submissionId, psaData) => {
         }
     }
 
+    // Send dedicated shipped email with tracking when shipped flag flips
+    if (parsed.shipped && !prev.shipped) {
+        try {
+            const { sendShippedEmail } = require('./emailService');
+            await sendShippedEmail(submissionId);
+        } catch (emailError) {
+            console.error('Failed to send shipped email:', emailError.message);
+        }
+    }
+
+    // Send problem order email when problem flag is set
+    if (parsed.problemOrder && !prev.problem_order) {
+        try {
+            const { sendProblemOrderEmail } = require('./emailService');
+            await sendProblemOrderEmail(submissionId);
+        } catch (emailError) {
+            console.error('Failed to send problem order email:', emailError.message);
+        }
+    }
+
     // Send push notifications to linked portal customers on significant changes
     if (changes.hadChanges && prev.company_id) {
         try {
