@@ -242,13 +242,13 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
       changeLogAvailable: true
     });
 
-    if (!clientDisconnected) res.end();
+    try { if (!clientDisconnected) res.end(); } catch { /* already closed */ }
   } catch (error) {
     console.error('[PSA] Refresh all error:', error.message);
     try {
       res.write(`data: ${JSON.stringify({ type: 'error', error: 'Failed to refresh submissions' })}\n\n`);
-      res.end();
     } catch { /* client already gone */ }
+    try { res.end(); } catch { /* already closed */ }
   }
 });
 

@@ -32,6 +32,7 @@ const pickupRoutes = require("./routes/pickup");
 const invoiceRoutes = require("./routes/invoices");
 const dashyRoutes = require("./routes/dashy");
 const samRoutes = require("./routes/sam");
+const waitlistRoutes = require("./routes/waitlist");
 
 /* -------------------- STARTUP VALIDATION -------------------- */
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
@@ -201,6 +202,7 @@ app.use("/api/pickup", pickupRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/dashy", dashyRoutes);
 app.use("/api/sam", samRoutes);
+app.use("/api/waitlist", waitlistRoutes);
 
 /* -------------------- 404 HANDLER -------------------- */
 
@@ -314,6 +316,7 @@ async function startServer() {
       // Auto-refresh scheduling (migration 021)
       await db.query(`
         ALTER TABLE companies
+        ADD COLUMN IF NOT EXISTS auto_refresh_enabled BOOLEAN DEFAULT FALSE,
         ADD COLUMN IF NOT EXISTS auto_refresh_schedule VARCHAR(50) DEFAULT 'weekly',
         ADD COLUMN IF NOT EXISTS auto_refresh_day_of_week INTEGER DEFAULT 1,
         ADD COLUMN IF NOT EXISTS auto_refresh_hour INTEGER DEFAULT 9,
@@ -434,6 +437,20 @@ async function startServer() {
       `);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_refresh_logs_company ON psa_refresh_logs(company_id, created_at DESC)`);
       console.log("✓ Migration: PSA refresh logs table ensured");
+
+      // Waitlist table for collecting interested shop emails
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS waitlist (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          email VARCHAR(255) NOT NULL UNIQUE,
+          shop_name VARCHAR(255),
+          role VARCHAR(100),
+          source VARCHAR(100) DEFAULT 'landing_page',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_waitlist_email ON waitlist(email)`);
+      console.log("✓ Migration: Waitlist table ensured");
 
     } catch (migrationError) {
       // Don't fail startup if migration has issues, just log it

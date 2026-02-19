@@ -26,6 +26,7 @@ import Portal from './pages/Portal';
 import OwnerDashboard from './pages/OwnerDashboard';
 import Help from './pages/Help';
 import SAMAI from './pages/SAMAI';
+import Demo from './pages/Demo';
 import { Loader2 } from 'lucide-react';
 
 function ProtectedRoute({ children }) {
@@ -53,6 +54,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<HomeRoute />} />
+      <Route path="/demo" element={<Demo />} />
       <Route path="/portal" element={<Portal />} />
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />

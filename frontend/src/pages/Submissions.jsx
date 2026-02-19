@@ -65,12 +65,29 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
     try {
       const res = await submissions.refresh(submission.id);
       const data = res.data;
-      setRefreshResult(data.changes?.hadChanges ? 'updated' : 'no-change');
+      const c = data.changes;
+      if (c?.hadChanges) {
+        // Build a descriptive change summary
+        const parts = [];
+        if (c.stepChanged) parts.push(`${c.previousStep} → ${c.newStep}`);
+        else if (c.progressChanged) parts.push(`+${c.progressDelta}%`);
+        if (c.gradesReady && !submission.grades_ready) parts.push('Grades ready!');
+        if (c.shipped && !submission.shipped) parts.push('Shipped!');
+        if (c.problemOrder && !submission.problem_order) parts.push('Problem flagged');
+        setRefreshResult({ type: 'updated', detail: parts.join(' · ') || 'Updated' });
+      } else {
+        setRefreshResult({ type: 'no-change' });
+      }
       onRefresh();
-      setTimeout(() => setRefreshResult(null), 3000);
+      setTimeout(() => setRefreshResult(null), 5000);
     } catch (error) {
-      setRefreshResult('error');
-      setTimeout(() => setRefreshResult(null), 3000);
+      const errData = error.response?.data;
+      const errMsg = errData?.errorType === 'rate_limit' ? 'Rate limited'
+        : errData?.errorType === 'not_found' ? 'Not found on PSA'
+        : errData?.errorType === 'auth_error' ? 'Bad API key'
+        : 'Failed';
+      setRefreshResult({ type: 'error', detail: errMsg });
+      setTimeout(() => setRefreshResult(null), 5000);
     } finally {
       setRefreshing(false);
     }
@@ -120,14 +137,18 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
 
           <div className="flex items-center gap-1.5 flex-shrink-0">
             {/* Refresh result indicator */}
-            {refreshResult === 'updated' && (
-              <span className="text-xs text-green-600 font-medium animate-pulse">Updated!</span>
+            {refreshResult?.type === 'updated' && (
+              <span className="text-xs text-green-600 font-medium animate-pulse max-w-[180px] truncate" title={refreshResult.detail}>
+                {refreshResult.detail || 'Updated!'}
+              </span>
             )}
-            {refreshResult === 'no-change' && (
+            {refreshResult?.type === 'no-change' && (
               <span className="text-xs text-gray-500">No changes</span>
             )}
-            {refreshResult === 'error' && (
-              <span className="text-xs text-red-500">Failed</span>
+            {refreshResult?.type === 'error' && (
+              <span className="text-xs text-red-500" title={refreshResult.detail}>
+                {refreshResult.detail || 'Failed'}
+              </span>
             )}
 
             {/* Inline refresh button — always visible */}
@@ -469,6 +490,11 @@ export default function Submissions() {
                   errors: data.errors,
                   submissionNumber: data.submissionNumber,
                   hadChanges: data.hadChanges,
+                  stepChanged: data.stepChanged,
+                  progressDelta: data.progressDelta,
+                  status: data.status,
+                  errorType: data.errorType,
+                  errorMessage: data.errorMessage,
                 });
               } else if (data.type === 'rate_limited') {
                 setRefreshProgress(prev => ({ ...prev, done: true }));
@@ -722,8 +748,24 @@ export default function Submissions() {
             </div>
             {refreshProgress.submissionNumber && (
               <p className="text-xs text-white/50 mt-1">
-                {refreshProgress.submissionNumber}
-                {refreshProgress.hadChanges && <span className="text-green-300 ml-1">updated!</span>}
+                #{refreshProgress.submissionNumber}
+                {refreshProgress.status === 'error' && (
+                  <span className="text-red-300 ml-1">
+                    {refreshProgress.errorType === 'not_found' ? 'not found' :
+                     refreshProgress.errorType === 'auth_error' ? 'auth error' :
+                     'error'}
+                  </span>
+                )}
+                {refreshProgress.hadChanges && (
+                  <span className="text-green-300 ml-1">
+                    {refreshProgress.stepChanged ? 'step changed' :
+                     refreshProgress.progressDelta ? `+${refreshProgress.progressDelta}%` :
+                     'updated'}
+                  </span>
+                )}
+                {!refreshProgress.hadChanges && refreshProgress.status === 'success' && (
+                  <span className="text-white/30 ml-1">no changes</span>
+                )}
               </p>
             )}
           </div>

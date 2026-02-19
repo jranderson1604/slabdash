@@ -34,7 +34,8 @@ import {
   Search,
   Tag,
   MessageCircle,
-  LayoutGrid
+  LayoutGrid,
+  Monitor
 } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
@@ -50,6 +51,11 @@ export default function Landing() {
   const [shopFound, setShopFound] = useState(null);
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
   const [activeTab, setActiveTab] = useState('home');
+  const [waitlistEmail, setWaitlistEmail] = useState('');
+  const [waitlistShop, setWaitlistShop] = useState('');
+  const [waitlistStatus, setWaitlistStatus] = useState(null); // null | 'loading' | 'success' | 'error'
+  const [waitlistMsg, setWaitlistMsg] = useState('');
+  const [waitlistCount, setWaitlistCount] = useState(null);
   const shopCodeRefs = [useRef(), useRef(), useRef(), useRef()];
 
   useEffect(() => {
@@ -93,6 +99,42 @@ export default function Landing() {
     e.preventDefault();
     const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4);
     if (pasted.length === 4) { setShopCode(pasted); shopCodeRefs[3].current?.focus(); lookupShop(pasted); }
+  };
+
+  // Fetch waitlist count for social proof
+  useEffect(() => {
+    fetch(`${API_URL}/waitlist/count`).then(r => r.json()).then(d => {
+      if (d.count > 0) setWaitlistCount(d.count);
+    }).catch(() => {});
+  }, []);
+
+  const submitWaitlist = async (e) => {
+    e.preventDefault();
+    if (!waitlistEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(waitlistEmail)) {
+      setWaitlistStatus('error');
+      setWaitlistMsg('Please enter a valid email.');
+      return;
+    }
+    setWaitlistStatus('loading');
+    try {
+      const res = await fetch(`${API_URL}/waitlist`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: waitlistEmail, shop_name: waitlistShop || undefined }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setWaitlistStatus('success');
+        setWaitlistMsg(data.message || "You're on the list!");
+        setWaitlistCount(c => (c || 0) + 1);
+      } else {
+        setWaitlistStatus('error');
+        setWaitlistMsg(data.error || 'Something went wrong.');
+      }
+    } catch {
+      setWaitlistStatus('error');
+      setWaitlistMsg('Connection error. Please try again.');
+    }
   };
 
   const lookupShop = async (code) => {
@@ -488,10 +530,10 @@ export default function Landing() {
             </Link>
 
             <div className="flex items-center gap-3">
-              <button onClick={() => setShowDemo(true)}
-                className="text-sm font-semibold transition-colors flex items-center gap-1.5 hidden sm:flex" style={{ color: '#FF8170' }}>
-                <PlayCircle className="w-4 h-4" /> Demo
-              </button>
+              <Link to="/demo"
+                className="text-sm font-semibold transition-colors items-center gap-1.5 hidden sm:flex" style={{ color: '#FF8170' }}>
+                <Monitor className="w-4 h-4" /> Live Demo
+              </Link>
               <Link to="/login" className="text-sm font-bold transition-colors" style={{ color: '#2C2416' }}>
                 Admin Login
               </Link>
@@ -574,7 +616,20 @@ export default function Landing() {
               Watch Demo
             </button>
           </div>
-          <p className="text-sm" style={{ color: 'rgba(44,36,22,0.5)' }}>No credit card required</p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button onClick={() => navigate('/demo')}
+              className="flex items-center gap-2 text-sm font-bold transition-all hover:opacity-80"
+              style={{ color: '#FF8170' }}>
+              <Monitor className="w-4 h-4" /> Try the Interactive Demo
+            </button>
+            <span className="hidden sm:inline text-xs" style={{ color: 'rgba(44,36,22,0.2)' }}>|</span>
+            <p className="text-sm" style={{ color: 'rgba(44,36,22,0.5)' }}>No credit card required</p>
+          </div>
+          {waitlistCount > 0 && (
+            <p className="text-xs mt-3 font-semibold" style={{ color: 'rgba(44,36,22,0.35)' }}>
+              {waitlistCount} shop{waitlistCount !== 1 ? 's' : ''} on the waitlist
+            </p>
+          )}
         </div>
 
         {/* Dashboard preview */}
@@ -1002,13 +1057,65 @@ export default function Landing() {
           <p className="text-base sm:text-lg mb-10" style={{ color: 'rgba(255,248,240,0.45)' }}>
             Join the card shops already using SlabDash to manage their PSA submissions, keep customers happy, and grow their business.
           </p>
-          <button onClick={() => navigate('/register')}
-            className="group px-10 py-4 text-base font-bold text-white rounded-2xl transition-all inline-flex items-center gap-2"
-            style={{ background: 'linear-gradient(135deg, #FF8170, #E8543D)', boxShadow: '0 4px 32px rgba(255,107,89,0.4)' }}>
-            Get Started Free
-            <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-          </button>
-          <p className="mt-5 text-sm" style={{ color: 'rgba(255,248,240,0.25)' }}>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-8">
+            <button onClick={() => navigate('/register')}
+              className="group w-full sm:w-auto px-10 py-4 text-base font-bold text-white rounded-2xl transition-all inline-flex items-center justify-center gap-2"
+              style={{ background: 'linear-gradient(135deg, #FF8170, #E8543D)', boxShadow: '0 4px 32px rgba(255,107,89,0.4)' }}>
+              Get Started Free
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </button>
+            <button onClick={() => navigate('/demo')}
+              className="w-full sm:w-auto px-8 py-4 text-base font-bold rounded-2xl transition-all inline-flex items-center justify-center gap-2"
+              style={{ color: '#fff', border: '1.5px solid rgba(255,248,240,0.15)', background: 'rgba(255,255,255,0.05)' }}>
+              <Monitor className="w-5 h-5" style={{ color: '#FF8170' }} />
+              Try Live Demo
+            </button>
+          </div>
+
+          {/* Waitlist Form */}
+          <div className="max-w-md mx-auto rounded-2xl p-6" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,248,240,0.08)' }}>
+            <p className="text-sm font-bold text-white mb-1">Not ready to sign up yet?</p>
+            <p className="text-xs mb-4" style={{ color: 'rgba(255,248,240,0.4)' }}>
+              Join the waitlist — we'll notify you about new features and early access deals.
+            </p>
+            {waitlistStatus === 'success' ? (
+              <div className="flex items-center justify-center gap-2 py-3">
+                <CheckCircle2 className="w-5 h-5 text-green-400" />
+                <p className="text-sm font-bold text-green-400">{waitlistMsg}</p>
+              </div>
+            ) : (
+              <form onSubmit={submitWaitlist} className="space-y-2">
+                <input type="email" placeholder="your@email.com" required
+                  value={waitlistEmail} onChange={(e) => { setWaitlistEmail(e.target.value); setWaitlistStatus(null); }}
+                  className="w-full px-4 py-3 rounded-xl text-sm font-medium outline-none"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,248,240,0.1)', color: '#fff' }} />
+                <input type="text" placeholder="Shop name (optional)"
+                  value={waitlistShop} onChange={(e) => setWaitlistShop(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl text-sm font-medium outline-none"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,248,240,0.1)', color: '#fff' }} />
+                {waitlistStatus === 'error' && (
+                  <p className="text-xs text-red-400 font-semibold">{waitlistMsg}</p>
+                )}
+                <button type="submit" disabled={waitlistStatus === 'loading'}
+                  className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90 flex items-center justify-center gap-2"
+                  style={{ background: 'linear-gradient(135deg, #FF8170, #E8543D)' }}>
+                  {waitlistStatus === 'loading' ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Joining...</>
+                  ) : (
+                    <><Mail className="w-4 h-4" /> Join the Waitlist</>
+                  )}
+                </button>
+              </form>
+            )}
+            {waitlistCount > 0 && (
+              <p className="text-[11px] mt-3 font-semibold" style={{ color: 'rgba(255,248,240,0.25)' }}>
+                {waitlistCount} shop{waitlistCount !== 1 ? 's' : ''} already on the list
+              </p>
+            )}
+          </div>
+
+          <p className="mt-6 text-sm" style={{ color: 'rgba(255,248,240,0.25)' }}>
             Free during early access · No credit card · All features included
           </p>
         </div>

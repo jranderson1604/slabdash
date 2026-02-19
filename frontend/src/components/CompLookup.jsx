@@ -24,7 +24,7 @@ export default function CompLookup({ cardId, token, initialCard, onUpdate, readO
 
   const loadCompData = async () => {
     try {
-      const authToken = token || localStorage.getItem('token');
+      const authToken = token || localStorage.getItem('slabdash_token');
       const url = token
         ? `${API_URL}/cards/${cardId}/comps?token=${token}`
         : `${API_URL}/cards/${cardId}/comps`;
@@ -50,7 +50,7 @@ export default function CompLookup({ cardId, token, initialCard, onUpdate, readO
     setError(null);
 
     try {
-      const authToken = token || localStorage.getItem('token');
+      const authToken = token || localStorage.getItem('slabdash_token');
       const url = token
         ? `${API_URL}/cards/${cardId}/lookup-price?token=${token}&force=${force}`
         : `${API_URL}/cards/${cardId}/lookup-price?force=${force}`;

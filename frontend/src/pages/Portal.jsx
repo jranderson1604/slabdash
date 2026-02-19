@@ -684,12 +684,14 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
   };
 
   // Auto-poll for submission updates every 2 minutes
+  const lastPollRef = useRef(lastPollTime);
+  lastPollRef.current = lastPollTime;
   useEffect(() => {
     if (!data || !jwtToken) return;
     const interval = setInterval(async () => {
       try {
         const headers = { Authorization: `Bearer ${jwtToken}` };
-        const since = lastPollTime || new Date(Date.now() - 120000).toISOString();
+        const since = lastPollRef.current || new Date(Date.now() - 120000).toISOString();
         const res = await fetch(`${API_URL}/portal/submissions/poll?since=${encodeURIComponent(since)}`, { headers });
         if (!res.ok) return;
         const poll = await res.json();
@@ -701,7 +703,7 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
             if (!prev) return prev;
             const updatedMap = {};
             for (const s of poll.submissions) updatedMap[s.id] = s;
-            const merged = prev.submissions.map(sub =>
+            const merged = (prev.submissions || []).map(sub =>
               updatedMap[sub.id] ? { ...sub, ...updatedMap[sub.id] } : sub
             );
             return { ...prev, submissions: merged };
@@ -710,7 +712,7 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
       } catch {} // Silent fail — polling shouldn't disrupt UX
     }, 120000); // 2 minutes
     return () => clearInterval(interval);
-  }, [data, jwtToken, lastPollTime]);
+  }, [!!data, jwtToken]);
 
   const loadData = async () => {
     try {
@@ -959,7 +961,7 @@ function ProfileModal({ jwtToken, customer, onClose, onUpdate }) {
     try {
       const body = {};
       if (name.trim() !== customer.name) body.name = name.trim();
-      if (email.trim().toLowerCase() !== customer.email.toLowerCase()) body.email = email.trim();
+      if (email.trim().toLowerCase() !== (customer.email || '').toLowerCase()) body.email = email.trim();
       if ((phone || '') !== (customer.phone || '')) body.phone = phone;
       if (newPw) { body.currentPassword = currentPw; body.newPassword = newPw; }
       if (Object.keys(body).length === 0) { setError('No changes to save'); setLoading(false); return; }
@@ -1036,12 +1038,13 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
     setRefreshing(false);
   };
 
-  const readyForPickup = data.submissions.filter(s => s.pickup_code && !s.picked_up);
-  const activeSubmissions = data.submissions.filter(s => !s.shipped && !s.picked_up && !s.pickup_code);
-  const completedSubmissions = data.submissions.filter(s => s.picked_up || (s.shipped && !s.pickup_code));
+  const subs = data.submissions || [];
+  const readyForPickup = subs.filter(s => s.pickup_code && !s.picked_up);
+  const activeSubmissions = subs.filter(s => !s.shipped && !s.picked_up && !s.pickup_code);
+  const completedSubmissions = subs.filter(s => s.picked_up || (s.shipped && !s.pickup_code));
   const pendingOffers = (data.buybackOffers || []).filter(o => o.status === 'pending');
   const hasSAM = data.company?.sam_enabled;
-  const totalCards = data.submissions.reduce((sum, s) => sum + (s.card_count || s.cards?.length || 0), 0);
+  const totalCards = subs.reduce((sum, s) => sum + (s.card_count || s.cards?.length || 0), 0);
   const allCards = data.cards || [];
   const gradedCards = allCards.filter(c => c.grade);
 
@@ -1058,7 +1061,7 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
     : allCards;
 
   const tabs = [
-    { id: 'submissions', label: 'Orders', icon: Package, count: data.submissions.length },
+    { id: 'submissions', label: 'Orders', icon: Package, count: subs.length },
     { id: 'cards', label: 'My Cards', icon: Layers, count: allCards.length },
     ...(hasSAM ? [{ id: 'sam', label: 'Ask SAM', icon: Bot, badge: 'AI' }] : []),
     { id: 'settings', label: 'More', icon: Settings },
@@ -1129,7 +1132,7 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
       </div>
 
       {/* Content */}
-      <div className="max-w-2xl mx-auto px-4 py-5 space-y-5">
+      <div className="max-w-2xl mx-auto px-4 py-5 pb-24 space-y-5">
 
         {/* ====== SUBMISSIONS TAB ====== */}
         {activeTab === 'submissions' && (
@@ -1595,10 +1598,22 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
         {/* Progress pipeline */}
         <ProgressPipeline currentStep={submission.current_step} shipped={isShipped} pickedUp={isPickedUp} estimated={submission.estimated} />
 
-        {/* Simple time estimate */}
-        {submission.estimated && !isShipped && !isPickedUp && submission.estimated.estimatedDaysRemaining > 0 && (
-          <p className="text-xs font-semibold mt-3" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
-            {encouragement || `~${submission.estimated.estimatedDaysRemaining} days remaining`}
+        {/* Time info: date sent, estimate, encouragement */}
+        <div className="mt-3 flex items-center justify-between">
+          {submission.date_sent && (
+            <p className="text-[10px] font-medium" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
+              Submitted {new Date(submission.date_sent).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </p>
+          )}
+          {submission.estimated && !isShipped && !isPickedUp && submission.estimated.estimatedDaysRemaining > 0 && (
+            <p className="text-xs font-semibold" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
+              {encouragement || `~${submission.estimated.estimatedDaysRemaining} days remaining`}
+            </p>
+          )}
+        </div>
+        {submission.estimated?.estimatedCompletionDate && !isShipped && !isPickedUp && submission.estimated.estimatedDaysRemaining > 0 && (
+          <p className="text-[10px] font-medium mt-1 text-right" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
+            Est. completion {new Date(submission.estimated.estimatedCompletionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </p>
         )}
 
@@ -1609,21 +1624,39 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
         </div>
       </button>
 
-      {/* Pickup Code Banner */}
+      {/* Pickup Code Banner with QR + Copy */}
       {hasPickupCode && !isPickedUp && (
         <div className="mx-5 mb-4 rounded-2xl overflow-hidden text-center py-6 px-5" style={{
           background: 'rgba(124, 58, 237, 0.06)',
           border: '1.5px solid rgba(124, 58, 237, 0.12)',
         }}>
           <p className="text-xs font-bold mb-3" style={{ color: '#7C3AED' }}>YOUR PICKUP CODE</p>
-          <p className="text-4xl font-black tracking-[8px] mb-2" style={{
+          <p className="text-4xl font-black tracking-[8px] mb-3" style={{
             color: '#7C3AED',
             fontFamily: 'ui-monospace, SFMono-Regular, monospace',
           }}>
             {submission.pickup_code}
           </p>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(submission.pickup_code);
+                e.target.textContent = 'Copied!';
+                setTimeout(() => { e.target.textContent = 'Copy Code'; }, 2000);
+              }}
+              className="px-4 py-2 rounded-xl text-xs font-bold transition-colors"
+              style={{ background: 'rgba(124, 58, 237, 0.1)', color: '#7C3AED' }}>
+              Copy Code
+            </button>
+          </div>
+          <div className="flex justify-center mb-3">
+            <div className="p-3 rounded-xl" style={{ background: 'white' }}>
+              <QRCodeSVG value={submission.pickup_code} size={120} fgColor="#7C3AED" bgColor="transparent" />
+            </div>
+          </div>
           <p className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
-            Show this code at the shop
+            Show this code or scan the QR at the shop
           </p>
         </div>
       )}
@@ -1708,13 +1741,78 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
             </div>
           )}
 
-          {/* Tracking info */}
-          {isShipped && submission.return_tracking && (
-            <div className="flex items-center gap-3 p-3 rounded-xl"
-              style={{ background: 'rgba(16, 185, 129, 0.04)' }}>
-              <Truck className="w-5 h-5 shrink-0" style={{ color: '#059669' }} />
-              <p className="text-sm font-bold" style={{ color: '#059669', fontFamily: 'ui-monospace, monospace' }}>
-                {submission.return_tracking}
+          {/* Tracking info — auto-detect carrier and link */}
+          {isShipped && submission.return_tracking && (() => {
+            const t = submission.return_tracking.replace(/\s/g, '');
+            let carrier = null, trackUrl = null;
+            if (/^1Z/i.test(t)) { carrier = 'UPS'; trackUrl = `https://www.ups.com/track?tracknum=${t}`; }
+            else if (/^\d{20,22}$/.test(t) || /^(94|93|92|94|95)\d{18,}$/.test(t)) { carrier = 'USPS'; trackUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${t}`; }
+            else if (/^\d{12,15}$/.test(t) || /^\d{34}$/.test(t)) { carrier = 'FedEx'; trackUrl = `https://www.fedex.com/fedextrack/?trknbr=${t}`; }
+            return (
+              <div className="p-3 rounded-xl" style={{ background: 'rgba(16, 185, 129, 0.04)' }}>
+                <div className="flex items-center gap-3">
+                  <Truck className="w-5 h-5 shrink-0" style={{ color: '#059669' }} />
+                  <div className="flex-1 min-w-0">
+                    {carrier && <p className="text-[10px] font-bold mb-0.5" style={{ color: '#059669' }}>{carrier}</p>}
+                    <p className="text-sm font-bold truncate" style={{ color: '#059669', fontFamily: 'ui-monospace, monospace' }}>
+                      {submission.return_tracking}
+                    </p>
+                  </div>
+                  {trackUrl && (
+                    <a href={trackUrl} target="_blank" rel="noopener noreferrer"
+                      className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold"
+                      style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#059669' }}
+                      onClick={(e) => e.stopPropagation()}>
+                      Track <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Invoice / Payment info */}
+          {(submission.invoice_sent || submission.customer_invoice_sent) && submission.customer_cost > 0 && (
+            <div className="p-4 rounded-xl" style={{ background: 'rgba(var(--brand-500), 0.04)', border: '1px solid rgba(var(--brand-500), 0.08)' }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4" style={{ color: 'rgb(var(--brand-600))' }} />
+                  <span className="text-xs font-bold" style={{ color: 'rgb(var(--brand-600))' }}>INVOICE</span>
+                </div>
+                {submission.invoice_number && (
+                  <span className="text-xs font-semibold" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>
+                    {submission.invoice_number}
+                  </span>
+                )}
+              </div>
+              <div className="mt-3 flex items-end justify-between">
+                <div>
+                  <p className="text-2xl font-black" style={{ color: 'rgb(var(--dark))' }}>
+                    ${parseFloat(submission.customer_cost).toFixed(2)}
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
+                    {submission.invoice_sent_at
+                      ? `Invoiced ${new Date(submission.invoice_sent_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+                      : 'Amount due'}
+                  </p>
+                </div>
+                <span className="text-xs font-bold px-2 py-1 rounded-lg"
+                  style={{ background: 'rgba(245, 158, 11, 0.08)', color: '#D97706' }}>
+                  Payment Due
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Problem order details */}
+          {isProblem && (
+            <div className="p-4 rounded-xl" style={{ background: 'rgba(220, 38, 38, 0.04)', border: '1px solid rgba(220, 38, 38, 0.1)' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <AlertTriangle className="w-4 h-4" style={{ color: '#DC2626' }} />
+                <span className="text-xs font-bold" style={{ color: '#DC2626' }}>ISSUE FLAGGED</span>
+              </div>
+              <p className="text-sm" style={{ color: '#7F1D1D', lineHeight: '1.5' }}>
+                PSA has flagged an issue with this submission. Your shop is working on it. This is usually resolved within a few business days.
               </p>
             </div>
           )}
