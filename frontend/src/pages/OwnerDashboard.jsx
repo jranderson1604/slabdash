@@ -181,6 +181,23 @@ export default function OwnerDashboard() {
     }
   };
 
+  const deleteCompany = async (company) => {
+    if (!confirm(`Delete "${company.name}" and ALL its data (users, submissions, cards, customers)? This cannot be undone.`)) return;
+    try {
+      const token = localStorage.getItem('slabdash_token');
+      const response = await fetch(`${API_URL}/owner/companies/${company.id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to delete');
+      const result = await response.json();
+      toast.success(result.message);
+      setCompanies(companies.filter(c => c.id !== company.id));
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
   const togglePinned = async (post) => {
     try {
       const token = localStorage.getItem('slabdash_token');
@@ -299,6 +316,7 @@ export default function OwnerDashboard() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Submissions</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cards Tracked</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Active Since</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -332,6 +350,12 @@ export default function OwnerDashboard() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
                     {new Date(company.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <button onClick={() => deleteCompany(company)} title="Delete shop"
+                      className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -411,7 +435,7 @@ export default function OwnerDashboard() {
       {/* Blog Post Composer Modal */}
       {showBlogComposer && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-brand-50 rounded-xl shadow-xl max-w-2xl w-full mx-4 p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <FileText className="w-6 h-6 text-purple-600" />
@@ -478,7 +502,7 @@ export default function OwnerDashboard() {
       {/* Newsletter Modal */}
       {showNewsletter && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-brand-50 rounded-xl shadow-xl max-w-2xl w-full mx-4 p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Mail className="w-6 h-6 text-purple-600" />
