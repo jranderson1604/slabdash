@@ -810,12 +810,65 @@ const sendPasswordResetEmail = async (customerId, resetToken) => {
     await _sendViaProvider(config, customer.email, subject, html, text);
 };
 
+/**
+ * Send waitlist confirmation email (uses SlabDash default Mailgun — no company context)
+ */
+const sendWaitlistConfirmationEmail = async (email, shopName) => {
+    const defaultConfig = getDefaultEmailConfig();
+    const mg = mailgun.client({ username: 'api', key: defaultConfig.mailgun_api_key });
+
+    const name = shopName || 'there';
+    const subject = "You're on the SlabDash waitlist!";
+    const html = `
+        <html><body style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #F5F0EB;">
+            <div style="background: linear-gradient(135deg, #FF8170, #E8543D); padding: 40px 32px; text-align: center; border-radius: 0 0 20px 20px;">
+                <h1 style="color: #fff; font-size: 28px; font-weight: 900; margin: 0;">Welcome to the list!</h1>
+                <p style="color: rgba(255,248,240,0.8); font-size: 14px; margin-top: 8px;">You're one step closer to the best grading tracker on the market.</p>
+            </div>
+            <div style="padding: 32px;">
+                <p style="color: #2C2416; font-size: 16px; line-height: 1.6;">Hey ${escapeHtml(name)},</p>
+                <p style="color: rgba(44,36,22,0.65); font-size: 14px; line-height: 1.7;">
+                    Thanks for joining the SlabDash waitlist. We're building the ultimate PSA submission tracker for card shops — and you'll be the first to know when new features drop.
+                </p>
+                <div style="background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.15); border-radius: 12px; padding: 16px 20px; margin: 24px 0;">
+                    <p style="color: #065f46; font-size: 14px; font-weight: 700; margin: 0;">What's included right now (100% free):</p>
+                    <ul style="color: rgba(44,36,22,0.65); font-size: 13px; line-height: 2; padding-left: 20px; margin: 8px 0 0;">
+                        <li>Live PSA tracking with auto-refresh</li>
+                        <li>Customer portal with QR pickup codes</li>
+                        <li>Smart email notifications</li>
+                        <li>Invoicing & analytics</li>
+                        <li>SAM AI assistant</li>
+                    </ul>
+                </div>
+                <p style="color: rgba(44,36,22,0.65); font-size: 14px; line-height: 1.7;">
+                    Ready to jump in? You can start using SlabDash right now — it's free during early access with no limits.
+                </p>
+                <div style="text-align: center; margin: 28px 0;">
+                    <a href="https://slabdash.app/register" style="display: inline-block; background: linear-gradient(135deg, #FF8170, #E8543D); color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 14px; font-weight: 800; font-size: 15px;">Get Started Free</a>
+                </div>
+                <p style="color: rgba(44,36,22,0.4); font-size: 12px; text-align: center; margin-top: 32px;">
+                    &copy; 2026 SlabDash &middot; Professional PSA submission tracking for card shops
+                </p>
+            </div>
+        </body></html>
+    `;
+
+    await mg.messages.create(defaultConfig.mailgun_domain, {
+        from: `${defaultConfig.from_name} <${defaultConfig.from_email}>`,
+        to: [email],
+        subject,
+        html,
+        text: `Hey ${name}, thanks for joining the SlabDash waitlist! We're building the ultimate PSA submission tracker for card shops. Start free at https://slabdash.app/register`
+    });
+};
+
 module.exports = {
     sendSubmissionUpdateEmail,
     sendSubmissionConfirmationEmail,
     sendShippedEmail,
     sendProblemOrderEmail,
     sendPasswordResetEmail,
+    sendWaitlistConfirmationEmail,
     sendEmail,
     testEmailConfig,
     sendIntroductionEmail,
