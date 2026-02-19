@@ -355,19 +355,27 @@ const parseProgressData = (rawData) => {
 
     // Normalize each step — PSA can return any combination of casing
     const normalizedSteps = rawSteps.map((s, idx) => {
-        const stepName = s.step || s.Step || s.name || s.Name || `Step ${idx + 1}`;
-        const isCompleted = s.completed === true || s.Completed === true || s.isComplete === true || s.IsComplete === true;
+        const rawStepName = (s.step || s.Step || s.name || s.Name || `Step ${idx + 1}`).trim();
+        const isCompleted = !!(s.completed || s.Completed || s.isComplete || s.IsComplete);
         const completedDate = s.completedDate || s.CompletedDate || s.completedOn || s.CompletedOn || null;
         const index = s.index !== undefined ? s.index : (s.Index !== undefined ? s.Index : idx);
-        return { stepName, isCompleted, completedDate, index, rawStep: stepName };
+        // Try exact match first, then case-insensitive lookup
+        let stepName = STEP_NAMES[rawStepName];
+        if (!stepName) {
+            const lcRaw = rawStepName.replace(/\s+/g, ' ').toLowerCase();
+            for (const [key, val] of Object.entries(STEP_NAMES)) {
+                if (key.toLowerCase() === lcRaw) { stepName = val; break; }
+            }
+        }
+        return { stepName: stepName || rawStepName, isCompleted, completedDate, index, rawStep: rawStepName };
     });
 
     for (let i = 0; i < normalizedSteps.length; i++) {
         if (normalizedSteps[i].isCompleted) {
             completedCount++;
-            lastCompletedStep = STEP_NAMES[normalizedSteps[i].rawStep] || normalizedSteps[i].stepName;
+            lastCompletedStep = normalizedSteps[i].stepName;
         } else if (currentStep === 'Unknown') {
-            currentStep = STEP_NAMES[normalizedSteps[i].rawStep] || normalizedSteps[i].stepName;
+            currentStep = normalizedSteps[i].stepName;
         }
     }
 
@@ -865,10 +873,16 @@ const estimateSubmissionProgress = (submission, historicalDurations) => {
     }
 
     // How long at current step — use step_entered_at (tracks actual step transitions)
-    // Falls back to last_api_update or created_at if step_entered_at isn't set yet
+    // If step_entered_at isn't set, use last_api_update but cap at 2x expected step duration
+    // to prevent wildly inaccurate estimates from old submissions
     const stepEnteredAt = submission.step_entered_at || submission.last_api_update || submission.last_refreshed_at || submission.created_at;
     const msAtStep = Date.now() - new Date(stepEnteredAt).getTime();
-    const daysAtStep = msAtStep / (1000 * 60 * 60 * 24);
+    let daysAtStep = msAtStep / (1000 * 60 * 60 * 24);
+    // Cap days-at-step when using fallback timestamps to prevent absurd estimates
+    if (!submission.step_entered_at) {
+        const maxReasonable = (durations[currentStep] || 5) * 3;
+        daysAtStep = Math.min(daysAtStep, maxReasonable);
+    }
     const expectedStepDays = durations[currentStep] || 5;
 
     // Detect overdue: step has taken 1.5x longer than expected

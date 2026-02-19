@@ -553,11 +553,18 @@ router.post("/:id/refresh", authenticate, async (req, res) => {
     const result = await getSubmissionProgress(psaApiKey, submission.psa_submission_number);
 
     if (result.rateLimited) {
-      return res.status(429).json({ error: result.error });
+      return res.status(429).json({
+        error: result.error,
+        errorType: result.errorType || 'rate_limit',
+        dailyLimitReached: result.dailyLimitReached || false,
+      });
     }
 
     if (!result.success) {
-      return res.status(500).json({ error: result.error || "Failed to fetch data from PSA API" });
+      return res.status(result.status >= 400 ? result.status : 500).json({
+        error: result.error || "Failed to fetch data from PSA API",
+        errorType: result.errorType || 'unknown',
+      });
     }
 
     // Update submission with latest PSA data
@@ -572,22 +579,34 @@ router.post("/:id/refresh", authenticate, async (req, res) => {
       [submission.id]
     );
 
-    const stepsResult = await db.query(
-      `SELECT * FROM submission_steps WHERE submission_id = $1 ORDER BY step_index`,
-      [submission.id]
-    );
+    const [stepsResult, historicalDurations] = await Promise.all([
+      db.query(
+        `SELECT * FROM submission_steps WHERE submission_id = $1 ORDER BY step_index`,
+        [submission.id]
+      ),
+      getHistoricalDurations(req.user.company_id),
+    ]);
+
+    const updatedSubmission = updatedResult.rows[0];
+    const estimated = estimateSubmissionProgress(updatedSubmission, historicalDurations);
+    const priority = getRefreshPriority(updatedSubmission);
 
     res.json({
       message: "Submission refreshed from PSA",
       submission: {
-        ...updatedResult.rows[0],
-        steps: stepsResult.rows
+        ...updatedSubmission,
+        steps: stepsResult.rows,
+        estimated,
+        refreshPriority: priority,
       },
       changes: {
         hadChanges: changes.hadChanges,
         stepChanged: changes.stepChanged,
         previousStep: changes.previousStep,
         newStep: changes.newStep,
+        progressChanged: changes.progressChanged,
+        previousProgress: changes.previousProgress,
+        newProgress: changes.newProgress,
         progressDelta: changes.progressDelta || 0,
         gradesReady: parsed.gradesReady,
         shipped: parsed.shipped,
@@ -745,8 +764,12 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
 
     console.log('Column indices:', { certIndex, typeIndex, descIndex, gradeIndex, imagesIndex });
 
-    // Company's PSA API key (from auth middleware JOIN) for cert enrichment
-    const companyPsaApiKey = req.user.psa_api_key;
+    // Get company's PSA API key for cert enrichment
+    const companyKeyResult = await db.query(
+      "SELECT psa_api_key FROM companies WHERE id = $1",
+      [req.user.company_id]
+    );
+    const companyPsaApiKey = companyKeyResult.rows[0]?.psa_api_key;
 
     let imported = 0;
     let skipped = 0;

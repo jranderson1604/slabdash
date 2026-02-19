@@ -1598,10 +1598,22 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
         {/* Progress pipeline */}
         <ProgressPipeline currentStep={submission.current_step} shipped={isShipped} pickedUp={isPickedUp} estimated={submission.estimated} />
 
-        {/* Simple time estimate */}
-        {submission.estimated && !isShipped && !isPickedUp && submission.estimated.estimatedDaysRemaining > 0 && (
-          <p className="text-xs font-semibold mt-3" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
-            {encouragement || `~${submission.estimated.estimatedDaysRemaining} days remaining`}
+        {/* Time info: date sent, estimate, encouragement */}
+        <div className="mt-3 flex items-center justify-between">
+          {submission.date_sent && (
+            <p className="text-[10px] font-medium" style={{ color: 'rgba(44, 36, 22, 0.4)' }}>
+              Submitted {new Date(submission.date_sent).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </p>
+          )}
+          {submission.estimated && !isShipped && !isPickedUp && submission.estimated.estimatedDaysRemaining > 0 && (
+            <p className="text-xs font-semibold" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
+              {encouragement || `~${submission.estimated.estimatedDaysRemaining} days remaining`}
+            </p>
+          )}
+        </div>
+        {submission.estimated?.estimatedCompletionDate && !isShipped && !isPickedUp && submission.estimated.estimatedDaysRemaining > 0 && (
+          <p className="text-[10px] font-medium mt-1 text-right" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
+            Est. completion {new Date(submission.estimated.estimatedCompletionDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
           </p>
         )}
 
@@ -1612,21 +1624,39 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
         </div>
       </button>
 
-      {/* Pickup Code Banner */}
+      {/* Pickup Code Banner with QR + Copy */}
       {hasPickupCode && !isPickedUp && (
         <div className="mx-5 mb-4 rounded-2xl overflow-hidden text-center py-6 px-5" style={{
           background: 'rgba(124, 58, 237, 0.06)',
           border: '1.5px solid rgba(124, 58, 237, 0.12)',
         }}>
           <p className="text-xs font-bold mb-3" style={{ color: '#7C3AED' }}>YOUR PICKUP CODE</p>
-          <p className="text-4xl font-black tracking-[8px] mb-2" style={{
+          <p className="text-4xl font-black tracking-[8px] mb-3" style={{
             color: '#7C3AED',
             fontFamily: 'ui-monospace, SFMono-Regular, monospace',
           }}>
             {submission.pickup_code}
           </p>
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigator.clipboard.writeText(submission.pickup_code);
+                e.target.textContent = 'Copied!';
+                setTimeout(() => { e.target.textContent = 'Copy Code'; }, 2000);
+              }}
+              className="px-4 py-2 rounded-xl text-xs font-bold transition-colors"
+              style={{ background: 'rgba(124, 58, 237, 0.1)', color: '#7C3AED' }}>
+              Copy Code
+            </button>
+          </div>
+          <div className="flex justify-center mb-3">
+            <div className="p-3 rounded-xl" style={{ background: 'white' }}>
+              <QRCodeSVG value={submission.pickup_code} size={120} fgColor="#7C3AED" bgColor="transparent" />
+            </div>
+          </div>
           <p className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
-            Show this code at the shop
+            Show this code or scan the QR at the shop
           </p>
         </div>
       )}
@@ -1711,16 +1741,35 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
             </div>
           )}
 
-          {/* Tracking info */}
-          {isShipped && submission.return_tracking && (
-            <div className="flex items-center gap-3 p-3 rounded-xl"
-              style={{ background: 'rgba(16, 185, 129, 0.04)' }}>
-              <Truck className="w-5 h-5 shrink-0" style={{ color: '#059669' }} />
-              <p className="text-sm font-bold" style={{ color: '#059669', fontFamily: 'ui-monospace, monospace' }}>
-                {submission.return_tracking}
-              </p>
-            </div>
-          )}
+          {/* Tracking info — auto-detect carrier and link */}
+          {isShipped && submission.return_tracking && (() => {
+            const t = submission.return_tracking.replace(/\s/g, '');
+            let carrier = null, trackUrl = null;
+            if (/^1Z/i.test(t)) { carrier = 'UPS'; trackUrl = `https://www.ups.com/track?tracknum=${t}`; }
+            else if (/^\d{20,22}$/.test(t) || /^(94|93|92|94|95)\d{18,}$/.test(t)) { carrier = 'USPS'; trackUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${t}`; }
+            else if (/^\d{12,15}$/.test(t) || /^\d{34}$/.test(t)) { carrier = 'FedEx'; trackUrl = `https://www.fedex.com/fedextrack/?trknbr=${t}`; }
+            return (
+              <div className="p-3 rounded-xl" style={{ background: 'rgba(16, 185, 129, 0.04)' }}>
+                <div className="flex items-center gap-3">
+                  <Truck className="w-5 h-5 shrink-0" style={{ color: '#059669' }} />
+                  <div className="flex-1 min-w-0">
+                    {carrier && <p className="text-[10px] font-bold mb-0.5" style={{ color: '#059669' }}>{carrier}</p>}
+                    <p className="text-sm font-bold truncate" style={{ color: '#059669', fontFamily: 'ui-monospace, monospace' }}>
+                      {submission.return_tracking}
+                    </p>
+                  </div>
+                  {trackUrl && (
+                    <a href={trackUrl} target="_blank" rel="noopener noreferrer"
+                      className="shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold"
+                      style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#059669' }}
+                      onClick={(e) => e.stopPropagation()}>
+                      Track <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Invoice / Payment info */}
           {(submission.invoice_sent || submission.customer_invoice_sent) && submission.customer_cost > 0 && (
