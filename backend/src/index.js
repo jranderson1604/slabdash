@@ -454,7 +454,13 @@ async function startServer() {
       await db.query(`CREATE INDEX IF NOT EXISTS idx_waitlist_email ON waitlist(email)`);
       console.log("✓ Migration: Waitlist table ensured");
 
-      // Blog posts for owner updates on the landing page
+    } catch (migrationError) {
+      // Don't fail startup if migration has issues, just log it
+      console.warn("⚠ Migration warning:", migrationError.message);
+    }
+
+    // Blog posts — separate block so it always runs regardless of earlier migration failures
+    try {
       await db.query(`
         CREATE TABLE IF NOT EXISTS blog_posts (
           id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -469,10 +475,8 @@ async function startServer() {
       `);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_blog_posts_published ON blog_posts(published, created_at DESC)`);
       console.log("✓ Migration: Blog posts table ensured");
-
     } catch (migrationError) {
-      // Don't fail startup if migration has issues, just log it
-      console.warn("⚠ Migration warning:", migrationError.message);
+      console.warn("⚠ Blog posts migration warning:", migrationError.message);
     }
 
     // Initialize scheduled tasks (cron jobs)
