@@ -54,7 +54,7 @@ router.get('/all', authenticate, requireOwner, async (req, res) => {
  */
 router.post('/', authenticate, requireOwner, async (req, res) => {
   try {
-    const { title, body, published, pinned } = req.body;
+    const { title, body, published, pinned, author_name } = req.body;
 
     if (!title || !body) {
       return res.status(400).json({ error: 'Title and body are required' });
@@ -67,7 +67,7 @@ router.post('/', authenticate, requireOwner, async (req, res) => {
     `, [
       title.trim(),
       body.trim(),
-      req.user.name || 'SlabDash Team',
+      author_name?.trim() || req.user.name || 'SlabDash Team',
       published !== false,
       pinned === true,
     ]);
@@ -84,7 +84,7 @@ router.post('/', authenticate, requireOwner, async (req, res) => {
  */
 router.put('/:id', authenticate, requireOwner, async (req, res) => {
   try {
-    const { title, body, published, pinned } = req.body;
+    const { title, body, published, pinned, author_name } = req.body;
 
     const result = await db.query(`
       UPDATE blog_posts
@@ -92,10 +92,11 @@ router.put('/:id', authenticate, requireOwner, async (req, res) => {
           body = COALESCE($2, body),
           published = COALESCE($3, published),
           pinned = COALESCE($4, pinned),
+          author_name = COALESCE($5, author_name),
           updated_at = NOW()
-      WHERE id = $5
+      WHERE id = $6
       RETURNING *
-    `, [title?.trim(), body?.trim(), published, pinned, req.params.id]);
+    `, [title?.trim() || null, body?.trim() || null, published ?? null, pinned ?? null, author_name?.trim() || null, req.params.id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Post not found' });
