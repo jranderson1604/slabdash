@@ -1083,7 +1083,7 @@ export default function Landing() {
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
             <div className="flex justify-center mb-6">
-              <img src="/images/SAM_V2.png" alt="SAM" className="h-24 w-auto object-contain"
+              <img src="/images/SAM_V2.png" alt="SAM" className="h-40 w-auto object-contain"
                 onError={(e) => { e.target.style.display = 'none'; }} />
             </div>
             <h2 className="text-3xl sm:text-4xl font-black mb-3" style={{ color: '#2C2416' }}>
@@ -1255,9 +1255,9 @@ export default function Landing() {
       <div className="fixed bottom-6 right-6 z-40 group">
         <div className="relative">
           <button onClick={() => setShowFAQ(true)}
-            className="relative w-16 h-16 rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110"
+            className="relative w-20 h-20 rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110"
             style={{ background: 'linear-gradient(135deg, #FF8170, #E8543D)', boxShadow: '0 8px 24px rgba(255,107,89,0.3)' }}>
-            <img src="/images/SAM_V2.png" alt="SAM" className="w-10 h-14 object-contain"
+            <img src="/images/SAM_V2.png" alt="SAM" className="w-14 h-18 object-contain"
               onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span class="text-white text-2xl font-bold">?</span>'; }} />
           </button>
           <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 flex items-center justify-center"
@@ -1281,7 +1281,7 @@ export default function Landing() {
             <div className="sticky top-0 p-5 flex items-center justify-between z-10"
               style={{ background: 'linear-gradient(135deg, #FF8170, #E8543D)' }}>
               <div className="flex items-center gap-3">
-                <img src="/images/SAM_V2.png" alt="SAM" className="w-10 h-14 object-contain"
+                <img src="/images/SAM_V2.png" alt="SAM" className="w-14 h-20 object-contain"
                   onError={(e) => { e.target.style.display = 'none'; }} />
                 <div>
                   <h2 className="text-lg font-black text-white">Frequently Asked Questions</h2>
