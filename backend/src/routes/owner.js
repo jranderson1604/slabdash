@@ -164,4 +164,45 @@ router.patch('/companies/:id/plan', authenticate, requireOwner, async (req, res)
     }
 });
 
+// Delete a company (shop) and all related data
+router.delete('/companies/:id', authenticate, requireOwner, async (req, res) => {
+    const client = await db.connect();
+    try {
+        const { id } = req.params;
+        await client.query('BEGIN');
+
+        // Check company exists
+        const company = await client.query('SELECT id, name FROM companies WHERE id = $1', [id]);
+        if (company.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Company not found' });
+        }
+
+        const companyName = company.rows[0].name;
+
+        // Delete in dependency order
+        // submission_customers depends on submissions
+        await client.query(
+            `DELETE FROM submission_customers WHERE submission_id IN (SELECT id FROM submissions WHERE company_id = $1)`, [id]
+        );
+        // cards depend on submissions
+        await client.query('DELETE FROM cards WHERE company_id = $1', [id]);
+        await client.query('DELETE FROM submissions WHERE company_id = $1', [id]);
+        await client.query('DELETE FROM customers WHERE company_id = $1', [id]);
+        await client.query('DELETE FROM users WHERE company_id = $1', [id]);
+        await client.query('DELETE FROM companies WHERE id = $1', [id]);
+
+        await client.query('COMMIT');
+
+        console.log(`[Owner] Deleted company "${companyName}" (${id}) and all related data`);
+        res.json({ success: true, message: `Deleted "${companyName}" and all related data` });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Delete company error:', error);
+        res.status(500).json({ error: 'Failed to delete company' });
+    } finally {
+        client.release();
+    }
+});
+
 module.exports = router;
