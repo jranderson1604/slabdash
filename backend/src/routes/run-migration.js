@@ -490,4 +490,30 @@ router.get('/check-portal-status', authenticate, async (req, res) => {
     }
 });
 
+/**
+ * Create blog_posts table
+ */
+router.post('/create-blog-posts', authenticate, requireRole('owner', 'admin'), async (req, res) => {
+    try {
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS blog_posts (
+              id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+              title VARCHAR(500) NOT NULL,
+              body TEXT NOT NULL,
+              author_name VARCHAR(255) DEFAULT 'SlabDash Team',
+              published BOOLEAN DEFAULT true,
+              pinned BOOLEAN DEFAULT false,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+        `);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_blog_posts_published ON blog_posts(published, created_at DESC)`);
+        console.log('✓ Migration: blog_posts table created');
+        res.json({ success: true, message: 'blog_posts table ready' });
+    } catch (error) {
+        console.error('Migration error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 module.exports = router;
