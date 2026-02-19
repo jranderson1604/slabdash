@@ -33,6 +33,7 @@ const invoiceRoutes = require("./routes/invoices");
 const dashyRoutes = require("./routes/dashy");
 const samRoutes = require("./routes/sam");
 const waitlistRoutes = require("./routes/waitlist");
+const blogRoutes = require("./routes/blog");
 
 /* -------------------- STARTUP VALIDATION -------------------- */
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
@@ -203,6 +204,7 @@ app.use("/api/invoices", invoiceRoutes);
 app.use("/api/dashy", dashyRoutes);
 app.use("/api/sam", samRoutes);
 app.use("/api/waitlist", waitlistRoutes);
+app.use("/api/blog", blogRoutes);
 
 /* -------------------- 404 HANDLER -------------------- */
 
@@ -451,6 +453,22 @@ async function startServer() {
       `);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_waitlist_email ON waitlist(email)`);
       console.log("✓ Migration: Waitlist table ensured");
+
+      // Blog posts for owner updates on the landing page
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS blog_posts (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          title VARCHAR(500) NOT NULL,
+          body TEXT NOT NULL,
+          author_name VARCHAR(255) DEFAULT 'SlabDash Team',
+          published BOOLEAN DEFAULT true,
+          pinned BOOLEAN DEFAULT false,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_blog_posts_published ON blog_posts(published, created_at DESC)`);
+      console.log("✓ Migration: Blog posts table ensured");
 
     } catch (migrationError) {
       // Don't fail startup if migration has issues, just log it

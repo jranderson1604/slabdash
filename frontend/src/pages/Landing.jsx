@@ -51,6 +51,8 @@ export default function Landing() {
   const [shopFound, setShopFound] = useState(null);
   const [openFaqIndex, setOpenFaqIndex] = useState(null);
   const [activeTab, setActiveTab] = useState('home');
+  const [blogPosts, setBlogPosts] = useState([]);
+  const [blogLoading, setBlogLoading] = useState(false);
   const [waitlistEmail, setWaitlistEmail] = useState('');
   const [waitlistShop, setWaitlistShop] = useState('');
   const [waitlistStatus, setWaitlistStatus] = useState(null); // null | 'loading' | 'success' | 'error'
@@ -101,11 +103,15 @@ export default function Landing() {
     if (pasted.length === 4) { setShopCode(pasted); shopCodeRefs[3].current?.focus(); lookupShop(pasted); }
   };
 
-  // Fetch waitlist count for social proof
+  // Fetch waitlist count + blog posts on mount
   useEffect(() => {
     fetch(`${API_URL}/waitlist/count`).then(r => r.json()).then(d => {
       if (d.count > 0) setWaitlistCount(d.count);
     }).catch(() => {});
+    setBlogLoading(true);
+    fetch(`${API_URL}/blog?limit=10`).then(r => r.json()).then(d => {
+      setBlogPosts(d.posts || []);
+    }).catch(() => {}).finally(() => setBlogLoading(false));
   }, []);
 
   const submitWaitlist = async (e) => {
@@ -298,6 +304,7 @@ export default function Landing() {
 
   const tabs = [
     { id: 'home', label: 'Home', icon: Home },
+    { id: 'updates', label: 'Updates', icon: Bell, badge: blogPosts.length || null },
     { id: 'portal', label: 'Customer Portal', icon: Search },
     { id: 'features', label: 'Features', icon: LayoutGrid },
     { id: 'pricing', label: 'Pricing', icon: Tag },
@@ -566,6 +573,12 @@ export default function Landing() {
                   >
                     <TabIcon className="w-4 h-4" />
                     {tab.label}
+                    {tab.badge > 0 && (
+                      <span className="ml-1 min-w-[18px] h-[18px] flex items-center justify-center rounded-full text-[10px] font-bold text-white"
+                        style={{ background: 'linear-gradient(135deg, #FF8170, #E8543D)' }}>
+                        {tab.badge > 9 ? '9+' : tab.badge}
+                      </span>
+                    )}
                     {isActive && (
                       <div className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full" style={{ background: 'linear-gradient(90deg, #FF8170, #E8543D)' }} />
                     )}
@@ -713,6 +726,75 @@ export default function Landing() {
       </section>
 
       </>}
+
+      {/* ─── Updates Tab ─── */}
+      {activeTab === 'updates' && <section className="pt-36 sm:pt-44 pb-20 sm:pb-28 px-5 sm:px-8">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: '#FF8170' }}>What's New</p>
+            <h2 className="text-3xl sm:text-5xl font-black leading-tight mb-4" style={{ color: '#2C2416' }}>
+              Updates from SlabDash
+            </h2>
+            <p className="text-base sm:text-lg" style={{ color: 'rgba(44,36,22,0.5)' }}>
+              Feature releases, announcements, and news for card shops.
+            </p>
+          </div>
+
+          {blogLoading ? (
+            <div className="flex justify-center py-16">
+              <Loader2 className="w-7 h-7 animate-spin" style={{ color: '#FF8170' }} />
+            </div>
+          ) : blogPosts.length === 0 ? (
+            <div className="text-center py-16 rounded-2xl" style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(44,36,22,0.05)' }}>
+              <Bell className="w-10 h-10 mx-auto mb-4" style={{ color: 'rgba(44,36,22,0.2)' }} />
+              <p className="text-sm font-semibold" style={{ color: 'rgba(44,36,22,0.45)' }}>No updates yet — check back soon!</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {blogPosts.map((post) => (
+                <article key={post.id} className="rounded-2xl overflow-hidden transition-all hover:-translate-y-0.5"
+                  style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(44,36,22,0.05)', boxShadow: '0 1px 3px rgba(44,36,22,0.03)' }}>
+                  <div className="p-6 sm:p-7">
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex items-center gap-3">
+                        {post.pinned && (
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                            style={{ background: 'rgba(255,129,112,0.1)', color: '#E8543D' }}>
+                            Pinned
+                          </span>
+                        )}
+                        <h3 className="text-lg sm:text-xl font-black" style={{ color: '#2C2416' }}>{post.title}</h3>
+                      </div>
+                    </div>
+                    <div className="text-sm leading-relaxed whitespace-pre-line mb-4" style={{ color: 'rgba(44,36,22,0.6)' }}>
+                      {post.body}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs" style={{ color: 'rgba(44,36,22,0.35)' }}>
+                      <span className="font-semibold">{post.author_name}</span>
+                      <span>·</span>
+                      <span>{new Date(post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      {post.updated_at && post.updated_at !== post.created_at && (
+                        <>
+                          <span>·</span>
+                          <span>edited</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-10 text-center">
+            <button onClick={() => navigate('/register')}
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-all"
+              style={{ background: 'linear-gradient(135deg, #FF8170, #E8543D)', boxShadow: '0 4px 16px rgba(255,107,89,0.3)' }}>
+              Get Started Free <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </section>}
 
       {/* ─── Customer Portal Tab ─── */}
       {activeTab === 'portal' && <section className="pt-36 sm:pt-44 pb-20 sm:pb-28 px-5 sm:px-8">
