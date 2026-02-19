@@ -314,6 +314,7 @@ async function startServer() {
       // Auto-refresh scheduling (migration 021)
       await db.query(`
         ALTER TABLE companies
+        ADD COLUMN IF NOT EXISTS auto_refresh_enabled BOOLEAN DEFAULT FALSE,
         ADD COLUMN IF NOT EXISTS auto_refresh_schedule VARCHAR(50) DEFAULT 'weekly',
         ADD COLUMN IF NOT EXISTS auto_refresh_day_of_week INTEGER DEFAULT 1,
         ADD COLUMN IF NOT EXISTS auto_refresh_hour INTEGER DEFAULT 9,

@@ -684,12 +684,14 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
   };
 
   // Auto-poll for submission updates every 2 minutes
+  const lastPollRef = useRef(lastPollTime);
+  lastPollRef.current = lastPollTime;
   useEffect(() => {
     if (!data || !jwtToken) return;
     const interval = setInterval(async () => {
       try {
         const headers = { Authorization: `Bearer ${jwtToken}` };
-        const since = lastPollTime || new Date(Date.now() - 120000).toISOString();
+        const since = lastPollRef.current || new Date(Date.now() - 120000).toISOString();
         const res = await fetch(`${API_URL}/portal/submissions/poll?since=${encodeURIComponent(since)}`, { headers });
         if (!res.ok) return;
         const poll = await res.json();
@@ -701,7 +703,7 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
             if (!prev) return prev;
             const updatedMap = {};
             for (const s of poll.submissions) updatedMap[s.id] = s;
-            const merged = prev.submissions.map(sub =>
+            const merged = (prev.submissions || []).map(sub =>
               updatedMap[sub.id] ? { ...sub, ...updatedMap[sub.id] } : sub
             );
             return { ...prev, submissions: merged };
@@ -710,7 +712,7 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
       } catch {} // Silent fail — polling shouldn't disrupt UX
     }, 120000); // 2 minutes
     return () => clearInterval(interval);
-  }, [data, jwtToken, lastPollTime]);
+  }, [!!data, jwtToken]);
 
   const loadData = async () => {
     try {
@@ -959,7 +961,7 @@ function ProfileModal({ jwtToken, customer, onClose, onUpdate }) {
     try {
       const body = {};
       if (name.trim() !== customer.name) body.name = name.trim();
-      if (email.trim().toLowerCase() !== customer.email.toLowerCase()) body.email = email.trim();
+      if (email.trim().toLowerCase() !== (customer.email || '').toLowerCase()) body.email = email.trim();
       if ((phone || '') !== (customer.phone || '')) body.phone = phone;
       if (newPw) { body.currentPassword = currentPw; body.newPassword = newPw; }
       if (Object.keys(body).length === 0) { setError('No changes to save'); setLoading(false); return; }
@@ -1036,12 +1038,13 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
     setRefreshing(false);
   };
 
-  const readyForPickup = data.submissions.filter(s => s.pickup_code && !s.picked_up);
-  const activeSubmissions = data.submissions.filter(s => !s.shipped && !s.picked_up && !s.pickup_code);
-  const completedSubmissions = data.submissions.filter(s => s.picked_up || (s.shipped && !s.pickup_code));
+  const subs = data.submissions || [];
+  const readyForPickup = subs.filter(s => s.pickup_code && !s.picked_up);
+  const activeSubmissions = subs.filter(s => !s.shipped && !s.picked_up && !s.pickup_code);
+  const completedSubmissions = subs.filter(s => s.picked_up || (s.shipped && !s.pickup_code));
   const pendingOffers = (data.buybackOffers || []).filter(o => o.status === 'pending');
   const hasSAM = data.company?.sam_enabled;
-  const totalCards = data.submissions.reduce((sum, s) => sum + (s.card_count || s.cards?.length || 0), 0);
+  const totalCards = subs.reduce((sum, s) => sum + (s.card_count || s.cards?.length || 0), 0);
   const allCards = data.cards || [];
   const gradedCards = allCards.filter(c => c.grade);
 
@@ -1058,7 +1061,7 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
     : allCards;
 
   const tabs = [
-    { id: 'submissions', label: 'Orders', icon: Package, count: data.submissions.length },
+    { id: 'submissions', label: 'Orders', icon: Package, count: subs.length },
     { id: 'cards', label: 'My Cards', icon: Layers, count: allCards.length },
     ...(hasSAM ? [{ id: 'sam', label: 'Ask SAM', icon: Bot, badge: 'AI' }] : []),
     { id: 'settings', label: 'More', icon: Settings },
@@ -1129,7 +1132,7 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
       </div>
 
       {/* Content */}
-      <div className="max-w-2xl mx-auto px-4 py-5 space-y-5">
+      <div className="max-w-2xl mx-auto px-4 py-5 pb-24 space-y-5">
 
         {/* ====== SUBMISSIONS TAB ====== */}
         {activeTab === 'submissions' && (

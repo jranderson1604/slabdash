@@ -6,13 +6,21 @@ const mailgun = new Mailgun(formData);
 let sendPushToCompany; // Lazy load to avoid circular dependency
 
 /**
- * Render email template with variables
+ * Escape HTML special characters to prevent XSS in email templates
+ */
+const escapeHtml = (str) => {
+    if (typeof str !== 'string') return str;
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+};
+
+/**
+ * Render email template with variables (HTML-escaped for safety)
  */
 const renderTemplate = (template, variables) => {
     let rendered = template;
     for (const [key, value] of Object.entries(variables)) {
         const regex = new RegExp(`{{${key}}}`, 'g');
-        rendered = rendered.replace(regex, value || '');
+        rendered = rendered.replace(regex, escapeHtml(value) || '');
     }
     return rendered;
 };
@@ -760,11 +768,54 @@ const _sendViaProvider = async (config, toEmail, subject, html, text) => {
     }
 };
 
+/**
+ * Send password reset email to a customer
+ */
+const sendPasswordResetEmail = async (customerId, resetToken) => {
+    const customerResult = await db.query(
+        `SELECT c.id, c.name, c.email, c.company_id, co.name as company_name
+         FROM customers c
+         JOIN companies co ON c.company_id = co.id
+         WHERE c.id = $1`,
+        [customerId]
+    );
+    if (customerResult.rows.length === 0) throw new Error('Customer not found');
+    const customer = customerResult.rows[0];
+    if (!customer.email) throw new Error('Customer has no email');
+
+    const config = await getCompanyEmailConfig(customer.company_id);
+    const companyName = config.from_name || customer.company_name;
+    const portalUrl = process.env.PORTAL_URL || process.env.FRONTEND_URL || 'https://app.slabdash.com';
+    const resetLink = `${portalUrl}/portal?reset=${resetToken}`;
+
+    const subject = `Reset your password - ${companyName}`;
+    const html = `
+        <html><body style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #F5F0EB;">
+            <div style="background: linear-gradient(135deg, #FF8170 0%, #F07057 100%); padding: 35px 25px; text-align: center;">
+                <h1 style="color: white; margin: 0; font-size: 26px; font-weight: 700;">Password Reset</h1>
+                <p style="color: rgba(255,255,255,0.9); margin: 8px 0 0 0; font-size: 14px;">${escapeHtml(companyName)}</p>
+            </div>
+            <div style="padding: 30px 25px;">
+                <p style="font-size: 16px; color: #1C1C21;">Hi ${escapeHtml(customer.name || 'there')},</p>
+                <p style="font-size: 14px; color: #555; line-height: 1.6;">We received a request to reset your password. Click the button below to set a new password.</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="${resetLink}" style="display: inline-block; background: linear-gradient(135deg, #FF8170, #F07057); color: white; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 15px;">Reset Password</a>
+                </div>
+                <p style="font-size: 13px; color: #777;">This link expires in 1 hour. If you didn't request a password reset, you can ignore this email.</p>
+                <p style="font-size: 14px; color: #555; margin-top: 20px;">Best regards,<br>${escapeHtml(companyName)}</p>
+            </div>
+        </body></html>`;
+    const text = `Hi ${customer.name || 'there'}, reset your password here: ${resetLink} (expires in 1 hour). If you didn't request this, ignore this email. - ${companyName}`;
+
+    await _sendViaProvider(config, customer.email, subject, html, text);
+};
+
 module.exports = {
     sendSubmissionUpdateEmail,
     sendSubmissionConfirmationEmail,
     sendShippedEmail,
     sendProblemOrderEmail,
+    sendPasswordResetEmail,
     sendEmail,
     testEmailConfig,
     sendIntroductionEmail,

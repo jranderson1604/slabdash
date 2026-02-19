@@ -389,8 +389,12 @@ function CustomerAssignmentSheet({ customer, submission, onClose, onUpdate }) {
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-3">
             {submission.cards.map((card) => {
-              const cardImages = card.card_images ?
-                (Array.isArray(card.card_images) ? card.card_images : JSON.parse(card.card_images)) : [];
+              let cardImages = [];
+              try {
+                cardImages = card.card_images
+                  ? (Array.isArray(card.card_images) ? card.card_images : JSON.parse(card.card_images))
+                  : [];
+              } catch { /* malformed JSON — skip */ }
               const hasImage = cardImages.length > 0;
               const isSelected = selectedCards.has(card.id);
 
@@ -757,6 +761,7 @@ export default function SubmissionDetail() {
       }));
     } catch (error) {
       console.error('Delete card failed:', error);
+      alert('Failed to delete card. Please try again.');
     }
   };
 

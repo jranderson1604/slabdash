@@ -1706,7 +1706,7 @@ router.post('/sam/add-tokens', async (req, res) => {
         }
         const token = authHeader.split(' ')[1];
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
-        if (decoded.type === 'customer') {
+        if (decoded.type === 'customer' || (decoded.role && decoded.role !== 'owner' && decoded.role !== 'admin')) {
             return res.status(403).json({ error: 'Admin access required' });
         }
 

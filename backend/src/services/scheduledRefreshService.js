@@ -28,7 +28,24 @@ const emailService = require('./emailService');
  * Called by cron every 15 minutes. Only refreshes submissions
  * whose priority interval has elapsed since their last refresh.
  */
+let _refreshRunning = false;
+
 async function runSmartRefresh() {
+  // Prevent concurrent refresh jobs
+  if (_refreshRunning) {
+    console.log('[SmartRefresh] Skipped — previous refresh still running');
+    return;
+  }
+  _refreshRunning = true;
+
+  try {
+    await _runSmartRefreshInner();
+  } finally {
+    _refreshRunning = false;
+  }
+}
+
+async function _runSmartRefreshInner() {
   // Check global rate limit before doing anything
   const rl = psaService.isRateLimited();
   if (rl.limited) {

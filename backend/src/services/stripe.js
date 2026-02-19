@@ -13,8 +13,11 @@ const stripe = process.env.STRIPE_SECRET_KEY
  */
 async function createPaymentIntent(amount, metadata = {}) {
   if (!stripe) {
-    console.warn('⚠️  Stripe not configured. Set STRIPE_SECRET_KEY environment variable.');
-    // Return mock payment intent for development
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.RAILWAY_ENVIRONMENT;
+    if (isProduction) {
+      throw new Error('Stripe not configured. Set STRIPE_SECRET_KEY environment variable.');
+    }
+    console.warn('⚠️  Stripe not configured (dev mode). Set STRIPE_SECRET_KEY environment variable.');
     return {
       id: `pi_mock_${Date.now()}`,
       client_secret: `pi_mock_${Date.now()}_secret`,
