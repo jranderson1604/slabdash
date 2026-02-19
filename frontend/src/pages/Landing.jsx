@@ -536,18 +536,24 @@ export default function Landing() {
               <span className="text-xl sm:text-2xl font-black" style={{ color: '#2C2416' }}>SlabDash</span>
             </Link>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Link to="/demo"
                 className="text-sm font-semibold transition-colors items-center gap-1.5 hidden sm:flex" style={{ color: '#FF8170' }}>
                 <Monitor className="w-4 h-4" /> Live Demo
               </Link>
-              <Link to="/login" className="text-sm font-bold transition-colors" style={{ color: '#2C2416' }}>
+              <Link to="/login" className="hidden sm:block text-sm font-bold transition-colors" style={{ color: '#2C2416' }}>
                 Admin Login
               </Link>
+              <Link to="/login" className="sm:hidden flex items-center justify-center w-9 h-9 rounded-xl transition-colors"
+                style={{ background: 'rgba(44,36,22,0.04)' }}
+                title="Admin Login">
+                <Lock className="w-4 h-4" style={{ color: '#2C2416' }} />
+              </Link>
               <Link to="/register"
-                className="px-4 py-2 text-sm font-bold text-white rounded-xl transition-all hover:opacity-90"
+                className="px-3 sm:px-4 py-2 text-xs sm:text-sm font-bold text-white rounded-xl transition-all hover:opacity-90"
                 style={{ background: 'linear-gradient(135deg, #FF8170, #E8543D)', boxShadow: '0 2px 12px rgba(255,107,89,0.3)' }}>
-                Get Started Free
+                <span className="hidden sm:inline">Get Started Free</span>
+                <span className="sm:hidden">Sign Up</span>
               </Link>
             </div>
           </div>
@@ -1078,7 +1084,7 @@ export default function Landing() {
         <div className="max-w-3xl mx-auto">
           <div className="text-center mb-12">
             <div className="flex justify-center mb-6">
-              <img src="/images/SAM_V2.png" alt="SAM" className="h-20 w-20"
+              <img src="/images/SAM_V2.png" alt="SAM" className="h-24 w-auto object-contain"
                 onError={(e) => { e.target.style.display = 'none'; }} />
             </div>
             <h2 className="text-3xl sm:text-4xl font-black mb-3" style={{ color: '#2C2416' }}>
@@ -1252,7 +1258,7 @@ export default function Landing() {
           <button onClick={() => setShowFAQ(true)}
             className="relative w-16 h-16 rounded-full shadow-lg flex items-center justify-center transition-transform hover:scale-110"
             style={{ background: 'linear-gradient(135deg, #FF8170, #E8543D)', boxShadow: '0 8px 24px rgba(255,107,89,0.3)' }}>
-            <img src="/images/SAM_V2.png" alt="SAM" className="w-12 h-12"
+            <img src="/images/SAM_V2.png" alt="SAM" className="w-10 h-14 object-contain"
               onError={(e) => { e.target.style.display = 'none'; e.target.parentElement.innerHTML = '<span class="text-white text-2xl font-bold">?</span>'; }} />
           </button>
           <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 flex items-center justify-center"
@@ -1276,7 +1282,7 @@ export default function Landing() {
             <div className="sticky top-0 p-5 flex items-center justify-between z-10"
               style={{ background: 'linear-gradient(135deg, #FF8170, #E8543D)' }}>
               <div className="flex items-center gap-3">
-                <img src="/images/SAM_V2.png" alt="SAM" className="w-12 h-12"
+                <img src="/images/SAM_V2.png" alt="SAM" className="w-10 h-14 object-contain"
                   onError={(e) => { e.target.style.display = 'none'; }} />
                 <div>
                   <h2 className="text-lg font-black text-white">Frequently Asked Questions</h2>
