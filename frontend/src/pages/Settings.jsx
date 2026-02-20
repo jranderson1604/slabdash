@@ -323,43 +323,55 @@ export default function Settings() {
         title="PSA API Integration"
         description="Connect your PSA account for automatic status updates"
       >
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div>
-            <label className="label">PSA API Key</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">PSA API Key</label>
             <div className="relative">
               <input
                 type={showApiKey ? 'text' : 'password'}
                 value={settings.psa_api_key}
                 onChange={(e) => setSettings({ ...settings, psa_api_key: e.target.value })}
-                className="input pr-20"
+                className="input pr-12"
+                style={{
+                  border: '1.5px solid #d1d5db',
+                  background: '#fff',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.08), inset 0 1px 2px rgba(0,0,0,0.04)',
+                }}
                 placeholder="Enter your PSA API key"
               />
               <button
                 type="button"
                 onClick={() => setShowApiKey(!showApiKey)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-600"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-700 transition-colors"
               >
                 {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-gray-500 mt-1.5">
               Get your API key from{' '}
               <a
                 href="https://www.psacard.com/myaccount/api"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-brand-600 hover:underline"
+                className="text-brand-600 hover:underline font-medium"
               >
                 PSA's website
               </a>
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <button
               onClick={handleTestPsa}
               disabled={testingPsa || !settings.psa_api_key}
-              className="btn btn-secondary gap-2"
+              className="btn gap-2 text-sm font-semibold disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                background: '#fff',
+                border: '1.5px solid #d1d5db',
+                color: '#374151',
+                padding: '0.5rem 1.1rem',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.9)',
+              }}
             >
               {testingPsa ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -371,14 +383,16 @@ export default function Settings() {
 
             {psaStatus && (
               <div
-                className={`flex items-center gap-2 text-sm ${
-                  psaStatus.success ? 'text-green-600' : 'text-red-600'
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border ${
+                  psaStatus.success
+                    ? 'bg-green-50 text-green-700 border-green-200'
+                    : 'bg-red-50 text-red-700 border-red-200'
                 }`}
               >
                 {psaStatus.success ? (
-                  <CheckCircle2 className="w-4 h-4" />
+                  <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" />
                 ) : (
-                  <AlertCircle className="w-4 h-4" />
+                  <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
                 )}
                 {psaStatus.message}
               </div>
@@ -386,14 +400,14 @@ export default function Settings() {
           </div>
 
           <div className="pt-4 border-t border-gray-200 space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="font-medium text-gray-900">Auto-refresh submissions</p>
-                <p className="text-sm text-gray-500">
+                <p className="text-sm font-semibold text-gray-900">Auto-refresh submissions</p>
+                <p className="text-sm text-gray-500 mt-0.5">
                   Automatically update submission statuses from PSA
                 </p>
               </div>
-              <label className="relative inline-flex items-center cursor-pointer">
+              <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                 <input
                   type="checkbox"
                   checked={settings.auto_refresh_enabled}
@@ -408,7 +422,7 @@ export default function Settings() {
 
             {settings.auto_refresh_enabled && (
               <div>
-                <label className="label">Refresh Interval</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-1.5">Refresh Interval</label>
                 <select
                   value={settings.auto_refresh_interval_hours}
                   onChange={(e) =>
@@ -418,6 +432,11 @@ export default function Settings() {
                     })
                   }
                   className="input w-auto"
+                  style={{
+                    border: '1.5px solid #d1d5db',
+                    background: '#fff',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                  }}
                 >
                   <option value={1}>Every hour</option>
                   <option value={3}>Every 3 hours</option>
@@ -429,7 +448,7 @@ export default function Settings() {
             )}
           </div>
 
-          <div className="pt-4">
+          <div className="pt-2">
             <button onClick={() => handleSave('psa')} disabled={saving} className="btn btn-primary gap-2">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save PSA Settings
