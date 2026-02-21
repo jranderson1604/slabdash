@@ -29,6 +29,7 @@ import {
   Copy,
   Check,
   Bot,
+  Lock,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useRef } from 'react';
@@ -92,6 +93,12 @@ export default function Settings() {
     tax_percentage: 0,
   });
   const [newServiceLevel, setNewServiceLevel] = useState('');
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [pwSaving, setPwSaving] = useState(false);
+  const [showPw, setShowPw] = useState({ current: false, next: false, confirm: false });
+  const pwMatch = pwForm.confirm.length > 0 && pwForm.next === pwForm.confirm;
+  const pwMismatch = pwForm.confirm.length > 0 && pwForm.next !== pwForm.confirm;
+  const pwValid = pwForm.next.length >= 8 && /[a-zA-Z]/.test(pwForm.next) && /[0-9]/.test(pwForm.next);
 
   useEffect(() => {
     loadSettings();
@@ -260,6 +267,35 @@ export default function Settings() {
       toast.error('Failed to save settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!pwForm.current || !pwForm.next || !pwForm.confirm) {
+      toast.error('All password fields are required');
+      return;
+    }
+    if (pwForm.next !== pwForm.confirm) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    if (!pwValid) {
+      toast.error('Password must be at least 8 characters with a letter and number');
+      return;
+    }
+    setPwSaving(true);
+    try {
+      const token = localStorage.getItem('slabdash_token');
+      const res = await axios.post(`${API_URL}/auth/change-password`,
+        { currentPassword: pwForm.current, newPassword: pwForm.next },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      toast.success('Password changed successfully!');
+      setPwForm({ current: '', next: '', confirm: '' });
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Failed to change password');
+    } finally {
+      setPwSaving(false);
     }
   };
 
@@ -814,6 +850,96 @@ export default function Settings() {
             <button onClick={() => handleSave('shop')} disabled={saving} className="btn btn-primary gap-2">
               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               Save Shop Info
+            </button>
+          </div>
+        </div>
+      </SettingsSection>
+
+      {/* Change Password */}
+      <SettingsSection
+        icon={Lock}
+        title="Change Password"
+        description="Update your account password"
+      >
+        <div className="space-y-4">
+          {/* Current password */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Current Password</label>
+            <div className="relative">
+              <input
+                type={showPw.current ? 'text' : 'password'}
+                value={pwForm.current}
+                onChange={e => setPwForm({ ...pwForm, current: e.target.value })}
+                className="input pr-12"
+                placeholder="Your current password"
+                autoComplete="current-password"
+              />
+              <button type="button" onClick={() => setShowPw(s => ({ ...s, current: !s.current }))}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                {showPw.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* New password */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">New Password</label>
+            <div className="relative">
+              <input
+                type={showPw.next ? 'text' : 'password'}
+                value={pwForm.next}
+                onChange={e => setPwForm({ ...pwForm, next: e.target.value })}
+                className={`input pr-12 ${pwForm.next.length > 0 && !pwValid ? 'border-red-300' : pwForm.next.length > 0 && pwValid ? 'border-green-400' : ''}`}
+                placeholder="New password"
+                autoComplete="new-password"
+              />
+              <button type="button" onClick={() => setShowPw(s => ({ ...s, next: !s.next }))}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                {showPw.next ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            {pwForm.next.length > 0 && !pwValid && (
+              <p className="text-xs text-red-500 mt-1">Min 8 characters, at least one letter and one number</p>
+            )}
+          </div>
+
+          {/* Confirm new password */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Confirm New Password</label>
+            <div className="relative">
+              <input
+                type={showPw.confirm ? 'text' : 'password'}
+                value={pwForm.confirm}
+                onChange={e => setPwForm({ ...pwForm, confirm: e.target.value })}
+                className={`input pr-12 ${pwMismatch ? 'border-red-300' : pwMatch ? 'border-green-400' : ''}`}
+                placeholder="Repeat new password"
+                autoComplete="new-password"
+              />
+              <button type="button" onClick={() => setShowPw(s => ({ ...s, confirm: !s.confirm }))}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                {showPw.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            {pwMismatch && (
+              <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                <AlertCircle className="w-3 h-3" /> Passwords do not match
+              </p>
+            )}
+            {pwMatch && pwValid && (
+              <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" /> Passwords match
+              </p>
+            )}
+          </div>
+
+          <div className="pt-2">
+            <button
+              onClick={handleChangePassword}
+              disabled={pwSaving || !pwForm.current || !pwValid || !pwMatch}
+              className="btn btn-primary gap-2"
+            >
+              {pwSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
+              Change Password
             </button>
           </div>
         </div>

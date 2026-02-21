@@ -196,6 +196,44 @@ router.get('/me', authenticate, (req, res) => {
     });
 });
 
+// Change password (authenticated)
+router.post('/change-password', authenticate, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: 'Current and new password required' });
+        }
+
+        const passwordError = isValidPassword(newPassword);
+        if (passwordError) {
+            return res.status(400).json({ error: passwordError });
+        }
+
+        const result = await db.query(
+            'SELECT password_hash FROM users WHERE id = $1',
+            [req.user.id]
+        );
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const match = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
+        if (!match) {
+            return res.status(400).json({ error: 'Current password is incorrect' });
+        }
+
+        const newHash = await bcrypt.hash(newPassword, 12);
+        await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, req.user.id]);
+
+        console.log(`[Auth] Password changed for user ${req.user.email}`);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Change password error:', error);
+        res.status(500).json({ error: 'Failed to change password' });
+    }
+});
+
 // Version check (no secrets exposed)
 router.get('/version', (req, res) => {
     res.json({
