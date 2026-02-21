@@ -417,12 +417,16 @@ async function startServer() {
       console.log("✓ Migration: Step transition history table ensured");
 
       // Push subscriptions: add customer_id for portal customer push notifications
-      await db.query(`
-        ALTER TABLE push_subscriptions
-        ADD COLUMN IF NOT EXISTS customer_id UUID REFERENCES customers(id) ON DELETE CASCADE;
-      `);
-      await db.query(`CREATE INDEX IF NOT EXISTS idx_push_sub_customer ON push_subscriptions(customer_id) WHERE customer_id IS NOT NULL`);
-      console.log("✓ Migration: Customer push subscription column ensured");
+      try {
+        await db.query(`
+          ALTER TABLE push_subscriptions
+          ADD COLUMN IF NOT EXISTS customer_id UUID REFERENCES customers(id) ON DELETE CASCADE;
+        `);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_push_sub_customer ON push_subscriptions(customer_id) WHERE customer_id IS NOT NULL`);
+        console.log("✓ Migration: Customer push subscription column ensured");
+      } catch (e) {
+        console.warn("⚠ Migration: push_subscriptions customer_id skipped:", e.message);
+      }
 
       // PSA refresh logs table
       await db.query(`
@@ -440,19 +444,14 @@ async function startServer() {
       await db.query(`CREATE INDEX IF NOT EXISTS idx_refresh_logs_company ON psa_refresh_logs(company_id, created_at DESC)`);
       console.log("✓ Migration: PSA refresh logs table ensured");
 
-      // Waitlist table for collecting interested shop emails
+      // Pickup tracking columns on submissions
       await db.query(`
-        CREATE TABLE IF NOT EXISTS waitlist (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-          email VARCHAR(255) NOT NULL UNIQUE,
-          shop_name VARCHAR(255),
-          role VARCHAR(100),
-          source VARCHAR(100) DEFAULT 'landing_page',
-          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
+        ALTER TABLE submissions
+        ADD COLUMN IF NOT EXISTS picked_up BOOLEAN DEFAULT false,
+        ADD COLUMN IF NOT EXISTS picked_up_at TIMESTAMP WITH TIME ZONE,
+        ADD COLUMN IF NOT EXISTS picked_up_by VARCHAR(255);
       `);
-      await db.query(`CREATE INDEX IF NOT EXISTS idx_waitlist_email ON waitlist(email)`);
-      console.log("✓ Migration: Waitlist table ensured");
+      console.log("✓ Migration: picked_up columns ensured");
 
     } catch (migrationError) {
       // Don't fail startup if migration has issues, just log it
@@ -477,6 +476,24 @@ async function startServer() {
       console.log("✓ Migration: Blog posts table ensured");
     } catch (migrationError) {
       console.warn("⚠ Blog posts migration warning:", migrationError.message);
+    }
+
+    // Waitlist table — separate block so earlier failures don't block it
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS waitlist (
+          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+          email VARCHAR(255) NOT NULL UNIQUE,
+          shop_name VARCHAR(255),
+          role VARCHAR(100),
+          source VARCHAR(100) DEFAULT 'landing_page',
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_waitlist_email ON waitlist(email)`);
+      console.log("✓ Migration: Waitlist table ensured");
+    } catch (migrationError) {
+      console.warn("⚠ Waitlist migration warning:", migrationError.message);
     }
 
     // Initialize scheduled tasks (cron jobs)
