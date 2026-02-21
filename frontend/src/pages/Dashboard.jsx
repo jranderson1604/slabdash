@@ -8,7 +8,6 @@ import OnboardingChecklist from '../components/OnboardingChecklist';
 import StatCard from '../components/StatCard';
 import ProgressBar from '../components/ProgressBar';
 import StatusBadge from '../components/StatusBadge';
-import PageHeader from '../components/PageHeader';
 import {
   Package,
   Users,
@@ -188,64 +187,122 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
+      <div className="flex flex-col items-center justify-center h-64 gap-4">
+        {/* Arc reactor boot animation */}
+        <div className="relative w-16 h-16 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full arc-spin-slow"
+            style={{ border: '2px solid rgba(0,212,255,0.3)', borderTopColor: '#00D4FF' }}
+          />
+          <div className="absolute inset-2 rounded-full arc-spin-reverse"
+            style={{ border: '1px solid rgba(0,212,255,0.15)', borderBottomColor: 'rgba(0,212,255,0.6)' }}
+          />
+          <div className="w-4 h-4 rounded-full arc-pulse-anim"
+            style={{ background: '#00D4FF', boxShadow: '0 0 12px rgba(0,212,255,0.8), 0 0 24px rgba(0,212,255,0.4)' }}
+          />
+        </div>
+        <p className="hud-label">JARVIS // Initializing systems...</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6 relative">
-      {/* Ambient floating orbs for background depth */}
+      {/* Arc reactor ambient field */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
-        <div className="absolute top-20 right-20 w-64 h-64 rounded-full opacity-30"
+        <div className="absolute top-16 right-24 w-72 h-72 rounded-full opacity-25"
           style={{
-            background: 'radial-gradient(circle, rgba(255, 129, 112, 0.15) 0%, transparent 70%)',
-            animation: 'ambientFloat 12s ease-in-out infinite',
+            background: 'radial-gradient(circle, rgba(0,212,255,0.12) 0%, transparent 70%)',
+            animation: 'ambientFloat 14s ease-in-out infinite',
           }}
         />
-        <div className="absolute top-1/2 left-10 w-48 h-48 rounded-full opacity-20"
+        <div className="absolute top-1/3 left-8 w-56 h-56 rounded-full opacity-15"
           style={{
-            background: 'radial-gradient(circle, rgba(59, 130, 246, 0.15) 0%, transparent 70%)',
-            animation: 'ambientFloat 15s ease-in-out infinite reverse',
+            background: 'radial-gradient(circle, rgba(0,140,255,0.1) 0%, transparent 70%)',
+            animation: 'ambientFloat 18s ease-in-out infinite reverse',
           }}
         />
-        <div className="absolute bottom-32 right-1/3 w-56 h-56 rounded-full opacity-25"
+        <div className="absolute bottom-24 right-1/4 w-64 h-64 rounded-full opacity-20"
           style={{
-            background: 'radial-gradient(circle, rgba(16, 185, 129, 0.12) 0%, transparent 70%)',
-            animation: 'ambientFloat 18s ease-in-out infinite',
-            animationDelay: '-5s',
+            background: 'radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 70%)',
+            animation: 'ambientFloat 22s ease-in-out infinite',
+            animationDelay: '-7s',
+          }}
+        />
+        {/* Arc reactor grid overlay */}
+        <div className="absolute inset-0 opacity-[0.015]"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0,212,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.8) 1px, transparent 1px)`,
+            backgroundSize: '60px 60px',
           }}
         />
       </div>
 
-      {/* Header with refresh button */}
-      <PageHeader
-        title="Dashboard"
-        subtitle="Overview of your PSA submissions"
-        variant="large"
-        actions={
-          <>
+      {/* JARVIS Operations Center HUD Header */}
+      <div className="relative rounded-2xl overflow-hidden stark-scanline"
+        style={{
+          background: 'linear-gradient(135deg, rgba(0,212,255,0.06) 0%, rgba(0,100,200,0.04) 100%)',
+          border: '1px solid rgba(0,212,255,0.15)',
+          boxShadow: '0 0 40px rgba(0,212,255,0.04), inset 0 1px 0 rgba(0,212,255,0.08)',
+        }}
+      >
+        <div className="px-6 py-5 flex items-center justify-between gap-4">
+          <div className="hud-boot">
+            <p className="hud-label mb-1">// STARK INDUSTRIES · OPERATIONS CENTER</p>
+            <h1 className="text-2xl font-black tracking-tight" style={{ color: '#00D4FF', textShadow: '0 0 20px rgba(0,212,255,0.4)', letterSpacing: '-0.01em' }}>
+              JARVIS DASHBOARD
+            </h1>
+            <p className="text-xs mt-1 font-medium" style={{ color: 'rgba(0,212,255,0.45)', letterSpacing: '0.05em' }}>
+              {company?.name} · PSA Submission Tracking Active
+            </p>
+          </div>
+
+          {/* Arc reactor status ring + actions */}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            {/* Arc reactor animation */}
+            <div className="relative w-10 h-10 hidden sm:flex items-center justify-center flex-shrink-0">
+              <div className="absolute inset-0 rounded-full arc-spin-slow"
+                style={{ border: '1px solid rgba(0,212,255,0.3)', borderTopColor: 'rgba(0,212,255,0.8)' }}
+              />
+              <div className="absolute inset-1.5 rounded-full arc-spin-reverse"
+                style={{ border: '1px solid rgba(0,212,255,0.15)', borderBottomColor: 'rgba(0,212,255,0.5)' }}
+              />
+              <div className="w-3 h-3 rounded-full arc-pulse-anim"
+                style={{ background: '#00D4FF', boxShadow: '0 0 8px rgba(0,212,255,0.8), 0 0 16px rgba(0,212,255,0.4)' }}
+              />
+            </div>
+
             <button
               onClick={() => setShowWalkthrough(true)}
-              className="bg-gradient-to-br from-purple-500 to-purple-700 hover:from-purple-600 hover:to-purple-800 text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all hover:scale-105"
+              style={{
+                background: 'rgba(0,212,255,0.08)',
+                border: '1px solid rgba(0,212,255,0.2)',
+                color: 'rgba(0,212,255,0.8)',
+              }}
             >
-              <PlayCircle className="w-5 h-5" />
-              <span>Tutorial</span>
+              <PlayCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">Briefing</span>
             </button>
+
             {company?.hasPsaKey && (
               <button
                 onClick={handleRefreshAll}
                 disabled={refreshing}
-                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg hover:shadow-xl hover:scale-105 whitespace-nowrap"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all hover:scale-105"
+                style={{
+                  background: refreshing ? 'rgba(0,212,255,0.15)' : 'rgba(0,212,255,0.1)',
+                  border: '1px solid rgba(0,212,255,0.3)',
+                  color: '#00D4FF',
+                  boxShadow: refreshing ? '0 0 16px rgba(0,212,255,0.2)' : 'none',
+                }}
               >
-                <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
-                <span>{refreshing ? 'Refreshing...' : 'Refresh All'}</span>
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">{refreshing ? 'Syncing...' : 'Sync PSA'}</span>
               </button>
             )}
-          </>
-        }
-      />
+          </div>
+        </div>
+      </div>
 
       {/* PSA API Warning */}
       {!company?.hasPsaKey && (
@@ -273,37 +330,37 @@ export default function Dashboard() {
       {/* Onboarding checklist — shown to new shops until all steps complete */}
       <OnboardingChecklist company={company} stats={stats} />
 
-      {/* Stats Grid - Clickable cards */}
+      {/* HUD Stat Readouts */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={Package}
-          label="Active Submissions"
+          label="Active Missions"
           value={stats?.inProgress || 0}
-          subtext={`${stats?.totalSubmissions || 0} total • Click to view`}
+          subtext={`${stats?.totalSubmissions || 0} total tracked`}
           color="brand"
           link="/submissions"
         />
         <StatCard
-          icon={Clock}
-          label="Grades Ready"
+          icon={CheckCircle2}
+          label="Intel Confirmed"
           value={stats?.gradesReady || 0}
-          subtext="Awaiting pickup • Click to view"
+          subtext="Grades ready for retrieval"
           color="blue"
           link="/submissions"
         />
         <StatCard
           icon={AlertTriangle}
-          label="Problems"
+          label="Threat Alerts"
           value={stats?.problems || 0}
-          subtext="Need attention • Click to view"
+          subtext="Require immediate action"
           color="yellow"
           link="/submissions"
         />
         <StatCard
           icon={Users}
-          label="Customers"
+          label="Operatives"
           value={stats?.totalCustomers || 0}
-          subtext="Click to view all"
+          subtext="Active in the field"
           color="green"
           link="/customers"
         />
@@ -360,24 +417,34 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Refresh progress indicator */}
+      {/* PSA Sync — Arc Charge Progress */}
       {refreshing && refreshProgress && (
-        <div className="card p-4">
-          <div className="flex items-center justify-between mb-2">
+        <div className="rounded-2xl p-4 stark-scanline"
+          style={{
+            background: 'rgba(0,212,255,0.04)',
+            border: '1px solid rgba(0,212,255,0.2)',
+            boxShadow: '0 0 20px rgba(0,212,255,0.06)',
+          }}
+        >
+          <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-brand-500" />
-              <span className="text-sm font-bold text-gray-900">Refreshing from PSA...</span>
+              <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#00D4FF' }} />
+              <span className="hud-label">JARVIS // Syncing with PSA servers...</span>
             </div>
-            <span className="text-sm font-mono text-gray-600">
+            <span className="text-xs font-mono" style={{ color: 'rgba(0,212,255,0.7)' }}>
               {refreshProgress.current}/{refreshProgress.total}
-              {refreshProgress.updated > 0 && <span className="text-green-600 ml-2">+{refreshProgress.updated}</span>}
-              {refreshProgress.errors > 0 && <span className="text-red-500 ml-1">{refreshProgress.errors} err</span>}
+              {refreshProgress.updated > 0 && <span className="ml-2" style={{ color: '#10b981' }}>+{refreshProgress.updated}</span>}
+              {refreshProgress.errors > 0 && <span className="ml-1 text-red-400">{refreshProgress.errors} ERR</span>}
             </span>
           </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,212,255,0.1)' }}>
             <div
-              className="h-full bg-brand-500 rounded-full transition-all duration-300"
-              style={{ width: `${refreshProgress.total > 0 ? (refreshProgress.current / refreshProgress.total) * 100 : 0}%` }}
+              className="h-full rounded-full transition-all duration-300"
+              style={{
+                width: `${refreshProgress.total > 0 ? (refreshProgress.current / refreshProgress.total) * 100 : 0}%`,
+                background: 'linear-gradient(90deg, #0090C8, #00D4FF)',
+                boxShadow: '0 0 8px rgba(0,212,255,0.6)',
+              }}
             />
           </div>
         </div>
@@ -385,61 +452,60 @@ export default function Dashboard() {
 
       {/* Two-column layout for Notifications and Buyback */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Notifications */}
+        {/* JARVIS Alert Feed */}
         <div className="card">
-          <div className="p-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold flex items-center gap-2" style={{ color: 'rgb(var(--dark))' }}>
-                <Bell className="w-5 h-5" style={{ color: 'rgb(var(--brand-500))', filter: 'drop-shadow(0 0 6px rgba(255, 129, 112, 0.5))' }} />
-                Recent Activity
-              </h2>
+          <div className="p-4" style={{ borderBottom: '1px solid rgba(0,212,255,0.06)' }}>
+            <div className="flex items-center gap-2">
+              <Bell className="w-4 h-4" style={{ color: '#00D4FF', filter: 'drop-shadow(0 0 5px rgba(0,212,255,0.7))' }} />
+              <p className="hud-label">// Alert Feed</p>
             </div>
           </div>
           <div className="p-4 space-y-3">
             {stats?.gradesReady > 0 && (
-              <div className="flex items-start gap-3 p-3 rounded-2xl"
-                style={{ background: 'rgba(59, 130, 246, 0.06)', border: '1px solid rgba(59, 130, 246, 0.1)' }}
+              <div className="flex items-start gap-3 p-3 rounded-xl"
+                style={{ background: 'rgba(0,212,255,0.05)', border: '1px solid rgba(0,212,255,0.12)' }}
               >
-                <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#2563EB' }} />
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#00D4FF', filter: 'drop-shadow(0 0 4px rgba(0,212,255,0.6))' }} />
                 <div>
-                  <p className="text-sm font-bold" style={{ color: '#1E3A8A' }}>Grades Ready</p>
-                  <p className="text-xs font-medium" style={{ color: '#1D4ED8' }}>{stats.gradesReady} submission{stats.gradesReady !== 1 ? 's' : ''} ready for pickup</p>
+                  <p className="text-xs font-black" style={{ color: '#00D4FF', letterSpacing: '0.05em' }}>INTEL CONFIRMED</p>
+                  <p className="text-xs font-medium mt-0.5" style={{ color: 'rgb(var(--bg-text))' }}>{stats.gradesReady} submission{stats.gradesReady !== 1 ? 's' : ''} — grades ready for retrieval</p>
                 </div>
               </div>
             )}
             {stats?.problems > 0 && (
-              <div className="flex items-start gap-3 p-3 rounded-2xl"
-                style={{ background: 'rgba(245, 158, 11, 0.06)', border: '1px solid rgba(245, 158, 11, 0.1)' }}
+              <div className="flex items-start gap-3 p-3 rounded-xl"
+                style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.12)' }}
               >
-                <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#D97706' }} />
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#F59E0B' }} />
                 <div>
-                  <p className="text-sm font-bold" style={{ color: '#78350F' }}>Attention Needed</p>
-                  <p className="text-xs font-medium" style={{ color: '#B45309' }}>{stats.problems} submission{stats.problems !== 1 ? 's' : ''} flagged with issues</p>
+                  <p className="text-xs font-black" style={{ color: '#F59E0B', letterSpacing: '0.05em' }}>THREAT DETECTED</p>
+                  <p className="text-xs font-medium mt-0.5" style={{ color: 'rgb(var(--bg-text))' }}>{stats.problems} mission{stats.problems !== 1 ? 's' : ''} flagged — immediate action required</p>
                 </div>
               </div>
             )}
             {(!stats?.gradesReady && !stats?.problems) && (
-              <p className="text-sm font-medium text-center py-4" style={{ color: 'rgba(44, 36, 22, 0.65)' }}>No new notifications</p>
+              <div className="text-center py-4">
+                <p className="hud-label">ALL SYSTEMS NOMINAL</p>
+                <p className="text-xs mt-1" style={{ color: 'rgba(0,212,255,0.3)' }}>No active alerts</p>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Recent Buyback Offers */}
+        {/* Asset Acquisition */}
         <div className="card">
-          <div className="p-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-bold flex items-center gap-2" style={{ color: 'rgb(var(--dark))' }}>
-                <DollarSign className="w-5 h-5" style={{ color: '#059669', filter: 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.5))' }} />
-                Buyback Offers
-              </h2>
-              <Link
-                to="/buyback"
-                className="text-sm text-brand-500 hover:text-brand-600 font-medium flex items-center gap-1 transition-colors"
-              >
-                View all
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+          <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(0,212,255,0.06)' }}>
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-4 h-4" style={{ color: '#10b981', filter: 'drop-shadow(0 0 5px rgba(16,185,129,0.6))' }} />
+              <p className="hud-label">// Asset Acquisition</p>
             </div>
+            <Link
+              to="/buyback"
+              className="flex items-center gap-1 text-xs font-bold transition-all"
+              style={{ color: 'rgba(0,212,255,0.6)' }}
+            >
+              All <ArrowRight className="w-3 h-3" />
+            </Link>
           </div>
           <div className="p-4">
             {recentBuybacks.length === 0 ? (
@@ -481,19 +547,20 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Recent Submissions - Compact view */}
+      {/* Active Mission Log */}
       <div className="card">
-        <div className="p-4" style={{ borderBottom: '1px solid rgba(0,0,0,0.04)' }}>
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold" style={{ color: 'rgb(var(--dark))' }}>Recent Submissions</h2>
-            <Link
-              to="/submissions"
-              className="text-sm text-brand-500 hover:text-brand-600 font-medium flex items-center gap-1 transition-colors"
-            >
-              View all
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+        <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(0,212,255,0.06)' }}>
+          <div className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4" style={{ color: '#00D4FF', filter: 'drop-shadow(0 0 5px rgba(0,212,255,0.6))' }} />
+            <p className="hud-label">// Active Mission Log</p>
           </div>
+          <Link
+            to="/submissions"
+            className="flex items-center gap-1 text-xs font-bold transition-all"
+            style={{ color: 'rgba(0,212,255,0.6)' }}
+          >
+            All missions <ArrowRight className="w-3 h-3" />
+          </Link>
         </div>
 
         {recentSubs.length === 0 ? (
@@ -527,46 +594,70 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Quick Actions */}
+      {/* JARVIS Quick Commands */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Link to="/submissions/new" className="card p-6 transition-all group cursor-pointer">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all icon-glow group-hover:scale-110"
-              style={{ background: 'rgba(255, 129, 112, 0.1)', border: '1px solid rgba(255, 129, 112, 0.12)' }}
+        <Link to="/submissions/new" className="group relative rounded-2xl p-5 transition-all cursor-pointer overflow-hidden"
+          style={{
+            background: 'rgba(0,212,255,0.04)',
+            border: '1px solid rgba(0,212,255,0.12)',
+          }}
+        >
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ background: 'rgba(0,212,255,0.04)' }}
+          />
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform arc-pulse-anim"
+              style={{ background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.2)' }}
             >
-              <Package className="w-5 h-5" style={{ color: '#E8543D', filter: 'drop-shadow(0 0 4px rgba(232, 84, 61, 0.4))' }} />
+              <Package className="w-5 h-5" style={{ color: '#00D4FF', filter: 'drop-shadow(0 0 4px rgba(0,212,255,0.6))' }} />
             </div>
             <div>
+              <p className="hud-label mb-0.5">// DEPLOY</p>
               <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>New Submission</p>
-              <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.65)' }}>Track a new PSA order</p>
             </div>
           </div>
         </Link>
 
-        <Link to="/customers/new" className="card p-6 transition-all group cursor-pointer">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all icon-glow-green group-hover:scale-110"
-              style={{ background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.12)' }}
+        <Link to="/customers/new" className="group relative rounded-2xl p-5 transition-all cursor-pointer overflow-hidden"
+          style={{
+            background: 'rgba(16,185,129,0.04)',
+            border: '1px solid rgba(16,185,129,0.12)',
+          }}
+        >
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ background: 'rgba(16,185,129,0.04)' }}
+          />
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform"
+              style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}
             >
-              <Users className="w-5 h-5" style={{ color: '#059669', filter: 'drop-shadow(0 0 4px rgba(5, 150, 105, 0.4))' }} />
+              <Users className="w-5 h-5" style={{ color: '#10b981', filter: 'drop-shadow(0 0 4px rgba(16,185,129,0.5))' }} />
             </div>
             <div>
-              <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>Add Customer</p>
-              <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.65)' }}>Create a new customer</p>
+              <p className="hud-label mb-0.5" style={{ color: 'rgba(16,185,129,0.6)' }}>// ENLIST</p>
+              <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>Add Operative</p>
             </div>
           </div>
         </Link>
 
-        <Link to="/settings" className="card p-6 transition-all group cursor-pointer">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-2xl flex items-center justify-center transition-all icon-glow-blue group-hover:scale-110"
-              style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.12)' }}
+        <Link to="/settings" className="group relative rounded-2xl p-5 transition-all cursor-pointer overflow-hidden"
+          style={{
+            background: 'rgba(139,92,246,0.04)',
+            border: '1px solid rgba(139,92,246,0.12)',
+          }}
+        >
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ background: 'rgba(139,92,246,0.04)' }}
+          />
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform"
+              style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}
             >
-              <TrendingUp className="w-5 h-5" style={{ color: '#2563EB', filter: 'drop-shadow(0 0 4px rgba(37, 99, 235, 0.4))' }} />
+              <Zap className="w-5 h-5" style={{ color: '#8b5cf6', filter: 'drop-shadow(0 0 4px rgba(139,92,246,0.5))' }} />
             </div>
             <div>
+              <p className="hud-label mb-0.5" style={{ color: 'rgba(139,92,246,0.6)' }}>// CONFIGURE</p>
               <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>Connect PSA</p>
-              <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.65)' }}>Set up API integration</p>
             </div>
           </div>
         </Link>

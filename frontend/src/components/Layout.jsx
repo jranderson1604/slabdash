@@ -31,7 +31,7 @@ import {
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('slabdash-dark') === 'true');
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('slabdash-dark') !== 'false');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const { user, company, logout } = useAuth();
 
@@ -129,35 +129,40 @@ export default function Layout({ children }) {
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{
-          background: 'linear-gradient(180deg, rgba(44, 36, 22, 0.97) 0%, rgba(35, 28, 16, 0.99) 100%)',
+          background: 'linear-gradient(180deg, rgba(2, 6, 14, 0.98) 0%, rgba(1, 4, 10, 0.99) 100%)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          borderRight: '1px solid rgba(255, 248, 240, 0.06)',
+          borderRight: '1px solid rgba(0, 212, 255, 0.08)',
+          boxShadow: 'inset -1px 0 0 rgba(0,212,255,0.04)',
         }}
       >
         {/* Logo */}
-        <div className="flex items-center justify-center px-2 h-16 relative" style={{ borderBottom: '1px solid rgba(255, 248, 240, 0.08)' }}>
-          <button
-            onClick={() => setSidebarOpen(false)}
-            className="absolute top-4 right-4 lg:hidden z-10"
-            style={{ color: 'rgba(255, 248, 240, 0.5)' }}
-          >
-            <X className="w-6 h-6" />
-          </button>
-          <Link to="/dashboard" className="flex items-center justify-center w-full">
+        <div className="flex items-center justify-between px-4 h-16 relative" style={{ borderBottom: '1px solid rgba(0, 212, 255, 0.08)' }}>
+          <Link to="/dashboard" className="flex items-center gap-2.5">
             <img
               src="/images/logo-icon.png.svg"
               alt="SlabDash"
-              className="h-12 w-12 object-contain"
-              style={{ filter: 'brightness(1.1) drop-shadow(0 0 12px rgba(255, 129, 112, 0.4))' }}
+              className="h-9 w-9 object-contain arc-pulse-anim"
+              style={{ filter: 'brightness(1.2) drop-shadow(0 0 8px rgba(0,212,255,0.6)) hue-rotate(160deg)' }}
             />
+            <div>
+              <p className="text-xs font-black tracking-[0.15em] uppercase" style={{ color: '#00D4FF', textShadow: '0 0 10px rgba(0,212,255,0.5)' }}>SLABDASH</p>
+              <p className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(0,212,255,0.4)' }}>JARVIS INTERFACE</p>
+            </div>
           </Link>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden"
+            style={{ color: 'rgba(0, 212, 255, 0.5)' }}
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        {/* Company name */}
-        <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(255, 248, 240, 0.08)' }}>
-          <p className="text-[10px] uppercase tracking-[0.12em] font-bold" style={{ color: 'rgba(255, 185, 160, 0.6)' }}>Shop</p>
-          <p className="text-sm font-semibold truncate" style={{ color: 'rgba(255, 248, 240, 0.9)' }}>{company?.name || 'Loading...'}</p>
+        {/* Company name — OPERATOR ID */}
+        <div className="px-4 py-2.5" style={{ borderBottom: '1px solid rgba(0, 212, 255, 0.06)' }}>
+          <p className="text-[9px] uppercase tracking-[0.15em] font-bold" style={{ color: 'rgba(0,212,255,0.4)' }}>// OPERATOR</p>
+          <p className="text-sm font-bold truncate" style={{ color: 'rgba(0,212,255,0.9)' }}>{company?.name || 'Initializing...'}</p>
         </div>
 
         {/* Navigation */}
@@ -173,13 +178,13 @@ export default function Layout({ children }) {
                 onClick={() => setSidebarOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200"
                 style={isActive ? {
-                  background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.4), rgba(139, 92, 246, 0.3))',
-                  color: '#E9D5FF',
-                  boxShadow: '0 2px 12px rgba(168, 85, 247, 0.2), inset 0 1px 0 rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(168, 85, 247, 0.2)',
+                  background: 'linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,160,255,0.15))',
+                  color: '#00D4FF',
+                  boxShadow: '0 2px 12px rgba(0,212,255,0.15), inset 0 1px 0 rgba(0,212,255,0.08)',
+                  border: '1px solid rgba(0,212,255,0.25)',
                 } : {
-                  color: 'rgba(216, 180, 254, 0.8)',
-                  border: '1px solid rgba(168, 85, 247, 0.15)',
+                  color: 'rgba(0,212,255,0.6)',
+                  border: '1px solid rgba(0,212,255,0.12)',
                 }}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -190,7 +195,7 @@ export default function Layout({ children }) {
 
           {/* Owner separator */}
           {user?.role === 'owner' && (
-            <div className="my-2" style={{ borderTop: '1px solid rgba(255, 248, 240, 0.06)' }} />
+            <div className="my-2" style={{ borderTop: '1px solid rgba(0, 212, 255, 0.06)' }} />
           )}
 
           {/* Regular navigation */}
@@ -198,33 +203,33 @@ export default function Layout({ children }) {
             const isActive = location.pathname === item.href ||
               (item.href !== '/dashboard' && item.href !== '/' && location.pathname.startsWith(item.href));
 
-            // Special styling for SAM AI (highlighted) with glow effects
+            // Special styling for SAM AI / JARVIS (highlighted) with arc reactor glow
             if (item.highlight) {
               return (
                 <Link
                   key={item.name}
                   to={item.href}
                   onClick={() => setSidebarOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative overflow-hidden"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative overflow-hidden stark-scanline"
                   style={isActive ? {
-                    background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.5), rgba(255, 107, 89, 0.4))',
-                    color: '#FFF8F0',
-                    boxShadow: '0 4px 20px rgba(255, 107, 89, 0.3), 0 0 30px rgba(255, 107, 89, 0.15), inset 0 1px 0 rgba(255,255,255,0.1)',
-                    border: '1px solid rgba(255, 129, 112, 0.3)',
-                    transform: 'scale(1.02)',
+                    background: 'linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,140,255,0.15))',
+                    color: '#00D4FF',
+                    boxShadow: '0 4px 20px rgba(0,212,255,0.2), 0 0 30px rgba(0,212,255,0.1), inset 0 1px 0 rgba(0,212,255,0.1)',
+                    border: '1px solid rgba(0,212,255,0.35)',
                   } : {
-                    background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.2), rgba(255, 107, 89, 0.15))',
-                    color: 'rgba(255, 216, 196, 0.95)',
-                    boxShadow: '0 2px 8px rgba(255, 107, 89, 0.1)',
-                    border: '1px solid rgba(255, 129, 112, 0.12)',
+                    background: 'linear-gradient(135deg, rgba(0,212,255,0.08), rgba(0,140,255,0.05))',
+                    color: 'rgba(0,212,255,0.85)',
+                    boxShadow: '0 2px 8px rgba(0,212,255,0.08)',
+                    border: '1px solid rgba(0,212,255,0.15)',
                   }}
                 >
-                  <item.icon className="w-5 h-5 flex-shrink-0 nav-icon-glow" />
-                  <span className="slabdash-label font-bold">{item.name}</span>
-                  <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full" style={{
-                    background: 'rgba(255, 248, 240, 0.15)',
-                    color: 'rgba(255, 248, 240, 0.8)',
-                    boxShadow: '0 0 8px rgba(255, 129, 112, 0.3)',
+                  <item.icon className="w-5 h-5 flex-shrink-0" style={{ filter: 'drop-shadow(0 0 6px rgba(0,212,255,0.7))' }} />
+                  <span className="slabdash-label font-bold" style={{ letterSpacing: '0.12em' }}>JARVIS</span>
+                  <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-sm" style={{
+                    background: 'rgba(0,212,255,0.15)',
+                    color: '#00D4FF',
+                    border: '1px solid rgba(0,212,255,0.2)',
+                    letterSpacing: '0.1em',
                   }}>AI</span>
                 </Link>
               );
@@ -237,40 +242,45 @@ export default function Layout({ children }) {
                 onClick={() => setSidebarOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200"
                 style={isActive ? {
-                  background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.35), rgba(255, 107, 89, 0.25))',
-                  color: '#FFF8F0',
-                  boxShadow: '0 2px 12px rgba(255, 107, 89, 0.15), 0 0 20px rgba(255, 107, 89, 0.1), inset 0 1px 0 rgba(255,255,255,0.06)',
+                  background: 'linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,140,255,0.1))',
+                  color: '#00D4FF',
+                  boxShadow: '0 2px 12px rgba(0,212,255,0.12), inset 0 1px 0 rgba(0,212,255,0.06)',
+                  borderLeft: '2px solid rgba(0,212,255,0.5)',
+                  paddingLeft: '10px',
                 } : {
-                  color: 'rgba(255, 248, 240, 0.75)',
+                  color: 'rgba(0,212,255,0.5)',
                 }}
               >
-                <item.icon className="w-5 h-5 flex-shrink-0" style={isActive ? { filter: 'drop-shadow(0 0 6px rgba(255, 129, 112, 0.6))' } : {}} />
+                <item.icon className="w-4 h-4 flex-shrink-0" style={isActive ? { filter: 'drop-shadow(0 0 5px rgba(0,212,255,0.7))' } : {}} />
                 <span className="slabdash-label">{item.name}</span>
               </Link>
             );
           })}
         </nav>
 
-        {/* PSA Status */}
-        <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(255, 248, 240, 0.08)' }}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${company?.hasPsaKey ? 'bg-emerald-400' : 'bg-amber-400'}`}
-                style={{ boxShadow: company?.hasPsaKey ? '0 0 6px rgba(52, 211, 153, 0.4)' : '0 0 6px rgba(251, 191, 36, 0.4)' }}
+        {/* PSA Status — JARVIS system status */}
+        <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(0,212,255,0.08)' }}>
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${company?.hasPsaKey ? 'bg-emerald-400' : 'bg-amber-400'}`}
+                style={{ boxShadow: company?.hasPsaKey ? '0 0 6px rgba(52,211,153,0.8)' : '0 0 6px rgba(251,191,36,0.8)' }}
               />
-              <span className="text-xs font-medium" style={{ color: 'rgba(255, 248, 240, 0.6)' }}>
-                PSA: {company?.hasPsaKey ? 'Connected' : 'Not set'}
+              <span className="text-[10px] font-bold truncate" style={{ color: 'rgba(0,212,255,0.45)', letterSpacing: '0.1em' }}>
+                PSA {company?.hasPsaKey ? 'ONLINE' : 'OFFLINE'}
               </span>
             </div>
             <button
               onClick={() => setDarkMode(d => !d)}
-              className="rounded-lg p-1.5 transition-all"
-              style={{ background: 'rgba(255,248,240,0.08)', color: 'rgba(255,248,240,0.6)' }}
-              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              className="rounded p-1 transition-all flex-shrink-0"
+              style={{ background: 'rgba(0,212,255,0.06)', color: 'rgba(0,212,255,0.5)', border: '1px solid rgba(0,212,255,0.1)' }}
+              title={darkMode ? 'Light mode' : 'STARK mode'}
             >
-              {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              {darkMode ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
             </button>
           </div>
+          <p className="text-[8px] mt-1" style={{ color: 'rgba(0,212,255,0.2)', letterSpacing: '0.08em' }}>
+            STARK INDUSTRIES · JARVIS v3.1
+          </p>
         </div>
       </aside>
 
@@ -279,11 +289,11 @@ export default function Layout({ children }) {
         {/* Top header - hidden on SAM page */}
         {location.pathname !== '/sam' && (
         <header className="relative z-30" style={{
-          background: 'rgba(255, 255, 255, 0.6)',
+          background: darkMode ? 'rgba(4,8,16,0.85)' : 'rgba(255,255,255,0.6)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(0, 0, 0, 0.06)',
-          boxShadow: '0 1px 8px rgba(0, 0, 0, 0.03)',
+          borderBottom: darkMode ? '1px solid rgba(0,212,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
+          boxShadow: darkMode ? '0 1px 0 rgba(0,212,255,0.05)' : '0 1px 8px rgba(0,0,0,0.03)',
         }}>
           <div className="flex items-center justify-between h-16 px-4 sm:px-6">
             {/* Mobile menu button */}
@@ -297,7 +307,8 @@ export default function Layout({ children }) {
 
             {/* Page title (shows on desktop) */}
             <div className="hidden lg:block">
-              <h1 className="text-lg font-bold tracking-tight" style={{ color: 'rgb(var(--dark))', letterSpacing: '-0.02em' }}>
+              <p className="text-[9px] font-bold tracking-[0.15em] uppercase mb-0.5" style={{ color: darkMode ? 'rgba(0,212,255,0.4)' : 'rgba(44,36,22,0.4)' }}>// MODULE</p>
+              <h1 className="text-sm font-black tracking-widest uppercase" style={{ color: darkMode ? '#00D4FF' : 'rgb(var(--dark))', textShadow: darkMode ? '0 0 12px rgba(0,212,255,0.4)' : 'none', letterSpacing: '0.1em' }}>
                 {navigation.find(n =>
                   n.href === location.pathname ||
                   (n.href !== '/dashboard' && n.href !== '/' && location.pathname.startsWith(n.href))
@@ -319,9 +330,10 @@ export default function Layout({ children }) {
                 >
                   <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
                     style={{
-                      background: 'linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-600)))',
-                      color: '#FFF8F0',
-                      boxShadow: '0 2px 8px rgba(255, 107, 89, 0.25)',
+                      background: darkMode ? 'linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,140,255,0.15))' : 'linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-600)))',
+                      color: darkMode ? '#00D4FF' : '#FFF8F0',
+                      boxShadow: darkMode ? '0 0 0 1px rgba(0,212,255,0.3), 0 0 12px rgba(0,212,255,0.2)' : '0 2px 8px rgba(255,107,89,0.25)',
+                      border: darkMode ? '1px solid rgba(0,212,255,0.3)' : 'none',
                     }}
                   >
                     {user?.name?.charAt(0).toUpperCase() || 'U'}
