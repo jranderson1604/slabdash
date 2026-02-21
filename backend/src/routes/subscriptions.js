@@ -4,6 +4,7 @@ const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 const stripeService = require('../services/stripe');
 const { getLimits } = require('../config/tierLimits');
+const { sendEmail } = require('../services/emailService');
 
 // Stripe Price IDs (create these in Stripe Dashboard)
 const PRICE_IDS = {
@@ -243,8 +244,51 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
       case 'invoice.payment_failed': {
         const invoice = event.data.object;
 
-        // TODO: Send email notification to customer about failed payment
-        console.warn(`⚠️  Payment failed for customer ${invoice.customer}`);
+        console.warn(`⚠️  Payment failed for Stripe customer ${invoice.customer}`);
+
+        try {
+          const companyResult = await db.query(
+            `SELECT c.id, c.name, c.email, u.email as owner_email
+             FROM companies c
+             LEFT JOIN users u ON u.company_id = c.id AND u.role = 'admin'
+             WHERE c.stripe_customer_id = $1
+             LIMIT 1`,
+            [invoice.customer]
+          );
+
+          if (companyResult.rows.length > 0) {
+            const company = companyResult.rows[0];
+            const recipientEmail = company.owner_email || company.email;
+
+            if (recipientEmail) {
+              await sendEmail({
+                to: recipientEmail,
+                subject: 'Action Required: Your SlabDash payment failed',
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #ef4444;">Payment Failed</h2>
+                    <p>Hi ${company.name},</p>
+                    <p>We were unable to process your SlabDash subscription payment.</p>
+                    <p>To keep your account active, please update your payment method:</p>
+                    <p style="text-align: center; margin: 30px 0;">
+                      <a href="${process.env.FRONTEND_URL || 'https://app.slabdash.com'}/settings/billing"
+                         style="background: #FF8170; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                        Update Payment Method
+                      </a>
+                    </p>
+                    <p style="color: #6b7280; font-size: 14px;">
+                      If you believe this is an error, please contact us at support@slabdash.com.
+                    </p>
+                    <p>— The SlabDash Team</p>
+                  </div>
+                `,
+              });
+              console.log(`📧 Payment failure email sent to ${recipientEmail} for company ${company.name}`);
+            }
+          }
+        } catch (emailErr) {
+          console.error('Failed to send payment failure email:', emailErr.message);
+        }
         break;
       }
 

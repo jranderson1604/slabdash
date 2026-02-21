@@ -41,7 +41,12 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await auth.logout();
+    } catch {
+      // Best-effort — clear local state regardless
+    }
     localStorage.removeItem('slabdash_token');
     setUser(null);
     setCompany(null);

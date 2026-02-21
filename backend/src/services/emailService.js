@@ -57,61 +57,32 @@ const getDefaultEmailConfig = () => {
 };
 
 /**
- * Create email transporter for a company
+ * Create email transporter for custom SMTP (only called when use_custom_smtp is true)
  */
 const createTransporter = (config) => {
-    let smtpConfig;
-
-    // Use default SlabDash email if custom SMTP is not enabled
-    if (!config.use_custom_smtp) {
-        const defaultConfig = getDefaultEmailConfig();
-        console.log('📧 Using SlabDash default email:', {
-            host: defaultConfig.smtp_host,
-            port: defaultConfig.smtp_port,
-            secure: defaultConfig.smtp_secure,
-            user: defaultConfig.smtp_user,
-            hasPassword: !!defaultConfig.smtp_password
-        });
-        smtpConfig = {
-            host: defaultConfig.smtp_host,
-            port: defaultConfig.smtp_port,
-            secure: defaultConfig.smtp_secure,
-            connectionTimeout: 10000, // 10 second timeout
-            greetingTimeout: 10000,
-            socketTimeout: 10000,
-            auth: {
-                user: defaultConfig.smtp_user,
-                pass: defaultConfig.smtp_password
-            }
-        };
-    } else {
-        // Use custom SMTP settings
-        if (!config.smtp_host || !config.smtp_user || !config.smtp_password) {
-            throw new Error('Custom SMTP configuration incomplete');
-        }
-
-        console.log('📧 Using custom SMTP:', {
-            host: config.smtp_host,
-            port: config.smtp_port,
-            secure: config.smtp_secure,
-            user: config.smtp_user
-        });
-
-        smtpConfig = {
-            host: config.smtp_host,
-            port: config.smtp_port || 587,
-            secure: config.smtp_secure || false,
-            connectionTimeout: 10000, // 10 second timeout
-            greetingTimeout: 10000,
-            socketTimeout: 10000,
-            auth: {
-                user: config.smtp_user,
-                pass: config.smtp_password
-            }
-        };
+    if (!config.smtp_host || !config.smtp_user || !config.smtp_password) {
+        throw new Error('Custom SMTP configuration incomplete');
     }
 
-    return nodemailer.createTransport(smtpConfig);
+    console.log('📧 Using custom SMTP:', {
+        host: config.smtp_host,
+        port: config.smtp_port,
+        secure: config.smtp_secure,
+        user: config.smtp_user
+    });
+
+    return nodemailer.createTransport({
+        host: config.smtp_host,
+        port: config.smtp_port || 587,
+        secure: config.smtp_secure || false,
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
+        auth: {
+            user: config.smtp_user,
+            pass: config.smtp_password
+        }
+    });
 };
 
 /**

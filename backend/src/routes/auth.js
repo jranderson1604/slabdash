@@ -234,6 +234,17 @@ router.post('/change-password', authenticate, async (req, res) => {
     }
 });
 
+// Logout — invalidates the current token by recording logout time
+router.post('/logout', authenticate, async (req, res) => {
+    try {
+        await db.query('UPDATE users SET last_logout_at = NOW() WHERE id = $1', [req.user.id]);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({ error: 'Logout failed' });
+    }
+});
+
 // Version check (no secrets exposed)
 router.get('/version', (req, res) => {
     res.json({

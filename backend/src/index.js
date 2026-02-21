@@ -496,6 +496,17 @@ async function startServer() {
       console.warn("⚠ Waitlist migration warning:", migrationError.message);
     }
 
+    // JWT logout invalidation — add last_logout_at to users
+    try {
+      await db.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS last_logout_at TIMESTAMP WITH TIME ZONE;
+      `);
+      console.log("✓ Migration: last_logout_at column ensured");
+    } catch (migrationError) {
+      console.warn("⚠ last_logout_at migration warning:", migrationError.message);
+    }
+
     // Initialize scheduled tasks (cron jobs)
     try {
       initializeScheduler();
