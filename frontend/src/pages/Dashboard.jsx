@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
-import { submissions, customers, psa } from '../api/client';
+import { submissions, customers, psa, companies, buyback } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import AdminWalkthrough from '../components/AdminWalkthrough';
 import StatCard from '../components/StatCard';
@@ -21,7 +21,30 @@ import {
   DollarSign,
   Bell,
   PlayCircle,
+  Zap,
+  BarChart3,
 } from 'lucide-react';
+
+function UsageMeter({ label, current, limit, percent }) {
+  const clamped = Math.min(percent, 100);
+  const color = clamped >= 90 ? '#ef4444' : clamped >= 75 ? '#f59e0b' : '#10b981';
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs font-semibold" style={{ color: 'rgba(44,36,22,0.7)' }}>{label}</span>
+        <span className="text-xs font-bold tabular-nums" style={{ color: clamped >= 75 ? color : 'rgba(44,36,22,0.8)' }}>
+          {current.toLocaleString()} / {limit.toLocaleString()}
+        </span>
+      </div>
+      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.06)' }}>
+        <div
+          className="h-full rounded-full transition-all duration-500"
+          style={{ width: `${clamped}%`, background: color }}
+        />
+      </div>
+    </div>
+  );
+}
 
 function RecentSubmissionRow({ submission }) {
   return (
@@ -48,6 +71,8 @@ export default function Dashboard() {
   const toast = useToast();
   const [stats, setStats] = useState(null);
   const [recentSubs, setRecentSubs] = useState([]);
+  const [usage, setUsage] = useState(null);
+  const [recentBuybacks, setRecentBuybacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshProgress, setRefreshProgress] = useState(null);
@@ -55,15 +80,15 @@ export default function Dashboard() {
 
   const loadData = async () => {
     try {
-      const [subsRes, custsRes] = await Promise.all([
+      const [subsRes, usageRes, buybackRes] = await Promise.all([
         submissions.list({}),
-        customers.list({}),
+        companies.usage().catch(() => ({ data: null })),
+        buyback.list({ status: 'pending' }).catch(() => ({ data: [] })),
       ]);
 
       const subs = subsRes.data.submissions || [];
-      const custs = custsRes.data.customers || [];
 
-      // Calculate stats
+      // Calculate stats from submissions (customers already in usage)
       const inProgress = subs.filter(s => !s.shipped).length;
       const gradesReady = subs.filter(s => s.grades_ready && !s.shipped).length;
       const problems = subs.filter(s => s.problem_order).length;
@@ -73,8 +98,11 @@ export default function Dashboard() {
         inProgress,
         gradesReady,
         problems,
-        totalCustomers: custs.length,
+        totalCustomers: usageRes.data?.customers ?? 0,
       });
+
+      if (usageRes.data) setUsage(usageRes.data);
+      setRecentBuybacks((buybackRes.data || []).slice(0, 3));
 
       // Get recent submissions (not shipped) - limit to 3 for compact dashboard
       setRecentSubs(subs.filter(s => !s.shipped).slice(0, 3));
@@ -277,6 +305,57 @@ export default function Dashboard() {
         />
       </div>
 
+      {/* Plan Usage Meters — only shown when on a paid plan with limits */}
+      {usage && (usage.cards_limit || usage.customers_limit) && (
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-sm font-bold flex items-center gap-2" style={{ color: 'rgb(var(--dark))' }}>
+              <BarChart3 className="w-4 h-4" style={{ color: 'rgb(var(--brand-500))' }} />
+              Plan Usage
+            </h2>
+            <span className="text-xs font-semibold px-2.5 py-1 rounded-full capitalize"
+              style={{ background: 'rgba(255,129,112,0.1)', color: '#E8543D' }}
+            >
+              {usage.plan} plan
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {usage.cards_limit && (
+              <UsageMeter
+                label="Cards this month"
+                current={usage.cards_this_month}
+                limit={usage.cards_limit}
+                percent={usage.cards_percent}
+              />
+            )}
+            {usage.customers_limit && (
+              <UsageMeter
+                label="Total customers"
+                current={usage.customers}
+                limit={usage.customers_limit}
+                percent={usage.customers_percent}
+              />
+            )}
+          </div>
+          {(usage.cards_percent >= 80 || usage.customers_percent >= 80) && (
+            <div className="mt-4 pt-4 flex items-center justify-between"
+              style={{ borderTop: '1px solid rgba(0,0,0,0.05)' }}
+            >
+              <p className="text-xs font-medium" style={{ color: 'rgba(44,36,22,0.6)' }}>
+                Approaching your plan limit — upgrade for unlimited access
+              </p>
+              <Link to="/settings?tab=billing"
+                className="text-xs font-bold flex items-center gap-1 transition-colors"
+                style={{ color: '#E8543D' }}
+              >
+                <Zap className="w-3.5 h-3.5" />
+                Upgrade
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Refresh progress indicator */}
       {refreshing && refreshProgress && (
         <div className="card p-4">
@@ -359,11 +438,41 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="p-4">
-            <p className="text-sm text-gray-500 text-center py-4">No active buyback offers</p>
-            <Link to="/buyback/new" className="btn btn-secondary w-full text-sm flex items-center justify-center gap-2">
-              <DollarSign className="w-4 h-4" />
-              Create Buyback Offer
-            </Link>
+            {recentBuybacks.length === 0 ? (
+              <div className="text-center py-4">
+                <p className="text-sm font-medium mb-3" style={{ color: 'rgba(44,36,22,0.5)' }}>No pending offers</p>
+                <Link to="/buyback/new" className="btn btn-secondary w-full text-sm flex items-center justify-center gap-2">
+                  <DollarSign className="w-4 h-4" />
+                  Create Buyback Offer
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {recentBuybacks.map(offer => (
+                  <Link key={offer.id} to="/buyback"
+                    className="flex items-center justify-between p-3 rounded-xl transition-all hover:bg-black/[0.02]"
+                    style={{ border: '1px solid rgba(0,0,0,0.04)' }}
+                  >
+                    <div>
+                      <p className="text-sm font-bold" style={{ color: 'rgb(44,36,22)' }}>
+                        {offer.customer_name || 'Customer'}
+                      </p>
+                      <p className="text-xs font-medium" style={{ color: 'rgba(44,36,22,0.55)' }}>
+                        {offer.card_description || 'Card'}
+                      </p>
+                    </div>
+                    <span className="text-sm font-black" style={{ color: '#059669' }}>
+                      ${parseFloat(offer.offer_price || 0).toFixed(2)}
+                    </span>
+                  </Link>
+                ))}
+                <Link to="/buyback" className="text-xs font-semibold flex items-center justify-center gap-1 pt-1 transition-colors"
+                  style={{ color: 'rgb(var(--brand-500))' }}
+                >
+                  View all offers <ArrowRight className="w-3 h-3" />
+                </Link>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -436,9 +545,9 @@ export default function Dashboard() {
                 <PlayCircle className="w-8 h-8 text-white" style={{ filter: 'drop-shadow(0 0 8px rgba(196, 181, 253, 0.6))' }} />
               </div>
               <div>
-                <h3 className="text-xl font-black text-white mb-1">Interactive Admin Tutorial</h3>
+                <h3 className="text-xl font-black text-white mb-1">Get Started in Minutes</h3>
                 <p className="text-sm font-semibold" style={{ color: 'rgba(255, 255, 255, 0.85)' }}>
-                  Children's museum style walkthrough -- Learn CSV upload, customer management, order completion & emails
+                  Step-by-step walkthrough — CSV import, customer setup, submission tracking &amp; email notifications
                 </p>
               </div>
             </div>

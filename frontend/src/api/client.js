@@ -24,6 +24,9 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
     }
+    if (error.response?.status === 403 && error.response?.data?.upgrade) {
+      window.dispatchEvent(new CustomEvent('slabdash:upgrade', { detail: error.response.data }));
+    }
     return Promise.reject(error);
   }
 );
@@ -41,7 +44,9 @@ export const auth = {
 export const companies = {
   get: () => api.get('/companies/settings'),
   update: (data) => api.patch('/companies/settings', data),
-  updatePsaKey: (psaApiKey) => api.post('/companies/psa-key', { apiKey: psaApiKey })
+  updatePsaKey: (psaApiKey) => api.post('/companies/psa-key', { apiKey: psaApiKey }),
+  usage: () => api.get('/companies/usage'),
+  stats: () => api.get('/companies/stats'),
 };
 
 export const customers = {
