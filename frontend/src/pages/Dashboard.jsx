@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { submissions, customers, psa, companies, buyback } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import AdminWalkthrough from '../components/AdminWalkthrough';
+import OnboardingChecklist from '../components/OnboardingChecklist';
 import StatCard from '../components/StatCard';
 import ProgressBar from '../components/ProgressBar';
 import StatusBadge from '../components/StatusBadge';
@@ -268,6 +269,9 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Onboarding checklist — shown to new shops until all steps complete */}
+      <OnboardingChecklist company={company} stats={stats} />
 
       {/* Stats Grid - Clickable cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
