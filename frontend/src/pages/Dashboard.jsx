@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
-import { submissions, customers, psa, companies, buyback } from '../api/client';
+import { submissions, psa, companies, buyback } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import AdminWalkthrough from '../components/AdminWalkthrough';
 import OnboardingChecklist from '../components/OnboardingChecklist';
@@ -525,51 +525,6 @@ export default function Dashboard() {
             </table>
           </div>
         )}
-      </div>
-
-      {/* Interactive Tutorial Banner */}
-      <div className="rounded-3xl overflow-hidden relative"
-        style={{
-          background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.85), rgba(124, 58, 237, 0.9), rgba(109, 40, 217, 0.95))',
-          backdropFilter: 'blur(40px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-          border: '1px solid rgba(196, 181, 253, 0.3)',
-          boxShadow: '0 8px 40px rgba(139, 92, 246, 0.2), inset 0 1px 0 rgba(196, 181, 253, 0.3)',
-        }}
-      >
-        <div className="p-6 relative">
-          <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"
-            style={{ background: 'rgba(196, 181, 253, 0.15)' }}
-          />
-          <div className="relative flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl flex items-center justify-center icon-glow-purple"
-                style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.15)' }}
-              >
-                <PlayCircle className="w-8 h-8 text-white" style={{ filter: 'drop-shadow(0 0 8px rgba(196, 181, 253, 0.6))' }} />
-              </div>
-              <div>
-                <h3 className="text-xl font-black text-white mb-1">Get Started in Minutes</h3>
-                <p className="text-sm font-semibold" style={{ color: 'rgba(255, 255, 255, 0.85)' }}>
-                  Step-by-step walkthrough — CSV import, customer setup, submission tracking &amp; email notifications
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setShowWalkthrough(true)}
-              className="px-6 py-3 rounded-2xl font-bold transition-all whitespace-nowrap"
-              style={{
-                background: 'rgba(255,255,255,0.2)',
-                backdropFilter: 'blur(12px)',
-                color: '#FFF',
-                border: '1px solid rgba(255,255,255,0.2)',
-                boxShadow: '0 4px 16px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.15)',
-              }}
-            >
-              Launch Tutorial
-            </button>
-          </div>
-        </div>
       </div>
 
       {/* Quick Actions */}

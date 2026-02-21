@@ -19,6 +19,9 @@ import {
   HelpCircle,
   Mail,
   Brain,
+  Clock,
+  AlertTriangle,
+  Crown,
 } from 'lucide-react';
 
 export default function Layout({ children }) {
@@ -27,6 +30,17 @@ export default function Layout({ children }) {
   const { user, company, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Trial status
+  const trialEndsAt = company?.trial_ends_at ? new Date(company.trial_ends_at) : null;
+  const now = new Date();
+  const isFree = !company?.plan || company.plan === 'free';
+  const trialExpired = isFree && trialEndsAt && now > trialEndsAt;
+  const daysLeft = trialEndsAt ? Math.ceil((trialEndsAt - now) / (1000 * 60 * 60 * 24)) : null;
+  const showTrialBanner = isFree && !trialExpired && daysLeft !== null && daysLeft <= 10;
+  // Allow access to settings and help even when trial is expired
+  const trialAllowedPaths = ['/settings', '/help'];
+  const blockedByTrial = trialExpired && !trialAllowedPaths.some(p => location.pathname.startsWith(p));
 
   // Owner-only navigation (shown at top with purple styling)
   const ownerNavigation = [
@@ -303,9 +317,68 @@ export default function Layout({ children }) {
         </header>
         )}
 
+        {/* Trial countdown banner */}
+        {showTrialBanner && (
+          <div className="mx-4 sm:mx-6 lg:mx-8 mt-4 sm:mt-6 rounded-2xl overflow-hidden"
+            style={{
+              background: daysLeft <= 3
+                ? 'linear-gradient(135deg, rgba(239,68,68,0.12), rgba(220,38,38,0.08))'
+                : 'linear-gradient(135deg, rgba(245,158,11,0.12), rgba(217,119,6,0.08))',
+              border: daysLeft <= 3 ? '1px solid rgba(239,68,68,0.25)' : '1px solid rgba(245,158,11,0.25)',
+            }}
+          >
+            <div className="px-4 py-3 flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Clock className="w-4 h-4 flex-shrink-0" style={{ color: daysLeft <= 3 ? '#dc2626' : '#d97706' }} />
+                <span className="text-sm font-semibold" style={{ color: daysLeft <= 3 ? '#991b1b' : '#92400e' }}>
+                  {daysLeft <= 0
+                    ? 'Your free trial ends today'
+                    : daysLeft === 1
+                    ? '1 day left in your free trial'
+                    : `${daysLeft} days left in your free trial`}
+                  {' '}— upgrade to keep access after your trial ends.
+                </span>
+              </div>
+              <Link
+                to="/settings?tab=billing"
+                className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-all"
+                style={{ background: daysLeft <= 3 ? '#dc2626' : '#d97706' }}
+              >
+                <Crown className="w-3.5 h-3.5" />
+                Upgrade
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Page content */}
         <main className={location.pathname === '/sam' ? '' : 'p-4 sm:p-6 lg:p-8'}>
-          {children}
+          {blockedByTrial ? (
+            <div className="flex items-center justify-center min-h-[60vh]">
+              <div className="text-center max-w-md mx-auto p-8 card">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.15)' }}
+                >
+                  <AlertTriangle className="w-8 h-8 text-red-500" />
+                </div>
+                <h2 className="text-2xl font-black mb-2" style={{ color: 'rgb(var(--dark))' }}>Your trial has ended</h2>
+                <p className="text-sm mb-6" style={{ color: 'rgba(44,36,22,0.6)' }}>
+                  Your 14-day free trial has expired. Upgrade to keep your submissions, customers, and cards — nothing is deleted.
+                </p>
+                <Link
+                  to="/settings?tab=billing"
+                  className="btn btn-primary gap-2 mx-auto inline-flex"
+                >
+                  <Crown className="w-4 h-4" />
+                  View Plans & Upgrade
+                </Link>
+                <p className="text-xs mt-4" style={{ color: 'rgba(44,36,22,0.4)' }}>
+                  Need help? Visit the{' '}
+                  <Link to="/help" className="underline">Help page</Link>.
+                </p>
+              </div>
+            </div>
+          ) : children}
         </main>
       </div>
 

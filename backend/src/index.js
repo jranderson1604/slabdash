@@ -507,6 +507,25 @@ async function startServer() {
       console.warn("⚠ last_logout_at migration warning:", migrationError.message);
     }
 
+    // Trial expiry system — add trial_ends_at to companies
+    try {
+      await db.query(`
+        ALTER TABLE companies
+        ADD COLUMN IF NOT EXISTS trial_ends_at TIMESTAMP WITH TIME ZONE;
+      `);
+      // Backfill: give existing free-plan companies a trial end date 14 days from now
+      // so they see the countdown rather than immediately being locked
+      await db.query(`
+        UPDATE companies
+        SET trial_ends_at = NOW() + INTERVAL '14 days'
+        WHERE plan IS NULL OR plan = 'free'
+          AND trial_ends_at IS NULL;
+      `);
+      console.log("✓ Migration: trial_ends_at column ensured");
+    } catch (migrationError) {
+      console.warn("⚠ trial_ends_at migration warning:", migrationError.message);
+    }
+
     // Initialize scheduled tasks (cron jobs)
     try {
       initializeScheduler();

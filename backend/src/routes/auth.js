@@ -51,7 +51,8 @@ router.post('/login', loginLimiter, async (req, res) => {
             `SELECT u.id, u.company_id, u.email, u.name, u.role, u.password_hash,
              c.name as company_name, c.slug as company_slug, c.shop_code as company_shop_code,
              c.psa_api_key IS NOT NULL as has_psa_key,
-             c.primary_color, c.background_color, c.sidebar_color
+             c.primary_color, c.background_color, c.sidebar_color,
+             c.plan, c.trial_ends_at
              FROM users u JOIN companies c ON u.company_id = c.id
              WHERE u.email = $1 AND u.is_active = true`,
             [email.toLowerCase()]
@@ -90,7 +91,9 @@ router.post('/login', loginLimiter, async (req, res) => {
                 hasPsaKey: user.has_psa_key,
                 primary_color: user.primary_color || '#8842f0',
                 background_color: user.background_color || '#f5f5f5',
-                sidebar_color: user.sidebar_color || '#ffffff'
+                sidebar_color: user.sidebar_color || '#ffffff',
+                plan: user.plan || 'free',
+                trial_ends_at: user.trial_ends_at
             }
         });
     } catch (error) {
@@ -127,10 +130,12 @@ router.post('/register', registerLimiter, async (req, res) => {
             return res.status(400).json({ error: 'Email already registered' });
         }
 
-        // Create company
+        // Create company (14-day trial starts now)
         const companySlug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 100);
         const companyResult = await db.query(
-            'INSERT INTO companies (name, slug, email) VALUES ($1, $2, $3) RETURNING id, name, slug',
+            `INSERT INTO companies (name, slug, email, plan, trial_ends_at)
+             VALUES ($1, $2, $3, 'free', NOW() + INTERVAL '14 days')
+             RETURNING id, name, slug, plan, trial_ends_at`,
             [companyName.slice(0, 255), companySlug, email.toLowerCase()]
         );
         const company = companyResult.rows[0];
@@ -165,6 +170,8 @@ router.post('/register', registerLimiter, async (req, res) => {
                 id: company.id,
                 name: company.name,
                 slug: company.slug,
+                plan: company.plan || 'free',
+                trial_ends_at: company.trial_ends_at,
                 hasPsaKey: false
             }
         });
@@ -191,7 +198,9 @@ router.get('/me', authenticate, (req, res) => {
             hasPsaKey: !!req.user.psa_api_key,
             primary_color: req.user.primary_color || '#8842f0',
             background_color: req.user.background_color || '#f5f5f5',
-            sidebar_color: req.user.sidebar_color || '#ffffff'
+            sidebar_color: req.user.sidebar_color || '#ffffff',
+            plan: req.user.plan || 'free',
+            trial_ends_at: req.user.trial_ends_at
         }
     });
 });
