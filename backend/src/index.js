@@ -34,6 +34,9 @@ const dashyRoutes = require("./routes/dashy");
 const samRoutes = require("./routes/sam");
 const waitlistRoutes = require("./routes/waitlist");
 const blogRoutes = require("./routes/blog");
+const analyticsRoutes = require("./routes/analytics");
+const webhooksRoutes = require("./routes/webhooks");
+const auditRoutes = require("./routes/audit");
 
 /* -------------------- STARTUP VALIDATION -------------------- */
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
@@ -205,6 +208,9 @@ app.use("/api/dashy", dashyRoutes);
 app.use("/api/sam", samRoutes);
 app.use("/api/waitlist", waitlistRoutes);
 app.use("/api/blog", blogRoutes);
+app.use("/api/analytics", analyticsRoutes);
+app.use("/api/webhooks", webhooksRoutes);
+app.use("/api/audit", auditRoutes);
 
 /* -------------------- 404 HANDLER -------------------- */
 
@@ -505,6 +511,49 @@ async function startServer() {
       console.log("✓ Migration: last_logout_at column ensured");
     } catch (migrationError) {
       console.warn("⚠ last_logout_at migration warning:", migrationError.message);
+    }
+
+    // Outbound webhooks table
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS webhooks (
+          id SERIAL PRIMARY KEY,
+          company_id INTEGER NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+          url TEXT NOT NULL,
+          secret TEXT,
+          events JSONB NOT NULL DEFAULT '["*"]'::jsonb,
+          enabled BOOLEAN DEFAULT TRUE,
+          last_fired_at TIMESTAMP WITH TIME ZONE,
+          last_status INTEGER,
+          error_count INTEGER DEFAULT 0,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_webhooks_company ON webhooks(company_id);
+      `);
+      console.log("✓ Migration: webhooks table ensured");
+    } catch (migrationError) {
+      console.warn("⚠ webhooks migration warning:", migrationError.message);
+    }
+
+    // Audit log table
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS audit_logs (
+          id SERIAL PRIMARY KEY,
+          company_id INTEGER REFERENCES companies(id) ON DELETE CASCADE,
+          user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+          action VARCHAR(100) NOT NULL,
+          entity_type VARCHAR(100),
+          entity_id INTEGER,
+          details JSONB,
+          ip VARCHAR(64),
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS idx_audit_logs_company ON audit_logs(company_id, created_at DESC);
+      `);
+      console.log("✓ Migration: audit_logs table ensured");
+    } catch (migrationError) {
+      console.warn("⚠ audit_logs migration warning:", migrationError.message);
     }
 
     // Trial expiry system — add trial_ends_at to companies

@@ -174,4 +174,13 @@ export const migration = {
   runInvoiceMigration: () => api.post('/migration/add-invoice-columns')
 };
 
+export const analytics = {
+  summary: () => api.get('/analytics/summary'),
+  gradeDistribution: () => api.get('/analytics/grade-distribution'),
+  monthlyTrends: () => api.get('/analytics/monthly-trends'),
+  serviceLevels: () => api.get('/analytics/service-levels'),
+  turnaround: () => api.get('/analytics/turnaround'),
+  topCustomers: () => api.get('/analytics/top-customers'),
+};
+
 export default api;

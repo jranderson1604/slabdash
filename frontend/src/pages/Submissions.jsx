@@ -4,6 +4,7 @@ import { useToast } from '../context/ToastContext';
 import { submissions, emailTemplates, psaImport, psa } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import ProgressBar from '../components/ProgressBar';
+import ExportButton from '../components/ExportButton';
 import StatusBadge from '../components/StatusBadge';
 import {
   Plus, Search, RefreshCw, Filter, MoreVertical, Eye, Trash2,
@@ -718,6 +719,8 @@ export default function Submissions() {
               <Upload className="w-4 h-4" />
               <span className="hidden sm:inline">Import</span>
             </button>
+
+            <ExportButton endpoint="/submissions/export.csv" label="" />
 
             <Link to="/submissions/new" className="bg-white/15 hover:bg-white/25 text-white px-3 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 border border-white/20">
               <Plus className="w-4 h-4" />

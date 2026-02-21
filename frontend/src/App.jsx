@@ -27,6 +27,7 @@ import EmailSender from './pages/EmailSender';
 import Portal from './pages/Portal';
 import OwnerDashboard from './pages/OwnerDashboard';
 import Help from './pages/Help';
+import Analytics from './pages/Analytics';
 import SAMAI from './pages/SAMAI';
 import Demo from './pages/Demo';
 import { Loader2 } from 'lucide-react';
@@ -77,6 +78,7 @@ function AppRoutes() {
       <Route path="/email-settings" element={<ProtectedRoute><EmailSettings /></ProtectedRoute>} />
       <Route path="/email-templates" element={<ProtectedRoute><EmailTemplates /></ProtectedRoute>} />
       <Route path="/email-sender" element={<ProtectedRoute><EmailSender /></ProtectedRoute>} />
+      <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
       <Route path="/owner" element={<ProtectedRoute><OwnerDashboard /></ProtectedRoute>} />
       <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />

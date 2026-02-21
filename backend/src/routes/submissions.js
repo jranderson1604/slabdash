@@ -1035,4 +1035,61 @@ router.post("/verify-pickup-code", authenticate, requireRole("owner", "admin"), 
 });
 
 
+// Export submissions as CSV
+router.get("/export.csv", authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT
+         s.psa_submission_number, s.internal_id, s.service_level,
+         s.card_count, s.progress_percent, s.current_step,
+         s.grades_ready, s.shipped, s.picked_up, s.problem_order,
+         s.date_sent, s.estimated_return_date,
+         s.base_cost, s.upcharge_amount, s.total_cost, s.invoice_sent,
+         s.admin_notes, s.created_at
+       FROM submissions s
+       WHERE s.company_id = $1
+       ORDER BY s.created_at DESC`,
+      [req.user.company_id]
+    );
+
+    const headers = [
+      'PSA Number','Internal ID','Service Level','Card Count','Progress %',
+      'Current Step','Grades Ready','Shipped','Picked Up','Problem Order',
+      'Date Sent','Est. Return','Base Cost','Upcharge','Total Cost','Invoice Sent',
+      'Notes','Created At'
+    ];
+
+    const escape = (v) => {
+      if (v == null) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const rows = result.rows.map(r => [
+      r.psa_submission_number, r.internal_id, r.service_level,
+      r.card_count, r.progress_percent, r.current_step,
+      r.grades_ready ? 'Yes' : 'No',
+      r.shipped ? 'Yes' : 'No',
+      r.picked_up ? 'Yes' : 'No',
+      r.problem_order ? 'Yes' : 'No',
+      r.date_sent ? new Date(r.date_sent).toISOString().split('T')[0] : '',
+      r.estimated_return_date ? new Date(r.estimated_return_date).toISOString().split('T')[0] : '',
+      r.base_cost, r.upcharge_amount, r.total_cost,
+      r.invoice_sent ? 'Yes' : 'No',
+      r.admin_notes,
+      new Date(r.created_at).toISOString().split('T')[0]
+    ].map(escape).join(','));
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const date = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="submissions-${date}.csv"`);
+    res.send(csv);
+  } catch (err) {
+    console.error('Submissions CSV export error:', err.message);
+    res.status(500).json({ error: 'Failed to export' });
+  }
+});
+
 module.exports = router;

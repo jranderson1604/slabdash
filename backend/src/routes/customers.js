@@ -815,4 +815,45 @@ router.post('/bulk-add-to-submission', authenticate, async (req, res) => {
     }
 });
 
+// Export customers as CSV
+router.get("/export.csv", authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT
+         c.name, c.email, c.phone, c.notes,
+         COUNT(DISTINCT ca.id) AS card_count,
+         COUNT(DISTINCT ca.id) FILTER (WHERE ca.grade IS NOT NULL) AS graded_count,
+         c.created_at
+       FROM customers c
+       LEFT JOIN cards ca ON ca.customer_owner_id = c.id AND ca.company_id = $1
+       WHERE c.company_id = $1
+       GROUP BY c.id
+       ORDER BY c.name ASC`,
+      [req.user.company_id]
+    );
+
+    const headers = ['Name','Email','Phone','Cards','Graded','Notes','Joined'];
+    const escape = (v) => {
+      if (v == null) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = result.rows.map(r => [
+      r.name, r.email, r.phone,
+      r.card_count, r.graded_count, r.notes,
+      new Date(r.created_at).toISOString().split('T')[0]
+    ].map(escape).join(','));
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const date = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="customers-${date}.csv"`);
+    res.send(csv);
+  } catch (err) {
+    console.error('Customers CSV export error:', err.message);
+    res.status(500).json({ error: 'Failed to export' });
+  }
+});
+
 module.exports = router;

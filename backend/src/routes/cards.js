@@ -646,4 +646,53 @@ router.post('/:id/scan-image', authenticate, async (req, res) => {
     }
 });
 
+// Export cards as CSV
+router.get("/export.csv", authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT
+         ca.description, ca.player_name, ca.year, ca.brand,
+         ca.card_number, ca.variation, ca.sport, ca.team,
+         ca.grade, ca.psa_cert_number,
+         cu.name AS customer_name,
+         s.psa_submission_number,
+         ca.price_estimate, ca.notes, ca.created_at
+       FROM cards ca
+       LEFT JOIN customers cu ON cu.id = ca.customer_owner_id
+       LEFT JOIN submissions s ON s.id = ca.submission_id
+       WHERE ca.company_id = $1
+       ORDER BY ca.created_at DESC`,
+      [req.user.company_id]
+    );
+
+    const headers = [
+      'Description','Player','Year','Brand','Card #','Variation','Sport','Team',
+      'Grade','PSA Cert #','Customer','Submission','Est. Value','Notes','Created'
+    ];
+    const escape = (v) => {
+      if (v == null) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = result.rows.map(r => [
+      r.description, r.player_name, r.year, r.brand,
+      r.card_number, r.variation, r.sport, r.team,
+      r.grade ? `PSA ${r.grade}` : '', r.psa_cert_number,
+      r.customer_name, r.psa_submission_number,
+      r.price_estimate, r.notes,
+      new Date(r.created_at).toISOString().split('T')[0]
+    ].map(escape).join(','));
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const date = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="cards-${date}.csv"`);
+    res.send(csv);
+  } catch (err) {
+    console.error('Cards CSV export error:', err.message);
+    res.status(500).json({ error: 'Failed to export' });
+  }
+});
+
 module.exports = router;

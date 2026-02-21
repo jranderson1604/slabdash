@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { companies, psa, migration } from '../api/client';
+import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import {
@@ -31,6 +32,13 @@ import {
   Check,
   Bot,
   Lock,
+  Link2,
+  Activity,
+  X,
+  AlertTriangle,
+  Globe,
+  ClipboardList,
+  Filter,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { useRef } from 'react';
@@ -42,6 +50,8 @@ const TABS = [
   { id: 'account',       label: 'Account',         icon: SettingsIcon },
   { id: 'notifications', label: 'Notifications',   icon: Bell },
   { id: 'billing',       label: 'Billing & Portal',icon: CreditCard },
+  { id: 'webhooks',      label: 'Webhooks',         icon: Link2 },
+  { id: 'audit',         label: 'Audit Log',        icon: Activity },
 ];
 
 function SettingsSection({ icon: Icon, title, description, children }) {
@@ -963,7 +973,287 @@ export default function Settings() {
           </SettingsSection>
         </div>
       )}
+
+      {/* ── Webhooks tab ── */}
+      {activeTab === 'webhooks' && (
+        <WebhooksTab />
+      )}
+
+      {/* ── Audit Log tab ── */}
+      {activeTab === 'audit' && (
+        <AuditTab />
+      )}
     </div>
+  );
+}
+
+// ============================================
+// Webhooks management
+// ============================================
+function WebhooksTab() {
+  const [webhooks, setWebhooks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [newUrl, setNewUrl] = useState('');
+  const [newEvents, setNewEvents] = useState(['*']);
+  const [showForm, setShowForm] = useState(false);
+  const [newSecret, setNewSecret] = useState(null);
+
+  const EVENTS = [
+    { value: '*', label: 'All events' },
+    { value: 'submission.grades_ready', label: 'Grades ready' },
+    { value: 'submission.shipped', label: 'Submission shipped' },
+    { value: 'submission.problem', label: 'Problem order flagged' },
+    { value: 'submission.step_changed', label: 'Step changed' },
+    { value: 'customer.created', label: 'Customer created' },
+    { value: 'card.graded', label: 'Card graded' },
+  ];
+
+  const load = async () => {
+    try {
+      const r = await api.get('/webhooks');
+      setWebhooks(r.data.webhooks || []);
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    if (!newUrl) return;
+    setCreating(true);
+    try {
+      const r = await api.post('/webhooks', { url: newUrl, events: newEvents });
+      setNewSecret(r.data.webhook.secret);
+      setWebhooks(prev => [r.data.webhook, ...prev]);
+      setNewUrl('');
+      setNewEvents(['*']);
+      setShowForm(false);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to create webhook');
+    }
+    setCreating(false);
+  };
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this webhook?')) return;
+    await api.delete(`/webhooks/${id}`);
+    setWebhooks(prev => prev.filter(w => w.id !== id));
+  };
+
+  const handleToggle = async (wh) => {
+    await api.patch(`/webhooks/${wh.id}`, { enabled: !wh.enabled });
+    setWebhooks(prev => prev.map(w => w.id === wh.id ? { ...w, enabled: !w.enabled } : w));
+  };
+
+  const handleTest = async (id) => {
+    try {
+      await api.post(`/webhooks/${id}/test`);
+      alert('Test ping sent!');
+    } catch (err) {
+      alert(err.response?.data?.error || 'Test failed');
+    }
+  };
+
+  return (
+    <SettingsSection icon={Link2} title="Outbound Webhooks" description="POST events to your own endpoints when things happen in SlabDash">
+      <div className="space-y-4">
+        {newSecret && (
+          <div className="p-4 rounded-xl border-2 border-green-200 bg-green-50">
+            <p className="font-bold text-green-800 mb-1">Webhook created — save your secret now</p>
+            <p className="text-xs text-green-700 mb-2">This secret is shown only once. Use it to verify the <code>X-SlabDash-Signature</code> header.</p>
+            <code className="text-xs font-mono bg-white px-3 py-2 rounded-lg border block break-all">{newSecret}</code>
+            <button className="mt-2 text-xs text-green-700 underline" onClick={() => setNewSecret(null)}>Dismiss</button>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm" style={{ color: 'rgba(44,36,22,0.45)' }}>
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+          </div>
+        ) : webhooks.length === 0 && !showForm ? (
+          <div className="text-center py-8" style={{ color: 'rgba(44,36,22,0.4)' }}>
+            <Globe className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm font-semibold mb-3">No webhooks configured</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {webhooks.map(wh => (
+              <div key={wh.id} className="flex items-start justify-between p-4 rounded-xl"
+                style={{ background: 'rgba(44,36,22,0.03)', border: '1px solid rgba(44,36,22,0.08)' }}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${wh.enabled ? 'bg-green-500' : 'bg-gray-300'}`} />
+                    <code className="text-sm font-mono truncate" style={{ color: 'rgb(var(--dark))' }}>{wh.url}</code>
+                  </div>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {(wh.events || []).map(e => (
+                      <span key={e} className="text-xs px-2 py-0.5 rounded-full font-medium"
+                        style={{ background: 'rgba(255,129,112,0.1)', color: '#C74430' }}>{e}</span>
+                    ))}
+                  </div>
+                  {wh.last_fired_at && (
+                    <p className="text-xs mt-1.5" style={{ color: 'rgba(44,36,22,0.4)' }}>
+                      Last fired: {new Date(wh.last_fired_at).toLocaleString()}
+                      {wh.last_status && ` · HTTP ${wh.last_status}`}
+                      {wh.error_count > 0 && ` · ${wh.error_count} errors`}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+                  <button onClick={() => handleTest(wh.id)}
+                    className="text-xs px-2.5 py-1.5 rounded-lg font-semibold transition-all"
+                    style={{ background: 'rgba(59,130,246,0.1)', color: '#2563eb' }}>Test</button>
+                  <button onClick={() => handleToggle(wh)}
+                    className="text-xs px-2.5 py-1.5 rounded-lg font-semibold transition-all"
+                    style={{ background: wh.enabled ? 'rgba(239,68,68,0.08)' : 'rgba(16,185,129,0.08)',
+                             color: wh.enabled ? '#dc2626' : '#059669' }}>
+                    {wh.enabled ? 'Disable' : 'Enable'}
+                  </button>
+                  <button onClick={() => handleDelete(wh.id)}
+                    className="text-xs px-2.5 py-1.5 rounded-lg font-semibold transition-all"
+                    style={{ background: 'rgba(239,68,68,0.08)', color: '#dc2626' }}>Delete</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showForm ? (
+          <div className="space-y-3 p-4 rounded-xl" style={{ background: 'rgba(44,36,22,0.03)', border: '1px solid rgba(44,36,22,0.1)' }}>
+            <div>
+              <label className="label">Endpoint URL</label>
+              <input className="input w-full" placeholder="https://example.com/hooks/slabdash"
+                value={newUrl} onChange={e => setNewUrl(e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Events</label>
+              <div className="flex flex-wrap gap-2">
+                {EVENTS.map(ev => (
+                  <label key={ev.value} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                    <input type="checkbox" checked={newEvents.includes(ev.value)}
+                      onChange={e => {
+                        if (ev.value === '*') { setNewEvents(['*']); return; }
+                        setNewEvents(prev =>
+                          e.target.checked
+                            ? [...prev.filter(x => x !== '*'), ev.value]
+                            : prev.filter(x => x !== ev.value)
+                        );
+                      }} />
+                    {ev.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={handleCreate} disabled={creating || !newUrl} className="btn btn-primary gap-2">
+                {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                Create
+              </button>
+              <button onClick={() => setShowForm(false)} className="btn btn-secondary">Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <button onClick={() => setShowForm(true)} className="btn btn-secondary gap-2">
+            <Plus className="w-4 h-4" /> Add Webhook
+          </button>
+        )}
+      </div>
+    </SettingsSection>
+  );
+}
+
+// ============================================
+// Audit log viewer
+// ============================================
+function AuditTab() {
+  const [logs, setLogs] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const LIMIT = 30;
+
+  const load = async (p = 1) => {
+    setLoading(true);
+    try {
+      const r = await api.get(`/audit?page=${p}&limit=${LIMIT}`);
+      setLogs(r.data.logs || []);
+      setTotal(r.data.total || 0);
+    } catch { /* ignore */ }
+    setLoading(false);
+  };
+  useEffect(() => { load(page); }, [page]);
+
+  const ACTION_COLORS = {
+    created: '#10b981', updated: '#3b82f6', deleted: '#ef4444',
+    exported: '#8b5cf6', sent: '#f59e0b',
+  };
+
+  const fmt = (ts) => new Date(ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  return (
+    <SettingsSection icon={Activity} title="Audit Log" description="History of actions performed by your team">
+      <div className="space-y-3">
+        {loading ? (
+          <div className="flex items-center gap-2 text-sm py-4" style={{ color: 'rgba(44,36,22,0.45)' }}>
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading...
+          </div>
+        ) : logs.length === 0 ? (
+          <div className="text-center py-8" style={{ color: 'rgba(44,36,22,0.4)' }}>
+            <ClipboardList className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="text-sm font-semibold">No audit entries yet</p>
+            <p className="text-xs mt-1">Actions like creating customers, updating submissions, and sending emails will be logged here.</p>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(44,36,22,0.08)' }}>
+                    {['When', 'User', 'Action', 'Entity', 'Details'].map(h => (
+                      <th key={h} className="text-left py-2 pr-3 text-xs font-bold uppercase tracking-wider"
+                        style={{ color: 'rgba(44,36,22,0.4)' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map(log => (
+                    <tr key={log.id} style={{ borderBottom: '1px solid rgba(44,36,22,0.04)' }}>
+                      <td className="py-2 pr-3 text-xs whitespace-nowrap" style={{ color: 'rgba(44,36,22,0.45)' }}>{fmt(log.created_at)}</td>
+                      <td className="py-2 pr-3 font-medium" style={{ color: 'rgb(var(--dark))' }}>{log.user_name || '—'}</td>
+                      <td className="py-2 pr-3">
+                        <span className="text-xs px-2 py-0.5 rounded-full font-bold"
+                          style={{ background: `${ACTION_COLORS[log.action] || '#6b7280'}18`, color: ACTION_COLORS[log.action] || '#6b7280' }}>
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="py-2 pr-3 text-xs" style={{ color: 'rgba(44,36,22,0.55)' }}>
+                        {log.entity_type}{log.entity_id ? ` #${log.entity_id}` : ''}
+                      </td>
+                      <td className="py-2 text-xs" style={{ color: 'rgba(44,36,22,0.45)' }}>
+                        {log.details ? JSON.stringify(log.details).slice(0, 60) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {total > LIMIT && (
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-xs" style={{ color: 'rgba(44,36,22,0.45)' }}>
+                  {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
+                </p>
+                <div className="flex gap-2">
+                  <button disabled={page <= 1} onClick={() => setPage(p => p - 1)} className="btn btn-secondary text-xs py-1.5">Prev</button>
+                  <button disabled={page * LIMIT >= total} onClick={() => setPage(p => p + 1)} className="btn btn-secondary text-xs py-1.5">Next</button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </SettingsSection>
   );
 }
 

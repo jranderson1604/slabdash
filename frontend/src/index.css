@@ -44,6 +44,25 @@
   --glass-shadow: rgba(0, 0, 0, 0.04);
 }
 
+/* Dark mode — toggle with .dark class on <html> */
+:root.dark {
+  --bg-color: 15 14 20;          /* near-black */
+  --sidebar-color: 10 10 14;     /* deeper dark */
+  --card-bg: 25 24 32;           /* elevated surface */
+  --section-alt-bg: 20 19 27;
+
+  --dark: 240 236 228;           /* near-white text */
+  --dark-mid: 180 170 155;
+
+  --bg-text: 230 224 215;
+  --sidebar-text: 230 224 215;
+
+  --glass-bg: rgba(255, 255, 255, 0.04);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-highlight: rgba(255, 255, 255, 0.06);
+  --glass-shadow: rgba(0, 0, 0, 0.3);
+}
+
 @layer base {
   body {
     background-color: rgb(var(--bg-color));

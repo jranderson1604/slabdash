@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { cards } from '../api/client';
+import ExportButton from '../components/ExportButton';
 import {
   Search,
   CreditCard,
@@ -17,6 +18,9 @@ import {
   DollarSign,
   Package,
   Users,
+  Trash2,
+  X,
+  Download,
 } from 'lucide-react';
 
 export default function Cards() {
@@ -24,12 +28,13 @@ export default function Cards() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'graded', 'pending'
-  const [gradeFilter, setGradeFilter] = useState('all'); // 'all', '10', '9+', '8+', 'other'
-  const [categoryFilter, setCategoryFilter] = useState('all'); // 'all', 'Sports', 'TCG', 'Other'
-  const [sortBy, setSortBy] = useState('date'); // 'date', 'grade', 'customer', 'submission'
-  const [sortOrder, setSortOrder] = useState('desc'); // 'asc', 'desc'
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [gradeFilter, setGradeFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('date');
+  const [sortOrder, setSortOrder] = useState('desc');
   const [showHelp, setShowHelp] = useState(false);
+  const [selected, setSelected] = useState(new Set());
 
   const loadCards = async () => {
     try {
@@ -122,6 +127,52 @@ export default function Cards() {
     return sortOrder === 'asc' ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />;
   };
 
+  const allVisibleSelected = sortedCards.length > 0 && sortedCards.every(c => selected.has(c.id));
+  const toggleSelectAll = () => {
+    if (allVisibleSelected) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(sortedCards.map(c => c.id)));
+    }
+  };
+  const toggleCard = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const exportSelected = () => {
+    const sel = sortedCards.filter(c => selected.has(c.id));
+    const headers = ['Description','Player','Year','Brand','Card #','Grade','PSA Cert #','Customer','Submission'];
+    const esc = v => {
+      if (v == null) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g,'""')}"` : s;
+    };
+    const rows = sel.map(c => [
+      c.description, c.player_name, c.year, c.brand, c.card_number,
+      c.grade ? `PSA ${c.grade}` : '', c.psa_cert_number,
+      c.customer_name, c.psa_submission_number
+    ].map(esc).join(','));
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `cards-selected-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  const deleteSelected = async () => {
+    if (!confirm(`Delete ${selected.size} card(s)? This cannot be undone.`)) return;
+    const ids = [...selected];
+    await Promise.allSettled(ids.map(id => cards.delete(id)));
+    setCardList(prev => prev.filter(c => !selected.has(c.id)));
+    setSelected(new Set());
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -135,13 +186,16 @@ export default function Cards() {
             <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">CARDS</h1>
             <p className="text-white/90 text-lg font-semibold">Search and manage all cards across submissions</p>
           </div>
-          <button
-            onClick={() => setShowHelp(!showHelp)}
-            className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg hover:shadow-xl hover:scale-105"
-          >
-            <Info className="w-5 h-5" />
-            {showHelp ? 'Hide' : 'Show'} Help
-          </button>
+          <div className="flex items-center gap-2">
+            <ExportButton endpoint="/cards/export.csv" label="" />
+            <button
+              onClick={() => setShowHelp(!showHelp)}
+              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg hover:shadow-xl hover:scale-105"
+            >
+              <Info className="w-5 h-5" />
+              {showHelp ? 'Hide' : 'Show'} Help
+            </button>
+          </div>
         </div>
       </div>
 
@@ -358,6 +412,15 @@ export default function Cards() {
             <table>
               <thead>
                 <tr>
+                  <th className="w-8">
+                    <input
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={toggleSelectAll}
+                      className="rounded"
+                      title="Select all"
+                    />
+                  </th>
                   <th>
                     <button onClick={() => toggleSort('date')} className="flex items-center gap-1 hover:text-brand-600">
                       Card Details
@@ -388,7 +451,15 @@ export default function Cards() {
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {sortedCards.map((card) => (
-                  <tr key={card.id} className="hover:bg-gray-50">
+                  <tr key={card.id} className={`hover:bg-gray-50 ${selected.has(card.id) ? 'bg-brand-50' : ''}`}>
+                    <td className="w-8">
+                      <input
+                        type="checkbox"
+                        checked={selected.has(card.id)}
+                        onChange={() => toggleCard(card.id)}
+                        className="rounded"
+                      />
+                    </td>
                     <td>
                       <div>
                         <p className="font-medium text-gray-900">
@@ -484,6 +555,43 @@ export default function Cards() {
           Showing {sortedCards.length} of {cardList.length} card{cardList.length !== 1 ? 's' : ''}
           {(search || statusFilter !== 'all' || gradeFilter !== 'all' || categoryFilter !== 'all') && ' (filtered)'}
         </p>
+      )}
+
+      {/* Bulk action bar */}
+      {selected.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl"
+          style={{
+            background: 'rgba(44,36,22,0.95)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255,248,240,0.12)',
+          }}
+        >
+          <span className="text-sm font-bold text-white">{selected.size} selected</span>
+          <div className="w-px h-4 bg-white/20" />
+          <button
+            onClick={exportSelected}
+            className="flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-xl transition-all"
+            style={{ background: 'rgba(255,255,255,0.12)', color: 'rgba(255,248,240,0.9)' }}
+          >
+            <Download className="w-3.5 h-3.5" />
+            Export
+          </button>
+          <button
+            onClick={deleteSelected}
+            className="flex items-center gap-1.5 text-sm font-semibold px-3 py-1.5 rounded-xl transition-all"
+            style={{ background: 'rgba(239,68,68,0.2)', color: '#fca5a5' }}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            Delete
+          </button>
+          <button
+            onClick={() => setSelected(new Set())}
+            className="rounded-lg p-1 transition-all"
+            style={{ color: 'rgba(255,248,240,0.5)' }}
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       )}
     </div>
   );

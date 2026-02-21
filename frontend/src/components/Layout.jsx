@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import SAMAssistant from './SAMAssistant';
+import KeyboardShortcutsModal from './KeyboardShortcutsModal';
 import {
   LayoutDashboard,
   Package,
@@ -22,12 +23,57 @@ import {
   Clock,
   AlertTriangle,
   Crown,
+  BarChart2,
+  Moon,
+  Sun,
 } from 'lucide-react';
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('slabdash-dark') === 'true');
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const { user, company, logout } = useAuth();
+
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('slabdash-dark', 'true');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('slabdash-dark', 'false');
+    }
+  }, [darkMode]);
+
+  // Keyboard shortcuts — two-key sequences (g+d, n+s, etc.)
+  useEffect(() => {
+    let pending = null;
+    let timer = null;
+    const ROUTES = {
+      'd': '/dashboard', 's': '/submissions', 'c': '/customers',
+      'k': '/cards', 'a': '/analytics', 'i': '/import', 'e': '/email-settings',
+      ',': '/settings',
+    };
+    const handle = (e) => {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (['input', 'textarea', 'select'].includes(tag) || document.activeElement?.isContentEditable) return;
+      if (e.key === 'Escape') { setShowShortcuts(false); return; }
+      if (e.key === '?') { setShowShortcuts(s => !s); return; }
+      clearTimeout(timer);
+      if (!pending) {
+        pending = e.key.toLowerCase();
+        timer = setTimeout(() => { pending = null; }, 1000);
+      } else {
+        const seq = pending + e.key.toLowerCase();
+        pending = null;
+        if (seq[0] === 'g' && ROUTES[seq[1]]) navigate(ROUTES[seq[1]]);
+        if (seq === 'ns') navigate('/submissions/new');
+        if (seq === 'nc') navigate('/customers/new');
+      }
+    };
+    window.addEventListener('keydown', handle);
+    return () => { window.removeEventListener('keydown', handle); clearTimeout(timer); };
+  }, [navigate]);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -54,6 +100,7 @@ export default function Layout({ children }) {
     { name: 'Submissions', href: '/submissions', icon: Package },
     { name: 'Customers', href: '/customers', icon: Users },
     { name: 'Cards', href: '/cards', icon: CreditCard },
+    { name: 'Analytics', href: '/analytics', icon: BarChart2 },
     { name: 'Import CSV', href: '/import', icon: Upload },
     { name: 'Buyback Offers', href: '/buyback', icon: DollarSign },
     { name: 'Email', href: '/email-settings', icon: Mail },
@@ -206,13 +253,23 @@ export default function Layout({ children }) {
 
         {/* PSA Status */}
         <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(255, 248, 240, 0.08)' }}>
-          <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${company?.hasPsaKey ? 'bg-emerald-400' : 'bg-amber-400'}`}
-              style={{ boxShadow: company?.hasPsaKey ? '0 0 6px rgba(52, 211, 153, 0.4)' : '0 0 6px rgba(251, 191, 36, 0.4)' }}
-            />
-            <span className="text-xs font-medium" style={{ color: 'rgba(255, 248, 240, 0.6)' }}>
-              PSA API: {company?.hasPsaKey ? 'Connected' : 'Not configured'}
-            </span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${company?.hasPsaKey ? 'bg-emerald-400' : 'bg-amber-400'}`}
+                style={{ boxShadow: company?.hasPsaKey ? '0 0 6px rgba(52, 211, 153, 0.4)' : '0 0 6px rgba(251, 191, 36, 0.4)' }}
+              />
+              <span className="text-xs font-medium" style={{ color: 'rgba(255, 248, 240, 0.6)' }}>
+                PSA: {company?.hasPsaKey ? 'Connected' : 'Not set'}
+              </span>
+            </div>
+            <button
+              onClick={() => setDarkMode(d => !d)}
+              className="rounded-lg p-1.5 transition-all"
+              style={{ background: 'rgba(255,248,240,0.08)', color: 'rgba(255,248,240,0.6)' }}
+              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+            </button>
           </div>
         </div>
       </aside>
@@ -384,6 +441,7 @@ export default function Layout({ children }) {
 
       {/* SAM AI Assistant - floating button on all pages */}
       <SAMAssistant />
+      {showShortcuts && <KeyboardShortcutsModal onClose={() => setShowShortcuts(false)} />}
     </div>
   );
 }

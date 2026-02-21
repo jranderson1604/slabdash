@@ -612,6 +612,13 @@ const updateSubmissionFromPsa = async (submissionId, psaData) => {
         } catch (emailError) {
             console.error('Failed to send shipped email:', emailError.message);
         }
+        if (prev.company_id) {
+            const { fireWebhook } = require('./webhookService');
+            fireWebhook(prev.company_id, 'submission.shipped', {
+                submission_id: submissionId,
+                psa_number: prev.psa_submission_number,
+            }).catch(() => {});
+        }
     }
 
     // Notify shop owner when grades first become ready
@@ -621,6 +628,13 @@ const updateSubmissionFromPsa = async (submissionId, psaData) => {
             await sendOwnerGradesReadyEmail(submissionId);
         } catch (emailError) {
             console.error('Failed to send owner grades-ready email:', emailError.message);
+        }
+        if (prev.company_id) {
+            const { fireWebhook } = require('./webhookService');
+            fireWebhook(prev.company_id, 'submission.grades_ready', {
+                submission_id: submissionId,
+                psa_number: prev.psa_submission_number,
+            }).catch(() => {});
         }
     }
 
@@ -632,6 +646,13 @@ const updateSubmissionFromPsa = async (submissionId, psaData) => {
             await sendOwnerProblemOrderEmail(submissionId);
         } catch (emailError) {
             console.error('Failed to send problem order email:', emailError.message);
+        }
+        if (prev.company_id) {
+            const { fireWebhook } = require('./webhookService');
+            fireWebhook(prev.company_id, 'submission.problem', {
+                submission_id: submissionId,
+                psa_number: prev.psa_submission_number,
+            }).catch(() => {});
         }
     }
 
