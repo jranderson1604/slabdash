@@ -251,7 +251,7 @@ export default function Dashboard() {
             <h1 className="text-2xl font-black tracking-tight" style={{ color: '#FF8170', textShadow: '0 0 20px rgba(255,129,112,0.4)', letterSpacing: '-0.01em' }}>
               COMMAND CENTER
             </h1>
-            <p className="text-xs mt-1 font-medium" style={{ color: 'rgba(255,129,112,0.45)', letterSpacing: '0.05em' }}>
+            <p className="text-xs mt-1 font-medium" style={{ color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>
               {company?.name} · PSA Submission Tracking Active
             </p>
           </div>
@@ -486,7 +486,7 @@ export default function Dashboard() {
             {(!stats?.gradesReady && !stats?.problems) && (
               <div className="text-center py-4">
                 <p className="hud-label">ALL SYSTEMS NOMINAL</p>
-                <p className="text-xs mt-1" style={{ color: 'rgba(255,129,112,0.3)' }}>No active alerts</p>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>No active alerts</p>
               </div>
             )}
           </div>
@@ -502,7 +502,7 @@ export default function Dashboard() {
             <Link
               to="/buyback"
               className="flex items-center gap-1 text-xs font-bold transition-all"
-              style={{ color: 'rgba(255,129,112,0.6)' }}
+              style={{ color: 'rgba(255,129,112,0.85)' }}
             >
               All <ArrowRight className="w-3 h-3" />
             </Link>
@@ -557,7 +557,7 @@ export default function Dashboard() {
           <Link
             to="/submissions"
             className="flex items-center gap-1 text-xs font-bold transition-all"
-            style={{ color: 'rgba(255,129,112,0.6)' }}
+            style={{ color: 'rgba(255,129,112,0.85)' }}
           >
             All missions <ArrowRight className="w-3 h-3" />
           </Link>
@@ -634,7 +634,7 @@ export default function Dashboard() {
               <Users className="w-5 h-5" style={{ color: '#10b981', filter: 'drop-shadow(0 0 4px rgba(16,185,129,0.5))' }} />
             </div>
             <div>
-              <p className="hud-label mb-0.5" style={{ color: 'rgba(16,185,129,0.6)' }}>// ENLIST</p>
+              <p className="hud-label mb-0.5">// ENLIST</p>
               <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>Add Operative</p>
             </div>
           </div>
@@ -656,7 +656,7 @@ export default function Dashboard() {
               <Zap className="w-5 h-5" style={{ color: '#8b5cf6', filter: 'drop-shadow(0 0 4px rgba(139,92,246,0.5))' }} />
             </div>
             <div>
-              <p className="hud-label mb-0.5" style={{ color: 'rgba(139,92,246,0.6)' }}>// CONFIGURE</p>
+              <p className="hud-label mb-0.5">// CONFIGURE</p>
               <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>Connect PSA</p>
             </div>
           </div>

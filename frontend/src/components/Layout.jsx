@@ -278,7 +278,7 @@ export default function Layout({ children }) {
               {darkMode ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
             </button>
           </div>
-          <p className="text-[8px] mt-1" style={{ color: 'rgba(255,129,112,0.2)', letterSpacing: '0.08em' }}>
+          <p className="text-[8px] mt-1" style={{ color: 'rgba(255,129,112,0.4)', letterSpacing: '0.08em' }}>
             SlabDash Command · PSA Tracking
           </p>
         </div>
