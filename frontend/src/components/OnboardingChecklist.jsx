@@ -81,7 +81,7 @@ export default function OnboardingChecklist({ company, stats }) {
             <h2 className="text-base font-bold" style={{ color: 'rgb(var(--dark))' }}>
               Get started with SlabDash
             </h2>
-            <p className="text-sm font-medium mt-0.5" style={{ color: 'rgba(44,36,22,0.55)' }}>
+            <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--text-secondary)' }}>
               {completedCount} of {steps.length} steps complete
             </p>
           </div>
@@ -121,11 +121,11 @@ export default function OnboardingChecklist({ company, stats }) {
 
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-semibold ${step.done ? 'line-through' : ''}`}
-                    style={{ color: step.done ? 'rgba(44,36,22,0.4)' : 'rgb(44,36,22)' }}>
+                    style={{ color: step.done ? 'var(--text-muted)' : 'rgb(var(--dark))' }}>
                     {step.title}
                   </p>
                   {!step.done && (
-                    <p className="text-xs mt-0.5 mb-2" style={{ color: 'rgba(44,36,22,0.5)' }}>
+                    <p className="text-xs mt-0.5 mb-2" style={{ color: 'var(--text-secondary)' }}>
                       {step.desc}
                     </p>
                   )}

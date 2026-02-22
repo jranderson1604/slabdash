@@ -68,7 +68,7 @@ function SettingsSection({ icon: Icon, title, description, children }) {
         </div>
         <div>
           <h2 className="text-lg font-bold" style={{ color: 'rgb(var(--dark))' }}>{title}</h2>
-          <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.65)' }}>{description}</p>
+          <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{description}</p>
         </div>
       </div>
       {children}
@@ -378,7 +378,7 @@ export default function Settings() {
                 color: '#fff',
                 boxShadow: '0 2px 8px rgba(255,107,89,0.3)',
               } : {
-                color: 'rgba(44,36,22,0.6)',
+                color: 'var(--text-secondary)',
               }}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
@@ -1067,11 +1067,11 @@ function WebhooksTab() {
         )}
 
         {loading ? (
-          <div className="flex items-center gap-2 text-sm" style={{ color: 'rgba(44,36,22,0.45)' }}>
+          <div className="flex items-center gap-2 text-sm" style={{ color: 'var(--text-muted)' }}>
             <Loader2 className="w-4 h-4 animate-spin" /> Loading...
           </div>
         ) : webhooks.length === 0 && !showForm ? (
-          <div className="text-center py-8" style={{ color: 'rgba(44,36,22,0.4)' }}>
+          <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
             <Globe className="w-10 h-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm font-semibold mb-3">No webhooks configured</p>
           </div>
@@ -1092,7 +1092,7 @@ function WebhooksTab() {
                     ))}
                   </div>
                   {wh.last_fired_at && (
-                    <p className="text-xs mt-1.5" style={{ color: 'rgba(44,36,22,0.4)' }}>
+                    <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>
                       Last fired: {new Date(wh.last_fired_at).toLocaleString()}
                       {wh.last_status && ` · HTTP ${wh.last_status}`}
                       {wh.error_count > 0 && ` · ${wh.error_count} errors`}
@@ -1194,11 +1194,11 @@ function AuditTab() {
     <SettingsSection icon={Activity} title="Audit Log" description="History of actions performed by your team">
       <div className="space-y-3">
         {loading ? (
-          <div className="flex items-center gap-2 text-sm py-4" style={{ color: 'rgba(44,36,22,0.45)' }}>
+          <div className="flex items-center gap-2 text-sm py-4" style={{ color: 'var(--text-muted)' }}>
             <Loader2 className="w-4 h-4 animate-spin" /> Loading...
           </div>
         ) : logs.length === 0 ? (
-          <div className="text-center py-8" style={{ color: 'rgba(44,36,22,0.4)' }}>
+          <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
             <ClipboardList className="w-10 h-10 mx-auto mb-3 opacity-30" />
             <p className="text-sm font-semibold">No audit entries yet</p>
             <p className="text-xs mt-1">Actions like creating customers, updating submissions, and sending emails will be logged here.</p>
@@ -1211,14 +1211,14 @@ function AuditTab() {
                   <tr style={{ borderBottom: '1px solid rgba(44,36,22,0.08)' }}>
                     {['When', 'User', 'Action', 'Entity', 'Details'].map(h => (
                       <th key={h} className="text-left py-2 pr-3 text-xs font-bold uppercase tracking-wider"
-                        style={{ color: 'rgba(44,36,22,0.4)' }}>{h}</th>
+                        style={{ color: 'var(--text-muted)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {logs.map(log => (
                     <tr key={log.id} style={{ borderBottom: '1px solid rgba(44,36,22,0.04)' }}>
-                      <td className="py-2 pr-3 text-xs whitespace-nowrap" style={{ color: 'rgba(44,36,22,0.45)' }}>{fmt(log.created_at)}</td>
+                      <td className="py-2 pr-3 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>{fmt(log.created_at)}</td>
                       <td className="py-2 pr-3 font-medium" style={{ color: 'rgb(var(--dark))' }}>{log.user_name || '—'}</td>
                       <td className="py-2 pr-3">
                         <span className="text-xs px-2 py-0.5 rounded-full font-bold"
@@ -1226,10 +1226,10 @@ function AuditTab() {
                           {log.action}
                         </span>
                       </td>
-                      <td className="py-2 pr-3 text-xs" style={{ color: 'rgba(44,36,22,0.55)' }}>
+                      <td className="py-2 pr-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
                         {log.entity_type}{log.entity_id ? ` #${log.entity_id}` : ''}
                       </td>
-                      <td className="py-2 text-xs" style={{ color: 'rgba(44,36,22,0.45)' }}>
+                      <td className="py-2 text-xs" style={{ color: 'var(--text-muted)' }}>
                         {log.details ? JSON.stringify(log.details).slice(0, 60) : '—'}
                       </td>
                     </tr>
@@ -1241,7 +1241,7 @@ function AuditTab() {
             {/* Pagination */}
             {total > LIMIT && (
               <div className="flex items-center justify-between pt-2">
-                <p className="text-xs" style={{ color: 'rgba(44,36,22,0.45)' }}>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                   {(page - 1) * LIMIT + 1}–{Math.min(page * LIMIT, total)} of {total}
                 </p>
                 <div className="flex gap-2">

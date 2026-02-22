@@ -34,6 +34,8 @@ export default function Layout({ children }) {
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('slabdash-dark') !== 'false');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const { user, company, logout } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (darkMode) {
@@ -74,8 +76,6 @@ export default function Layout({ children }) {
     window.addEventListener('keydown', handle);
     return () => { window.removeEventListener('keydown', handle); clearTimeout(timer); };
   }, [navigate]);
-  const location = useLocation();
-  const navigate = useNavigate();
 
   // Trial status
   const trialEndsAt = company?.trial_ends_at ? new Date(company.trial_ends_at) : null;
@@ -203,7 +203,7 @@ export default function Layout({ children }) {
             const isActive = location.pathname === item.href ||
               (item.href !== '/dashboard' && item.href !== '/' && location.pathname.startsWith(item.href));
 
-            // Special styling for SAM AI / JARVIS (highlighted) with arc reactor glow
+            // Special styling for SAM AI (highlighted) with glow
             if (item.highlight) {
               return (
                 <Link
@@ -258,7 +258,7 @@ export default function Layout({ children }) {
           })}
         </nav>
 
-        {/* PSA Status — JARVIS system status */}
+        {/* System Status */}
         <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(0,212,255,0.08)' }}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -350,16 +350,16 @@ export default function Layout({ children }) {
                     />
                     <div className="absolute right-0 z-[70] mt-2 w-48 rounded-2xl py-1 fade-in"
                       style={{
-                        background: 'rgba(255, 255, 255, 0.85)',
+                        background: darkMode ? 'rgba(8,14,24,0.95)' : 'rgba(255,255,255,0.9)',
                         backdropFilter: 'blur(20px)',
                         WebkitBackdropFilter: 'blur(20px)',
-                        border: '1px solid rgba(255, 255, 255, 0.5)',
-                        boxShadow: '0 12px 40px rgba(0, 0, 0, 0.1), 0 4px 16px rgba(0, 0, 0, 0.05)',
+                        border: darkMode ? '1px solid rgba(0,212,255,0.15)' : '1px solid rgba(255,255,255,0.5)',
+                        boxShadow: darkMode ? '0 12px 40px rgba(0,0,0,0.4), 0 0 20px rgba(0,212,255,0.05)' : '0 12px 40px rgba(0,0,0,0.1), 0 4px 16px rgba(0,0,0,0.05)',
                       }}
                     >
-                      <div className="px-4 py-2" style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
+                      <div className="px-4 py-2" style={{ borderBottom: darkMode ? '1px solid rgba(0,212,255,0.08)' : '1px solid rgba(0,0,0,0.06)' }}>
                         <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>{user?.name}</p>
-                        <p className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.7)' }}>{user?.email}</p>
+                        <p className="text-xs" style={{ color: 'var(--text-body)' }}>{user?.email}</p>
                       </div>
                       <Link
                         to="/settings"
@@ -431,7 +431,7 @@ export default function Layout({ children }) {
                   <AlertTriangle className="w-8 h-8 text-red-500" />
                 </div>
                 <h2 className="text-2xl font-black mb-2" style={{ color: 'rgb(var(--dark))' }}>Your trial has ended</h2>
-                <p className="text-sm mb-6" style={{ color: 'rgba(44,36,22,0.6)' }}>
+                <p className="text-sm mb-6" style={{ color: 'rgb(var(--bg-text))' }}>
                   Your 14-day free trial has expired. Upgrade to keep your submissions, customers, and cards — nothing is deleted.
                 </p>
                 <Link
@@ -441,7 +441,7 @@ export default function Layout({ children }) {
                   <Crown className="w-4 h-4" />
                   View Plans & Upgrade
                 </Link>
-                <p className="text-xs mt-4" style={{ color: 'rgba(44,36,22,0.4)' }}>
+                <p className="text-xs mt-4" style={{ color: 'rgb(var(--bg-text))', opacity: 0.5 }}>
                   Need help? Visit the{' '}
                   <Link to="/help" className="underline">Help page</Link>.
                 </p>

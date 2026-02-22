@@ -87,7 +87,7 @@ export default function Register() {
           </div>
 
           <h2 className="text-2xl font-bold" style={{ color: 'rgb(var(--dark))' }}>Create your account</h2>
-          <p className="mt-2 font-medium" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>Start tracking PSA submissions today</p>
+          <p className="mt-2 font-medium" style={{ color: 'var(--text-secondary)' }}>Start tracking PSA submissions today</p>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             {error && (
@@ -229,7 +229,7 @@ export default function Register() {
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>
+          <p className="mt-6 text-center text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
             Already have an account?{' '}
             <Link to="/login" className="font-bold" style={{ color: 'rgb(var(--brand-600))' }}>
               Sign in
@@ -254,7 +254,7 @@ export default function Register() {
           </h3>
           <ul className="space-y-4">
             {features.map((feature, i) => (
-              <li key={i} className="flex items-center gap-3 font-medium" style={{ color: 'rgba(44, 36, 22, 0.7)' }}>
+              <li key={i} className="flex items-center gap-3 font-medium" style={{ color: 'var(--text-body)' }}>
                 <div className="w-6 h-6 rounded-full flex items-center justify-center"
                   style={{
                     background: 'rgba(16, 185, 129, 0.1)',
@@ -274,7 +274,7 @@ export default function Register() {
               border: '1px solid rgba(255, 129, 112, 0.1)',
             }}
           >
-            <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
+            <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
               "SlabDash has transformed how we track submissions. Our customers love being able to check their order status anytime."
             </p>
             <p className="mt-3 font-bold text-sm" style={{ color: 'rgb(var(--dark))' }}>-- Card Shop Owner</p>

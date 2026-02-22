@@ -42,7 +42,7 @@ export default function ExportButton({ endpoint, label = 'Export CSV' }) {
       style={{
         background: 'rgba(44,36,22,0.06)',
         border: '1px solid rgba(44,36,22,0.1)',
-        color: 'rgba(44,36,22,0.65)',
+        color: 'var(--text-secondary)',
       }}
       title="Download as CSV"
     >

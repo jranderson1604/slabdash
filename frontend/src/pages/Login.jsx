@@ -49,7 +49,7 @@ export default function Login() {
             alt="SlabDash"
             className="h-14 mx-auto"
           />
-          <p className="mt-3 text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>
+          <p className="mt-3 text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
             PSA Submission Tracking for Card Shops
           </p>
         </div>
@@ -64,7 +64,7 @@ export default function Login() {
             boxShadow: '0 20px 60px rgba(0,0,0,0.06), 0 4px 20px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.7)',
           }}
         >
-          <h2 className="text-lg font-semibold mb-6" style={{ color: 'rgba(44, 36, 22, 0.85)' }}>
+          <h2 className="text-lg font-semibold mb-6" style={{ color: 'var(--text-body)' }}>
             Sign in to your account
           </h2>
 
@@ -133,7 +133,7 @@ export default function Login() {
 
         {/* Register link */}
         <div className="mt-6 text-center">
-          <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>
+          <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
             New to SlabDash?{' '}
             <Link
               to="/register"
@@ -147,7 +147,7 @@ export default function Login() {
           </p>
         </div>
 
-        <p className="mt-8 text-center text-xs font-medium" style={{ color: 'rgba(44, 36, 22, 0.35)' }}>
+        <p className="mt-8 text-center text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
           Track submissions in real-time. Give customers visibility into their orders.
         </p>
       </div>

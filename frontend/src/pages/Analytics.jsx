@@ -7,7 +7,7 @@ import {
 
 // ─── SVG Bar Chart ────────────────────────────────────────────────────────────
 function BarChart({ data, labelKey, valueKey, color = '#FF8170', height = 160 }) {
-  if (!data?.length) return <p className="text-sm text-center py-8" style={{ color: 'rgba(44,36,22,0.4)' }}>No data</p>;
+  if (!data?.length) return <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>No data</p>;
   const max = Math.max(...data.map(d => Number(d[valueKey])), 1);
   return (
     <div className="flex items-end gap-1.5 w-full" style={{ height }}>
@@ -28,7 +28,7 @@ function BarChart({ data, labelKey, valueKey, color = '#FF8170', height = 160 })
               }}
             />
             <div className="text-xs font-semibold text-center leading-none"
-              style={{ color: 'rgba(44,36,22,0.55)', fontSize: 10 }}>
+              style={{ color: 'var(--text-secondary)', fontSize: 10 }}>
               {d[labelKey]}
             </div>
           </div>
@@ -44,7 +44,7 @@ function HBar({ label, value, max, color, suffix = '' }) {
   return (
     <div className="flex items-center gap-3">
       <span className="text-sm font-semibold w-20 flex-shrink-0 truncate"
-        style={{ color: 'rgba(44,36,22,0.7)' }}>{label}</span>
+        style={{ color: 'var(--text-body)' }}>{label}</span>
       <div className="flex-1 rounded-full overflow-hidden" style={{ height: 8, background: 'rgba(44,36,22,0.06)' }}>
         <div className="h-full rounded-full transition-all duration-700"
           style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}, ${color}88)` }} />
@@ -70,8 +70,8 @@ function StatCard({ icon: Icon, label, value, sub, color = '#FF8170', loading })
         ? <div className="h-8 w-24 rounded-lg animate-pulse" style={{ background: 'rgba(44,36,22,0.08)' }} />
         : <p className="text-3xl font-black mb-0.5" style={{ color: 'rgb(var(--dark))' }}>{value ?? '—'}</p>
       }
-      <p className="text-sm font-semibold" style={{ color: 'rgba(44,36,22,0.55)' }}>{label}</p>
-      {sub && <p className="text-xs mt-1" style={{ color: 'rgba(44,36,22,0.4)' }}>{sub}</p>}
+      <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>{label}</p>
+      {sub && <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{sub}</p>}
     </div>
   );
 }
@@ -150,7 +150,7 @@ export default function Analytics() {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-black mb-1" style={{ color: 'rgb(var(--dark))' }}>Analytics</h1>
-        <p className="text-sm font-medium" style={{ color: 'rgba(44,36,22,0.55)' }}>
+        <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
           Performance overview across all submissions, grades, and customers
         </p>
       </div>
@@ -201,7 +201,7 @@ export default function Analytics() {
             </div>
           )}
           {!loading && grades.length === 0 && (
-            <p className="text-sm text-center py-8" style={{ color: 'rgba(44,36,22,0.4)' }}>
+            <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
               No graded cards yet
             </p>
           )}
@@ -220,7 +220,7 @@ export default function Analytics() {
               />
           }
           {!loading && months.length === 0 && (
-            <p className="text-sm text-center py-8" style={{ color: 'rgba(44,36,22,0.4)' }}>
+            <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
               No submission data yet
             </p>
           )}
@@ -234,7 +234,7 @@ export default function Analytics() {
           {loading
             ? <div className="h-32 animate-pulse rounded-xl" style={{ background: 'rgba(44,36,22,0.05)' }} />
             : levels.length === 0
-            ? <p className="text-sm text-center py-8" style={{ color: 'rgba(44,36,22,0.4)' }}>No data</p>
+            ? <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>No data</p>
             : <div className="space-y-3">
                 {levels.map((l, i) => (
                   <HBar
@@ -251,13 +251,13 @@ export default function Analytics() {
 
         <div className="card p-6">
           <h2 className="text-lg font-black mb-1" style={{ color: 'rgb(var(--dark))' }}>Avg Turnaround</h2>
-          <p className="text-xs mb-4" style={{ color: 'rgba(44,36,22,0.45)' }}>
+          <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
             Days from submission date to grades ready, by service level
           </p>
           {loading
             ? <div className="h-32 animate-pulse rounded-xl" style={{ background: 'rgba(44,36,22,0.05)' }} />
             : turnaround.length === 0
-            ? <p className="text-sm text-center py-8" style={{ color: 'rgba(44,36,22,0.4)' }}>
+            ? <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
                 No completed submissions with date data yet
               </p>
             : <div className="space-y-3">
@@ -266,7 +266,7 @@ export default function Analytics() {
                     style={{ borderColor: 'rgba(44,36,22,0.06)' }}>
                     <div>
                       <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>{t.service_level}</p>
-                      <p className="text-xs" style={{ color: 'rgba(44,36,22,0.45)' }}>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                         {t.min_days}–{t.max_days} day range · {t.count} submissions
                       </p>
                     </div>
@@ -289,7 +289,7 @@ export default function Analytics() {
         {loading
           ? <div className="h-32 animate-pulse rounded-xl" style={{ background: 'rgba(44,36,22,0.05)' }} />
           : topCustomers.length === 0
-          ? <p className="text-sm text-center py-8" style={{ color: 'rgba(44,36,22,0.4)' }}>
+          ? <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
               No customers with assigned cards yet
             </p>
           : <div className="overflow-x-auto">
@@ -298,7 +298,7 @@ export default function Analytics() {
                   <tr style={{ borderBottom: '1px solid rgba(44,36,22,0.08)' }}>
                     {['Customer', 'Cards', 'Graded', 'Avg Grade'].map(h => (
                       <th key={h} className="text-left py-2 pr-4 text-xs font-bold uppercase tracking-wider"
-                        style={{ color: 'rgba(44,36,22,0.4)' }}>{h}</th>
+                        style={{ color: 'var(--text-muted)' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -307,7 +307,7 @@ export default function Analytics() {
                     <tr key={cu.id} style={{ borderBottom: '1px solid rgba(44,36,22,0.05)' }}>
                       <td className="py-2.5 pr-4">
                         <p className="font-semibold" style={{ color: 'rgb(var(--dark))' }}>{cu.name}</p>
-                        {cu.email && <p className="text-xs" style={{ color: 'rgba(44,36,22,0.45)' }}>{cu.email}</p>}
+                        {cu.email && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{cu.email}</p>}
                       </td>
                       <td className="py-2.5 pr-4 font-bold" style={{ color: '#FF8170' }}>{cu.card_count}</td>
                       <td className="py-2.5 pr-4" style={{ color: '#10b981', fontWeight: 600 }}>{cu.graded_count}</td>

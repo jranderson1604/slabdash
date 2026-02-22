@@ -31,12 +31,12 @@ function UsageMeter({ label, current, limit, percent }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-xs font-semibold" style={{ color: 'rgba(44,36,22,0.7)' }}>{label}</span>
-        <span className="text-xs font-bold tabular-nums" style={{ color: clamped >= 75 ? color : 'rgba(44,36,22,0.8)' }}>
+        <span className="text-xs font-semibold" style={{ color: 'rgb(var(--bg-text))', opacity: 0.7 }}>{label}</span>
+        <span className="text-xs font-bold tabular-nums" style={{ color: clamped >= 75 ? color : 'rgb(var(--bg-text))' }}>
           {current.toLocaleString()} / {limit.toLocaleString()}
         </span>
       </div>
-      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.06)' }}>
+      <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(128,128,128,0.15)' }}>
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{ width: `${clamped}%`, background: color }}
@@ -50,18 +50,18 @@ function RecentSubmissionRow({ submission }) {
   return (
     <tr>
       <td>
-        <Link to={`/submissions/${submission.id}`} className="font-medium text-gray-900 hover:text-brand-500 transition-colors">
+        <Link to={`/submissions/${submission.id}`} className="font-medium hover:text-brand-500 transition-colors" style={{ color: 'rgb(var(--dark))' }}>
           {submission.psa_submission_number || submission.internal_id || 'No ID'}
         </Link>
       </td>
-      <td className="text-gray-600">{submission.customer_name || '—'}</td>
+      <td>{submission.customer_name || '—'}</td>
       <td>
         <ProgressBar percent={submission.progress_percent || 0} />
       </td>
       <td>
         <StatusBadge submission={submission} showTooltip={false} />
       </td>
-      <td className="text-gray-500">{submission.card_count || 0} cards</td>
+      <td style={{ opacity: 0.6 }}>{submission.card_count || 0} cards</td>
     </tr>
   );
 }
@@ -402,7 +402,7 @@ export default function Dashboard() {
             <div className="mt-4 pt-4 flex items-center justify-between"
               style={{ borderTop: '1px solid rgba(0,0,0,0.05)' }}
             >
-              <p className="text-xs font-medium" style={{ color: 'rgba(44,36,22,0.6)' }}>
+              <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
                 Approaching your plan limit — upgrade for unlimited access
               </p>
               <Link to="/settings?tab=billing"
@@ -452,7 +452,7 @@ export default function Dashboard() {
 
       {/* Two-column layout for Notifications and Buyback */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* JARVIS Alert Feed */}
+        {/* SAM Alert Feed */}
         <div className="card">
           <div className="p-4" style={{ borderBottom: '1px solid rgba(0,212,255,0.06)' }}>
             <div className="flex items-center gap-2">
@@ -510,7 +510,7 @@ export default function Dashboard() {
           <div className="p-4">
             {recentBuybacks.length === 0 ? (
               <div className="text-center py-4">
-                <p className="text-sm font-medium mb-3" style={{ color: 'rgba(44,36,22,0.5)' }}>No pending offers</p>
+                <p className="text-sm font-medium mb-3" style={{ color: 'var(--text-secondary)' }}>No pending offers</p>
                 <Link to="/buyback/new" className="btn btn-secondary w-full text-sm flex items-center justify-center gap-2">
                   <DollarSign className="w-4 h-4" />
                   Create Buyback Offer
@@ -524,10 +524,10 @@ export default function Dashboard() {
                     style={{ border: '1px solid rgba(0,0,0,0.04)' }}
                   >
                     <div>
-                      <p className="text-sm font-bold" style={{ color: 'rgb(44,36,22)' }}>
+                      <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>
                         {offer.customer_name || 'Customer'}
                       </p>
-                      <p className="text-xs font-medium" style={{ color: 'rgba(44,36,22,0.55)' }}>
+                      <p className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
                         {offer.card_description || 'Card'}
                       </p>
                     </div>
@@ -594,7 +594,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* JARVIS Quick Commands */}
+      {/* Quick Commands */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link to="/submissions/new" className="group relative rounded-2xl p-5 transition-all cursor-pointer overflow-hidden"
           style={{

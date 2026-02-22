@@ -105,7 +105,7 @@ export default function UpgradeModal() {
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-400">Upgrade to</p>
-              <h2 className="text-xl font-black" style={{ color: 'rgb(44, 36, 22)' }}>
+              <h2 className="text-xl font-black" style={{ color: 'rgb(var(--dark))' }}>
                 SlabDash {plan.name}
               </h2>
             </div>
@@ -127,13 +127,13 @@ export default function UpgradeModal() {
         {/* Features */}
         <div className="p-6">
           <div className="flex items-baseline gap-1 mb-4">
-            <span className="text-4xl font-black" style={{ color: 'rgb(44, 36, 22)' }}>{plan.price}</span>
+            <span className="text-4xl font-black" style={{ color: 'rgb(var(--dark))' }}>{plan.price}</span>
             {plan.period && <span className="text-gray-500 font-medium">{plan.period}</span>}
           </div>
 
           <ul className="space-y-2.5 mb-6">
             {plan.features.map((f) => (
-              <li key={f} className="flex items-center gap-2.5 text-sm font-medium" style={{ color: 'rgba(44,36,22,0.8)' }}>
+              <li key={f} className="flex items-center gap-2.5 text-sm font-medium" style={{ color: 'var(--text-body)' }}>
                 <div
                   className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
                   style={{ background: `${plan.color}20` }}

@@ -3,7 +3,7 @@ import SAMChatInterface from '../components/SAMChatInterface';
 export default function SAMAI() {
   return (
     <div className="fixed inset-0 lg:pl-64" style={{ background: 'rgb(var(--bg-color))' }}>
-      {/* JARVIS Interface — arc reactor grid overlay */}
+      {/* SAM Interface — background grid overlay */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <div className="absolute inset-0 opacity-[0.012]"
           style={{
@@ -20,7 +20,7 @@ export default function SAMAI() {
         />
       </div>
 
-      {/* SAM / JARVIS Chat Interface */}
+      {/* SAM Chat Interface */}
       <div className="h-full w-full relative z-10">
         <SAMChatInterface isCustomerPortal={false} />
       </div>

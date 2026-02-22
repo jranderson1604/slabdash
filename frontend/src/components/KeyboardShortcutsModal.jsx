@@ -67,7 +67,7 @@ export default function KeyboardShortcutsModal({ onClose }) {
             <h2 className="text-lg font-black" style={{ color: 'rgb(var(--dark))' }}>Keyboard Shortcuts</h2>
           </div>
           <button onClick={onClose} className="rounded-xl p-1.5 transition-all hover:bg-black/5">
-            <X className="w-4 h-4" style={{ color: 'rgba(44,36,22,0.5)' }} />
+            <X className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
           </button>
         </div>
 
@@ -76,7 +76,7 @@ export default function KeyboardShortcutsModal({ onClose }) {
           {SHORTCUTS.map(section => (
             <div key={section.category}>
               <p className="text-xs font-bold uppercase tracking-wider mb-2"
-                style={{ color: 'rgba(44,36,22,0.4)' }}>{section.category}</p>
+                style={{ color: 'var(--text-muted)' }}>{section.category}</p>
               <div className="space-y-1.5">
                 {section.items.map(item => (
                   <div key={item.desc} className="flex items-center justify-between py-1">
@@ -84,7 +84,7 @@ export default function KeyboardShortcutsModal({ onClose }) {
                     <div className="flex items-center gap-1">
                       {item.keys.map((k, i) => (
                         <span key={k} className="flex items-center gap-1">
-                          {i > 0 && <span className="text-xs" style={{ color: 'rgba(44,36,22,0.3)' }}>then</span>}
+                          {i > 0 && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>then</span>}
                           <Kbd k={k} />
                         </span>
                       ))}
@@ -97,7 +97,7 @@ export default function KeyboardShortcutsModal({ onClose }) {
         </div>
 
         <div className="px-5 pb-4">
-          <p className="text-xs" style={{ color: 'rgba(44,36,22,0.35)' }}>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
             Shortcuts are disabled when typing in an input field.
           </p>
         </div>

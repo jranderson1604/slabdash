@@ -35,6 +35,11 @@
   --bg-text: 44 36 22;         /* Dark text on cream bg */
   --sidebar-text: 255 248 240; /* Light text on dark sidebar */
 
+  /* Semantic text colors — adapts in dark mode */
+  --text-body: rgba(44, 36, 22, 0.75);
+  --text-secondary: rgba(44, 36, 22, 0.6);
+  --text-muted: rgba(44, 36, 22, 0.45);
+
   /* Liquid glass tokens */
   --glass-blur: 40px;
   --glass-saturation: 180%;
@@ -45,16 +50,16 @@
 }
 
 /* ═══════════════════════════════════════════ */
-/* STARK/JARVIS — Arc Reactor Dark Theme      */
+/* Dark Mode — Command Interface Theme        */
 /* ═══════════════════════════════════════════ */
 :root.dark {
-  /* Arc reactor core colors */
-  --arc-cyan: 0 212 255;          /* #00D4FF — primary arc reactor cyan */
+  /* Cyan accent palette */
+  --arc-cyan: 0 212 255;          /* #00D4FF — primary accent */
   --arc-cyan-dim: 0 160 200;      /* dimmed variant */
-  --arc-blue: 0 140 255;          /* deep arc blue */
+  --arc-blue: 0 140 255;          /* deep blue */
   --arc-glow: rgba(0, 212, 255, 0.18);
 
-  /* Override brand to arc reactor cyan */
+  /* Override brand to cyan */
   --brand-500: 0 212 255;
   --brand-600: 0 180 220;
   --brand-700: 0 140 180;
@@ -72,7 +77,12 @@
   --sidebar-text: 140 190 235;
   --brand-text: 4 8 16;
 
-  /* Glass — arc reactor tinted */
+  /* Semantic text colors — dark mode */
+  --text-body: rgba(140, 190, 235, 0.85);
+  --text-secondary: rgba(140, 190, 235, 0.6);
+  --text-muted: rgba(140, 190, 235, 0.4);
+
+  /* Glass — dark tinted */
   --glass-blur: 40px;
   --glass-saturation: 180%;
   --glass-bg: rgba(0, 212, 255, 0.025);
@@ -634,10 +644,10 @@
   }
 
   /* ═══════════════════════════════════════════ */
-  /* STARK / JARVIS ANIMATIONS                  */
+  /* COMMAND INTERFACE ANIMATIONS               */
   /* ═══════════════════════════════════════════ */
 
-  /* Arc reactor pulse — concentric glow rings breathing */
+  /* Pulse — concentric glow rings breathing */
   @keyframes arc-pulse {
     0%, 100% {
       box-shadow:
@@ -720,7 +730,7 @@
   .hud-number { animation: hud-number 0.6s ease-out both; }
   .targeting { animation: targeting 4s ease-in-out infinite; }
 
-  /* STARK card — arc reactor glass panel */
+  /* Command card — dark glass panel */
   .stark-card {
     background: rgba(0, 212, 255, 0.025);
     border: 1px solid rgba(0, 212, 255, 0.15);
@@ -768,7 +778,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* STARK border — glowing arc reactor border */
+  /* Command border — glowing accent border */
   .stark-border {
     border: 1px solid rgba(0, 212, 255, 0.2);
     box-shadow: 0 0 8px rgba(0, 212, 255, 0.08), inset 0 0 8px rgba(0, 212, 255, 0.04);
@@ -812,7 +822,7 @@
   .animation-delay-500 { animation-delay: 500ms; }
 
   /* ═══════════════════════════════════════════ */
-  /* STARK DARK MODE OVERRIDES                  */
+  /* DARK MODE OVERRIDES                        */
   /* ═══════════════════════════════════════════ */
   :root.dark th { color: rgba(0,212,255,0.5); border-bottom-color: rgba(0,212,255,0.08); }
   :root.dark td { color: rgb(140 190 235); border-bottom-color: rgba(0,212,255,0.05); }

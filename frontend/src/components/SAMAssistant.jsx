@@ -265,7 +265,7 @@ export default function SAMAssistant() {
           {/* Quick Questions */}
           {messages.length === 1 && (
             <div className="px-4 py-2" style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}>
-              <p className="text-xs mb-2" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>Quick questions:</p>
+              <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>Quick questions:</p>
               <div className="flex flex-wrap gap-2">
                 {quickQuestions.map((question, index) => (
                   <button

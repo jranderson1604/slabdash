@@ -30,7 +30,7 @@ export default class ErrorBoundary extends Component {
             <h1 className="text-2xl font-black mb-2" style={{ color: 'rgb(var(--dark))' }}>
               Something went wrong
             </h1>
-            <p className="text-sm font-medium mb-6" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
+            <p className="text-sm font-medium mb-6" style={{ color: 'var(--text-secondary)' }}>
               {this.state.error?.message || 'An unexpected error occurred.'}
             </p>
             <button
