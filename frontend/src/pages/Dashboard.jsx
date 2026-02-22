@@ -200,7 +200,7 @@ export default function Dashboard() {
             style={{ background: '#00D4FF', boxShadow: '0 0 12px rgba(0,212,255,0.8), 0 0 24px rgba(0,212,255,0.4)' }}
           />
         </div>
-        <p className="hud-label">JARVIS // Initializing systems...</p>
+        <p className="hud-label">SAM // Initializing systems...</p>
       </div>
     );
   }
@@ -228,7 +228,7 @@ export default function Dashboard() {
             animationDelay: '-7s',
           }}
         />
-        {/* Arc reactor grid overlay */}
+        {/* Grid overlay */}
         <div className="absolute inset-0 opacity-[0.015]"
           style={{
             backgroundImage: `linear-gradient(rgba(0,212,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.8) 1px, transparent 1px)`,
@@ -237,7 +237,7 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* JARVIS Operations Center HUD Header */}
+      {/* HUD Header */}
       <div className="relative rounded-2xl overflow-hidden stark-scanline"
         style={{
           background: 'linear-gradient(135deg, rgba(0,212,255,0.06) 0%, rgba(0,100,200,0.04) 100%)',
@@ -247,9 +247,9 @@ export default function Dashboard() {
       >
         <div className="px-6 py-5 flex items-center justify-between gap-4">
           <div className="hud-boot">
-            <p className="hud-label mb-1">// STARK INDUSTRIES · OPERATIONS CENTER</p>
+            <p className="hud-label mb-1">// Operations Center</p>
             <h1 className="text-2xl font-black tracking-tight" style={{ color: '#00D4FF', textShadow: '0 0 20px rgba(0,212,255,0.4)', letterSpacing: '-0.01em' }}>
-              JARVIS DASHBOARD
+              COMMAND CENTER
             </h1>
             <p className="text-xs mt-1 font-medium" style={{ color: 'rgba(0,212,255,0.45)', letterSpacing: '0.05em' }}>
               {company?.name} · PSA Submission Tracking Active
@@ -429,7 +429,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#00D4FF' }} />
-              <span className="hud-label">JARVIS // Syncing with PSA servers...</span>
+              <span className="hud-label">SAM // Syncing with PSA servers...</span>
             </div>
             <span className="text-xs font-mono" style={{ color: 'rgba(0,212,255,0.7)' }}>
               {refreshProgress.current}/{refreshProgress.total}

@@ -147,7 +147,7 @@ export default function Layout({ children }) {
             />
             <div>
               <p className="text-xs font-black tracking-[0.15em] uppercase" style={{ color: '#00D4FF', textShadow: '0 0 10px rgba(0,212,255,0.5)' }}>SLABDASH</p>
-              <p className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(0,212,255,0.4)' }}>JARVIS INTERFACE</p>
+              <p className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(0,212,255,0.4)' }}>PSA Command System</p>
             </div>
           </Link>
           <button
@@ -224,7 +224,7 @@ export default function Layout({ children }) {
                   }}
                 >
                   <item.icon className="w-5 h-5 flex-shrink-0" style={{ filter: 'drop-shadow(0 0 6px rgba(0,212,255,0.7))' }} />
-                  <span className="slabdash-label font-bold" style={{ letterSpacing: '0.12em' }}>JARVIS</span>
+                  <span className="slabdash-label font-bold" style={{ letterSpacing: '0.12em' }}>SAM AI</span>
                   <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-sm" style={{
                     background: 'rgba(0,212,255,0.15)',
                     color: '#00D4FF',
@@ -273,13 +273,13 @@ export default function Layout({ children }) {
               onClick={() => setDarkMode(d => !d)}
               className="rounded p-1 transition-all flex-shrink-0"
               style={{ background: 'rgba(0,212,255,0.06)', color: 'rgba(0,212,255,0.5)', border: '1px solid rgba(0,212,255,0.1)' }}
-              title={darkMode ? 'Light mode' : 'STARK mode'}
+              title={darkMode ? 'Light mode' : 'Dark mode'}
             >
               {darkMode ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
             </button>
           </div>
           <p className="text-[8px] mt-1" style={{ color: 'rgba(0,212,255,0.2)', letterSpacing: '0.08em' }}>
-            STARK INDUSTRIES · JARVIS v3.1
+            SlabDash Command · PSA Tracking
           </p>
         </div>
       </aside>
