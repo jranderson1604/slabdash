@@ -9,7 +9,6 @@ router.get('/settings', authenticate, async (req, res) => {
     try {
         const result = await db.query(
             `SELECT id, name, slug, email, phone, website, logo_url, psa_api_key,
-             primary_color, background_color, sidebar_color,
              auto_refresh_enabled, auto_refresh_interval_hours,
              email_notifications_enabled, smtp_host, smtp_port, smtp_secure,
              smtp_user, from_email, from_name, company_logo_url, use_custom_smtp,
@@ -37,8 +36,7 @@ router.patch('/settings', authenticate, async (req, res) => {
         const existingColumns = new Set(columnCheckResult.rows.map(r => r.column_name));
 
         const allowed = [
-            'name', 'email', 'phone', 'website', 'logo_url', 'primary_color',
-            'background_color', 'sidebar_color',
+            'name', 'email', 'phone', 'website', 'logo_url',
             'psa_api_key', 'auto_refresh_enabled', 'auto_refresh_interval_hours',
             'email_notifications_enabled', 'smtp_host', 'smtp_port', 'smtp_secure',
             'smtp_user', 'smtp_password', 'from_email', 'from_name', 'company_logo_url',

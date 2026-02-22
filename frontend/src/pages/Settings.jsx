@@ -8,7 +8,7 @@ import {
   Settings as SettingsIcon,
   Key,
   Bell,
-  Palette,
+
   CheckCircle2,
   AlertCircle,
   Loader2,
@@ -108,9 +108,6 @@ export default function Settings() {
     buyback_response_hours: 24,
     csv_notification_threshold: 75,
     customer_limit: null,
-    primary_color: '#ef4444',
-    background_color: '#f5f5f5',
-    sidebar_color: '#ffffff',
     service_level_pricing: {},
     tax_percentage: 0,
   });
@@ -203,9 +200,6 @@ export default function Settings() {
         buyback_response_hours: data.buyback_response_hours || 24,
         csv_notification_threshold: data.csv_notification_threshold || 75,
         customer_limit: data.customer_limit || null,
-        primary_color: data.primary_color || '#ef4444',
-        background_color: data.background_color || '#f5f5f5',
-        sidebar_color: data.sidebar_color || '#ffffff',
         logo_url: data.logo_url || data.company_logo_url || '',
         service_level_pricing: serviceLevelPricing,
         tax_percentage: data.tax_percentage || 0,
@@ -870,35 +864,6 @@ export default function Settings() {
             </SettingsSection>
           )}
 
-          {/* Portal Branding */}
-          <SettingsSection icon={Palette} title="Portal Branding" description="Customize the look of your customer portal">
-            <div className="space-y-4">
-              {[
-                { key: 'primary_color', label: 'Primary Color (Buttons & Links)', placeholder: '#8842f0' },
-                { key: 'background_color', label: 'Background Color', placeholder: '#f5f5f5' },
-                { key: 'sidebar_color', label: 'Sidebar Color', placeholder: '#ffffff' },
-              ].map(({ key, label, placeholder }) => (
-                <div key={key}>
-                  <label className="label">{label}</label>
-                  <div className="flex items-center gap-3">
-                    <input type="color" value={settings[key]}
-                      onChange={(e) => setSettings({ ...settings, [key]: e.target.value })}
-                      className="w-12 h-10 rounded border border-gray-300 cursor-pointer" />
-                    <input type="text" value={settings[key]}
-                      onChange={(e) => setSettings({ ...settings, [key]: e.target.value })}
-                      className="input w-32" placeholder={placeholder} />
-                  </div>
-                </div>
-              ))}
-              <div className="pt-4">
-                <button onClick={() => handleSave('branding')} disabled={saving} className="btn btn-primary gap-2">
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  Save Branding
-                </button>
-              </div>
-            </div>
-          </SettingsSection>
-
           {/* Portal QR Code */}
           {(company?.shop_code || company?.slug) && (
             <PortalQRCode
@@ -906,7 +871,6 @@ export default function Settings() {
               slug={company.slug}
               shopName={settings.name}
               logoUrl={settings.logo_url}
-              primaryColor={settings.primary_color}
             />
           )}
 
@@ -1260,7 +1224,7 @@ function AuditTab() {
 // ============================================
 // Portal QR Code — printable card with shop branding
 // ============================================
-function PortalQRCode({ shopCode, slug, shopName, logoUrl, primaryColor }) {
+function PortalQRCode({ shopCode, slug, shopName, logoUrl }) {
   const printRef = useRef(null);
   const [copied, setCopied] = useState(false);
 
@@ -1298,7 +1262,7 @@ function PortalQRCode({ shopCode, slug, shopName, logoUrl, primaryColor }) {
           * { margin: 0; padding: 0; box-sizing: border-box; }
           @page { size: 4in 6in; margin: 0; }
           body { display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: white; }
-          .card { width: 3.5in; padding: 0.4in 0.3in; text-align: center; border: 2px solid ${primaryColor || '#ef4444'}; border-radius: 16px; }
+          .card { width: 3.5in; padding: 0.4in 0.3in; text-align: center; border: 2px solid #FF8170; border-radius: 16px; }
           .logo { width: 64px; height: 64px; border-radius: 12px; object-fit: cover; margin: 0 auto 12px; }
           .shop-name { font-size: 20px; font-weight: 700; margin-bottom: 4px; color: #111; }
           .subtitle { font-size: 11px; color: #666; margin-bottom: 16px; letter-spacing: 0.5px; text-transform: uppercase; }
@@ -1344,7 +1308,7 @@ function PortalQRCode({ shopCode, slug, shopName, logoUrl, primaryColor }) {
     ctx.roundRect(0, 0, w, h, 16);
     ctx.fill();
 
-    ctx.strokeStyle = primaryColor || '#ef4444';
+    ctx.strokeStyle = '#FF8170';
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.roundRect(1.5, 1.5, w - 3, h - 3, 16);
@@ -1405,7 +1369,7 @@ function PortalQRCode({ shopCode, slug, shopName, logoUrl, primaryColor }) {
       <div className="flex flex-col lg:flex-row gap-6">
         <div ref={printRef} className="flex-shrink-0">
           <div className="w-[280px] mx-auto lg:mx-0 rounded-2xl border-2 p-6 text-center bg-white"
-            style={{ borderColor: primaryColor || '#ef4444' }}>
+            style={{ borderColor: '#FF8170' }}>
             {logoUrl && <img src={logoUrl} alt="" className="w-16 h-16 rounded-xl object-cover mx-auto mb-3" />}
             <h3 className="text-lg font-bold text-gray-900">{shopName || slug}</h3>
             <p className="text-[10px] uppercase tracking-wider text-gray-500 mb-4">Customer Portal</p>

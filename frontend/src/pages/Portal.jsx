@@ -430,7 +430,7 @@ function PortalLogin({ onLoginSuccess, initialShop }) {
             <img src={shop.logo_url} alt="" className="w-14 h-14 rounded-2xl object-cover mx-auto mb-3" />
           ) : (
             <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3"
-              style={{ background: shop?.primary_color || 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))' }}>
+              style={{ background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))' }}>
               <Store className="w-7 h-7 text-white" />
             </div>
           )}

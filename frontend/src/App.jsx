@@ -1,7 +1,7 @@
 ﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
-import ThemeProvider from './components/ThemeProvider';
+
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import UpgradeModal from './components/UpgradeModal';
@@ -91,12 +91,10 @@ export default function App() {
     <ErrorBoundary>
       <BrowserRouter>
         <AuthProvider>
-          <ThemeProvider>
-            <ToastProvider>
-              <AppRoutes />
-              <UpgradeModal />
-            </ToastProvider>
-          </ThemeProvider>
+          <ToastProvider>
+            <AppRoutes />
+            <UpgradeModal />
+          </ToastProvider>
         </AuthProvider>
       </BrowserRouter>
     </ErrorBoundary>
