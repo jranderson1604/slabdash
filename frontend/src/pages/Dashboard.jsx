@@ -191,13 +191,13 @@ export default function Dashboard() {
         {/* Arc reactor boot animation */}
         <div className="relative w-16 h-16 flex items-center justify-center">
           <div className="absolute inset-0 rounded-full arc-spin-slow"
-            style={{ border: '2px solid rgba(0,212,255,0.3)', borderTopColor: '#00D4FF' }}
+            style={{ border: '2px solid rgba(255,129,112,0.3)', borderTopColor: '#FF8170' }}
           />
           <div className="absolute inset-2 rounded-full arc-spin-reverse"
-            style={{ border: '1px solid rgba(0,212,255,0.15)', borderBottomColor: 'rgba(0,212,255,0.6)' }}
+            style={{ border: '1px solid rgba(255,129,112,0.15)', borderBottomColor: 'rgba(255,129,112,0.6)' }}
           />
           <div className="w-4 h-4 rounded-full arc-pulse-anim"
-            style={{ background: '#00D4FF', boxShadow: '0 0 12px rgba(0,212,255,0.8), 0 0 24px rgba(0,212,255,0.4)' }}
+            style={{ background: '#FF8170', boxShadow: '0 0 12px rgba(255,129,112,0.8), 0 0 24px rgba(255,129,112,0.4)' }}
           />
         </div>
         <p className="hud-label">SAM // Initializing systems...</p>
@@ -211,19 +211,19 @@ export default function Dashboard() {
       <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
         <div className="absolute top-16 right-24 w-72 h-72 rounded-full opacity-25"
           style={{
-            background: 'radial-gradient(circle, rgba(0,212,255,0.12) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(255,129,112,0.12) 0%, transparent 70%)',
             animation: 'ambientFloat 14s ease-in-out infinite',
           }}
         />
         <div className="absolute top-1/3 left-8 w-56 h-56 rounded-full opacity-15"
           style={{
-            background: 'radial-gradient(circle, rgba(0,140,255,0.1) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(255,107,89,0.1) 0%, transparent 70%)',
             animation: 'ambientFloat 18s ease-in-out infinite reverse',
           }}
         />
         <div className="absolute bottom-24 right-1/4 w-64 h-64 rounded-full opacity-20"
           style={{
-            background: 'radial-gradient(circle, rgba(0,212,255,0.08) 0%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(255,129,112,0.08) 0%, transparent 70%)',
             animation: 'ambientFloat 22s ease-in-out infinite',
             animationDelay: '-7s',
           }}
@@ -231,7 +231,7 @@ export default function Dashboard() {
         {/* Grid overlay */}
         <div className="absolute inset-0 opacity-[0.015]"
           style={{
-            backgroundImage: `linear-gradient(rgba(0,212,255,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(0,212,255,0.8) 1px, transparent 1px)`,
+            backgroundImage: `linear-gradient(rgba(255,129,112,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,129,112,0.8) 1px, transparent 1px)`,
             backgroundSize: '60px 60px',
           }}
         />
@@ -240,18 +240,18 @@ export default function Dashboard() {
       {/* HUD Header */}
       <div className="relative rounded-2xl overflow-hidden stark-scanline"
         style={{
-          background: 'linear-gradient(135deg, rgba(0,212,255,0.06) 0%, rgba(0,100,200,0.04) 100%)',
-          border: '1px solid rgba(0,212,255,0.15)',
-          boxShadow: '0 0 40px rgba(0,212,255,0.04), inset 0 1px 0 rgba(0,212,255,0.08)',
+          background: 'linear-gradient(135deg, rgba(255,129,112,0.06) 0%, rgba(232,84,61,0.04) 100%)',
+          border: '1px solid rgba(255,129,112,0.15)',
+          boxShadow: '0 0 40px rgba(255,129,112,0.04), inset 0 1px 0 rgba(255,129,112,0.08)',
         }}
       >
         <div className="px-6 py-5 flex items-center justify-between gap-4">
           <div className="hud-boot">
             <p className="hud-label mb-1">// Operations Center</p>
-            <h1 className="text-2xl font-black tracking-tight" style={{ color: '#00D4FF', textShadow: '0 0 20px rgba(0,212,255,0.4)', letterSpacing: '-0.01em' }}>
+            <h1 className="text-2xl font-black tracking-tight" style={{ color: '#FF8170', textShadow: '0 0 20px rgba(255,129,112,0.4)', letterSpacing: '-0.01em' }}>
               COMMAND CENTER
             </h1>
-            <p className="text-xs mt-1 font-medium" style={{ color: 'rgba(0,212,255,0.45)', letterSpacing: '0.05em' }}>
+            <p className="text-xs mt-1 font-medium" style={{ color: 'rgba(255,129,112,0.45)', letterSpacing: '0.05em' }}>
               {company?.name} · PSA Submission Tracking Active
             </p>
           </div>
@@ -261,13 +261,13 @@ export default function Dashboard() {
             {/* Arc reactor animation */}
             <div className="relative w-10 h-10 hidden sm:flex items-center justify-center flex-shrink-0">
               <div className="absolute inset-0 rounded-full arc-spin-slow"
-                style={{ border: '1px solid rgba(0,212,255,0.3)', borderTopColor: 'rgba(0,212,255,0.8)' }}
+                style={{ border: '1px solid rgba(255,129,112,0.3)', borderTopColor: 'rgba(255,129,112,0.8)' }}
               />
               <div className="absolute inset-1.5 rounded-full arc-spin-reverse"
-                style={{ border: '1px solid rgba(0,212,255,0.15)', borderBottomColor: 'rgba(0,212,255,0.5)' }}
+                style={{ border: '1px solid rgba(255,129,112,0.15)', borderBottomColor: 'rgba(255,129,112,0.5)' }}
               />
               <div className="w-3 h-3 rounded-full arc-pulse-anim"
-                style={{ background: '#00D4FF', boxShadow: '0 0 8px rgba(0,212,255,0.8), 0 0 16px rgba(0,212,255,0.4)' }}
+                style={{ background: '#FF8170', boxShadow: '0 0 8px rgba(255,129,112,0.8), 0 0 16px rgba(255,129,112,0.4)' }}
               />
             </div>
 
@@ -275,9 +275,9 @@ export default function Dashboard() {
               onClick={() => setShowWalkthrough(true)}
               className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all hover:scale-105"
               style={{
-                background: 'rgba(0,212,255,0.08)',
-                border: '1px solid rgba(0,212,255,0.2)',
-                color: 'rgba(0,212,255,0.8)',
+                background: 'rgba(255,129,112,0.08)',
+                border: '1px solid rgba(255,129,112,0.2)',
+                color: 'rgba(255,129,112,0.8)',
               }}
             >
               <PlayCircle className="w-4 h-4" />
@@ -290,10 +290,10 @@ export default function Dashboard() {
                 disabled={refreshing}
                 className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all hover:scale-105"
                 style={{
-                  background: refreshing ? 'rgba(0,212,255,0.15)' : 'rgba(0,212,255,0.1)',
-                  border: '1px solid rgba(0,212,255,0.3)',
-                  color: '#00D4FF',
-                  boxShadow: refreshing ? '0 0 16px rgba(0,212,255,0.2)' : 'none',
+                  background: refreshing ? 'rgba(255,129,112,0.15)' : 'rgba(255,129,112,0.1)',
+                  border: '1px solid rgba(255,129,112,0.3)',
+                  color: '#FF8170',
+                  boxShadow: refreshing ? '0 0 16px rgba(255,129,112,0.2)' : 'none',
                 }}
               >
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
@@ -421,29 +421,29 @@ export default function Dashboard() {
       {refreshing && refreshProgress && (
         <div className="rounded-2xl p-4 stark-scanline"
           style={{
-            background: 'rgba(0,212,255,0.04)',
-            border: '1px solid rgba(0,212,255,0.2)',
-            boxShadow: '0 0 20px rgba(0,212,255,0.06)',
+            background: 'rgba(255,129,112,0.04)',
+            border: '1px solid rgba(255,129,112,0.2)',
+            boxShadow: '0 0 20px rgba(255,129,112,0.06)',
           }}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#00D4FF' }} />
+              <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#FF8170' }} />
               <span className="hud-label">SAM // Syncing with PSA servers...</span>
             </div>
-            <span className="text-xs font-mono" style={{ color: 'rgba(0,212,255,0.7)' }}>
+            <span className="text-xs font-mono" style={{ color: 'rgba(255,129,112,0.7)' }}>
               {refreshProgress.current}/{refreshProgress.total}
               {refreshProgress.updated > 0 && <span className="ml-2" style={{ color: '#10b981' }}>+{refreshProgress.updated}</span>}
               {refreshProgress.errors > 0 && <span className="ml-1 text-red-400">{refreshProgress.errors} ERR</span>}
             </span>
           </div>
-          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,212,255,0.1)' }}>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,129,112,0.1)' }}>
             <div
               className="h-full rounded-full transition-all duration-300"
               style={{
                 width: `${refreshProgress.total > 0 ? (refreshProgress.current / refreshProgress.total) * 100 : 0}%`,
-                background: 'linear-gradient(90deg, #0090C8, #00D4FF)',
-                boxShadow: '0 0 8px rgba(0,212,255,0.6)',
+                background: 'linear-gradient(90deg, #E8543D, #FF8170)',
+                boxShadow: '0 0 8px rgba(255,129,112,0.6)',
               }}
             />
           </div>
@@ -454,20 +454,20 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* SAM Alert Feed */}
         <div className="card">
-          <div className="p-4" style={{ borderBottom: '1px solid rgba(0,212,255,0.06)' }}>
+          <div className="p-4" style={{ borderBottom: '1px solid rgba(255,129,112,0.06)' }}>
             <div className="flex items-center gap-2">
-              <Bell className="w-4 h-4" style={{ color: '#00D4FF', filter: 'drop-shadow(0 0 5px rgba(0,212,255,0.7))' }} />
+              <Bell className="w-4 h-4" style={{ color: '#FF8170', filter: 'drop-shadow(0 0 5px rgba(255,129,112,0.7))' }} />
               <p className="hud-label">// Alert Feed</p>
             </div>
           </div>
           <div className="p-4 space-y-3">
             {stats?.gradesReady > 0 && (
               <div className="flex items-start gap-3 p-3 rounded-xl"
-                style={{ background: 'rgba(0,212,255,0.05)', border: '1px solid rgba(0,212,255,0.12)' }}
+                style={{ background: 'rgba(255,129,112,0.05)', border: '1px solid rgba(255,129,112,0.12)' }}
               >
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#00D4FF', filter: 'drop-shadow(0 0 4px rgba(0,212,255,0.6))' }} />
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#FF8170', filter: 'drop-shadow(0 0 4px rgba(255,129,112,0.6))' }} />
                 <div>
-                  <p className="text-xs font-black" style={{ color: '#00D4FF', letterSpacing: '0.05em' }}>INTEL CONFIRMED</p>
+                  <p className="text-xs font-black" style={{ color: '#FF8170', letterSpacing: '0.05em' }}>INTEL CONFIRMED</p>
                   <p className="text-xs font-medium mt-0.5" style={{ color: 'rgb(var(--bg-text))' }}>{stats.gradesReady} submission{stats.gradesReady !== 1 ? 's' : ''} — grades ready for retrieval</p>
                 </div>
               </div>
@@ -486,7 +486,7 @@ export default function Dashboard() {
             {(!stats?.gradesReady && !stats?.problems) && (
               <div className="text-center py-4">
                 <p className="hud-label">ALL SYSTEMS NOMINAL</p>
-                <p className="text-xs mt-1" style={{ color: 'rgba(0,212,255,0.3)' }}>No active alerts</p>
+                <p className="text-xs mt-1" style={{ color: 'rgba(255,129,112,0.3)' }}>No active alerts</p>
               </div>
             )}
           </div>
@@ -494,7 +494,7 @@ export default function Dashboard() {
 
         {/* Asset Acquisition */}
         <div className="card">
-          <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(0,212,255,0.06)' }}>
+          <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,129,112,0.06)' }}>
             <div className="flex items-center gap-2">
               <DollarSign className="w-4 h-4" style={{ color: '#10b981', filter: 'drop-shadow(0 0 5px rgba(16,185,129,0.6))' }} />
               <p className="hud-label">// Asset Acquisition</p>
@@ -502,7 +502,7 @@ export default function Dashboard() {
             <Link
               to="/buyback"
               className="flex items-center gap-1 text-xs font-bold transition-all"
-              style={{ color: 'rgba(0,212,255,0.6)' }}
+              style={{ color: 'rgba(255,129,112,0.6)' }}
             >
               All <ArrowRight className="w-3 h-3" />
             </Link>
@@ -549,15 +549,15 @@ export default function Dashboard() {
 
       {/* Active Mission Log */}
       <div className="card">
-        <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(0,212,255,0.06)' }}>
+        <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,129,112,0.06)' }}>
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4" style={{ color: '#00D4FF', filter: 'drop-shadow(0 0 5px rgba(0,212,255,0.6))' }} />
+            <TrendingUp className="w-4 h-4" style={{ color: '#FF8170', filter: 'drop-shadow(0 0 5px rgba(255,129,112,0.6))' }} />
             <p className="hud-label">// Active Mission Log</p>
           </div>
           <Link
             to="/submissions"
             className="flex items-center gap-1 text-xs font-bold transition-all"
-            style={{ color: 'rgba(0,212,255,0.6)' }}
+            style={{ color: 'rgba(255,129,112,0.6)' }}
           >
             All missions <ArrowRight className="w-3 h-3" />
           </Link>
@@ -598,18 +598,18 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Link to="/submissions/new" className="group relative rounded-2xl p-5 transition-all cursor-pointer overflow-hidden"
           style={{
-            background: 'rgba(0,212,255,0.04)',
-            border: '1px solid rgba(0,212,255,0.12)',
+            background: 'rgba(255,129,112,0.04)',
+            border: '1px solid rgba(255,129,112,0.12)',
           }}
         >
           <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity"
-            style={{ background: 'rgba(0,212,255,0.04)' }}
+            style={{ background: 'rgba(255,129,112,0.04)' }}
           />
           <div className="flex items-center gap-4 relative z-10">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform arc-pulse-anim"
-              style={{ background: 'rgba(0,212,255,0.1)', border: '1px solid rgba(0,212,255,0.2)' }}
+              style={{ background: 'rgba(255,129,112,0.1)', border: '1px solid rgba(255,129,112,0.2)' }}
             >
-              <Package className="w-5 h-5" style={{ color: '#00D4FF', filter: 'drop-shadow(0 0 4px rgba(0,212,255,0.6))' }} />
+              <Package className="w-5 h-5" style={{ color: '#FF8170', filter: 'drop-shadow(0 0 4px rgba(255,129,112,0.6))' }} />
             </div>
             <div>
               <p className="hud-label mb-0.5">// DEPLOY</p>

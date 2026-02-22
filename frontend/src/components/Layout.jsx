@@ -132,37 +132,37 @@ export default function Layout({ children }) {
           background: 'linear-gradient(180deg, rgba(2, 6, 14, 0.98) 0%, rgba(1, 4, 10, 0.99) 100%)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          borderRight: '1px solid rgba(0, 212, 255, 0.08)',
-          boxShadow: 'inset -1px 0 0 rgba(0,212,255,0.04)',
+          borderRight: '1px solid rgba(255,129,112,0.08)',
+          boxShadow: 'inset -1px 0 0 rgba(255,129,112,0.04)',
         }}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between px-4 h-16 relative" style={{ borderBottom: '1px solid rgba(0, 212, 255, 0.08)' }}>
+        <div className="flex items-center justify-between px-4 h-16 relative" style={{ borderBottom: '1px solid rgba(255,129,112,0.08)' }}>
           <Link to="/dashboard" className="flex items-center gap-2.5">
             <img
               src="/images/logo-icon.png.svg"
               alt="SlabDash"
               className="h-9 w-9 object-contain arc-pulse-anim"
-              style={{ filter: 'brightness(1.2) drop-shadow(0 0 8px rgba(0,212,255,0.6)) hue-rotate(160deg)' }}
+              style={{ filter: 'brightness(1.05) drop-shadow(0 0 8px rgba(255,129,112,0.5))' }}
             />
             <div>
-              <p className="text-xs font-black tracking-[0.15em] uppercase" style={{ color: '#00D4FF', textShadow: '0 0 10px rgba(0,212,255,0.5)' }}>SLABDASH</p>
-              <p className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(0,212,255,0.4)' }}>PSA Command System</p>
+              <p className="text-xs font-black tracking-[0.15em] uppercase" style={{ color: '#FF8170', textShadow: '0 0 10px rgba(255,129,112,0.5)' }}>SLABDASH</p>
+              <p className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(255,129,112,0.4)' }}>Card Grading Tracker</p>
             </div>
           </Link>
           <button
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden"
-            style={{ color: 'rgba(0, 212, 255, 0.5)' }}
+            style={{ color: 'rgba(255,129,112,0.5)' }}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Company name — OPERATOR ID */}
-        <div className="px-4 py-2.5" style={{ borderBottom: '1px solid rgba(0, 212, 255, 0.06)' }}>
-          <p className="text-[9px] uppercase tracking-[0.15em] font-bold" style={{ color: 'rgba(0,212,255,0.4)' }}>// OPERATOR</p>
-          <p className="text-sm font-bold truncate" style={{ color: 'rgba(0,212,255,0.9)' }}>{company?.name || 'Initializing...'}</p>
+        <div className="px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,129,112,0.06)' }}>
+          <p className="text-[9px] uppercase tracking-[0.15em] font-bold" style={{ color: 'rgba(255,129,112,0.4)' }}>// SHOP</p>
+          <p className="text-sm font-bold truncate" style={{ color: 'rgba(255,129,112,0.9)' }}>{company?.name || 'Loading...'}</p>
         </div>
 
         {/* Navigation */}
@@ -178,13 +178,13 @@ export default function Layout({ children }) {
                 onClick={() => setSidebarOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200"
                 style={isActive ? {
-                  background: 'linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,160,255,0.15))',
-                  color: '#00D4FF',
-                  boxShadow: '0 2px 12px rgba(0,212,255,0.15), inset 0 1px 0 rgba(0,212,255,0.08)',
-                  border: '1px solid rgba(0,212,255,0.25)',
+                  background: 'linear-gradient(135deg, rgba(255,129,112,0.2), rgba(255,107,89,0.15))',
+                  color: '#FF8170',
+                  boxShadow: '0 2px 12px rgba(255,129,112,0.15), inset 0 1px 0 rgba(255,129,112,0.08)',
+                  border: '1px solid rgba(255,129,112,0.25)',
                 } : {
-                  color: 'rgba(0,212,255,0.6)',
-                  border: '1px solid rgba(0,212,255,0.12)',
+                  color: 'rgba(255,129,112,0.6)',
+                  border: '1px solid rgba(255,129,112,0.12)',
                 }}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -195,7 +195,7 @@ export default function Layout({ children }) {
 
           {/* Owner separator */}
           {user?.role === 'owner' && (
-            <div className="my-2" style={{ borderTop: '1px solid rgba(0, 212, 255, 0.06)' }} />
+            <div className="my-2" style={{ borderTop: '1px solid rgba(255,129,112,0.06)' }} />
           )}
 
           {/* Regular navigation */}
@@ -212,23 +212,23 @@ export default function Layout({ children }) {
                   onClick={() => setSidebarOpen(false)}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative overflow-hidden stark-scanline"
                   style={isActive ? {
-                    background: 'linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,140,255,0.15))',
-                    color: '#00D4FF',
-                    boxShadow: '0 4px 20px rgba(0,212,255,0.2), 0 0 30px rgba(0,212,255,0.1), inset 0 1px 0 rgba(0,212,255,0.1)',
-                    border: '1px solid rgba(0,212,255,0.35)',
+                    background: 'linear-gradient(135deg, rgba(255,129,112,0.2), rgba(255,107,89,0.15))',
+                    color: '#FF8170',
+                    boxShadow: '0 4px 20px rgba(255,129,112,0.2), 0 0 30px rgba(255,129,112,0.1), inset 0 1px 0 rgba(255,129,112,0.1)',
+                    border: '1px solid rgba(255,129,112,0.35)',
                   } : {
-                    background: 'linear-gradient(135deg, rgba(0,212,255,0.08), rgba(0,140,255,0.05))',
-                    color: 'rgba(0,212,255,0.85)',
-                    boxShadow: '0 2px 8px rgba(0,212,255,0.08)',
-                    border: '1px solid rgba(0,212,255,0.15)',
+                    background: 'linear-gradient(135deg, rgba(255,129,112,0.08), rgba(255,107,89,0.05))',
+                    color: 'rgba(255,129,112,0.85)',
+                    boxShadow: '0 2px 8px rgba(255,129,112,0.08)',
+                    border: '1px solid rgba(255,129,112,0.15)',
                   }}
                 >
-                  <item.icon className="w-5 h-5 flex-shrink-0" style={{ filter: 'drop-shadow(0 0 6px rgba(0,212,255,0.7))' }} />
+                  <item.icon className="w-5 h-5 flex-shrink-0" style={{ filter: 'drop-shadow(0 0 6px rgba(255,129,112,0.7))' }} />
                   <span className="slabdash-label font-bold" style={{ letterSpacing: '0.12em' }}>SAM AI</span>
                   <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-sm" style={{
-                    background: 'rgba(0,212,255,0.15)',
-                    color: '#00D4FF',
-                    border: '1px solid rgba(0,212,255,0.2)',
+                    background: 'rgba(255,129,112,0.15)',
+                    color: '#FF8170',
+                    border: '1px solid rgba(255,129,112,0.2)',
                     letterSpacing: '0.1em',
                   }}>AI</span>
                 </Link>
@@ -242,16 +242,16 @@ export default function Layout({ children }) {
                 onClick={() => setSidebarOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200"
                 style={isActive ? {
-                  background: 'linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,140,255,0.1))',
-                  color: '#00D4FF',
-                  boxShadow: '0 2px 12px rgba(0,212,255,0.12), inset 0 1px 0 rgba(0,212,255,0.06)',
-                  borderLeft: '2px solid rgba(0,212,255,0.5)',
+                  background: 'linear-gradient(135deg, rgba(255,129,112,0.15), rgba(255,107,89,0.1))',
+                  color: '#FF8170',
+                  boxShadow: '0 2px 12px rgba(255,129,112,0.12), inset 0 1px 0 rgba(255,129,112,0.06)',
+                  borderLeft: '2px solid rgba(255,129,112,0.5)',
                   paddingLeft: '10px',
                 } : {
-                  color: 'rgba(0,212,255,0.5)',
+                  color: 'rgba(255,129,112,0.5)',
                 }}
               >
-                <item.icon className="w-4 h-4 flex-shrink-0" style={isActive ? { filter: 'drop-shadow(0 0 5px rgba(0,212,255,0.7))' } : {}} />
+                <item.icon className="w-4 h-4 flex-shrink-0" style={isActive ? { filter: 'drop-shadow(0 0 5px rgba(255,129,112,0.7))' } : {}} />
                 <span className="slabdash-label">{item.name}</span>
               </Link>
             );
@@ -259,26 +259,26 @@ export default function Layout({ children }) {
         </nav>
 
         {/* System Status */}
-        <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(0,212,255,0.08)' }}>
+        <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(255,129,112,0.08)' }}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${company?.hasPsaKey ? 'bg-emerald-400' : 'bg-amber-400'}`}
                 style={{ boxShadow: company?.hasPsaKey ? '0 0 6px rgba(52,211,153,0.8)' : '0 0 6px rgba(251,191,36,0.8)' }}
               />
-              <span className="text-[10px] font-bold truncate" style={{ color: 'rgba(0,212,255,0.45)', letterSpacing: '0.1em' }}>
+              <span className="text-[10px] font-bold truncate" style={{ color: 'rgba(255,129,112,0.45)', letterSpacing: '0.1em' }}>
                 PSA {company?.hasPsaKey ? 'ONLINE' : 'OFFLINE'}
               </span>
             </div>
             <button
               onClick={() => setDarkMode(d => !d)}
               className="rounded p-1 transition-all flex-shrink-0"
-              style={{ background: 'rgba(0,212,255,0.06)', color: 'rgba(0,212,255,0.5)', border: '1px solid rgba(0,212,255,0.1)' }}
+              style={{ background: 'rgba(255,129,112,0.06)', color: 'rgba(255,129,112,0.5)', border: '1px solid rgba(255,129,112,0.1)' }}
               title={darkMode ? 'Light mode' : 'Dark mode'}
             >
               {darkMode ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
             </button>
           </div>
-          <p className="text-[8px] mt-1" style={{ color: 'rgba(0,212,255,0.2)', letterSpacing: '0.08em' }}>
+          <p className="text-[8px] mt-1" style={{ color: 'rgba(255,129,112,0.2)', letterSpacing: '0.08em' }}>
             SlabDash Command · PSA Tracking
           </p>
         </div>
@@ -292,8 +292,8 @@ export default function Layout({ children }) {
           background: darkMode ? 'rgba(4,8,16,0.85)' : 'rgba(255,255,255,0.6)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          borderBottom: darkMode ? '1px solid rgba(0,212,255,0.08)' : '1px solid rgba(0,0,0,0.06)',
-          boxShadow: darkMode ? '0 1px 0 rgba(0,212,255,0.05)' : '0 1px 8px rgba(0,0,0,0.03)',
+          borderBottom: darkMode ? '1px solid rgba(255,129,112,0.08)' : '1px solid rgba(0,0,0,0.06)',
+          boxShadow: darkMode ? '0 1px 0 rgba(255,129,112,0.05)' : '0 1px 8px rgba(0,0,0,0.03)',
         }}>
           <div className="flex items-center justify-between h-16 px-4 sm:px-6">
             {/* Mobile menu button */}
@@ -307,8 +307,8 @@ export default function Layout({ children }) {
 
             {/* Page title (shows on desktop) */}
             <div className="hidden lg:block">
-              <p className="text-[9px] font-bold tracking-[0.15em] uppercase mb-0.5" style={{ color: darkMode ? 'rgba(0,212,255,0.4)' : 'rgba(44,36,22,0.4)' }}>// MODULE</p>
-              <h1 className="text-sm font-black tracking-widest uppercase" style={{ color: darkMode ? '#00D4FF' : 'rgb(var(--dark))', textShadow: darkMode ? '0 0 12px rgba(0,212,255,0.4)' : 'none', letterSpacing: '0.1em' }}>
+              <p className="text-[9px] font-bold tracking-[0.15em] uppercase mb-0.5" style={{ color: darkMode ? 'rgba(255,129,112,0.4)' : 'rgba(44,36,22,0.4)' }}>// MODULE</p>
+              <h1 className="text-sm font-black tracking-widest uppercase" style={{ color: darkMode ? '#FF8170' : 'rgb(var(--dark))', textShadow: darkMode ? '0 0 12px rgba(255,129,112,0.4)' : 'none', letterSpacing: '0.1em' }}>
                 {navigation.find(n =>
                   n.href === location.pathname ||
                   (n.href !== '/dashboard' && n.href !== '/' && location.pathname.startsWith(n.href))
@@ -330,10 +330,10 @@ export default function Layout({ children }) {
                 >
                   <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
                     style={{
-                      background: darkMode ? 'linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,140,255,0.15))' : 'linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-600)))',
-                      color: darkMode ? '#00D4FF' : '#FFF8F0',
-                      boxShadow: darkMode ? '0 0 0 1px rgba(0,212,255,0.3), 0 0 12px rgba(0,212,255,0.2)' : '0 2px 8px rgba(255,107,89,0.25)',
-                      border: darkMode ? '1px solid rgba(0,212,255,0.3)' : 'none',
+                      background: darkMode ? 'linear-gradient(135deg, rgba(255,129,112,0.2), rgba(255,107,89,0.15))' : 'linear-gradient(135deg, rgb(var(--brand-500)), rgb(var(--brand-600)))',
+                      color: darkMode ? '#FF8170' : '#FFF8F0',
+                      boxShadow: darkMode ? '0 0 0 1px rgba(255,129,112,0.3), 0 0 12px rgba(255,129,112,0.2)' : '0 2px 8px rgba(255,107,89,0.25)',
+                      border: darkMode ? '1px solid rgba(255,129,112,0.3)' : 'none',
                     }}
                   >
                     {user?.name?.charAt(0).toUpperCase() || 'U'}
@@ -350,14 +350,14 @@ export default function Layout({ children }) {
                     />
                     <div className="absolute right-0 z-[70] mt-2 w-48 rounded-2xl py-1 fade-in"
                       style={{
-                        background: darkMode ? 'rgba(8,14,24,0.95)' : 'rgba(255,255,255,0.9)',
+                        background: darkMode ? 'rgba(24,15,9,0.97)' : 'rgba(255,255,255,0.9)',
                         backdropFilter: 'blur(20px)',
                         WebkitBackdropFilter: 'blur(20px)',
-                        border: darkMode ? '1px solid rgba(0,212,255,0.15)' : '1px solid rgba(255,255,255,0.5)',
-                        boxShadow: darkMode ? '0 12px 40px rgba(0,0,0,0.4), 0 0 20px rgba(0,212,255,0.05)' : '0 12px 40px rgba(0,0,0,0.1), 0 4px 16px rgba(0,0,0,0.05)',
+                        border: darkMode ? '1px solid rgba(255,129,112,0.15)' : '1px solid rgba(255,255,255,0.5)',
+                        boxShadow: darkMode ? '0 12px 40px rgba(0,0,0,0.4), 0 0 20px rgba(255,129,112,0.05)' : '0 12px 40px rgba(0,0,0,0.1), 0 4px 16px rgba(0,0,0,0.05)',
                       }}
                     >
-                      <div className="px-4 py-2" style={{ borderBottom: darkMode ? '1px solid rgba(0,212,255,0.08)' : '1px solid rgba(0,0,0,0.06)' }}>
+                      <div className="px-4 py-2" style={{ borderBottom: darkMode ? '1px solid rgba(255,129,112,0.08)' : '1px solid rgba(0,0,0,0.06)' }}>
                         <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>{user?.name}</p>
                         <p className="text-xs" style={{ color: 'var(--text-body)' }}>{user?.email}</p>
                       </div>

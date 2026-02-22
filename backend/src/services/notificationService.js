@@ -21,7 +21,7 @@ async function sendEmail({ to, from, subject, html, text, templateId, templateDa
 
         const msg = {
             to,
-            from: from || process.env.SENDGRID_FROM_EMAIL || 'noreply@slabdash.app',
+            from: from || process.env.SENDGRID_FROM_EMAIL || 'slabdashllc@slabdash.app',
             subject,
         };
 
