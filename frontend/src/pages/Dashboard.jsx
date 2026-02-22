@@ -200,7 +200,7 @@ export default function Dashboard() {
             style={{ background: '#FF8170', boxShadow: '0 0 12px rgba(255,129,112,0.8), 0 0 24px rgba(255,129,112,0.4)' }}
           />
         </div>
-        <p className="hud-label">SAM // Initializing systems...</p>
+        <p className="hud-label">SAM — Initializing...</p>
       </div>
     );
   }
@@ -247,12 +247,11 @@ export default function Dashboard() {
       >
         <div className="px-6 py-5 flex items-center justify-between gap-4">
           <div className="hud-boot">
-            <p className="hud-label mb-1">// Operations Center</p>
             <h1 className="text-2xl font-black tracking-tight" style={{ color: '#FF8170', textShadow: '0 0 20px rgba(255,129,112,0.4)', letterSpacing: '-0.01em' }}>
-              COMMAND CENTER
+              {company?.name}
             </h1>
             <p className="text-xs mt-1 font-medium" style={{ color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>
-              {company?.name} · PSA Submission Tracking Active
+              PSA Submission Tracking
             </p>
           </div>
 
@@ -281,7 +280,7 @@ export default function Dashboard() {
               }}
             >
               <PlayCircle className="w-4 h-4" />
-              <span className="hidden sm:inline">Briefing</span>
+              <span className="hidden sm:inline">Tour</span>
             </button>
 
             {company?.hasPsaKey && (
@@ -334,7 +333,7 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={Package}
-          label="Active Missions"
+          label="Active Submissions"
           value={stats?.inProgress || 0}
           subtext={`${stats?.totalSubmissions || 0} total tracked`}
           color="brand"
@@ -342,25 +341,25 @@ export default function Dashboard() {
         />
         <StatCard
           icon={CheckCircle2}
-          label="Intel Confirmed"
+          label="Grades Ready"
           value={stats?.gradesReady || 0}
-          subtext="Grades ready for retrieval"
+          subtext="Awaiting customer pickup"
           color="blue"
           link="/submissions"
         />
         <StatCard
           icon={AlertTriangle}
-          label="Threat Alerts"
+          label="Problem Orders"
           value={stats?.problems || 0}
-          subtext="Require immediate action"
+          subtext="Require attention"
           color="yellow"
           link="/submissions"
         />
         <StatCard
           icon={Users}
-          label="Operatives"
+          label="Customers"
           value={stats?.totalCustomers || 0}
-          subtext="Active in the field"
+          subtext="Registered in system"
           color="green"
           link="/customers"
         />
@@ -429,7 +428,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#FF8170' }} />
-              <span className="hud-label">SAM // Syncing with PSA servers...</span>
+              <span className="hud-label">Syncing with PSA...</span>
             </div>
             <span className="text-xs font-mono" style={{ color: 'rgba(255,129,112,0.7)' }}>
               {refreshProgress.current}/{refreshProgress.total}
@@ -457,7 +456,7 @@ export default function Dashboard() {
           <div className="p-4" style={{ borderBottom: '1px solid rgba(255,129,112,0.06)' }}>
             <div className="flex items-center gap-2">
               <Bell className="w-4 h-4" style={{ color: '#FF8170', filter: 'drop-shadow(0 0 5px rgba(255,129,112,0.7))' }} />
-              <p className="hud-label">// Alert Feed</p>
+              <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>Alerts</p>
             </div>
           </div>
           <div className="p-4 space-y-3">
@@ -467,8 +466,8 @@ export default function Dashboard() {
               >
                 <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#FF8170', filter: 'drop-shadow(0 0 4px rgba(255,129,112,0.6))' }} />
                 <div>
-                  <p className="text-xs font-black" style={{ color: '#FF8170', letterSpacing: '0.05em' }}>INTEL CONFIRMED</p>
-                  <p className="text-xs font-medium mt-0.5" style={{ color: 'rgb(var(--bg-text))' }}>{stats.gradesReady} submission{stats.gradesReady !== 1 ? 's' : ''} — grades ready for retrieval</p>
+                  <p className="text-xs font-black" style={{ color: '#FF8170', letterSpacing: '0.05em' }}>GRADES READY</p>
+                  <p className="text-xs font-medium mt-0.5" style={{ color: 'rgb(var(--bg-text))' }}>{stats.gradesReady} submission{stats.gradesReady !== 1 ? 's' : ''} — awaiting customer pickup</p>
                 </div>
               </div>
             )}
@@ -478,15 +477,14 @@ export default function Dashboard() {
               >
                 <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#F59E0B' }} />
                 <div>
-                  <p className="text-xs font-black" style={{ color: '#F59E0B', letterSpacing: '0.05em' }}>THREAT DETECTED</p>
-                  <p className="text-xs font-medium mt-0.5" style={{ color: 'rgb(var(--bg-text))' }}>{stats.problems} mission{stats.problems !== 1 ? 's' : ''} flagged — immediate action required</p>
+                  <p className="text-xs font-black" style={{ color: '#F59E0B', letterSpacing: '0.05em' }}>PROBLEM ORDER</p>
+                  <p className="text-xs font-medium mt-0.5" style={{ color: 'rgb(var(--bg-text))' }}>{stats.problems} submission{stats.problems !== 1 ? 's' : ''} flagged — review required</p>
                 </div>
               </div>
             )}
             {(!stats?.gradesReady && !stats?.problems) && (
               <div className="text-center py-4">
-                <p className="hud-label">ALL SYSTEMS NOMINAL</p>
-                <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>No active alerts</p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>No active alerts</p>
               </div>
             )}
           </div>
@@ -497,7 +495,7 @@ export default function Dashboard() {
           <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,129,112,0.06)' }}>
             <div className="flex items-center gap-2">
               <DollarSign className="w-4 h-4" style={{ color: '#10b981', filter: 'drop-shadow(0 0 5px rgba(16,185,129,0.6))' }} />
-              <p className="hud-label">// Asset Acquisition</p>
+              <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>Buyback Offers</p>
             </div>
             <Link
               to="/buyback"
@@ -532,7 +530,7 @@ export default function Dashboard() {
                       </p>
                     </div>
                     <span className="text-sm font-black" style={{ color: '#059669' }}>
-                      ${parseFloat(offer.offer_price || 0).toFixed(2)}
+                      ${parseFloat(offer.offer_amount || 0).toFixed(2)}
                     </span>
                   </Link>
                 ))}
@@ -552,14 +550,14 @@ export default function Dashboard() {
         <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,129,112,0.06)' }}>
           <div className="flex items-center gap-2">
             <TrendingUp className="w-4 h-4" style={{ color: '#FF8170', filter: 'drop-shadow(0 0 5px rgba(255,129,112,0.6))' }} />
-            <p className="hud-label">// Active Mission Log</p>
+            <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>Active Submissions</p>
           </div>
           <Link
             to="/submissions"
             className="flex items-center gap-1 text-xs font-bold transition-all"
             style={{ color: 'rgba(255,129,112,0.85)' }}
           >
-            All missions <ArrowRight className="w-3 h-3" />
+            View all <ArrowRight className="w-3 h-3" />
           </Link>
         </div>
 
@@ -612,7 +610,6 @@ export default function Dashboard() {
               <Package className="w-5 h-5" style={{ color: '#FF8170', filter: 'drop-shadow(0 0 4px rgba(255,129,112,0.6))' }} />
             </div>
             <div>
-              <p className="hud-label mb-0.5">// DEPLOY</p>
               <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>New Submission</p>
             </div>
           </div>
@@ -634,8 +631,7 @@ export default function Dashboard() {
               <Users className="w-5 h-5" style={{ color: '#10b981', filter: 'drop-shadow(0 0 4px rgba(16,185,129,0.5))' }} />
             </div>
             <div>
-              <p className="hud-label mb-0.5">// ENLIST</p>
-              <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>Add Operative</p>
+              <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>New Customer</p>
             </div>
           </div>
         </Link>
@@ -656,7 +652,6 @@ export default function Dashboard() {
               <Zap className="w-5 h-5" style={{ color: '#8b5cf6', filter: 'drop-shadow(0 0 4px rgba(139,92,246,0.5))' }} />
             </div>
             <div>
-              <p className="hud-label mb-0.5">// CONFIGURE</p>
               <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>Connect PSA</p>
             </div>
           </div>
