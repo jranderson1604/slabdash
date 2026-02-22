@@ -387,15 +387,17 @@ export default function Customers() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 shadow-xl">
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
 
-        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 sm:px-8 py-7">
           <div>
-            <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">CUSTOMERS</h1>
-            <p className="text-white/90 text-lg font-semibold">Manage your card shop customers</p>
+            <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Management</p>
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">Customers</h1>
+            <p className="text-white/60 text-sm font-medium mt-1">
+              {customerList.length > 0 ? `${customerList.length} registered` : 'Manage your card shop customers'}
+            </p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             {customerList.length > 0 && (

@@ -669,12 +669,14 @@ export default function Submissions() {
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
       {/* HEADER */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 p-6 shadow-xl">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 shadow-xl">
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
 
-        <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 px-6 sm:px-8 py-7">
           <div>
-            <h1 className="text-3xl font-black text-white tracking-tight mb-1">SUBMISSIONS</h1>
+            <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Tracking</p>
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight mb-1">Submissions</h1>
             <div className="flex items-center gap-4 text-sm text-white/70">
               <span>{subs.length} total</span>
               <span>{totalCards} cards</span>
