@@ -1576,7 +1576,7 @@ export default function SubmissionDetail() {
             <div className="mb-4 p-5 bg-gray-50 rounded-lg border border-gray-200">
               <div className="flex items-center justify-between mb-3">
                 <label className="block text-base font-semibold text-gray-900">
-                  Add Customer to This Submission
+                  Assign Customer
                 </label>
               </div>
 

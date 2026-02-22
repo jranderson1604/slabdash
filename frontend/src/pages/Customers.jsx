@@ -446,7 +446,7 @@ export default function Customers() {
             <ExportButton endpoint="/customers/export.csv" label="" />
             <Link to="/customers/new" className="bg-white text-brand-600 px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105">
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Customer</span>
+              <span className="hidden sm:inline">New Customer</span>
             </Link>
           </div>
         </div>
@@ -468,7 +468,7 @@ export default function Customers() {
                 className="btn btn-primary gap-2"
               >
                 <Package className="w-4 h-4" />
-                Add to Submission
+                Assign to Submission
               </button>
               <button
                 onClick={handleBulkDelete}
@@ -513,16 +513,14 @@ export default function Customers() {
           <div className="p-12 text-center">
             <Users className="w-12 h-12 text-brand-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {search ? 'No matching customers' : 'No customers yet'}
+              {search ? 'No matching customers' : 'No customers'}
             </h3>
             <p className="text-gray-500 mb-4">
-              {search
-                ? 'Try adjusting your search'
-                : 'Add your first customer to get started'}
+              {search ? 'Try adjusting your search' : 'Create a customer record to begin tracking submissions.'}
             </p>
             {!search && (
               <Link to="/customers/new" className="btn btn-primary">
-                Add Customer
+                New Customer
               </Link>
             )}
           </div>
@@ -607,7 +605,7 @@ export default function Customers() {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Package className="w-6 h-6 text-brand-600" />
-                Add Customers to Submission
+                Assign to Submission
               </h3>
               <button
                 onClick={() => setShowAddToSubmissionModal(false)}
@@ -714,7 +712,7 @@ export default function Customers() {
                 className="flex-1 bg-brand-600 text-white px-6 py-3 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <Package className="w-4 h-4" />
-                Add to Submission
+                Assign to Submission
               </button>
               <button
                 onClick={() => setShowAddToSubmissionModal(false)}

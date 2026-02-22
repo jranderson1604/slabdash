@@ -273,7 +273,7 @@ export default function CustomerDetail() {
           <div className="card">
             <div className="p-6 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Add Customer to Submission
+                Assign to Submission
               </h2>
 
               {/* Searchable submission input */}
@@ -392,7 +392,7 @@ export default function CustomerDetail() {
                 ))}
               </div>
             ) : (
-              <div className="p-8 text-center"><Package className="w-10 h-10 text-brand-300 mx-auto mb-3" /><p className="text-gray-500">No submissions yet</p><Link to="/submissions/new" className="btn btn-primary mt-3">Create First Submission</Link></div>
+              <div className="p-8 text-center"><Package className="w-10 h-10 text-brand-300 mx-auto mb-3" /><p className="text-gray-500">No submissions yet</p><Link to="/submissions/new" className="btn btn-primary mt-3">New Submission</Link></div>
             )}
           </div>
 
