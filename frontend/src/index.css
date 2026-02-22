@@ -836,6 +836,10 @@
     box-shadow: 0 2px 12px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.6);
   }
 
+  /* Light mode: gray-400 (#9ca3af) is only 2.5:1 on cream — too faint */
+  :root:not(.dark) .text-gray-400,
+  :root:not(.dark) .text-gray-300 { color: rgba(44, 36, 22, 0.5); }
+
   /* ═══════════════════════════════════════════ */
   /* DARK MODE OVERRIDES                        */
   /* ═══════════════════════════════════════════ */
@@ -875,13 +879,18 @@
   :root.dark .text-gray-600 { color: rgb(200 165 130); }
   :root.dark .text-gray-500 { color: rgba(200,165,130,0.7); }
   :root.dark .text-gray-400,
-  :root.dark .text-gray-300 { color: rgba(200,165,130,0.5); }
+  :root.dark .text-gray-300 { color: rgba(200,165,130,0.7); }
 
   :root.dark .bg-white { background-color: rgb(24 15 9); }
   :root.dark .bg-gray-50 { background-color: rgba(255,129,112,0.03); }
   :root.dark .bg-gray-100 { background-color: rgba(255,129,112,0.05); }
   :root.dark .bg-gray-200 { background-color: rgba(255,129,112,0.08); }
   :root.dark .bg-green-100 { background-color: rgba(16,185,129,0.12); }
+  :root.dark .bg-blue-50 { background-color: rgba(255,129,112,0.04); }
+  :root.dark .border-blue-200 { border-color: rgba(255,129,112,0.12); }
+  :root.dark .text-blue-900,
+  :root.dark .text-blue-800 { color: rgb(255 238 218); }
+  :root.dark .text-blue-600 { color: rgba(255,129,112,0.9); }
 
   :root.dark .border-gray-100 { border-color: rgba(255,129,112,0.07); }
   :root.dark .border-gray-200,
