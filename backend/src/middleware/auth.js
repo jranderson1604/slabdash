@@ -12,19 +12,26 @@ const authenticate = async (req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
 
         const result = await db.query(
-            `SELECT u.id, u.company_id, u.email, u.name, u.role, u.is_active,
+            `SELECT u.id, u.company_id, u.email, u.name, u.role, u.is_active, u.last_logout_at,
              c.name as company_name, c.slug as company_slug, c.shop_code as company_shop_code,
-             c.psa_api_key, c.primary_color, c.background_color, c.sidebar_color, c.plan
+             c.psa_api_key, c.primary_color, c.background_color, c.sidebar_color, c.plan, c.trial_ends_at
              FROM users u JOIN companies c ON u.company_id = c.id
              WHERE u.id = $1 AND u.is_active = true`,
             [decoded.userId]
         );
-        
+
         if (result.rows.length === 0) {
             return res.status(401).json({ error: 'User not found' });
         }
-        
-        req.user = result.rows[0];
+
+        const user = result.rows[0];
+
+        // Reject tokens issued before the user last logged out
+        if (user.last_logout_at && decoded.iat * 1000 < new Date(user.last_logout_at).getTime()) {
+            return res.status(401).json({ error: 'Token has been revoked' });
+        }
+
+        req.user = user;
         req.companyId = result.rows[0].company_id;
         next();
     } catch (error) {

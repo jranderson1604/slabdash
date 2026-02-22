@@ -27,7 +27,7 @@ function Section({ title, icon: Icon, children }) {
         </div>
         {title}
       </h2>
-      <div className="space-y-4" style={{ color: 'rgba(44, 36, 22, 0.7)' }}>
+      <div className="space-y-4" style={{ color: 'var(--text-body)' }}>
         {children}
       </div>
     </div>
@@ -55,7 +55,7 @@ function StepCard({ number, title, description, icon: Icon }) {
           {Icon && <Icon className="w-4 h-4" />}
           {title}
         </h4>
-        <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>{description}</p>
+        <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>{description}</p>
       </div>
     </div>
   );

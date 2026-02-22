@@ -24,6 +24,9 @@ api.interceptors.response.use(
         window.location.href = '/login';
       }
     }
+    if (error.response?.status === 403 && error.response?.data?.upgrade) {
+      window.dispatchEvent(new CustomEvent('slabdash:upgrade', { detail: error.response.data }));
+    }
     return Promise.reject(error);
   }
 );
@@ -31,6 +34,7 @@ api.interceptors.response.use(
 export const auth = {
   login: (email, password) => api.post('/auth/login', { email, password }),
   register: (data) => api.post('/auth/register', data),
+  logout: () => api.post('/auth/logout'),
   me: () => api.get('/auth/me', {
     headers: { 'Cache-Control': 'no-cache' },
     params: { _t: Date.now() } // Cache-busting timestamp
@@ -40,7 +44,9 @@ export const auth = {
 export const companies = {
   get: () => api.get('/companies/settings'),
   update: (data) => api.patch('/companies/settings', data),
-  updatePsaKey: (psaApiKey) => api.post('/companies/psa-key', { apiKey: psaApiKey })
+  updatePsaKey: (psaApiKey) => api.post('/companies/psa-key', { apiKey: psaApiKey }),
+  usage: () => api.get('/companies/usage'),
+  stats: () => api.get('/companies/stats'),
 };
 
 export const customers = {
@@ -166,6 +172,15 @@ export const invoices = {
 export const migration = {
   checkInvoiceStatus: () => api.get('/migration/check-invoice-status'),
   runInvoiceMigration: () => api.post('/migration/add-invoice-columns')
+};
+
+export const analytics = {
+  summary: () => api.get('/analytics/summary'),
+  gradeDistribution: () => api.get('/analytics/grade-distribution'),
+  monthlyTrends: () => api.get('/analytics/monthly-trends'),
+  serviceLevels: () => api.get('/analytics/service-levels'),
+  turnaround: () => api.get('/analytics/turnaround'),
+  topCustomers: () => api.get('/analytics/top-customers'),
 };
 
 export default api;

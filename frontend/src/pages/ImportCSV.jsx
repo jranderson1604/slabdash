@@ -77,7 +77,7 @@ export default function ImportCSV() {
     <div className="container py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2" style={{ color: 'rgb(var(--dark))' }}>Import PSA CSV</h1>
-        <p style={{ color: 'rgba(44, 36, 22, 0.5)' }}>
+        <p style={{ color: 'var(--text-secondary)' }}>
           Upload a CSV file from PSA to automatically import submissions and card data
         </p>
       </div>
@@ -95,7 +95,7 @@ export default function ImportCSV() {
           </div>
 
           <h3 className="text-lg font-bold mb-2" style={{ color: 'rgb(var(--dark))' }}>Upload CSV File</h3>
-          <p className="text-sm mb-6 text-center max-w-md" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>
+          <p className="text-sm mb-6 text-center max-w-md" style={{ color: 'var(--text-secondary)' }}>
             Select a PSA CSV export file. The file should contain order numbers, card details, and grades.
           </p>
 
@@ -119,9 +119,9 @@ export default function ImportCSV() {
               }}
             >
               <div className="flex items-center gap-2">
-                <FileText className="w-5 h-5" style={{ color: 'rgba(44, 36, 22, 0.55)' }} />
+                <FileText className="w-5 h-5" style={{ color: 'var(--text-secondary)' }} />
                 <span className="text-sm font-semibold" style={{ color: 'rgb(var(--dark))' }}>{file.name}</span>
-                <span className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
+                <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                   ({(file.size / 1024).toFixed(1)} KB)
                 </span>
               </div>
@@ -201,7 +201,7 @@ export default function ImportCSV() {
                 onChange={(e) => setPsaSubmissionNumber(e.target.value)}
                 className="input w-full md:w-96"
               />
-              <p className="text-xs mt-1" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                 Enter the real PSA submission/order number from your account. If left empty, a placeholder will be generated.
               </p>
             </div>
@@ -217,7 +217,7 @@ export default function ImportCSV() {
                 onChange={(e) => setCustomerId(e.target.value)}
                 className="input w-full md:w-96"
               />
-              <p className="text-xs mt-1" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
+              <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                 Leave empty to import without linking to a specific customer
               </p>
             </div>
@@ -241,7 +241,7 @@ export default function ImportCSV() {
                     <td>
                       <span className="badge badge-blue">{sub.card_count} cards</span>
                     </td>
-                    <td className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>
+                    <td className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                       {sub.sample_cards.map(c => c.description).join(', ')}
                     </td>
                   </tr>
@@ -249,7 +249,7 @@ export default function ImportCSV() {
               </tbody>
             </table>
             {preview.submissions.length > 10 && (
-              <p className="text-sm mt-2 text-center" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
+              <p className="text-sm mt-2 text-center" style={{ color: 'var(--text-secondary)' }}>
                 Showing 10 of {preview.submissions.length} submissions
               </p>
             )}
@@ -300,7 +300,7 @@ export default function ImportCSV() {
             </div>
             <div>
               <h3 className="text-lg font-bold" style={{ color: 'rgb(var(--dark))' }}>Import Complete!</h3>
-              <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>{results.message}</p>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{results.message}</p>
             </div>
           </div>
 
@@ -312,7 +312,7 @@ export default function ImportCSV() {
                 border: '1px solid rgba(255, 255, 255, 0.4)',
               }}
             >
-              <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Submissions Created</p>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Submissions Created</p>
               <p className="text-2xl font-black" style={{ color: 'rgb(var(--dark))' }}>{results.submissionsCreated}</p>
             </div>
             <div className="p-4 rounded-2xl"
@@ -322,7 +322,7 @@ export default function ImportCSV() {
                 border: '1px solid rgba(255, 255, 255, 0.4)',
               }}
             >
-              <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Submissions Updated</p>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Submissions Updated</p>
               <p className="text-2xl font-black" style={{ color: 'rgb(var(--dark))' }}>{results.submissionsUpdated}</p>
             </div>
             <div className="p-4 rounded-2xl"
@@ -332,7 +332,7 @@ export default function ImportCSV() {
                 border: '1px solid rgba(255, 255, 255, 0.4)',
               }}
             >
-              <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Cards Created</p>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Cards Created</p>
               <p className="text-2xl font-black" style={{ color: 'rgb(var(--dark))' }}>{results.cardsCreated}</p>
             </div>
             <div className="p-4 rounded-2xl"
@@ -342,7 +342,7 @@ export default function ImportCSV() {
                 border: '1px solid rgba(255, 255, 255, 0.4)',
               }}
             >
-              <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Errors</p>
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>Errors</p>
               <p className="text-2xl font-black" style={{ color: 'rgb(var(--dark))' }}>{results.errors?.length || 0}</p>
             </div>
           </div>
@@ -408,7 +408,7 @@ export default function ImportCSV() {
           <Info className="w-5 h-5" style={{ color: 'rgb(var(--brand-500))' }} />
           <h3 className="text-lg font-bold" style={{ color: 'rgb(var(--dark))' }}>CSV Format Requirements</h3>
         </div>
-        <ul className="text-sm space-y-2" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
+        <ul className="text-sm space-y-2" style={{ color: 'var(--text-secondary)' }}>
           <li>File must be in CSV format (.csv)</li>
           <li>Required columns: Order # (or Submission #), Player, Grade</li>
           <li>Optional columns: Service Level, Cert #, Year, Brand, Card #, Variety/Pedigree, Qualifier</li>

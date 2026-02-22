@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import ThemeProvider from './components/ThemeProvider';
 import Layout from './components/Layout';
+import ErrorBoundary from './components/ErrorBoundary';
+import UpgradeModal from './components/UpgradeModal';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -25,6 +27,7 @@ import EmailSender from './pages/EmailSender';
 import Portal from './pages/Portal';
 import OwnerDashboard from './pages/OwnerDashboard';
 import Help from './pages/Help';
+import Analytics from './pages/Analytics';
 import SAMAI from './pages/SAMAI';
 import Demo from './pages/Demo';
 import { Loader2 } from 'lucide-react';
@@ -75,6 +78,7 @@ function AppRoutes() {
       <Route path="/email-settings" element={<ProtectedRoute><EmailSettings /></ProtectedRoute>} />
       <Route path="/email-templates" element={<ProtectedRoute><EmailTemplates /></ProtectedRoute>} />
       <Route path="/email-sender" element={<ProtectedRoute><EmailSender /></ProtectedRoute>} />
+      <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
       <Route path="/owner" element={<ProtectedRoute><OwnerDashboard /></ProtectedRoute>} />
       <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
@@ -84,14 +88,17 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <ThemeProvider>
-          <ToastProvider>
-            <AppRoutes />
-          </ToastProvider>
-        </ThemeProvider>
-      </AuthProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <ThemeProvider>
+            <ToastProvider>
+              <AppRoutes />
+              <UpgradeModal />
+            </ToastProvider>
+          </ThemeProvider>
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

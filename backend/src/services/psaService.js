@@ -612,15 +612,47 @@ const updateSubmissionFromPsa = async (submissionId, psaData) => {
         } catch (emailError) {
             console.error('Failed to send shipped email:', emailError.message);
         }
+        if (prev.company_id) {
+            const { fireWebhook } = require('./webhookService');
+            fireWebhook(prev.company_id, 'submission.shipped', {
+                submission_id: submissionId,
+                psa_number: prev.psa_submission_number,
+            }).catch(() => {});
+        }
     }
 
-    // Send problem order email when problem flag is set
+    // Notify shop owner when grades first become ready
+    if (parsed.gradesReady && !prev.grades_ready) {
+        try {
+            const { sendOwnerGradesReadyEmail } = require('./emailService');
+            await sendOwnerGradesReadyEmail(submissionId);
+        } catch (emailError) {
+            console.error('Failed to send owner grades-ready email:', emailError.message);
+        }
+        if (prev.company_id) {
+            const { fireWebhook } = require('./webhookService');
+            fireWebhook(prev.company_id, 'submission.grades_ready', {
+                submission_id: submissionId,
+                psa_number: prev.psa_submission_number,
+            }).catch(() => {});
+        }
+    }
+
+    // Send problem order email when problem flag is set (customers + owner)
     if (parsed.problemOrder && !prev.problem_order) {
         try {
-            const { sendProblemOrderEmail } = require('./emailService');
+            const { sendProblemOrderEmail, sendOwnerProblemOrderEmail } = require('./emailService');
             await sendProblemOrderEmail(submissionId);
+            await sendOwnerProblemOrderEmail(submissionId);
         } catch (emailError) {
             console.error('Failed to send problem order email:', emailError.message);
+        }
+        if (prev.company_id) {
+            const { fireWebhook } = require('./webhookService');
+            fireWebhook(prev.company_id, 'submission.problem', {
+                submission_id: submissionId,
+                psa_number: prev.psa_submission_number,
+            }).catch(() => {});
         }
     }
 

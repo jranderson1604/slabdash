@@ -323,11 +323,11 @@ export default function Landing() {
         </div>
         <div style={{ padding: 24 }} className="space-y-4">
           <div>
-            <p className="text-xs font-bold mb-1" style={{ color: 'rgba(44,36,22,0.5)' }}>PSA ORDER NUMBER</p>
+            <p className="text-xs font-bold mb-1" style={{ color: 'var(--text-secondary)' }}>PSA ORDER NUMBER</p>
             <div style={{ background: '#fff', border: '2px solid #FF8170', borderRadius: 12, padding: '12px 16px', fontSize: 20, fontFamily: 'monospace', fontWeight: 700, color: '#2C2416' }}>86241907</div>
           </div>
           <div>
-            <p className="text-xs font-bold mb-1" style={{ color: 'rgba(44,36,22,0.5)' }}>SERVICE LEVEL</p>
+            <p className="text-xs font-bold mb-1" style={{ color: 'var(--text-secondary)' }}>SERVICE LEVEL</p>
             <div className="flex gap-2">
               {['Bulk', 'Regular', 'Express'].map(s => (
                 <div key={s} style={{ background: s === 'Express' ? '#FF8170' : tan, color: s === 'Express' ? '#fff' : '#2C2416', borderRadius: 10, padding: '8px 16px', fontWeight: 700, fontSize: 14 }}>{s}</div>
@@ -335,7 +335,7 @@ export default function Landing() {
             </div>
           </div>
           <div>
-            <p className="text-xs font-bold mb-1" style={{ color: 'rgba(44,36,22,0.5)' }}>CUSTOMER</p>
+            <p className="text-xs font-bold mb-1" style={{ color: 'var(--text-secondary)' }}>CUSTOMER</p>
             <div style={{ background: '#fff', border: '1px solid rgba(44,36,22,0.1)', borderRadius: 12, padding: '12px 16px', fontWeight: 600, color: '#2C2416' }}>Marcus Rivera</div>
           </div>
           <div style={{ background: coralGrad, borderRadius: 14, padding: '14px 0', textAlign: 'center', color: '#fff', fontWeight: 800, fontSize: 16, cursor: 'default' }}>Create Submission</div>
@@ -352,9 +352,9 @@ export default function Landing() {
             <div key={i} style={{ background: cream, borderRadius: 16, border: '1px solid rgba(44,36,22,0.08)', padding: 20 }}>
               <div className="flex items-center justify-between mb-1">
                 <p style={{ fontWeight: 800, fontSize: 16, color: '#2C2416' }}>{sub.customer}</p>
-                <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'rgba(44,36,22,0.45)', fontWeight: 600 }}>#{sub.num}</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>#{sub.num}</span>
               </div>
-              <p className="text-xs mb-3" style={{ color: 'rgba(44,36,22,0.5)' }}>{sub.cards} cards · {sub.service} · Day {sub.daysIn}</p>
+              <p className="text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>{sub.cards} cards · {sub.service} · Day {sub.daysIn}</p>
               <div className="flex items-center gap-1 mb-2">
                 {steps.map((s, j) => (
                   <div key={j} className="flex-1 flex flex-col items-center">
@@ -399,7 +399,7 @@ export default function Landing() {
                 <div key={j} style={{ flex: 1, height: 6, borderRadius: 3, background: j <= demoActiveIdx ? '#FF8170' : tan }} />
               ))}
             </div>
-            <div className="flex justify-between" style={{ fontSize: 12, color: 'rgba(44,36,22,0.55)' }}>
+            <div className="flex justify-between" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
               <span style={{ fontWeight: 700, color: '#2C2416' }}>Grading</span>
               <span>~62% complete</span>
             </div>
@@ -407,15 +407,15 @@ export default function Landing() {
           <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
             <div style={{ flex: 1, background: tan, borderRadius: 12, padding: '12px 0', textAlign: 'center' }}>
               <p style={{ fontSize: 20, fontWeight: 800, color: '#2C2416' }}>18</p>
-              <p style={{ fontSize: 10, color: 'rgba(44,36,22,0.5)', fontWeight: 600 }}>Cards</p>
+              <p style={{ fontSize: 10, color: 'var(--text-secondary)', fontWeight: 600 }}>Cards</p>
             </div>
             <div style={{ flex: 1, background: tan, borderRadius: 12, padding: '12px 0', textAlign: 'center' }}>
               <p style={{ fontSize: 20, fontWeight: 800, color: '#2C2416' }}>8</p>
-              <p style={{ fontSize: 10, color: 'rgba(44,36,22,0.5)', fontWeight: 600 }}>Days In</p>
+              <p style={{ fontSize: 10, color: 'var(--text-secondary)', fontWeight: 600 }}>Days In</p>
             </div>
             <div style={{ flex: 1, background: tan, borderRadius: 12, padding: '12px 0', textAlign: 'center' }}>
               <p style={{ fontSize: 20, fontWeight: 800, color: '#FF8170' }}>~5d</p>
-              <p style={{ fontSize: 10, color: 'rgba(44,36,22,0.5)', fontWeight: 600 }}>Est. Left</p>
+              <p style={{ fontSize: 10, color: 'var(--text-secondary)', fontWeight: 600 }}>Est. Left</p>
             </div>
           </div>
         </div>
@@ -445,9 +445,9 @@ export default function Landing() {
                   <div className="flex-1">
                     <div className="flex items-center justify-between">
                       <p style={{ fontWeight: 800, fontSize: 14, color: '#2C2416' }}>{n.title}</p>
-                      <span style={{ fontSize: 11, color: 'rgba(44,36,22,0.55)' }}>{n.time}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text-secondary)' }}>{n.time}</span>
                     </div>
-                    <p style={{ fontSize: 13, color: 'rgba(44,36,22,0.6)', marginTop: 2 }}>{n.body}</p>
+                    <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginTop: 2 }}>{n.body}</p>
                   </div>
                 </div>
               </div>
@@ -465,17 +465,17 @@ export default function Landing() {
         </div>
         <div style={{ padding: 24, textAlign: 'center' }}>
           <div style={{ background: tan, borderRadius: 16, padding: '28px 20px', marginBottom: 20 }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: 'rgba(44,36,22,0.55)', letterSpacing: 2, marginBottom: 8 }}>PICKUP CODE</p>
+            <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', letterSpacing: 2, marginBottom: 8 }}>PICKUP CODE</p>
             <p style={{ fontSize: 44, fontWeight: 900, fontFamily: 'monospace', color: '#2C2416', letterSpacing: 6 }}>T4X-9KP</p>
           </div>
           <div className="flex gap-3 mb-4">
             <div style={{ flex: 1, background: '#fff', borderRadius: 12, border: '1px solid rgba(44,36,22,0.06)', padding: 14, textAlign: 'center' }}>
               <p style={{ fontSize: 24, fontWeight: 800, color: '#2C2416' }}>6</p>
-              <p style={{ fontSize: 11, color: 'rgba(44,36,22,0.5)', fontWeight: 600 }}>Cards</p>
+              <p style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600 }}>Cards</p>
             </div>
             <div style={{ flex: 1, background: '#fff', borderRadius: 12, border: '1px solid rgba(44,36,22,0.06)', padding: 14, textAlign: 'center' }}>
               <p style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>$142</p>
-              <p style={{ fontSize: 11, color: 'rgba(44,36,22,0.5)', fontWeight: 600 }}>Total Due</p>
+              <p style={{ fontSize: 11, color: 'var(--text-secondary)', fontWeight: 600 }}>Total Due</p>
             </div>
           </div>
           <div style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 12, padding: '12px 16px' }}>
@@ -490,7 +490,7 @@ export default function Landing() {
         <div style={{ textAlign: 'center', marginBottom: 20 }}>
           <div style={{ fontSize: 52, marginBottom: 12 }}>🚀</div>
           <p style={{ fontSize: 26, fontWeight: 900, color: '#2C2416', marginBottom: 6 }}>That's SlabDash.</p>
-          <p style={{ fontSize: 14, color: 'rgba(44,36,22,0.5)', maxWidth: 360, margin: '0 auto', lineHeight: 1.5 }}>
+          <p style={{ fontSize: 14, color: 'var(--text-secondary)', maxWidth: 360, margin: '0 auto', lineHeight: 1.5 }}>
             Everything you just saw — ready for your shop in minutes.
           </p>
         </div>
@@ -616,7 +616,7 @@ export default function Landing() {
             <span style={{ color: '#FF8170' }}>Start running your shop.</span>
           </h1>
 
-          <p className="text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed mb-10" style={{ color: 'rgba(44,36,22,0.55)' }}>
+          <p className="text-lg sm:text-xl max-w-2xl mx-auto leading-relaxed mb-10" style={{ color: 'var(--text-secondary)' }}>
             SlabDash tracks every PSA submission in real-time, keeps your customers in the loop automatically, and gives you the tools to grow your grading business.
           </p>
 
@@ -641,10 +641,10 @@ export default function Landing() {
               <Monitor className="w-4 h-4" /> Try the Interactive Demo
             </button>
             <span className="hidden sm:inline text-xs" style={{ color: 'rgba(44,36,22,0.2)' }}>|</span>
-            <p className="text-sm" style={{ color: 'rgba(44,36,22,0.5)' }}>No credit card required</p>
+            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>No credit card required</p>
           </div>
           {waitlistCount > 0 && (
-            <p className="text-xs mt-3 font-semibold" style={{ color: 'rgba(44,36,22,0.35)' }}>
+            <p className="text-xs mt-3 font-semibold" style={{ color: 'var(--text-muted)' }}>
               {waitlistCount} shop{waitlistCount !== 1 ? 's' : ''} on the waitlist
             </p>
           )}
@@ -663,7 +663,7 @@ export default function Landing() {
                 <div className="w-3 h-3 rounded-full" style={{ background: '#2BC840' }} />
               </div>
               <div className="flex-1 flex justify-center">
-                <div className="px-6 py-1 rounded-lg text-xs font-medium" style={{ background: 'rgba(44,36,22,0.04)', color: 'rgba(44,36,22,0.55)' }}>
+                <div className="px-6 py-1 rounded-lg text-xs font-medium" style={{ background: 'rgba(44,36,22,0.04)', color: 'var(--text-secondary)' }}>
                   slabdash.app/dashboard
                 </div>
               </div>
@@ -679,7 +679,7 @@ export default function Landing() {
                 ].map((stat, i) => (
                   <div key={i} className="rounded-xl p-4" style={{ background: 'rgba(255,255,255,0.7)', border: '1px solid rgba(44,36,22,0.05)' }}>
                     <p className="text-2xl sm:text-3xl font-black" style={{ color: stat.color }}>{stat.value}</p>
-                    <p className="text-xs font-semibold mt-1" style={{ color: 'rgba(44,36,22,0.55)' }}>{stat.label}</p>
+                    <p className="text-xs font-semibold mt-1" style={{ color: 'var(--text-secondary)' }}>{stat.label}</p>
                   </div>
                 ))}
               </div>
@@ -697,13 +697,13 @@ export default function Landing() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold truncate" style={{ color: '#2C2416' }}>{sub.customer}</p>
-                      <p className="text-xs" style={{ color: 'rgba(44,36,22,0.55)' }}>#{sub.num} · {sub.service}</p>
+                      <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>#{sub.num} · {sub.service}</p>
                     </div>
                     <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
                       <div className="h-1.5 w-20 rounded-full overflow-hidden" style={{ background: 'rgba(44,36,22,0.06)' }}>
                         <div className="h-full rounded-full" style={{ width: `${sub.progress}%`, background: 'linear-gradient(90deg, #FF8170, #E8543D)' }} />
                       </div>
-                      <span className="text-xs font-bold" style={{ color: 'rgba(44,36,22,0.55)' }}>{sub.step}</span>
+                      <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>{sub.step}</span>
                     </div>
                   </div>
                 ))}
@@ -724,7 +724,7 @@ export default function Landing() {
           ].map((stat, i) => (
             <div key={i} className="text-center">
               <p className="text-2xl sm:text-3xl font-black" style={{ color: '#2C2416' }}>{stat.value}</p>
-              <p className="text-xs font-semibold mt-1" style={{ color: 'rgba(44,36,22,0.55)' }}>{stat.label}</p>
+              <p className="text-xs font-semibold mt-1" style={{ color: 'var(--text-secondary)' }}>{stat.label}</p>
             </div>
           ))}
         </div>
@@ -740,7 +740,7 @@ export default function Landing() {
             <h2 className="text-3xl sm:text-5xl font-black leading-tight mb-4" style={{ color: '#2C2416' }}>
               Updates from SlabDash
             </h2>
-            <p className="text-base sm:text-lg" style={{ color: 'rgba(44,36,22,0.5)' }}>
+            <p className="text-base sm:text-lg" style={{ color: 'var(--text-secondary)' }}>
               Feature releases, announcements, and news for card shops.
             </p>
           </div>
@@ -752,7 +752,7 @@ export default function Landing() {
           ) : blogPosts.length === 0 ? (
             <div className="text-center py-16 rounded-2xl" style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(44,36,22,0.05)' }}>
               <Bell className="w-10 h-10 mx-auto mb-4" style={{ color: 'rgba(44,36,22,0.2)' }} />
-              <p className="text-sm font-semibold" style={{ color: 'rgba(44,36,22,0.45)' }}>No updates yet — check back soon!</p>
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-muted)' }}>No updates yet — check back soon!</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -771,10 +771,10 @@ export default function Landing() {
                         <h3 className="text-lg sm:text-xl font-black" style={{ color: '#2C2416' }}>{post.title}</h3>
                       </div>
                     </div>
-                    <div className="text-sm leading-relaxed whitespace-pre-line mb-4" style={{ color: 'rgba(44,36,22,0.6)' }}>
+                    <div className="text-sm leading-relaxed whitespace-pre-line mb-4" style={{ color: 'var(--text-secondary)' }}>
                       {post.body}
                     </div>
-                    <div className="flex items-center gap-3 text-xs" style={{ color: 'rgba(44,36,22,0.35)' }}>
+                    <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
                       <span className="font-semibold">{post.author_name}</span>
                       <span>·</span>
                       <span>{new Date(post.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
@@ -898,7 +898,7 @@ export default function Landing() {
             <h2 className="text-3xl sm:text-5xl font-black leading-tight mb-5" style={{ color: '#2C2416' }}>
               Everything you need to run<br className="hidden sm:block" /> your grading business
             </h2>
-            <p className="text-base sm:text-lg max-w-xl mx-auto" style={{ color: 'rgba(44,36,22,0.5)' }}>
+            <p className="text-base sm:text-lg max-w-xl mx-auto" style={{ color: 'var(--text-secondary)' }}>
               Built by card shop owners who were tired of spreadsheets and sticky notes.
             </p>
           </div>
@@ -911,7 +911,7 @@ export default function Landing() {
                   <feature.icon className="w-5 h-5 text-white" />
                 </div>
                 <h3 className="text-lg font-bold mb-2" style={{ color: '#2C2416' }}>{feature.title}</h3>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(44,36,22,0.5)' }}>{feature.description}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{feature.description}</p>
               </div>
             ))}
           </div>
@@ -940,7 +940,7 @@ export default function Landing() {
                   {item.step}
                 </div>
                 <h3 className="text-lg font-bold mb-2" style={{ color: '#2C2416' }}>{item.title}</h3>
-                <p className="text-sm leading-relaxed" style={{ color: 'rgba(44,36,22,0.5)' }}>{item.desc}</p>
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{item.desc}</p>
               </div>
             ))}
           </div>
@@ -960,7 +960,7 @@ export default function Landing() {
             <h2 className="text-3xl sm:text-5xl font-black leading-tight mb-5" style={{ color: '#2C2416' }}>
               Simple, transparent pricing
             </h2>
-            <p className="text-base sm:text-lg max-w-xl mx-auto" style={{ color: 'rgba(44,36,22,0.5)' }}>
+            <p className="text-base sm:text-lg max-w-xl mx-auto" style={{ color: 'var(--text-secondary)' }}>
               These are our planned prices — right now everything is <strong style={{ color: '#2C2416' }}>completely free</strong>.
             </p>
           </div>
@@ -1032,10 +1032,10 @@ export default function Landing() {
               <Zap className="w-3 h-3" /> Early Access — 100% Free
             </div>
             <h3 className="text-lg font-black mb-2" style={{ color: '#2C2416' }}>We're in early access</h3>
-            <p className="text-sm mb-5" style={{ color: 'rgba(44,36,22,0.5)' }}>
+            <p className="text-sm mb-5" style={{ color: 'var(--text-secondary)' }}>
               Sign up free, use every feature with no limits. When paid plans launch, early users get the best deal.
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold" style={{ color: 'rgba(44,36,22,0.5)' }}>
+            <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
               <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> No credit card</span>
               <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> No usage limits</span>
               <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> All features included</span>
@@ -1065,12 +1065,12 @@ export default function Landing() {
                     <Star key={j} className="w-4 h-4 fill-amber-400 text-amber-400" />
                   ))}
                 </div>
-                <p className="text-sm leading-relaxed mb-6" style={{ color: 'rgba(44,36,22,0.65)' }}>
+                <p className="text-sm leading-relaxed mb-6" style={{ color: 'var(--text-secondary)' }}>
                   "{t.quote}"
                 </p>
                 <div>
                   <p className="text-sm font-bold" style={{ color: '#2C2416' }}>{t.name}</p>
-                  <p className="text-xs" style={{ color: 'rgba(44,36,22,0.55)' }}>{t.business}</p>
+                  <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>{t.business}</p>
                 </div>
               </div>
             ))}
@@ -1089,7 +1089,7 @@ export default function Landing() {
             <h2 className="text-3xl sm:text-4xl font-black mb-3" style={{ color: '#2C2416' }}>
               Questions? SAM has answers.
             </h2>
-            <p className="text-sm" style={{ color: 'rgba(44,36,22,0.45)' }}>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               Everything you need to know about SlabDash
             </p>
           </div>
@@ -1105,12 +1105,12 @@ export default function Landing() {
                   <span className="text-sm font-bold pr-4" style={{ color: '#2C2416' }}>{faq.question}</span>
                   <ChevronDown
                     className="w-4 h-4 flex-shrink-0 transition-transform duration-200"
-                    style={{ color: 'rgba(44,36,22,0.5)', transform: openFaqIndex === i ? 'rotate(180deg)' : 'rotate(0)' }}
+                    style={{ color: 'var(--text-secondary)', transform: openFaqIndex === i ? 'rotate(180deg)' : 'rotate(0)' }}
                   />
                 </button>
                 <div className="overflow-hidden transition-all duration-200"
                   style={{ maxHeight: openFaqIndex === i ? '200px' : '0', opacity: openFaqIndex === i ? 1 : 0 }}>
-                  <p className="px-5 pb-5 text-sm leading-relaxed" style={{ color: 'rgba(44,36,22,0.55)' }}>
+                  <p className="px-5 pb-5 text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                     {faq.answer}
                   </p>
                 </div>
@@ -1300,7 +1300,7 @@ export default function Landing() {
                     <ChevronRight className="w-4 h-4 transition-transform group-open:rotate-90" style={{ color: '#FF8170' }} />
                   </summary>
                   <div className="px-4 pb-4">
-                    <p className="text-sm leading-relaxed" style={{ color: 'rgba(44,36,22,0.6)' }}>{faq.answer}</p>
+                    <p className="text-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{faq.answer}</p>
                   </div>
                 </details>
               ))}

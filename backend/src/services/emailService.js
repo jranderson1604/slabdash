@@ -57,61 +57,32 @@ const getDefaultEmailConfig = () => {
 };
 
 /**
- * Create email transporter for a company
+ * Create email transporter for custom SMTP (only called when use_custom_smtp is true)
  */
 const createTransporter = (config) => {
-    let smtpConfig;
-
-    // Use default SlabDash email if custom SMTP is not enabled
-    if (!config.use_custom_smtp) {
-        const defaultConfig = getDefaultEmailConfig();
-        console.log('📧 Using SlabDash default email:', {
-            host: defaultConfig.smtp_host,
-            port: defaultConfig.smtp_port,
-            secure: defaultConfig.smtp_secure,
-            user: defaultConfig.smtp_user,
-            hasPassword: !!defaultConfig.smtp_password
-        });
-        smtpConfig = {
-            host: defaultConfig.smtp_host,
-            port: defaultConfig.smtp_port,
-            secure: defaultConfig.smtp_secure,
-            connectionTimeout: 10000, // 10 second timeout
-            greetingTimeout: 10000,
-            socketTimeout: 10000,
-            auth: {
-                user: defaultConfig.smtp_user,
-                pass: defaultConfig.smtp_password
-            }
-        };
-    } else {
-        // Use custom SMTP settings
-        if (!config.smtp_host || !config.smtp_user || !config.smtp_password) {
-            throw new Error('Custom SMTP configuration incomplete');
-        }
-
-        console.log('📧 Using custom SMTP:', {
-            host: config.smtp_host,
-            port: config.smtp_port,
-            secure: config.smtp_secure,
-            user: config.smtp_user
-        });
-
-        smtpConfig = {
-            host: config.smtp_host,
-            port: config.smtp_port || 587,
-            secure: config.smtp_secure || false,
-            connectionTimeout: 10000, // 10 second timeout
-            greetingTimeout: 10000,
-            socketTimeout: 10000,
-            auth: {
-                user: config.smtp_user,
-                pass: config.smtp_password
-            }
-        };
+    if (!config.smtp_host || !config.smtp_user || !config.smtp_password) {
+        throw new Error('Custom SMTP configuration incomplete');
     }
 
-    return nodemailer.createTransport(smtpConfig);
+    console.log('📧 Using custom SMTP:', {
+        host: config.smtp_host,
+        port: config.smtp_port,
+        secure: config.smtp_secure,
+        user: config.smtp_user
+    });
+
+    return nodemailer.createTransport({
+        host: config.smtp_host,
+        port: config.smtp_port || 587,
+        secure: config.smtp_secure || false,
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 10000,
+        auth: {
+            user: config.smtp_user,
+            pass: config.smtp_password
+        }
+    });
 };
 
 /**
@@ -862,11 +833,139 @@ const sendWaitlistConfirmationEmail = async (email, shopName) => {
     });
 };
 
+/**
+ * Notify the shop owner when grades become ready for a submission.
+ * This is separate from the customer-facing "grades ready" email.
+ */
+const sendOwnerGradesReadyEmail = async (submissionId) => {
+    try {
+        const result = await db.query(
+            `SELECT s.psa_submission_number, s.card_count, s.service_level,
+                    c.name as company_name, c.email as company_email, c.id as company_id,
+                    u.email as owner_email, u.name as owner_name
+             FROM submissions s
+             JOIN companies c ON s.company_id = c.id
+             LEFT JOIN users u ON u.company_id = c.id AND u.role IN ('owner', 'admin')
+             WHERE s.id = $1
+             ORDER BY u.role = 'owner' DESC
+             LIMIT 1`,
+            [submissionId]
+        );
+        if (result.rows.length === 0) return;
+        const row = result.rows[0];
+        const ownerEmail = row.owner_email || row.company_email;
+        if (!ownerEmail) return;
+
+        const config = await getCompanyEmailConfig(row.company_id);
+        if (!config.email_notifications_enabled) return;
+
+        const subject = `Grades ready: PSA #${escapeHtml(row.psa_submission_number)}`;
+        const html = `
+            <html><body style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #F5F0EB;">
+                <div style="background: linear-gradient(135deg, #3b82f6, #2563eb); padding: 32px; text-align: center; border-radius: 0 0 20px 20px;">
+                    <div style="font-size: 36px; margin-bottom: 8px;">🎉</div>
+                    <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 800;">Grades Are Ready!</h1>
+                    <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 14px;">PSA #${escapeHtml(row.psa_submission_number)}</p>
+                </div>
+                <div style="padding: 28px 24px;">
+                    <p style="color: #2C2416; font-size: 15px;">Hi ${escapeHtml(row.owner_name || 'there')},</p>
+                    <p style="color: rgba(44,36,22,0.7); font-size: 14px; line-height: 1.6;">
+                        PSA has finished grading submission <strong>#${escapeHtml(row.psa_submission_number)}</strong>.
+                        Grades are now visible in your dashboard.
+                    </p>
+                    <div style="background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.15); border-radius: 12px; padding: 16px 20px; margin: 20px 0;">
+                        <table style="width: 100%; font-size: 13px; color: #374151; border-collapse: collapse;">
+                            <tr><td style="padding: 4px 0; font-weight: 600;">Submission #</td><td style="padding: 4px 0;">${escapeHtml(row.psa_submission_number)}</td></tr>
+                            <tr><td style="padding: 4px 0; font-weight: 600;">Service Level</td><td style="padding: 4px 0;">${escapeHtml(row.service_level || 'N/A')}</td></tr>
+                            ${row.card_count ? `<tr><td style="padding: 4px 0; font-weight: 600;">Cards</td><td style="padding: 4px 0;">${row.card_count}</td></tr>` : ''}
+                        </table>
+                    </div>
+                    <p style="color: rgba(44,36,22,0.6); font-size: 13px; line-height: 1.6;">
+                        Your customers' "grades ready" notifications have already been sent automatically.
+                        Log in to view grades, generate invoices, or notify customers to pick up their cards.
+                    </p>
+                    <p style="color: rgba(44,36,22,0.4); font-size: 11px; margin-top: 28px; text-align: center;">
+                        ${escapeHtml(row.company_name)} &middot; Powered by SlabDash
+                    </p>
+                </div>
+            </body></html>`;
+
+        await _sendViaProvider(config, ownerEmail, subject, html);
+        console.log(`[Email] Owner grades-ready notification sent to ${ownerEmail} for submission ${row.psa_submission_number}`);
+    } catch (err) {
+        console.error('[Email] sendOwnerGradesReadyEmail error:', err.message);
+    }
+};
+
+/**
+ * Notify the shop owner when a submission is flagged as a problem order.
+ */
+const sendOwnerProblemOrderEmail = async (submissionId) => {
+    try {
+        const result = await db.query(
+            `SELECT s.psa_submission_number, s.service_level, s.current_step,
+                    c.name as company_name, c.email as company_email, c.id as company_id,
+                    u.email as owner_email, u.name as owner_name
+             FROM submissions s
+             JOIN companies c ON s.company_id = c.id
+             LEFT JOIN users u ON u.company_id = c.id AND u.role IN ('owner', 'admin')
+             WHERE s.id = $1
+             ORDER BY u.role = 'owner' DESC
+             LIMIT 1`,
+            [submissionId]
+        );
+        if (result.rows.length === 0) return;
+        const row = result.rows[0];
+        const ownerEmail = row.owner_email || row.company_email;
+        if (!ownerEmail) return;
+
+        const config = await getCompanyEmailConfig(row.company_id);
+        if (!config.email_notifications_enabled) return;
+
+        const subject = `⚠️ Problem order: PSA #${escapeHtml(row.psa_submission_number)}`;
+        const html = `
+            <html><body style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #F5F0EB;">
+                <div style="background: linear-gradient(135deg, #f59e0b, #d97706); padding: 32px; text-align: center; border-radius: 0 0 20px 20px;">
+                    <div style="font-size: 36px; margin-bottom: 8px;">⚠️</div>
+                    <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 800;">Problem Order Flagged</h1>
+                    <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 14px;">PSA #${escapeHtml(row.psa_submission_number)}</p>
+                </div>
+                <div style="padding: 28px 24px;">
+                    <p style="color: #2C2416; font-size: 15px;">Hi ${escapeHtml(row.owner_name || 'there')},</p>
+                    <p style="color: rgba(44,36,22,0.7); font-size: 14px; line-height: 1.6;">
+                        PSA has flagged submission <strong>#${escapeHtml(row.psa_submission_number)}</strong> as a problem order.
+                        This usually means PSA needs additional information or the submission has a grading issue.
+                    </p>
+                    <div style="background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); border-radius: 12px; padding: 16px 20px; margin: 20px 0;">
+                        <table style="width: 100%; font-size: 13px; color: #374151; border-collapse: collapse;">
+                            <tr><td style="padding: 4px 0; font-weight: 600;">Submission #</td><td style="padding: 4px 0;">${escapeHtml(row.psa_submission_number)}</td></tr>
+                            <tr><td style="padding: 4px 0; font-weight: 600;">Service Level</td><td style="padding: 4px 0;">${escapeHtml(row.service_level || 'N/A')}</td></tr>
+                            <tr><td style="padding: 4px 0; font-weight: 600;">Current Step</td><td style="padding: 4px 0;">${escapeHtml(row.current_step || 'N/A')}</td></tr>
+                        </table>
+                    </div>
+                    <p style="color: rgba(44,36,22,0.6); font-size: 13px; line-height: 1.6;">
+                        Log in to view the details and contact PSA if needed. Your customers will also be notified.
+                    </p>
+                    <p style="color: rgba(44,36,22,0.4); font-size: 11px; margin-top: 28px; text-align: center;">
+                        ${escapeHtml(row.company_name)} &middot; Powered by SlabDash
+                    </p>
+                </div>
+            </body></html>`;
+
+        await _sendViaProvider(config, ownerEmail, subject, html);
+        console.log(`[Email] Owner problem-order notification sent to ${ownerEmail} for submission ${row.psa_submission_number}`);
+    } catch (err) {
+        console.error('[Email] sendOwnerProblemOrderEmail error:', err.message);
+    }
+};
+
 module.exports = {
     sendSubmissionUpdateEmail,
     sendSubmissionConfirmationEmail,
     sendShippedEmail,
     sendProblemOrderEmail,
+    sendOwnerGradesReadyEmail,
+    sendOwnerProblemOrderEmail,
     sendPasswordResetEmail,
     sendWaitlistConfirmationEmail,
     sendEmail,

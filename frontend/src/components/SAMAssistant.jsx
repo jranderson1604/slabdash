@@ -2,6 +2,42 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Send, Loader2, MessageCircle } from 'lucide-react';
 import api from '../api/client';
 
+// SVG fallback shown when SAM image can't load
+function SamIcon({ className = '', style = {} }) {
+  return (
+    <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" className={className} style={style}>
+      <rect x="6" y="12" width="28" height="20" rx="5" fill="rgba(255,129,112,0.15)" stroke="#FF8170" strokeWidth="1.5"/>
+      <circle cx="14" cy="22" r="2.5" fill="#FF8170"/>
+      <circle cx="26" cy="22" r="2.5" fill="#FF8170"/>
+      <path d="M15 28h10" stroke="#FF8170" strokeWidth="1.5" strokeLinecap="round"/>
+      <path d="M20 12V7" stroke="#FF8170" strokeWidth="1.5" strokeLinecap="round"/>
+      <circle cx="20" cy="5.5" r="2" fill="#FF8170"/>
+      <path d="M6 22H3M37 22h-3" stroke="#FF8170" strokeWidth="1.5" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function SamAvatar({ size = 'md', animate = false }) {
+  const [imgError, setImgError] = useState(false);
+  const SAM_IMAGE = '/images/SAM_V2.png';
+
+  const sizeClass = size === 'sm' ? 'w-full h-full' : size === 'lg' ? 'w-full h-full' : 'w-full h-full';
+
+  if (imgError) {
+    return <SamIcon className={`${sizeClass} ${animate ? 'animate-bounce' : ''}`} />;
+  }
+
+  return (
+    <img
+      src={SAM_IMAGE}
+      alt="SAM"
+      className={`${sizeClass} object-contain ${animate ? 'animate-bounce' : ''}`}
+      style={{ filter: size === 'lg' ? 'drop-shadow(0 0 8px rgba(255, 129, 112, 0.3))' : undefined }}
+      onError={() => setImgError(true)}
+    />
+  );
+}
+
 export default function SAMAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -13,11 +49,10 @@ export default function SAMAssistant() {
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [videoError, setVideoError] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  // SAM character image and animation
-  const SAM_IMAGE = '/images/SAM_V2.png';
   const SAM_ANIMATION = '/images/SAM_idle_animation.mp4';
 
   const scrollToBottom = () => {
@@ -51,21 +86,18 @@ export default function SAMAssistant() {
         history: messages.slice(-10)
       });
 
-      const assistantMessage = {
+      setMessages(prev => [...prev, {
         role: 'assistant',
         content: response.data.message,
         timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, assistantMessage]);
+      }]);
     } catch (error) {
       console.error('SAM chat error:', error);
-      const errorMessage = {
+      setMessages(prev => [...prev, {
         role: 'assistant',
         content: 'Oops! I\'m having trouble connecting right now. Please try again in a moment!',
         timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      }]);
     } finally {
       setIsLoading(false);
     }
@@ -87,10 +119,9 @@ export default function SAMAssistant() {
 
   return (
     <>
-      {/* Floating SAM Button - Liquid glass with pulsing glow ring */}
+      {/* Floating SAM Button */}
       {!isOpen && (
         <div className="fixed bottom-6 right-6 z-50">
-          {/* Pulsing glow rings */}
           <div className="absolute inset-0 rounded-full pulse-ring"
             style={{ border: '2px solid rgba(255, 129, 112, 0.3)' }}
           />
@@ -110,16 +141,7 @@ export default function SAMAssistant() {
             aria-label="Open SAM Assistant"
           >
             <div className="relative w-16 h-16 flex items-center justify-center">
-              <img
-                src={SAM_IMAGE}
-                alt="SAM"
-                className="w-full h-full object-contain"
-                style={{ filter: 'drop-shadow(0 0 8px rgba(255, 129, 112, 0.3))' }}
-                onError={(e) => {
-                  e.target.style.display = 'none';
-                  e.target.parentElement.innerHTML = '<div class="text-4xl">S</div>';
-                }}
-              />
+              <SamAvatar size="lg" />
             </div>
             <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center"
               style={{
@@ -134,7 +156,7 @@ export default function SAMAssistant() {
         </div>
       )}
 
-      {/* Chat Window - Liquid glass */}
+      {/* Chat Window */}
       {isOpen && (
         <div className="fixed bottom-6 right-6 w-96 h-[600px] rounded-3xl flex flex-col z-50 scale-in"
           style={{
@@ -145,7 +167,7 @@ export default function SAMAssistant() {
             boxShadow: '0 24px 80px rgba(0,0,0,0.12), 0 8px 32px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,0.7)',
           }}
         >
-          {/* Header - glass brand */}
+          {/* Header */}
           <div className="p-4 rounded-t-3xl flex items-center justify-between"
             style={{
               background: 'linear-gradient(135deg, rgba(255, 129, 112, 0.9), rgba(232, 84, 61, 0.95))',
@@ -161,15 +183,7 @@ export default function SAMAssistant() {
                   border: '1px solid rgba(255, 255, 255, 0.2)',
                 }}
               >
-                <img
-                  src={SAM_IMAGE}
-                  alt="SAM"
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.parentElement.innerHTML = '<span class="text-2xl">S</span>';
-                  }}
-                />
+                <SamAvatar />
               </div>
               <div>
                 <h3 className="font-bold text-lg text-white">SAM</h3>
@@ -202,15 +216,7 @@ export default function SAMAssistant() {
                       backdropFilter: 'blur(12px)',
                     }}
                   >
-                    <img
-                      src={SAM_IMAGE}
-                      alt="SAM"
-                      className="w-full h-full object-contain"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.parentElement.innerHTML = '<span class="text-lg">S</span>';
-                      }}
-                    />
+                    <SamAvatar size="sm" />
                   </div>
                 )}
                 <div
@@ -240,15 +246,7 @@ export default function SAMAssistant() {
                     border: '1px solid rgba(255, 129, 112, 0.2)',
                   }}
                 >
-                  <img
-                    src={SAM_IMAGE}
-                    alt="SAM"
-                    className="w-full h-full object-contain animate-bounce"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.parentElement.innerHTML = '<span class="text-lg animate-bounce">S</span>';
-                    }}
-                  />
+                  <SamAvatar size="sm" animate />
                 </div>
                 <div className="rounded-2xl px-4 py-2"
                   style={{
@@ -267,7 +265,7 @@ export default function SAMAssistant() {
           {/* Quick Questions */}
           {messages.length === 1 && (
             <div className="px-4 py-2" style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}>
-              <p className="text-xs mb-2" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>Quick questions:</p>
+              <p className="text-xs mb-2" style={{ color: 'var(--text-secondary)' }}>Quick questions:</p>
               <div className="flex flex-wrap gap-2">
                 {quickQuestions.map((question, index) => (
                   <button
@@ -293,22 +291,19 @@ export default function SAMAssistant() {
               style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}
             >
               <div className="w-24 h-24 relative">
-                <video
-                  src={SAM_ANIMATION}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-full h-full object-contain"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    const img = document.createElement('img');
-                    img.src = SAM_IMAGE;
-                    img.className = 'w-full h-full object-contain animate-pulse';
-                    img.alt = 'SAM';
-                    e.target.parentElement.appendChild(img);
-                  }}
-                />
+                {videoError ? (
+                  <SamAvatar size="lg" />
+                ) : (
+                  <video
+                    src={SAM_ANIMATION}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-contain"
+                    onError={() => setVideoError(true)}
+                  />
+                )}
               </div>
             </div>
           )}

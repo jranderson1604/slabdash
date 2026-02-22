@@ -135,7 +135,7 @@ function SubmissionCard({ submission, isExpanded, onToggle, token, onRefresh }) 
         {!isShipped && <ProgressPipeline currentStep={submission.current_step} shipped={false} />}
 
         {/* Bottom row: card count, date */}
-        <div className="flex items-center justify-between mt-3 text-xs" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
+        <div className="flex items-center justify-between mt-3 text-xs" style={{ color: 'var(--text-secondary)' }}>
           <span className="font-semibold">
             {submission.card_count || 0} card{(submission.card_count || 0) !== 1 ? 's' : ''}
           </span>
@@ -187,7 +187,7 @@ function SubmissionCard({ submission, isExpanded, onToggle, token, onRefresh }) 
           {showPickup && (
             <div className="flex justify-center pt-4">
               <div className="text-center">
-                <p className="text-[10px] font-bold mb-2" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>SCAN AT PICKUP</p>
+                <p className="text-[10px] font-bold mb-2" style={{ color: 'var(--text-secondary)' }}>SCAN AT PICKUP</p>
                 <div className="p-3 rounded-xl inline-block" style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.06)' }}>
                   <QRCodeSVG
                     value={JSON.stringify({
@@ -220,7 +220,7 @@ function SubmissionCard({ submission, isExpanded, onToggle, token, onRefresh }) 
           {/* Cards list */}
           {submission.cards?.length > 0 && (
             <div>
-              <p className="text-xs font-bold mb-2" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
+              <p className="text-xs font-bold mb-2" style={{ color: 'var(--text-secondary)' }}>
                 CARDS ({submission.cards.length})
               </p>
               <div className="space-y-2">
@@ -236,13 +236,13 @@ function SubmissionCard({ submission, isExpanded, onToggle, token, onRefresh }) 
             <div className="flex flex-wrap gap-4 pt-3 text-xs" style={{ borderTop: '1px solid rgba(0,0,0,0.04)' }}>
               {submission.psa_order_number && (
                 <div>
-                  <span className="font-bold block" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>PSA Order</span>
+                  <span className="font-bold block" style={{ color: 'var(--text-secondary)' }}>PSA Order</span>
                   <span className="font-semibold" style={{ color: 'rgb(var(--dark))' }}>{submission.psa_order_number}</span>
                 </div>
               )}
               {submission.return_tracking && !isShipped && (
                 <div>
-                  <span className="font-bold block" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>Tracking</span>
+                  <span className="font-bold block" style={{ color: 'var(--text-secondary)' }}>Tracking</span>
                   <span className="font-semibold" style={{ color: 'rgb(var(--dark))' }}>{submission.return_tracking}</span>
                 </div>
               )}
@@ -272,7 +272,7 @@ function CardRow({ card, token, onRefresh }) {
           <p className="font-bold text-sm truncate" style={{ color: 'rgb(var(--dark))' }}>
             {card.player_name || card.description || 'Card'}
           </p>
-          <p className="text-[11px] truncate" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
+          <p className="text-[11px] truncate" style={{ color: 'var(--text-secondary)' }}>
             {[card.year, card.brand, card.card_number ? `#${card.card_number}` : ''].filter(Boolean).join(' ')}
             {card.psa_cert_number && ` · Cert ${card.psa_cert_number}`}
           </p>
@@ -291,7 +291,7 @@ function CardRow({ card, token, onRefresh }) {
               <span className="text-[7px] font-bold" style={{ color: 'rgba(5, 150, 105, 0.6)' }}>PSA</span>
             </div>
           ) : (
-            <ChevronDown className="w-4 h-4" style={{ color: 'rgba(44, 36, 22, 0.4)', transform: expanded ? 'rotate(180deg)' : 'none' }} />
+            <ChevronDown className="w-4 h-4" style={{ color: 'var(--text-muted)', transform: expanded ? 'rotate(180deg)' : 'none' }} />
           )}
         </div>
       </button>
@@ -354,7 +354,7 @@ function BuybackCard({ offer, onRespond }) {
           <h3 className="text-lg font-bold truncate" style={{ color: 'rgb(var(--dark))' }}>
             {offer.card_description || offer.player_name || 'Card'}
           </h3>
-          <p className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
+          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
             {[offer.card_grade && `PSA ${offer.card_grade}`, offer.psa_cert_number && `Cert #${offer.psa_cert_number}`].filter(Boolean).join(' · ')}
           </p>
         </div>
@@ -366,7 +366,7 @@ function BuybackCard({ offer, onRespond }) {
       </div>
 
       {offer.notes && (
-        <p className="text-sm mb-3 p-3 rounded-xl" style={{ background: 'rgba(0,0,0,0.02)', color: 'rgba(44, 36, 22, 0.6)' }}>
+        <p className="text-sm mb-3 p-3 rounded-xl" style={{ background: 'rgba(0,0,0,0.02)', color: 'var(--text-secondary)' }}>
           {offer.notes}
         </p>
       )}
@@ -380,7 +380,7 @@ function BuybackCard({ offer, onRespond }) {
           </button>
           <button onClick={() => handleResponse('rejected')} disabled={responding}
             className="flex-1 py-2.5 rounded-xl font-bold text-sm transition-all disabled:opacity-50"
-            style={{ background: 'rgba(0,0,0,0.05)', color: 'rgba(44, 36, 22, 0.5)' }}>
+            style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--text-secondary)' }}>
             Decline
           </button>
         </div>
@@ -431,7 +431,7 @@ function GalleryCard({ card, token, onUpload }) {
             <h3 className="font-bold truncate" style={{ color: 'rgb(var(--dark))' }}>
               {card.player_name || card.description || 'Card'}
             </h3>
-            <p className="text-[11px]" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
+            <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
               {[card.year, card.brand].filter(Boolean).join(' ')}
               {card.psa_cert_number && ` · Cert ${card.psa_cert_number}`}
             </p>
@@ -459,7 +459,7 @@ function GalleryCard({ card, token, onUpload }) {
           onChange={(e) => uploadImages([...e.target.files])} className="hidden" />
         <button onClick={() => fileRef.current?.click()} disabled={uploading}
           className="w-full py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
-          style={{ background: 'rgba(0,0,0,0.03)', color: 'rgba(44, 36, 22, 0.6)', border: '1px solid rgba(0,0,0,0.05)' }}>
+          style={{ background: 'rgba(0,0,0,0.03)', color: 'var(--text-secondary)', border: '1px solid rgba(0,0,0,0.05)' }}>
           {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" /> : (
             <span className="flex items-center justify-center gap-1.5">
               <Upload className="w-3.5 h-3.5" /> Upload Photos
@@ -555,7 +555,7 @@ export default function CustomerPortal() {
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'rgb(var(--bg-color))' }}>
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin mx-auto mb-3" style={{ color: 'rgb(var(--brand-500))' }} />
-          <p className="text-sm font-bold" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>Loading your portal...</p>
+          <p className="text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>Loading your portal...</p>
         </div>
       </div>
     );
@@ -568,7 +568,7 @@ export default function CustomerPortal() {
         <div className="card p-10 max-w-sm text-center">
           <AlertTriangle className="w-12 h-12 mx-auto mb-3" style={{ color: '#DC2626' }} />
           <h2 className="text-xl font-bold mb-2" style={{ color: 'rgb(var(--dark))' }}>Invalid Link</h2>
-          <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             This portal link is invalid or expired. Contact the shop for a new link.
           </p>
         </div>
@@ -649,7 +649,7 @@ export default function CustomerPortal() {
                   <tab.icon className="w-3.5 h-3.5" />
                   <span>{tab.label}</span>
                   {tab.count !== undefined && (
-                    <span className="text-[10px]" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>({tab.count})</span>
+                    <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>({tab.count})</span>
                   )}
                   {tab.badge && (
                     <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full text-white"
@@ -692,7 +692,7 @@ export default function CustomerPortal() {
           <section>
             <div className="mb-4">
               <div className="relative max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'rgba(44, 36, 22, 0.45)' }} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
                 <input type="text" placeholder="Search cards..." value={cardSearch}
                   onChange={(e) => setCardSearch(e.target.value)}
                   className="input w-full pl-9 text-sm" />
@@ -701,7 +701,7 @@ export default function CustomerPortal() {
             {filteredCards.length === 0 ? (
               <div className="card p-10 text-center">
                 <ImageIcon className="w-12 h-12 mx-auto mb-3" style={{ color: 'rgba(44, 36, 22, 0.2)' }} />
-                <p className="text-sm font-bold" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>
+                <p className="text-sm font-bold" style={{ color: 'var(--text-secondary)' }}>
                   {cardSearch ? 'No matching cards' : 'Your cards will appear here'}
                 </p>
               </div>
@@ -723,7 +723,7 @@ export default function CustomerPortal() {
               <div className="card p-12 text-center">
                 <Package className="w-16 h-16 mx-auto mb-4" style={{ color: 'rgba(44, 36, 22, 0.15)' }} />
                 <h3 className="text-xl font-bold mb-1" style={{ color: 'rgb(var(--dark))' }}>No Submissions Yet</h3>
-                <p className="text-sm" style={{ color: 'rgba(44, 36, 22, 0.6)' }}>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                   Your submissions will appear here once you drop off cards.
                 </p>
               </div>
@@ -772,8 +772,8 @@ export default function CustomerPortal() {
                 {completedSubmissions.length > 0 && (
                   <section>
                     <div className="flex items-center gap-2 mb-3">
-                      <h2 className="text-lg font-black" style={{ color: 'rgba(44, 36, 22, 0.55)' }}>Completed</h2>
-                      <span className="text-xs font-bold" style={{ color: 'rgba(44, 36, 22, 0.45)' }}>
+                      <h2 className="text-lg font-black" style={{ color: 'var(--text-secondary)' }}>Completed</h2>
+                      <span className="text-xs font-bold" style={{ color: 'var(--text-muted)' }}>
                         {completedSubmissions.length}
                       </span>
                     </div>
@@ -795,7 +795,7 @@ export default function CustomerPortal() {
 
       {/* Footer */}
       <div className="mt-12 py-5 text-center" style={{ borderTop: '1px solid rgba(0,0,0,0.03)' }}>
-        <p className="text-xs" style={{ color: 'rgba(44, 36, 22, 0.5)' }}>
+        <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
           Questions? Contact <span className="font-bold" style={{ color: 'rgb(var(--dark))' }}>{data.company.name}</span>
         </p>
       </div>

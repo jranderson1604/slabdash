@@ -80,8 +80,8 @@ export default function StatCard({
       </div>
       <div>
         <p className="text-2xl font-bold" style={{ color: 'rgb(var(--dark))' }}>{value}</p>
-        <p className="text-sm font-medium" style={{ color: 'rgba(44, 36, 22, 0.7)' }}>{label}</p>
-        {subtext && <p className="text-xs mt-0.5" style={{ color: 'rgba(44, 36, 22, 0.65)' }}>{subtext}</p>}
+        <p className="text-sm font-medium" style={{ color: 'rgb(var(--bg-text))' }}>{label}</p>
+        {subtext && <p className="text-xs mt-0.5" style={{ color: 'rgb(var(--bg-text))', opacity: 0.7 }}>{subtext}</p>}
       </div>
     </div>
   );

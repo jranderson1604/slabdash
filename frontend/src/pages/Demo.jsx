@@ -208,7 +208,7 @@ export default function Demo() {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h1 className="text-2xl font-black" style={{ color: '#2C2416' }}>Dashboard</h1>
-                  <p className="text-sm mt-1" style={{ color: 'rgba(44,36,22,0.5)' }}>Welcome back — here's what's happening today.</p>
+                  <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Welcome back — here's what's happening today.</p>
                 </div>
                 <button onClick={fakeRefresh} disabled={refreshing}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
@@ -234,8 +234,8 @@ export default function Demo() {
                       </div>
                     </div>
                     <p className="text-2xl sm:text-3xl font-black" style={{ color: s.color }}>{s.value}</p>
-                    <p className="text-xs font-semibold mt-1" style={{ color: 'rgba(44,36,22,0.45)' }}>{s.label}</p>
-                    <p className="text-[11px] mt-1" style={{ color: 'rgba(44,36,22,0.35)' }}>{s.sub}</p>
+                    <p className="text-xs font-semibold mt-1" style={{ color: 'var(--text-muted)' }}>{s.label}</p>
+                    <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>{s.sub}</p>
                   </div>
                 ))}
               </div>
@@ -261,13 +261,13 @@ export default function Demo() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold truncate" style={{ color: '#2C2416' }}>{sub.customer}</p>
-                        <p className="text-xs" style={{ color: 'rgba(44,36,22,0.5)' }}>#{sub.psa_number} · {sub.service}</p>
+                        <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>#{sub.psa_number} · {sub.service}</p>
                       </div>
                       <div className="hidden sm:flex items-center gap-2 shrink-0">
                         <div className="h-1.5 w-16 rounded-full overflow-hidden" style={{ background: 'rgba(44,36,22,0.06)' }}>
                           <div className="h-full rounded-full" style={{ width: `${sub.progress}%`, background: coralGrad }} />
                         </div>
-                        <span className="text-xs font-semibold w-20 text-right" style={{ color: 'rgba(44,36,22,0.55)' }}>{sub.step}</span>
+                        <span className="text-xs font-semibold w-20 text-right" style={{ color: 'var(--text-secondary)' }}>{sub.step}</span>
                       </div>
                     </button>
                   ))}
@@ -284,8 +284,8 @@ export default function Demo() {
                       <div key={i} className="flex items-start gap-3 px-2 py-2.5 rounded-xl hover:bg-[rgba(44,36,22,0.02)] transition-colors">
                         <span className="text-base mt-0.5">{a.icon}</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs leading-relaxed" style={{ color: 'rgba(44,36,22,0.65)' }}>{a.text}</p>
-                          <p className="text-[11px] mt-1" style={{ color: 'rgba(44,36,22,0.35)' }}>{a.time}</p>
+                          <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{a.text}</p>
+                          <p className="text-[11px] mt-1" style={{ color: 'var(--text-muted)' }}>{a.time}</p>
                         </div>
                       </div>
                     ))}
@@ -310,7 +310,7 @@ export default function Demo() {
 
               {/* Search */}
               <div className="relative mb-5">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'rgba(44,36,22,0.35)' }} />
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                 <input type="text" placeholder="Search by customer or PSA number..."
                   value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 rounded-xl text-sm font-medium outline-none transition-all"
@@ -331,7 +331,7 @@ export default function Demo() {
                             style={{ background: coralGrad }}>{sub.cards}</div>
                           <div>
                             <p className="text-sm font-bold" style={{ color: '#2C2416' }}>{sub.customer}</p>
-                            <p className="text-xs" style={{ color: 'rgba(44,36,22,0.5)' }}>#{sub.psa_number} · {sub.service} · Day {sub.daysIn}</p>
+                            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>#{sub.psa_number} · {sub.service} · Day {sub.daysIn}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -340,7 +340,7 @@ export default function Demo() {
                               Grades Ready
                             </span>
                           )}
-                          <ChevronRight className="w-4 h-4" style={{ color: 'rgba(44,36,22,0.3)' }} />
+                          <ChevronRight className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                         </div>
                       </div>
                       {/* Pipeline */}
@@ -367,7 +367,7 @@ export default function Demo() {
           {view === 'detail' && selectedSub && (
             <div className="p-5 sm:p-8 max-w-4xl mx-auto">
               <button onClick={() => setView('submissions')}
-                className="flex items-center gap-2 text-sm font-semibold mb-5" style={{ color: 'rgba(44,36,22,0.5)' }}>
+                className="flex items-center gap-2 text-sm font-semibold mb-5" style={{ color: 'var(--text-secondary)' }}>
                 <ArrowLeft className="w-4 h-4" /> Back to submissions
               </button>
 
@@ -427,7 +427,7 @@ export default function Demo() {
                     ].map((item, i) => (
                       <div key={i} className="rounded-xl p-3 text-center" style={{ background: tan }}>
                         <p className="text-lg font-black" style={{ color: '#2C2416' }}>{item.value}</p>
-                        <p className="text-[10px] font-semibold" style={{ color: 'rgba(44,36,22,0.5)' }}>{item.label}</p>
+                        <p className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>{item.label}</p>
                       </div>
                     ))}
                   </div>
@@ -457,7 +457,7 @@ export default function Demo() {
                       </div>
                       <div>
                         <p className="text-sm font-semibold" style={{ color: '#2C2416' }}>{card.name}</p>
-                        {card.cert && <p className="text-[11px]" style={{ color: 'rgba(44,36,22,0.4)' }}>Cert #{card.cert}</p>}
+                        {card.cert && <p className="text-[11px]" style={{ color: 'var(--text-muted)' }}>Cert #{card.cert}</p>}
                       </div>
                     </div>
                     {card.grade && (
@@ -480,7 +480,7 @@ export default function Demo() {
             <div className="p-5 sm:p-8 max-w-2xl mx-auto">
               <div className="text-center mb-6">
                 <h1 className="text-2xl font-black" style={{ color: '#2C2416' }}>Customer Portal Preview</h1>
-                <p className="text-sm mt-1" style={{ color: 'rgba(44,36,22,0.5)' }}>This is what your customers see when they check on their cards.</p>
+                <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>This is what your customers see when they check on their cards.</p>
               </div>
 
               {/* Portal Header */}
@@ -536,10 +536,10 @@ export default function Demo() {
                 </div>
                 <div className="p-6 text-center">
                   <div className="rounded-xl p-5 mb-4" style={{ background: tan }}>
-                    <p className="text-[10px] font-bold tracking-widest mb-2" style={{ color: 'rgba(44,36,22,0.5)' }}>PICKUP CODE</p>
+                    <p className="text-[10px] font-bold tracking-widest mb-2" style={{ color: 'var(--text-secondary)' }}>PICKUP CODE</p>
                     <p className="text-4xl font-black font-mono tracking-widest" style={{ color: '#2C2416' }}>S7K-2MP</p>
                   </div>
-                  <p className="text-xs" style={{ color: 'rgba(44,36,22,0.45)' }}>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
                     Show this code at the counter to pick up your graded cards.
                   </p>
                 </div>
@@ -559,7 +559,7 @@ export default function Demo() {
                     <span className="text-xl mt-0.5">{a.icon}</span>
                     <div className="flex-1">
                       <p className="text-sm" style={{ color: '#2C2416' }}>{a.text}</p>
-                      <p className="text-xs mt-1" style={{ color: 'rgba(44,36,22,0.4)' }}>{a.time}</p>
+                      <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{a.time}</p>
                     </div>
                     <span className="px-2.5 py-1 rounded-lg text-[10px] font-bold capitalize"
                       style={{
@@ -583,14 +583,14 @@ export default function Demo() {
                 </div>
                 <div className="p-5">
                   <div className="rounded-xl p-5" style={{ background: tan }}>
-                    <p className="text-xs font-bold mb-1" style={{ color: 'rgba(44,36,22,0.4)' }}>TO: marcus@email.com</p>
-                    <p className="text-xs font-bold mb-3" style={{ color: 'rgba(44,36,22,0.4)' }}>SUBJECT: Your cards are being graded!</p>
+                    <p className="text-xs font-bold mb-1" style={{ color: 'var(--text-muted)' }}>TO: marcus@email.com</p>
+                    <p className="text-xs font-bold mb-3" style={{ color: 'var(--text-muted)' }}>SUBJECT: Your cards are being graded!</p>
                     <div className="rounded-lg p-4" style={{ background: '#fff' }}>
                       <p className="text-sm font-bold mb-2" style={{ color: '#2C2416' }}>Hey Marcus,</p>
-                      <p className="text-xs leading-relaxed" style={{ color: 'rgba(44,36,22,0.6)' }}>
+                      <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
                         Great news! Your PSA submission #86241907 (18 cards, Express) has moved to <strong>Grading</strong>. We're 62% of the way there.
                       </p>
-                      <p className="text-xs mt-3" style={{ color: 'rgba(44,36,22,0.4)' }}>
+                      <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
                         Track your cards anytime at your personal portal.
                       </p>
                     </div>

@@ -516,4 +516,26 @@ router.post('/create-blog-posts', authenticate, requireRole('owner', 'admin'), a
     }
 });
 
+/**
+ * POST /api/migration/clear-psa-keys
+ * One-time utility: wipe PSA API keys from all companies.
+ * Owner-only. Call once, then you're done.
+ */
+router.post('/clear-psa-keys', authenticate, requireRole('owner'), async (req, res) => {
+    try {
+        const result = await db.query(
+            `UPDATE companies SET psa_api_key = NULL RETURNING id, name`
+        );
+        console.log(`[Migration] Cleared PSA API keys from ${result.rowCount} companies`);
+        res.json({
+            success: true,
+            cleared: result.rowCount,
+            companies: result.rows.map(r => r.name),
+        });
+    } catch (error) {
+        console.error('clear-psa-keys error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 module.exports = router;

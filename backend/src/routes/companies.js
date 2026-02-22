@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const db = require('../db');
 const { authenticate, requireRole } = require('../middleware/auth');
+const { getLimits } = require('../config/tierLimits');
 
 // Get settings
 router.get('/settings', authenticate, async (req, res) => {
@@ -142,6 +143,43 @@ router.get('/stats', authenticate, async (req, res) => {
         res.json(stats.rows[0]);
     } catch (error) {
         res.status(500).json({ error: 'Failed to get stats' });
+    }
+});
+
+// Get current plan usage vs limits
+router.get('/usage', authenticate, async (req, res) => {
+    try {
+        const { company_id, plan } = req.user;
+        const limits = getLimits(plan || 'free');
+
+        const [cardResult, custResult, monthCardResult] = await Promise.all([
+            db.query('SELECT COUNT(*) FROM cards WHERE company_id = $1', [company_id]),
+            db.query('SELECT COUNT(*) FROM customers WHERE company_id = $1', [company_id]),
+            db.query(
+                `SELECT COUNT(*) FROM cards WHERE company_id = $1
+                 AND created_at >= date_trunc('month', NOW())`,
+                [company_id]
+            )
+        ]);
+
+        const cardsThisMonth = parseInt(monthCardResult.rows[0].count, 10);
+        const totalCustomers = parseInt(custResult.rows[0].count, 10);
+        const cardLimit = limits.cards_per_month === Infinity ? null : limits.cards_per_month;
+        const customerLimit = limits.customers === Infinity ? null : limits.customers;
+
+        res.json({
+            plan: plan || 'free',
+            cards_this_month: cardsThisMonth,
+            cards_limit: cardLimit,
+            cards_percent: cardLimit ? Math.round((cardsThisMonth / cardLimit) * 100) : 0,
+            customers: totalCustomers,
+            customers_limit: customerLimit,
+            customers_percent: customerLimit ? Math.round((totalCustomers / customerLimit) * 100) : 0,
+            total_cards: parseInt(cardResult.rows[0].count, 10),
+        });
+    } catch (error) {
+        console.error('Get usage error:', error);
+        res.status(500).json({ error: 'Failed to get usage' });
     }
 });
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { customers, submissions } from '../api/client';
+import ExportButton from '../components/ExportButton';
 import {
   Plus,
   Search,
@@ -442,6 +443,7 @@ export default function Customers() {
                 className="hidden"
               />
             </label>
+            <ExportButton endpoint="/customers/export.csv" label="" />
             <Link to="/customers/new" className="bg-white text-brand-600 px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105">
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">Add Customer</span>

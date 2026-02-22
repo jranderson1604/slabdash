@@ -1,5 +1,6 @@
 const sgMail = require('@sendgrid/mail');
 const db = require('../db');
+const emailService = require('./emailService');
 
 // Initialize SendGrid if API key is available (DEPRECATED - using emailService.js instead)
 if (process.env.SENDGRID_API_KEY) {
@@ -446,10 +447,11 @@ async function sendNotification({ customerId, type, data, channels = ['email'] }
             const template = emailTemplates[type];
             if (template) {
                 const { subject, html } = template(fullData);
-                const result = await sendEmail({
+                const result = await emailService.sendEmail({
                     to: customerData.email,
                     subject,
-                    html
+                    html,
+                    companyId: customerData.company_id
                 });
                 results.push({ channel: 'email', ...result });
             }

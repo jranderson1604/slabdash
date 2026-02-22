@@ -1,12 +1,11 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+/* SlabDash - Apple Liquid Glass Design System */
 
 /* Hide scrollbar for tab bar */
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-/* SlabDash - Apple Liquid Glass Design System */
-
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
 
 :root {
   /* Coral/Tan palette */
@@ -36,6 +35,11 @@
   --bg-text: 44 36 22;         /* Dark text on cream bg */
   --sidebar-text: 255 248 240; /* Light text on dark sidebar */
 
+  /* Semantic text colors — adapts in dark mode */
+  --text-body: rgba(44, 36, 22, 0.75);
+  --text-secondary: rgba(44, 36, 22, 0.6);
+  --text-muted: rgba(44, 36, 22, 0.45);
+
   /* Liquid glass tokens */
   --glass-blur: 40px;
   --glass-saturation: 180%;
@@ -43,6 +47,48 @@
   --glass-border: rgba(255, 255, 255, 0.35);
   --glass-highlight: rgba(255, 255, 255, 0.7);
   --glass-shadow: rgba(0, 0, 0, 0.04);
+}
+
+/* ═══════════════════════════════════════════ */
+/* Dark Mode — Command Interface Theme        */
+/* ═══════════════════════════════════════════ */
+:root.dark {
+  /* Cyan accent palette */
+  --arc-cyan: 0 212 255;          /* #00D4FF — primary accent */
+  --arc-cyan-dim: 0 160 200;      /* dimmed variant */
+  --arc-blue: 0 140 255;          /* deep blue */
+  --arc-glow: rgba(0, 212, 255, 0.18);
+
+  /* Override brand to cyan */
+  --brand-500: 0 212 255;
+  --brand-600: 0 180 220;
+  --brand-700: 0 140 180;
+
+  /* Deep space backgrounds */
+  --bg-color: 4 8 16;             /* #040810 — deep space */
+  --sidebar-color: 2 5 10;        /* even deeper */
+  --card-bg: 8 14 24;             /* #080E18 elevated surface */
+  --section-alt-bg: 6 11 20;
+
+  /* Text — cool blue-white */
+  --dark: 160 210 255;            /* light arc blue headings */
+  --dark-mid: 100 160 210;
+  --bg-text: 140 190 235;
+  --sidebar-text: 140 190 235;
+  --brand-text: 4 8 16;
+
+  /* Semantic text colors — dark mode */
+  --text-body: rgba(140, 190, 235, 0.85);
+  --text-secondary: rgba(140, 190, 235, 0.6);
+  --text-muted: rgba(140, 190, 235, 0.4);
+
+  /* Glass — dark tinted */
+  --glass-blur: 40px;
+  --glass-saturation: 180%;
+  --glass-bg: rgba(0, 212, 255, 0.025);
+  --glass-border: rgba(0, 212, 255, 0.12);
+  --glass-highlight: rgba(0, 212, 255, 0.08);
+  --glass-shadow: rgba(0, 0, 0, 0.5);
 }
 
 @layer base {
@@ -597,6 +643,163 @@
     100% { transform: translateX(200%) skewX(-15deg); }
   }
 
+  /* ═══════════════════════════════════════════ */
+  /* COMMAND INTERFACE ANIMATIONS               */
+  /* ═══════════════════════════════════════════ */
+
+  /* Pulse — concentric glow rings breathing */
+  @keyframes arc-pulse {
+    0%, 100% {
+      box-shadow:
+        0 0 0 0 rgba(0, 212, 255, 0),
+        0 0 12px rgba(0, 212, 255, 0.3),
+        0 0 24px rgba(0, 212, 255, 0.1);
+    }
+    50% {
+      box-shadow:
+        0 0 0 6px rgba(0, 212, 255, 0.08),
+        0 0 24px rgba(0, 212, 255, 0.5),
+        0 0 48px rgba(0, 212, 255, 0.2);
+    }
+  }
+
+  /* Scan line — horizontal sweep across panels */
+  @keyframes scan-line {
+    0% { top: -4px; opacity: 0.7; }
+    50% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  /* HUD boot — fade in with slight upward drift and flicker */
+  @keyframes hud-boot {
+    0% { opacity: 0; transform: translateY(8px); filter: brightness(3); }
+    10% { opacity: 0.8; filter: brightness(2); }
+    20% { opacity: 0.2; }
+    30% { opacity: 1; filter: brightness(1.5); }
+    60% { filter: brightness(1.2); }
+    100% { opacity: 1; transform: translateY(0); filter: brightness(1); }
+  }
+
+  /* Data flicker — quick opacity flicker for live-data feel */
+  @keyframes data-flicker {
+    0%, 100% { opacity: 1; }
+    92% { opacity: 1; }
+    93% { opacity: 0.4; }
+    94% { opacity: 1; }
+    96% { opacity: 0.7; }
+    97% { opacity: 1; }
+  }
+
+  /* Arc spin slow — rotating outer ring */
+  @keyframes arc-spin-slow {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  /* Arc spin reverse */
+  @keyframes arc-spin-reverse {
+    from { transform: rotate(360deg); }
+    to { transform: rotate(0deg); }
+  }
+
+  /* HUD number count-up flicker */
+  @keyframes hud-number {
+    0% { opacity: 0.3; letter-spacing: 0.2em; }
+    50% { opacity: 0.8; }
+    100% { opacity: 1; letter-spacing: normal; }
+  }
+
+  /* Targeting reticle rotate */
+  @keyframes targeting {
+    0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.6; }
+    50% { transform: scale(1.05) rotate(180deg); opacity: 1; }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 50%, 90% { transform: translateX(-8px); }
+    30%, 70% { transform: translateX(8px); }
+  }
+
+  .animate-shake { animation: shake 0.5s ease-in-out; }
+  .arc-pulse-anim { animation: arc-pulse 3s ease-in-out infinite; }
+  .arc-spin-slow { animation: arc-spin-slow 12s linear infinite; }
+  .arc-spin-reverse { animation: arc-spin-reverse 18s linear infinite; }
+  .hud-boot { animation: hud-boot 0.8s ease-out both; }
+  .data-flicker { animation: data-flicker 6s ease-in-out infinite; }
+  .hud-number { animation: hud-number 0.6s ease-out both; }
+  .targeting { animation: targeting 4s ease-in-out infinite; }
+
+  /* Command card — dark glass panel */
+  .stark-card {
+    background: rgba(0, 212, 255, 0.025);
+    border: 1px solid rgba(0, 212, 255, 0.15);
+    border-radius: 12px;
+    box-shadow:
+      0 0 0 1px rgba(0, 212, 255, 0.05),
+      0 4px 24px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(0, 212, 255, 0.08);
+    backdrop-filter: blur(20px);
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+  }
+  .stark-card:hover {
+    border-color: rgba(0, 212, 255, 0.3);
+    box-shadow:
+      0 0 0 1px rgba(0, 212, 255, 0.1),
+      0 8px 32px rgba(0, 0, 0, 0.5),
+      0 0 20px rgba(0, 212, 255, 0.08),
+      inset 0 1px 0 rgba(0, 212, 255, 0.12);
+  }
+
+  /* Arc text — glowing cyan text */
+  .arc-text {
+    color: #00D4FF;
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.5), 0 0 20px rgba(0, 212, 255, 0.2);
+  }
+
+  /* HUD label — small uppercase tactical label */
+  .hud-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(0, 212, 255, 0.6);
+  }
+
+  /* HUD value — large tactical readout number */
+  .hud-value {
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    color: #00D4FF;
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Command border — glowing accent border */
+  .stark-border {
+    border: 1px solid rgba(0, 212, 255, 0.2);
+    box-shadow: 0 0 8px rgba(0, 212, 255, 0.08), inset 0 0 8px rgba(0, 212, 255, 0.04);
+  }
+
+  /* Scan line overlay */
+  .stark-scanline {
+    position: relative;
+    overflow: hidden;
+  }
+  .stark-scanline::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(0,212,255,0.4), transparent);
+    animation: scan-line 4s ease-in-out infinite;
+    pointer-events: none;
+  }
+
   .slide-in-right { animation: slideInRight 0.35s cubic-bezier(0.22, 1, 0.36, 1); }
   .fade-in { animation: fadeIn 0.4s cubic-bezier(0.22, 1, 0.36, 1); }
   .slide-up { animation: slideUp 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
@@ -617,6 +820,33 @@
   .animation-delay-200 { animation-delay: 200ms; }
   .animation-delay-300 { animation-delay: 300ms; }
   .animation-delay-500 { animation-delay: 500ms; }
+
+  /* ═══════════════════════════════════════════ */
+  /* DARK MODE OVERRIDES                        */
+  /* ═══════════════════════════════════════════ */
+  :root.dark th { color: rgba(0,212,255,0.5); border-bottom-color: rgba(0,212,255,0.08); }
+  :root.dark td { color: rgb(140 190 235); border-bottom-color: rgba(0,212,255,0.05); }
+  :root.dark tbody tr:hover { background: rgba(0,212,255,0.04); }
+  :root.dark .input {
+    background: rgba(0,212,255,0.03);
+    border-color: rgba(0,212,255,0.15);
+    color: rgb(140,190,235);
+  }
+  :root.dark .input:focus {
+    border-color: rgba(0,212,255,0.4);
+    background: rgba(0,212,255,0.05);
+    box-shadow: 0 0 0 3px rgba(0,212,255,0.08), 0 0 16px rgba(0,212,255,0.1);
+  }
+  :root.dark .btn-primary {
+    background: linear-gradient(135deg, #00C8F0 0%, #0090C8 100%);
+    box-shadow: 0 2px 16px rgba(0,212,255,0.3), inset 0 1px 0 rgba(0,212,255,0.2);
+  }
+  :root.dark .btn-secondary {
+    background: rgba(0,212,255,0.06);
+    border-color: rgba(0,212,255,0.15);
+    color: #00D4FF;
+  }
+  :root.dark label { color: rgba(0,212,255,0.6); }
 
   /* Scrollbar */
   .scrollbar-hide::-webkit-scrollbar { display: none; }

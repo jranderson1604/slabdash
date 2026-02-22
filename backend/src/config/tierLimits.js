@@ -3,8 +3,8 @@
 
 const TIER_LIMITS = {
   free: {
-    cards_per_month: Infinity, // No limits during early access
-    customers: Infinity,
+    cards_per_month: 100,
+    customers: 50,
     multi_location: false,
     api_access: false,
     white_label: false,
