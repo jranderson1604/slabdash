@@ -40,8 +40,8 @@ async function createSingleOffer({ company_id, user_id, card_id, offer_price, me
 
   const result = await db.query(
     `INSERT INTO buyback_offers (
-      company_id, card_id, customer_id, offer_price, message,
-      offered_by_user_id, expires_at, status
+      company_id, card_id, customer_id, offer_amount, offer_message,
+      created_by, expires_at, status
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *`,
     [
@@ -180,9 +180,9 @@ router.get("/stats/summary", authenticate, async (req, res) => {
         COUNT(*) FILTER (WHERE status = 'accepted') as accepted_offers,
         COUNT(*) FILTER (WHERE status = 'rejected') as rejected_offers,
         COUNT(*) FILTER (WHERE status = 'paid') as paid_offers,
-        COALESCE(SUM(offer_price) FILTER (WHERE status = 'pending'), 0) as pending_value,
-        COALESCE(SUM(offer_price) FILTER (WHERE status = 'accepted'), 0) as accepted_value,
-        COALESCE(SUM(offer_price) FILTER (WHERE status = 'paid'), 0) as paid_value
+        COALESCE(SUM(offer_amount) FILTER (WHERE status = 'pending'), 0) as pending_value,
+        COALESCE(SUM(offer_amount) FILTER (WHERE status = 'accepted'), 0) as accepted_value,
+        COALESCE(SUM(offer_amount) FILTER (WHERE status = 'paid'), 0) as paid_value
       FROM buyback_offers
       WHERE company_id = $1`,
       [company_id]
@@ -216,7 +216,7 @@ router.get("/", authenticate, async (req, res) => {
       FROM buyback_offers bo
       LEFT JOIN cards c ON bo.card_id = c.id
       LEFT JOIN customers cu ON bo.customer_id = cu.id
-      LEFT JOIN users u ON bo.offered_by_user_id = u.id
+      LEFT JOIN users u ON bo.created_by = u.id
       LEFT JOIN submissions s ON c.submission_id = s.id
       WHERE bo.company_id = $1
     `;
@@ -278,7 +278,7 @@ router.get("/:id", authenticate, async (req, res) => {
       FROM buyback_offers bo
       LEFT JOIN cards c ON bo.card_id = c.id
       LEFT JOIN customers cu ON bo.customer_id = cu.id
-      LEFT JOIN users u ON bo.offered_by_user_id = u.id
+      LEFT JOIN users u ON bo.created_by = u.id
       LEFT JOIN submissions s ON c.submission_id = s.id
       WHERE bo.id = $1 AND bo.company_id = $2`,
       [id, company_id]
@@ -437,7 +437,7 @@ router.post("/:id/payment", authenticate, async (req, res) => {
 
     // Create Stripe payment intent
     const paymentIntent = await stripeService.createPaymentIntent(
-      offer.offer_price,
+      offer.offer_amount,
       {
         offer_id: offer.id,
         customer_id: offer.customer_id,
