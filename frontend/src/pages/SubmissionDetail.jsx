@@ -176,7 +176,7 @@ function CardRow({ card, onUpdate, onDelete }) {
             ) : (
               <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-yellow-100">
                 <Upload className="w-5 h-5 text-yellow-600 mb-1" />
-                <span className="text-[10px] text-yellow-700 text-center px-1">Drop or click</span>
+                <span className="text-[10px] text-yellow-700 text-center px-1">Upload image</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -200,14 +200,14 @@ function CardRow({ card, onUpdate, onDelete }) {
             )}
           </div>
           <div className="flex-1">
-            <p className="font-medium text-gray-900">{card.description || card.player_name || 'Untitled'}</p>
+            <p className="font-medium text-gray-900">{card.description || card.player_name || '—'}</p>
             {card.player_name && (
               <p className="text-xs text-gray-500">
                 {card.year} {card.card_set || card.brand} {card.player_name}
               </p>
             )}
             {!hasImages && (
-              <p className="text-xs text-yellow-600 mt-1">⚠️ No image</p>
+              <p className="text-xs text-yellow-600 mt-1">No image</p>
             )}
           </div>
         </div>
@@ -1828,7 +1828,7 @@ export default function SubmissionDetail() {
 
             <div className="p-6 space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800 font-medium mb-2">📋 CSV Format Instructions:</p>
+                <p className="text-sm text-blue-800 font-medium mb-2">CSV Format Instructions:</p>
                 <p className="text-sm text-blue-700 mb-2">Paste your CSV data with two columns:</p>
                 <ul className="text-sm text-blue-700 list-disc ml-5 space-y-1">
                   <li><strong>Column 1:</strong> PSA Cert Number (e.g., 12345678)</li>
@@ -1857,7 +1857,7 @@ export default function SubmissionDetail() {
               {bulkAssignResult && (
                 <div className="space-y-3">
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <p className="font-semibold text-green-900 mb-2">✅ Results Summary</p>
+                    <p className="font-semibold text-green-900 mb-2">Results Summary</p>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div><span className="text-gray-600">Total:</span> <strong>{bulkAssignResult.summary.total}</strong></div>
                       <div><span className="text-green-600">Assigned:</span> <strong>{bulkAssignResult.summary.assigned}</strong></div>
@@ -1868,7 +1868,7 @@ export default function SubmissionDetail() {
 
                   {bulkAssignResult.unmatched.length > 0 && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <p className="font-semibold text-yellow-900 mb-2">⚠️ Unmatched Customers</p>
+                      <p className="font-semibold text-yellow-900 mb-2">Unmatched Customers</p>
                       <div className="text-sm text-yellow-800 space-y-1 max-h-32 overflow-auto">
                         {bulkAssignResult.unmatched.map((item, idx) => (
                           <div key={idx}>Line {item.lineNumber}: {item.certNumber} → "{item.customerIdentifier}" (customer not found)</div>
@@ -1879,7 +1879,7 @@ export default function SubmissionDetail() {
 
                   {bulkAssignResult.notFound.length > 0 && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                      <p className="font-semibold text-red-900 mb-2">❌ Cards Not Found</p>
+                      <p className="font-semibold text-red-900 mb-2">Cards Not Found</p>
                       <div className="text-sm text-red-800 space-y-1 max-h-32 overflow-auto">
                         {bulkAssignResult.notFound.map((item, idx) => (
                           <div key={idx}>Cert #{item.certNumber}: {item.reason}</div>

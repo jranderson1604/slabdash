@@ -161,7 +161,7 @@ export default function Layout({ children }) {
 
         {/* Company name — OPERATOR ID */}
         <div className="px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,129,112,0.06)' }}>
-          <p className="text-[9px] uppercase tracking-[0.15em] font-bold" style={{ color: 'rgba(255,129,112,0.4)' }}>// SHOP</p>
+          <p className="text-[9px] uppercase tracking-[0.15em] font-bold" style={{ color: 'rgba(255,129,112,0.4)' }}>SHOP</p>
           <p className="text-sm font-bold truncate" style={{ color: 'rgba(255,129,112,0.9)' }}>{company?.name || 'Loading...'}</p>
         </div>
 
@@ -307,7 +307,7 @@ export default function Layout({ children }) {
 
             {/* Page title (shows on desktop) */}
             <div className="hidden lg:block">
-              <p className="text-[9px] font-bold tracking-[0.15em] uppercase mb-0.5" style={{ color: darkMode ? 'rgba(255,129,112,0.4)' : 'rgba(44,36,22,0.4)' }}>// MODULE</p>
+              <p className="text-[9px] font-bold tracking-[0.15em] uppercase mb-0.5" style={{ color: darkMode ? 'rgba(255,129,112,0.4)' : 'rgba(44,36,22,0.4)' }}>SECTION</p>
               <h1 className="text-sm font-black tracking-widest uppercase" style={{ color: darkMode ? '#FF8170' : 'rgb(var(--dark))', textShadow: darkMode ? '0 0 12px rgba(255,129,112,0.4)' : 'none', letterSpacing: '0.1em' }}>
                 {navigation.find(n =>
                   n.href === location.pathname ||

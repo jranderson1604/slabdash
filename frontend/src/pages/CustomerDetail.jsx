@@ -350,7 +350,7 @@ export default function CustomerDetail() {
               </div>
 
               <p className="text-xs text-gray-500 mt-2">
-                💡 Search for a submission and click to link this customer to it
+                Search for a submission and click to link this customer to it
               </p>
             </div>
           </div>

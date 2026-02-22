@@ -79,7 +79,7 @@ export default function OnboardingChecklist({ company, stats }) {
         <div className="flex items-start justify-between mb-4">
           <div>
             <h2 className="text-base font-bold" style={{ color: 'rgb(var(--dark))' }}>
-              Get started with SlabDash
+              Setup Checklist
             </h2>
             <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--text-secondary)' }}>
               {completedCount} of {steps.length} steps complete

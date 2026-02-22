@@ -336,7 +336,7 @@ function BuybackCard({ offer, onRespond }) {
   const [responding, setResponding] = useState(false);
 
   const handleResponse = async (response) => {
-    if (!confirm(`${response === 'accepted' ? 'Accept' : 'Decline'} this offer for $${offer.offer_price}?`)) return;
+    if (!confirm(`${response === 'accepted' ? 'Accept' : 'Decline'} this offer for $${offer.offer_amount}?`)) return;
     setResponding(true);
     try { await onRespond(offer.id, response); } finally { setResponding(false); }
   };
@@ -360,7 +360,7 @@ function BuybackCard({ offer, onRespond }) {
         </div>
         <div className="text-right ml-3">
           <p className="text-2xl font-black" style={{ color: '#059669' }}>
-            ${parseFloat(offer.offer_price).toFixed(2)}
+            ${parseFloat(offer.offer_amount).toFixed(2)}
           </p>
         </div>
       </div>

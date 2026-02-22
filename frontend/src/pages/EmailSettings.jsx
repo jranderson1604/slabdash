@@ -391,10 +391,10 @@ export default function EmailSettings() {
             <div className="ml-3 flex-1">
               <div className="font-semibold text-gray-900">SlabDash Email (Recommended)</div>
               <p className="text-sm text-gray-600 mt-1">
-                ✅ Works immediately - no setup required<br />
-                ✅ Reliable delivery through SlabDash servers<br />
-                ✅ Perfect for getting started quickly<br />
-                📧 Emails sent from: notifications@slabdash.com
+                Works immediately — no setup required<br />
+                Reliable delivery through SlabDash servers<br />
+                Ideal for getting started quickly<br />
+                Emails sent from: notifications@slabdash.com
               </p>
             </div>
           </label>
@@ -413,10 +413,10 @@ export default function EmailSettings() {
             <div className="ml-3 flex-1">
               <div className="font-semibold text-gray-900">Custom SMTP (Advanced)</div>
               <p className="text-sm text-gray-600 mt-1">
-                ✅ Professional branded emails from your domain<br />
-                ✅ Full control over email delivery<br />
-                ⚙️ Requires SMTP configuration (Gmail, SendGrid, etc.)<br />
-                📧 Emails sent from: your-email@yourdomain.com
+                Professional branded emails from your domain<br />
+                Full control over email delivery<br />
+                Requires SMTP configuration (Gmail, SendGrid, etc.)<br />
+                Emails sent from: your-email@yourdomain.com
               </p>
             </div>
           </label>
@@ -630,7 +630,7 @@ export default function EmailSettings() {
         </div>
         {!settings.email_notifications_enabled && (
           <p className="text-xs text-amber-600 mt-2">
-            ⚠️ Email notifications must be enabled to use this feature
+            Email notifications must be enabled to use this feature
           </p>
         )}
         {bulkResult && (

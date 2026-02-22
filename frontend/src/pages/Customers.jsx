@@ -277,7 +277,7 @@ export default function Customers() {
   };
 
   const handleDeleteAll = async () => {
-    if (!confirm(`⚠️ WARNING: Delete ALL customers?\n\nThis will permanently delete EVERY customer in your database, regardless of how many there are. This cannot be undone.\n\nType YES in the next prompt to confirm.`)) return;
+    if (!confirm(`WARNING: Delete ALL customers?\n\nThis will permanently delete every customer in your database. This cannot be undone.\n\nType YES in the next prompt to confirm.`)) return;
 
     const confirmation = prompt('Type YES to confirm deletion of ALL customers:');
     if (confirmation !== 'YES') {
@@ -763,7 +763,7 @@ export default function Customers() {
                 autoFocus
               />
               <p className="text-xs text-gray-500 mt-2">
-                💡 The test email will show sample customer and submission data
+                The test email will use sample customer and submission data
               </p>
             </div>
 

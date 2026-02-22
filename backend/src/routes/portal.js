@@ -996,7 +996,7 @@ router.get('/stats', authenticateCustomer, async (req, res) => {
                 (SELECT COUNT(*) FROM cards WHERE (customer_owner_id = $1 OR submission_id IN (SELECT id FROM submissions WHERE customer_id = $1)) AND grade IS NOT NULL) as graded_cards,
                 (SELECT COUNT(*) FROM buyback_offers WHERE customer_id = $1 AND status = 'pending') as pending_offers,
                 (SELECT COUNT(*) FROM buyback_offers WHERE customer_id = $1 AND status = 'accepted') as accepted_offers,
-                (SELECT COALESCE(SUM(offer_price), 0) FROM buyback_offers WHERE customer_id = $1 AND status = 'paid') as total_earnings
+                (SELECT COALESCE(SUM(offer_amount), 0) FROM buyback_offers WHERE customer_id = $1 AND status = 'paid') as total_earnings
         `, [req.customer.id]);
         res.json(stats.rows[0]);
     } catch (error) {
@@ -1295,7 +1295,7 @@ router.post('/buyback-offers/:id/respond', async (req, res) => {
 
         // Verify offer belongs to customer
         const offerCheck = await db.query(
-            'SELECT id, status, offer_price FROM buyback_offers WHERE id = $1 AND customer_id = $2',
+            'SELECT id, status, offer_amount FROM buyback_offers WHERE id = $1 AND customer_id = $2',
             [req.params.id, customer.id]
         );
 

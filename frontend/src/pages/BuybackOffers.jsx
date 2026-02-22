@@ -287,7 +287,7 @@ export default function BuybackOffers() {
                     </td>
                     <td className="text-sm text-gray-600">{offer.psa_cert_number || '-'}</td>
                     <td className="font-semibold text-green-600">
-                      ${(parseFloat(offer.offer_price) || 0).toFixed(2)}
+                      ${(parseFloat(offer.offer_amount) || 0).toFixed(2)}
                     </td>
                     <td>
                       <span className={getStatusBadge(offer.status)}>

@@ -16,23 +16,23 @@ import { format } from 'date-fns';
 
 // Service level display config (updated Feb 2026 turnaround times)
 const SERVICE_CONFIG = {
-  'Walk-Through': { color: 'bg-red-500', text: 'text-red-700', light: 'bg-red-50', border: 'border-red-200', emoji: '⚡', speed: '1-2 days' },
-  'Walk-Thru': { color: 'bg-red-500', text: 'text-red-700', light: 'bg-red-50', border: 'border-red-200', emoji: '⚡', speed: '1-2 days' },
-  'Super Express': { color: 'bg-orange-500', text: 'text-orange-700', light: 'bg-orange-50', border: 'border-orange-200', emoji: '🔥', speed: '~5 days' },
-  'Express': { color: 'bg-amber-500', text: 'text-amber-700', light: 'bg-amber-50', border: 'border-amber-200', emoji: '🚀', speed: '10-20 days' },
-  'Regular': { color: 'bg-green-500', text: 'text-green-700', light: 'bg-green-50', border: 'border-green-200', emoji: '📦', speed: '~25 days' },
-  'Standard': { color: 'bg-green-500', text: 'text-green-700', light: 'bg-green-50', border: 'border-green-200', emoji: '📦', speed: '~25 days' },
-  'Value Max': { color: 'bg-teal-500', text: 'text-teal-700', light: 'bg-teal-50', border: 'border-teal-200', emoji: '💎', speed: '~35 days' },
-  'Value Plus': { color: 'bg-blue-500', text: 'text-blue-700', light: 'bg-blue-50', border: 'border-blue-200', emoji: '💎', speed: '~45 days' },
-  'Plus': { color: 'bg-blue-500', text: 'text-blue-700', light: 'bg-blue-50', border: 'border-blue-200', emoji: '💎', speed: '~45 days' },
-  'Value': { color: 'bg-indigo-500', text: 'text-indigo-700', light: 'bg-indigo-50', border: 'border-indigo-200', emoji: '📋', speed: '~65 days' },
-  'Value Bulk': { color: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50', border: 'border-purple-200', emoji: '📋', speed: '~65 days' },
-  'Bulk': { color: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50', border: 'border-purple-200', emoji: '📋', speed: '~65 days' },
-  'Specialty': { color: 'bg-pink-500', text: 'text-pink-700', light: 'bg-pink-50', border: 'border-pink-200', emoji: '✨', speed: 'Varies' },
-  'Reholder': { color: 'bg-gray-500', text: 'text-gray-700', light: 'bg-gray-50', border: 'border-gray-200', emoji: '🔄', speed: 'Varies' },
+  'Walk-Through': { color: 'bg-red-500', text: 'text-red-700', light: 'bg-red-50', border: 'border-red-200', speed: '1-2 days' },
+  'Walk-Thru': { color: 'bg-red-500', text: 'text-red-700', light: 'bg-red-50', border: 'border-red-200', speed: '1-2 days' },
+  'Super Express': { color: 'bg-orange-500', text: 'text-orange-700', light: 'bg-orange-50', border: 'border-orange-200', speed: '~5 days' },
+  'Express': { color: 'bg-amber-500', text: 'text-amber-700', light: 'bg-amber-50', border: 'border-amber-200', speed: '10-20 days' },
+  'Regular': { color: 'bg-green-500', text: 'text-green-700', light: 'bg-green-50', border: 'border-green-200', speed: '~25 days' },
+  'Standard': { color: 'bg-green-500', text: 'text-green-700', light: 'bg-green-50', border: 'border-green-200', speed: '~25 days' },
+  'Value Max': { color: 'bg-teal-500', text: 'text-teal-700', light: 'bg-teal-50', border: 'border-teal-200', speed: '~35 days' },
+  'Value Plus': { color: 'bg-blue-500', text: 'text-blue-700', light: 'bg-blue-50', border: 'border-blue-200', speed: '~45 days' },
+  'Plus': { color: 'bg-blue-500', text: 'text-blue-700', light: 'bg-blue-50', border: 'border-blue-200', speed: '~45 days' },
+  'Value': { color: 'bg-indigo-500', text: 'text-indigo-700', light: 'bg-indigo-50', border: 'border-indigo-200', speed: '~65 days' },
+  'Value Bulk': { color: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50', border: 'border-purple-200', speed: '~65 days' },
+  'Bulk': { color: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50', border: 'border-purple-200', speed: '~65 days' },
+  'Specialty': { color: 'bg-pink-500', text: 'text-pink-700', light: 'bg-pink-50', border: 'border-pink-200', speed: 'Varies' },
+  'Reholder': { color: 'bg-gray-500', text: 'text-gray-700', light: 'bg-gray-50', border: 'border-gray-200', speed: 'Varies' },
 };
 
-const getServiceConfig = (level) => SERVICE_CONFIG[level] || { color: 'bg-gray-400', text: 'text-gray-600', light: 'bg-gray-50', border: 'border-gray-200', emoji: '📦', speed: '' };
+const getServiceConfig = (level) => SERVICE_CONFIG[level] || { color: 'bg-gray-400', text: 'text-gray-600', light: 'bg-gray-50', border: 'border-gray-200', speed: '' };
 
 function formatTimeAgo(dateStr) {
   if (!dateStr) return '';
@@ -238,7 +238,7 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
 
           {submission.service_level && (
             <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${config.light} ${config.text} border ${config.border}`}>
-              {config.emoji} {submission.service_level}
+              {submission.service_level}
             </span>
           )}
 
@@ -307,7 +307,7 @@ function ServiceLevelGroup({ level, submissions: groupSubs, onRefresh, onDelete,
         className={`w-full flex items-center justify-between px-4 py-3 rounded-xl ${config.light} border ${config.border} hover:shadow-sm transition-all`}
       >
         <div className="flex items-center gap-3">
-          <span className="text-lg">{config.emoji}</span>
+          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${config.color}`} />
           <div className="text-left">
             <h3 className={`font-bold text-sm ${config.text}`}>
               {level || 'Unassigned'}

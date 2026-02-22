@@ -265,7 +265,7 @@ export default function NewSubmission() {
 
       {/* Help text */}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <h3 className="font-medium text-blue-900 mb-2">💡 Pro Tip</h3>
+        <h3 className="font-medium text-blue-900 mb-2">Pro Tip</h3>
         <p className="text-sm text-blue-800">
           Use the "Scan Form" button above to automatically extract submission details from your PSA form photo!
         </p>
