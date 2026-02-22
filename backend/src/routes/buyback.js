@@ -243,7 +243,7 @@ router.get("/", authenticate, async (req, res) => {
 
     if (payment_status) {
       paramCount++;
-      query += ` AND bo.payment_status = $${paramCount}`;
+      query += ` AND bo.status = $${paramCount}`;
       params.push(payment_status);
     }
 
@@ -369,9 +369,8 @@ router.patch("/:id/mark-paid", authenticate, async (req, res) => {
       `UPDATE buyback_offers
        SET status = 'paid',
            paid_at = NOW(),
-           payment_status = 'completed',
            payment_method = $1,
-           payment_id = $2
+           stripe_payment_intent_id = $2
        WHERE id = $3 AND company_id = $4
        RETURNING *`,
       [payment_method || 'venmo', payment_reference || null, id, company_id]
@@ -450,7 +449,7 @@ router.post("/:id/payment", authenticate, async (req, res) => {
 
     // Update offer with payment intent ID
     await db.query(
-      `UPDATE buyback_offers SET payment_id = $1, payment_method = 'stripe', payment_status = 'processing' WHERE id = $2`,
+      `UPDATE buyback_offers SET stripe_payment_intent_id = $1, payment_method = 'stripe' WHERE id = $2`,
       [paymentIntent.id, id]
     );
 
@@ -475,7 +474,7 @@ router.post("/:id/payment/confirm", authenticate, async (req, res) => {
     const { payment_intent_id } = req.body;
 
     const offerCheck = await db.query(
-      "SELECT id, payment_id FROM buyback_offers WHERE id = $1 AND company_id = $2",
+      "SELECT id, stripe_payment_intent_id FROM buyback_offers WHERE id = $1 AND company_id = $2",
       [id, company_id]
     );
 
@@ -486,7 +485,7 @@ router.post("/:id/payment/confirm", authenticate, async (req, res) => {
     const offer = offerCheck.rows[0];
 
     // Verify payment intent matches
-    if (offer.payment_id !== payment_intent_id) {
+    if (offer.stripe_payment_intent_id !== payment_intent_id) {
       return res.status(400).json({ error: "Payment intent mismatch" });
     }
 
@@ -496,7 +495,7 @@ router.post("/:id/payment/confirm", authenticate, async (req, res) => {
     if (paymentIntent.status === "succeeded") {
       // Mark offer as paid
       await db.query(
-        `UPDATE buyback_offers SET status = 'paid', payment_status = 'completed', paid_at = NOW() WHERE id = $1`,
+        `UPDATE buyback_offers SET status = 'paid', paid_at = NOW() WHERE id = $1`,
         [id]
       );
 
