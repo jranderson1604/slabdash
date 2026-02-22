@@ -187,58 +187,17 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-4">
-        {/* Arc reactor boot animation */}
-        <div className="relative w-16 h-16 flex items-center justify-center">
-          <div className="absolute inset-0 rounded-full arc-spin-slow"
-            style={{ border: '2px solid rgba(255,129,112,0.3)', borderTopColor: '#FF8170' }}
-          />
-          <div className="absolute inset-2 rounded-full arc-spin-reverse"
-            style={{ border: '1px solid rgba(255,129,112,0.15)', borderBottomColor: 'rgba(255,129,112,0.6)' }}
-          />
-          <div className="w-4 h-4 rounded-full arc-pulse-anim"
-            style={{ background: '#FF8170', boxShadow: '0 0 12px rgba(255,129,112,0.8), 0 0 24px rgba(255,129,112,0.4)' }}
-          />
-        </div>
-        <p className="hud-label">SAM — Initializing...</p>
+      <div className="flex flex-col items-center justify-center h-64 gap-3">
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#FF8170' }} />
+        <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>Loading dashboard...</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6 relative">
-      {/* Arc reactor ambient field */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden z-0">
-        <div className="absolute top-16 right-24 w-72 h-72 rounded-full opacity-25"
-          style={{
-            background: 'radial-gradient(circle, rgba(255,129,112,0.12) 0%, transparent 70%)',
-            animation: 'ambientFloat 14s ease-in-out infinite',
-          }}
-        />
-        <div className="absolute top-1/3 left-8 w-56 h-56 rounded-full opacity-15"
-          style={{
-            background: 'radial-gradient(circle, rgba(255,107,89,0.1) 0%, transparent 70%)',
-            animation: 'ambientFloat 18s ease-in-out infinite reverse',
-          }}
-        />
-        <div className="absolute bottom-24 right-1/4 w-64 h-64 rounded-full opacity-20"
-          style={{
-            background: 'radial-gradient(circle, rgba(255,129,112,0.08) 0%, transparent 70%)',
-            animation: 'ambientFloat 22s ease-in-out infinite',
-            animationDelay: '-7s',
-          }}
-        />
-        {/* Grid overlay */}
-        <div className="absolute inset-0 opacity-[0.015]"
-          style={{
-            backgroundImage: `linear-gradient(rgba(255,129,112,0.8) 1px, transparent 1px), linear-gradient(90deg, rgba(255,129,112,0.8) 1px, transparent 1px)`,
-            backgroundSize: '60px 60px',
-          }}
-        />
-      </div>
-
-      {/* HUD Header */}
-      <div className="relative rounded-2xl overflow-hidden stark-scanline"
+      {/* Header */}
+      <div className="relative rounded-2xl overflow-hidden"
         style={{
           background: 'linear-gradient(135deg, rgba(255,129,112,0.06) 0%, rgba(232,84,61,0.04) 100%)',
           border: '1px solid rgba(255,129,112,0.15)',
@@ -246,37 +205,23 @@ export default function Dashboard() {
         }}
       >
         <div className="px-6 py-5 flex items-center justify-between gap-4">
-          <div className="hud-boot">
-            <h1 className="text-2xl font-black tracking-tight" style={{ color: '#FF8170', textShadow: '0 0 20px rgba(255,129,112,0.4)', letterSpacing: '-0.01em' }}>
+          <div>
+            <h1 className="text-2xl font-black tracking-tight" style={{ color: '#FF8170', letterSpacing: '-0.01em' }}>
               {company?.name}
             </h1>
-            <p className="text-xs mt-1 font-medium" style={{ color: 'var(--text-secondary)', letterSpacing: '0.05em' }}>
+            <p className="text-xs mt-1 font-medium" style={{ color: 'var(--text-secondary)' }}>
               PSA Submission Tracking
             </p>
           </div>
 
-          {/* Arc reactor status ring + actions */}
           <div className="flex items-center gap-3 flex-shrink-0">
-            {/* Arc reactor animation */}
-            <div className="relative w-10 h-10 hidden sm:flex items-center justify-center flex-shrink-0">
-              <div className="absolute inset-0 rounded-full arc-spin-slow"
-                style={{ border: '1px solid rgba(255,129,112,0.3)', borderTopColor: 'rgba(255,129,112,0.8)' }}
-              />
-              <div className="absolute inset-1.5 rounded-full arc-spin-reverse"
-                style={{ border: '1px solid rgba(255,129,112,0.15)', borderBottomColor: 'rgba(255,129,112,0.5)' }}
-              />
-              <div className="w-3 h-3 rounded-full arc-pulse-anim"
-                style={{ background: '#FF8170', boxShadow: '0 0 8px rgba(255,129,112,0.8), 0 0 16px rgba(255,129,112,0.4)' }}
-              />
-            </div>
-
             <button
               onClick={() => setShowWalkthrough(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all hover:scale-105"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all"
               style={{
                 background: 'rgba(255,129,112,0.08)',
                 border: '1px solid rgba(255,129,112,0.2)',
-                color: 'rgba(255,129,112,0.8)',
+                color: 'rgba(255,129,112,0.9)',
               }}
             >
               <PlayCircle className="w-4 h-4" />
@@ -287,12 +232,11 @@ export default function Dashboard() {
               <button
                 onClick={handleRefreshAll}
                 disabled={refreshing}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all hover:scale-105"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-sm transition-all disabled:opacity-60"
                 style={{
-                  background: refreshing ? 'rgba(255,129,112,0.15)' : 'rgba(255,129,112,0.1)',
-                  border: '1px solid rgba(255,129,112,0.3)',
+                  background: 'rgba(255,129,112,0.1)',
+                  border: '1px solid rgba(255,129,112,0.25)',
                   color: '#FF8170',
-                  boxShadow: refreshing ? '0 0 16px rgba(255,129,112,0.2)' : 'none',
                 }}
               >
                 <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
@@ -416,24 +360,22 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* PSA Sync — Arc Charge Progress */}
       {refreshing && refreshProgress && (
-        <div className="rounded-2xl p-4 stark-scanline"
+        <div className="rounded-2xl p-4"
           style={{
             background: 'rgba(255,129,112,0.04)',
-            border: '1px solid rgba(255,129,112,0.2)',
-            boxShadow: '0 0 20px rgba(255,129,112,0.06)',
+            border: '1px solid rgba(255,129,112,0.18)',
           }}
         >
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin" style={{ color: '#FF8170' }} />
-              <span className="hud-label">Syncing with PSA...</span>
+              <span className="text-xs font-semibold" style={{ color: '#FF8170' }}>Syncing with PSA...</span>
             </div>
-            <span className="text-xs font-mono" style={{ color: 'rgba(255,129,112,0.7)' }}>
-              {refreshProgress.current}/{refreshProgress.total}
-              {refreshProgress.updated > 0 && <span className="ml-2" style={{ color: '#10b981' }}>+{refreshProgress.updated}</span>}
-              {refreshProgress.errors > 0 && <span className="ml-1 text-red-400">{refreshProgress.errors} ERR</span>}
+            <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+              {refreshProgress.current} of {refreshProgress.total}
+              {refreshProgress.updated > 0 && <span className="ml-2" style={{ color: '#10b981' }}>{refreshProgress.updated} updated</span>}
+              {refreshProgress.errors > 0 && <span className="ml-2 text-red-500">{refreshProgress.errors} errors</span>}
             </span>
           </div>
           <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,129,112,0.1)' }}>
@@ -442,7 +384,6 @@ export default function Dashboard() {
               style={{
                 width: `${refreshProgress.total > 0 ? (refreshProgress.current / refreshProgress.total) * 100 : 0}%`,
                 background: 'linear-gradient(90deg, #E8543D, #FF8170)',
-                boxShadow: '0 0 8px rgba(255,129,112,0.6)',
               }}
             />
           </div>
@@ -451,50 +392,51 @@ export default function Dashboard() {
 
       {/* Two-column layout for Notifications and Buyback */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* SAM Alert Feed */}
+        {/* Alerts */}
         <div className="card">
           <div className="p-4" style={{ borderBottom: '1px solid rgba(255,129,112,0.06)' }}>
             <div className="flex items-center gap-2">
-              <Bell className="w-4 h-4" style={{ color: '#FF8170', filter: 'drop-shadow(0 0 5px rgba(255,129,112,0.7))' }} />
+              <Bell className="w-4 h-4" style={{ color: '#FF8170' }} />
               <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>Alerts</p>
             </div>
           </div>
           <div className="p-4 space-y-3">
             {stats?.gradesReady > 0 && (
               <div className="flex items-start gap-3 p-3 rounded-xl"
-                style={{ background: 'rgba(255,129,112,0.05)', border: '1px solid rgba(255,129,112,0.12)' }}
+                style={{ background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.15)' }}
               >
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#FF8170', filter: 'drop-shadow(0 0 4px rgba(255,129,112,0.6))' }} />
+                <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#10b981' }} />
                 <div>
-                  <p className="text-xs font-black" style={{ color: '#FF8170', letterSpacing: '0.05em' }}>GRADES READY</p>
-                  <p className="text-xs font-medium mt-0.5" style={{ color: 'rgb(var(--bg-text))' }}>{stats.gradesReady} submission{stats.gradesReady !== 1 ? 's' : ''} — awaiting customer pickup</p>
+                  <p className="text-sm font-bold" style={{ color: '#065f46' }}>Grades ready for pickup</p>
+                  <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--text-secondary)' }}>{stats.gradesReady} submission{stats.gradesReady !== 1 ? 's' : ''} awaiting customer pickup</p>
                 </div>
               </div>
             )}
             {stats?.problems > 0 && (
               <div className="flex items-start gap-3 p-3 rounded-xl"
-                style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.12)' }}
+                style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)' }}
               >
-                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#F59E0B' }} />
+                <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: '#D97706' }} />
                 <div>
-                  <p className="text-xs font-black" style={{ color: '#F59E0B', letterSpacing: '0.05em' }}>PROBLEM ORDER</p>
-                  <p className="text-xs font-medium mt-0.5" style={{ color: 'rgb(var(--bg-text))' }}>{stats.problems} submission{stats.problems !== 1 ? 's' : ''} flagged — review required</p>
+                  <p className="text-sm font-bold" style={{ color: '#92400e' }}>Problem orders need review</p>
+                  <p className="text-xs font-medium mt-0.5" style={{ color: 'var(--text-secondary)' }}>{stats.problems} submission{stats.problems !== 1 ? 's' : ''} flagged — action required</p>
                 </div>
               </div>
             )}
             {(!stats?.gradesReady && !stats?.problems) && (
-              <div className="text-center py-4">
-                <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>No active alerts</p>
+              <div className="text-center py-6">
+                <CheckCircle2 className="w-8 h-8 mx-auto mb-2" style={{ color: '#10b981', opacity: 0.5 }} />
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>All clear — no alerts</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Asset Acquisition */}
+        {/* Buyback Offers */}
         <div className="card">
           <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,129,112,0.06)' }}>
             <div className="flex items-center gap-2">
-              <DollarSign className="w-4 h-4" style={{ color: '#10b981', filter: 'drop-shadow(0 0 5px rgba(16,185,129,0.6))' }} />
+              <DollarSign className="w-4 h-4" style={{ color: '#10b981' }} />
               <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>Buyback Offers</p>
             </div>
             <Link
@@ -545,11 +487,11 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Active Mission Log */}
+      {/* Active Submissions */}
       <div className="card">
         <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,129,112,0.06)' }}>
           <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4" style={{ color: '#FF8170', filter: 'drop-shadow(0 0 5px rgba(255,129,112,0.6))' }} />
+            <TrendingUp className="w-4 h-4" style={{ color: '#FF8170' }} />
             <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>Active Submissions</p>
           </div>
           <Link
@@ -604,10 +546,10 @@ export default function Dashboard() {
             style={{ background: 'rgba(255,129,112,0.04)' }}
           />
           <div className="flex items-center gap-4 relative z-10">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform arc-pulse-anim"
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform"
               style={{ background: 'rgba(255,129,112,0.1)', border: '1px solid rgba(255,129,112,0.2)' }}
             >
-              <Package className="w-5 h-5" style={{ color: '#FF8170', filter: 'drop-shadow(0 0 4px rgba(255,129,112,0.6))' }} />
+              <Package className="w-5 h-5" style={{ color: '#FF8170' }} />
             </div>
             <div>
               <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>New Submission</p>
@@ -625,10 +567,10 @@ export default function Dashboard() {
             style={{ background: 'rgba(16,185,129,0.04)' }}
           />
           <div className="flex items-center gap-4 relative z-10">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform"
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform"
               style={{ background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }}
             >
-              <Users className="w-5 h-5" style={{ color: '#10b981', filter: 'drop-shadow(0 0 4px rgba(16,185,129,0.5))' }} />
+              <Users className="w-5 h-5" style={{ color: '#10b981' }} />
             </div>
             <div>
               <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>New Customer</p>
@@ -646,10 +588,10 @@ export default function Dashboard() {
             style={{ background: 'rgba(139,92,246,0.04)' }}
           />
           <div className="flex items-center gap-4 relative z-10">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform"
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform"
               style={{ background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.2)' }}
             >
-              <Zap className="w-5 h-5" style={{ color: '#8b5cf6', filter: 'drop-shadow(0 0 4px rgba(139,92,246,0.5))' }} />
+              <Zap className="w-5 h-5" style={{ color: '#8b5cf6' }} />
             </div>
             <div>
               <p className="font-bold" style={{ color: 'rgb(var(--dark))' }}>Connect PSA</p>

@@ -142,12 +142,12 @@ export default function Layout({ children }) {
             <img
               src="/images/logo-icon.png.svg"
               alt="SlabDash"
-              className="h-9 w-9 object-contain arc-pulse-anim"
-              style={{ filter: 'brightness(1.05) drop-shadow(0 0 8px rgba(255,129,112,0.5))' }}
+              className="h-9 w-9 object-contain"
+              style={{ filter: 'brightness(1.05)' }}
             />
             <div>
-              <p className="text-xs font-black tracking-[0.15em] uppercase" style={{ color: '#FF8170', textShadow: '0 0 10px rgba(255,129,112,0.5)' }}>SLABDASH</p>
-              <p className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(255,129,112,0.4)' }}>Card Grading Tracker</p>
+              <p className="text-xs font-black tracking-[0.15em] uppercase" style={{ color: '#FF8170' }}>SLABDASH</p>
+              <p className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(255,129,112,0.5)' }}>Card Grading Tracker</p>
             </div>
           </Link>
           <button
@@ -183,8 +183,8 @@ export default function Layout({ children }) {
                   boxShadow: '0 2px 12px rgba(255,129,112,0.15), inset 0 1px 0 rgba(255,129,112,0.08)',
                   border: '1px solid rgba(255,129,112,0.25)',
                 } : {
-                  color: 'rgba(255,129,112,0.6)',
-                  border: '1px solid rgba(255,129,112,0.12)',
+                  color: 'rgba(255,255,255,0.6)',
+                  border: '1px solid rgba(255,255,255,0.06)',
                 }}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -210,20 +210,18 @@ export default function Layout({ children }) {
                   key={item.name}
                   to={item.href}
                   onClick={() => setSidebarOpen(false)}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 relative overflow-hidden stark-scanline"
+                  className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200"
                   style={isActive ? {
                     background: 'linear-gradient(135deg, rgba(255,129,112,0.2), rgba(255,107,89,0.15))',
                     color: '#FF8170',
-                    boxShadow: '0 4px 20px rgba(255,129,112,0.2), 0 0 30px rgba(255,129,112,0.1), inset 0 1px 0 rgba(255,129,112,0.1)',
-                    border: '1px solid rgba(255,129,112,0.35)',
+                    border: '1px solid rgba(255,129,112,0.3)',
                   } : {
-                    background: 'linear-gradient(135deg, rgba(255,129,112,0.08), rgba(255,107,89,0.05))',
-                    color: 'rgba(255,129,112,0.85)',
-                    boxShadow: '0 2px 8px rgba(255,129,112,0.08)',
+                    background: 'rgba(255,129,112,0.07)',
+                    color: '#FF8170',
                     border: '1px solid rgba(255,129,112,0.15)',
                   }}
                 >
-                  <item.icon className="w-5 h-5 flex-shrink-0" style={{ filter: 'drop-shadow(0 0 6px rgba(255,129,112,0.7))' }} />
+                  <item.icon className="w-5 h-5 flex-shrink-0" />
                   <span className="slabdash-label font-bold" style={{ letterSpacing: '0.12em' }}>SAM AI</span>
                   <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-sm" style={{
                     background: 'rgba(255,129,112,0.15)',
@@ -244,14 +242,13 @@ export default function Layout({ children }) {
                 style={isActive ? {
                   background: 'linear-gradient(135deg, rgba(255,129,112,0.15), rgba(255,107,89,0.1))',
                   color: '#FF8170',
-                  boxShadow: '0 2px 12px rgba(255,129,112,0.12), inset 0 1px 0 rgba(255,129,112,0.06)',
-                  borderLeft: '2px solid rgba(255,129,112,0.5)',
+                  borderLeft: '2px solid rgba(255,129,112,0.6)',
                   paddingLeft: '10px',
                 } : {
-                  color: 'rgba(255,129,112,0.5)',
+                  color: 'rgba(255,255,255,0.65)',
                 }}
               >
-                <item.icon className="w-4 h-4 flex-shrink-0" style={isActive ? { filter: 'drop-shadow(0 0 5px rgba(255,129,112,0.7))' } : {}} />
+                <item.icon className="w-4 h-4 flex-shrink-0" />
                 <span className="slabdash-label">{item.name}</span>
               </Link>
             );
@@ -262,25 +259,20 @@ export default function Layout({ children }) {
         <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(255,129,112,0.08)' }}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${company?.hasPsaKey ? 'bg-emerald-400' : 'bg-amber-400'}`}
-                style={{ boxShadow: company?.hasPsaKey ? '0 0 6px rgba(52,211,153,0.8)' : '0 0 6px rgba(251,191,36,0.8)' }}
-              />
-              <span className="text-[10px] font-bold truncate" style={{ color: 'rgba(255,129,112,0.45)', letterSpacing: '0.1em' }}>
-                PSA {company?.hasPsaKey ? 'ONLINE' : 'OFFLINE'}
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${company?.hasPsaKey ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <span className="text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                PSA {company?.hasPsaKey ? 'connected' : 'not connected'}
               </span>
             </div>
             <button
               onClick={() => setDarkMode(d => !d)}
-              className="rounded p-1 transition-all flex-shrink-0"
-              style={{ background: 'rgba(255,129,112,0.06)', color: 'rgba(255,129,112,0.5)', border: '1px solid rgba(255,129,112,0.1)' }}
-              title={darkMode ? 'Light mode' : 'Dark mode'}
+              className="rounded-lg p-1.5 transition-all flex-shrink-0"
+              style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.08)' }}
+              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             >
-              {darkMode ? <Sun className="w-3 h-3" /> : <Moon className="w-3 h-3" />}
+              {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
             </button>
           </div>
-          <p className="text-[8px] mt-1" style={{ color: 'rgba(255,129,112,0.4)', letterSpacing: '0.08em' }}>
-            SlabDash Command · PSA Tracking
-          </p>
         </div>
       </aside>
 
@@ -307,8 +299,7 @@ export default function Layout({ children }) {
 
             {/* Page title (shows on desktop) */}
             <div className="hidden lg:block">
-              <p className="text-[9px] font-bold tracking-[0.15em] uppercase mb-0.5" style={{ color: darkMode ? 'rgba(255,129,112,0.4)' : 'rgba(44,36,22,0.4)' }}>SECTION</p>
-              <h1 className="text-sm font-black tracking-widest uppercase" style={{ color: darkMode ? '#FF8170' : 'rgb(var(--dark))', textShadow: darkMode ? '0 0 12px rgba(255,129,112,0.4)' : 'none', letterSpacing: '0.1em' }}>
+              <h1 className="text-sm font-bold" style={{ color: darkMode ? 'rgba(255,255,255,0.85)' : 'rgb(var(--dark))' }}>
                 {navigation.find(n =>
                   n.href === location.pathname ||
                   (n.href !== '/dashboard' && n.href !== '/' && location.pathname.startsWith(n.href))
