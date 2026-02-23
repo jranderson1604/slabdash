@@ -404,7 +404,7 @@ export default function Customers() {
               <>
                 <button
                   onClick={() => setShowTestEmailModal(true)}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
                   title="Send a test email to preview the introduction email"
                 >
                   <Eye className="w-4 h-4" />
@@ -413,7 +413,7 @@ export default function Customers() {
                 <button
                   onClick={handleSendBulkIntroEmails}
                   disabled={sendingIntroEmails}
-                  className="bg-blue-500/90 hover:bg-blue-600 text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-blue-400 shadow-lg disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-blue-600 disabled:opacity-50" style={{ background: 'rgba(59,130,246,0.85)', color: 'white' }}
                   title="Send introduction email to all customers in active submissions"
                 >
                   {sendingIntroEmails ? (
@@ -427,14 +427,14 @@ export default function Customers() {
                 </button>
                 <button
                   onClick={handleDeleteAll}
-                  className="bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-red-400 shadow-lg"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-red-600" style={{ background: 'rgba(239,68,68,0.85)', color: 'white' }}
                 >
                   <Trash2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Delete All</span>
                 </button>
               </>
             )}
-            <label className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg cursor-pointer">
+            <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 cursor-pointer" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}>
               <FileSpreadsheet className="w-4 h-4" />
               <span className="hidden sm:inline">{importingCSV ? 'Importing...' : 'Import CSV'}</span>
               <input
@@ -446,7 +446,10 @@ export default function Customers() {
               />
             </label>
             <ExportButton endpoint="/customers/export.csv" label="" />
-            <Link to="/customers/new" className="bg-white text-brand-600 px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105">
+            <Link to="/customers/new"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/25"
+              style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', color: 'white' }}
+            >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">New Customer</span>
             </Link>

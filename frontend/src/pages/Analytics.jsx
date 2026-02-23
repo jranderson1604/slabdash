@@ -148,11 +148,14 @@ export default function Analytics() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-black mb-1" style={{ color: 'rgb(var(--dark))' }}>Analytics</h1>
-        <p className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
-          Performance overview across all submissions, grades, and customers
-        </p>
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 shadow-xl">
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
+        <div className="relative px-6 sm:px-8 py-7">
+          <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Insights</p>
+          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">Analytics</h1>
+          <p className="text-white/60 text-sm font-medium mt-1">Performance overview across all submissions, grades, and customers</p>
+        </div>
       </div>
 
       {/* Summary stat cards */}

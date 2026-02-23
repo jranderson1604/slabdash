@@ -176,24 +176,25 @@ export default function Cards() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 shadow-xl">
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
 
-        <div className="relative flex items-center justify-between">
+        <div className="relative flex items-center justify-between px-6 sm:px-8 py-7">
           <div>
-            <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">CARDS</h1>
-            <p className="text-white/90 text-lg font-semibold">Search and manage all cards across submissions</p>
+            <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Library</p>
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">Cards</h1>
+            <p className="text-white/60 text-sm font-medium mt-1">Search and manage all cards across submissions</p>
           </div>
           <div className="flex items-center gap-2">
             <ExportButton endpoint="/cards/export.csv" label="" />
             <button
               onClick={() => setShowHelp(!showHelp)}
-              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg hover:shadow-xl hover:scale-105"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
+              style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
             >
-              <Info className="w-5 h-5" />
-              {showHelp ? 'Hide' : 'Show'} Help
+              <Info className="w-4 h-4" />
+              {showHelp ? 'Hide Help' : 'Help'}
             </button>
           </div>
         </div>
