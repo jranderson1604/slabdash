@@ -37,6 +37,7 @@ const blogRoutes = require("./routes/blog");
 const analyticsRoutes = require("./routes/analytics");
 const webhooksRoutes = require("./routes/webhooks");
 const auditRoutes = require("./routes/audit");
+const cardImportRoutes = require("./routes/cardImport");
 
 /* -------------------- STARTUP VALIDATION -------------------- */
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
@@ -211,6 +212,7 @@ app.use("/api/blog", blogRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/webhooks", webhooksRoutes);
 app.use("/api/audit", auditRoutes);
+app.use("/api/card-import", cardImportRoutes);
 
 /* -------------------- 404 HANDLER -------------------- */
 

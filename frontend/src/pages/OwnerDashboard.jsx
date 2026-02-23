@@ -342,6 +342,7 @@ export default function OwnerDashboard() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [companies, setCompanies] = useState([]);
+  const [platformAnalytics, setPlatformAnalytics] = useState(null);
   const [error, setError] = useState(null);
   const [tab, setTab] = useState('Overview');
   const [search, setSearch] = useState('');
@@ -367,15 +368,17 @@ export default function OwnerDashboard() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true); setError(null);
-      const [statsRes, companiesRes, blogRes] = await Promise.all([
+      const [statsRes, companiesRes, blogRes, analyticsRes] = await Promise.all([
         fetch(`${API_URL}/owner/stats`, { headers: authHeaders() }),
         fetch(`${API_URL}/owner/companies`, { headers: authHeaders() }),
         fetch(`${API_URL}/blog/all`, { headers: authHeaders() }),
+        fetch(`${API_URL}/owner/platform-analytics`, { headers: authHeaders() }),
       ]);
       if (!statsRes.ok) throw new Error('Failed to load platform data');
       setStats(await statsRes.json());
       setCompanies(await companiesRes.json());
       if (blogRes.ok) setBlogPosts(await blogRes.json());
+      if (analyticsRes.ok) setPlatformAnalytics(await analyticsRes.json());
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   }, []);
@@ -604,6 +607,98 @@ export default function OwnerDashboard() {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+
+          {/* Feature adoption + Platform metrics */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <Zap className="w-4 h-4" style={{ color: 'rgb(var(--brand-500))' }} />
+                <h3 className="font-bold text-gray-900">Feature Adoption</h3>
+                {platformAnalytics && (
+                  <span className="ml-auto text-xs text-gray-400">{fmt(platformAnalytics.features?.total)} shops</span>
+                )}
+              </div>
+              {platformAnalytics ? (
+                <div className="space-y-3">
+                  {[
+                    { label: 'PSA Connected', value: platformAnalytics.features?.psa_connected, color: 'bg-green-400' },
+                    { label: 'SAM AI Enabled', value: platformAnalytics.features?.sam_enabled, color: 'bg-purple-400' },
+                    { label: 'Auto Refresh', value: platformAnalytics.features?.auto_refresh, color: 'bg-blue-400' },
+                    { label: 'Email Notifications', value: platformAnalytics.features?.email_notifications, color: 'bg-orange-400' },
+                  ].map(({ label, value, color }) => {
+                    const total = Number(platformAnalytics.features?.total || 0);
+                    const count = Number(value || 0);
+                    const pct = total ? Math.round((count / total) * 100) : 0;
+                    return (
+                      <div key={label}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm text-gray-600">{label}</span>
+                          <span className="text-sm font-bold text-gray-900">{count} <span className="text-xs font-normal text-gray-400">({pct}%)</span></span>
+                        </div>
+                        <div className="w-full bg-gray-100 rounded-full h-2">
+                          <div className={`${color} h-2 rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="flex items-center justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-gray-300" /></div>
+              )}
+            </div>
+
+            <div className="card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <TrendingUp className="w-4 h-4" style={{ color: 'rgb(var(--brand-500))' }} />
+                <h3 className="font-bold text-gray-900">Platform Metrics</h3>
+              </div>
+              {platformAnalytics ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-gray-50 rounded-2xl p-3 text-center">
+                      <p className="text-2xl font-bold text-gray-900">
+                        ${Number(platformAnalytics.revenue?.total_revenue || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-0.5">Total Revenue Tracked</p>
+                    </div>
+                    <div className="bg-gray-50 rounded-2xl p-3 text-center">
+                      <p className="text-2xl font-bold text-gray-900">{platformAnalytics.revenue?.avg_cards_per_submission ?? '—'}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Avg Cards / Submission</p>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Shop Growth — Last 6 Months</p>
+                    {platformAnalytics.growth?.length > 0 ? (
+                      <div className="flex items-end gap-2 h-16">
+                        {(() => {
+                          const max = Math.max(...platformAnalytics.growth.map(g => Number(g.new_shops)), 1);
+                          return platformAnalytics.growth.map(g => {
+                            const h = Math.max(Math.round((Number(g.new_shops) / max) * 100), 4);
+                            const label = g.month?.slice(5); // MM
+                            return (
+                              <div key={g.month} className="flex-1 flex flex-col items-center gap-1">
+                                <span className="text-[10px] font-semibold text-gray-500">{g.new_shops}</span>
+                                <div className="w-full rounded-t-md" style={{ height: `${h}%`, background: 'rgb(var(--brand-400))' }} />
+                                <span className="text-[10px] text-gray-400">{label}</span>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    ) : (
+                      <p className="text-sm text-gray-400 text-center py-4">No growth data</p>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-black/[0.04]">
+                    <span className="text-xs text-gray-500">Largest submission</span>
+                    <span className="text-sm font-bold text-gray-900">{fmt(platformAnalytics.revenue?.max_cards)} cards</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-gray-300" /></div>
+              )}
             </div>
           </div>
         </div>

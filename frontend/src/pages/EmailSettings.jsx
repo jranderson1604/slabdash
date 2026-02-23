@@ -313,19 +313,22 @@ export default function EmailSettings() {
   return (
     <div className="space-y-6">
       <EmailNav />
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 shadow-xl">
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
 
-        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 sm:px-8 py-7">
           <div>
-            <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">EMAIL</h1>
-            <p className="text-white/90 text-lg font-semibold">Configure SMTP settings and automatic email notifications</p>
+            <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Notifications</p>
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">Email</h1>
+            <p className="text-white/60 text-sm font-medium mt-1">Configure SMTP settings and automatic notifications</p>
           </div>
-          <Link to="/email-templates" className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg hover:shadow-xl hover:scale-105">
-            <FileText className="w-5 h-5" />
-            Manage Templates
+          <Link to="/email-templates"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 self-start sm:self-auto flex-shrink-0"
+            style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+          >
+            <FileText className="w-4 h-4" />
+            Templates
           </Link>
         </div>
       </div>
@@ -391,10 +394,10 @@ export default function EmailSettings() {
             <div className="ml-3 flex-1">
               <div className="font-semibold text-gray-900">SlabDash Email (Recommended)</div>
               <p className="text-sm text-gray-600 mt-1">
-                ✅ Works immediately - no setup required<br />
-                ✅ Reliable delivery through SlabDash servers<br />
-                ✅ Perfect for getting started quickly<br />
-                📧 Emails sent from: notifications@slabdash.com
+                Works immediately — no setup required<br />
+                Reliable delivery through SlabDash servers<br />
+                Ideal for getting started quickly<br />
+                Emails sent from: notifications@slabdash.com
               </p>
             </div>
           </label>
@@ -413,10 +416,10 @@ export default function EmailSettings() {
             <div className="ml-3 flex-1">
               <div className="font-semibold text-gray-900">Custom SMTP (Advanced)</div>
               <p className="text-sm text-gray-600 mt-1">
-                ✅ Professional branded emails from your domain<br />
-                ✅ Full control over email delivery<br />
-                ⚙️ Requires SMTP configuration (Gmail, SendGrid, etc.)<br />
-                📧 Emails sent from: your-email@yourdomain.com
+                Professional branded emails from your domain<br />
+                Full control over email delivery<br />
+                Requires SMTP configuration (Gmail, SendGrid, etc.)<br />
+                Emails sent from: your-email@yourdomain.com
               </p>
             </div>
           </label>
@@ -630,7 +633,7 @@ export default function EmailSettings() {
         </div>
         {!settings.email_notifications_enabled && (
           <p className="text-xs text-amber-600 mt-2">
-            ⚠️ Email notifications must be enabled to use this feature
+            Email notifications must be enabled to use this feature
           </p>
         )}
         {bulkResult && (

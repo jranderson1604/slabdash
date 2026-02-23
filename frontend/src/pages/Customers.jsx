@@ -277,7 +277,7 @@ export default function Customers() {
   };
 
   const handleDeleteAll = async () => {
-    if (!confirm(`⚠️ WARNING: Delete ALL customers?\n\nThis will permanently delete EVERY customer in your database, regardless of how many there are. This cannot be undone.\n\nType YES in the next prompt to confirm.`)) return;
+    if (!confirm(`WARNING: Delete ALL customers?\n\nThis will permanently delete every customer in your database. This cannot be undone.\n\nType YES in the next prompt to confirm.`)) return;
 
     const confirmation = prompt('Type YES to confirm deletion of ALL customers:');
     if (confirmation !== 'YES') {
@@ -387,22 +387,24 @@ export default function Customers() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 shadow-xl">
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
 
-        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 sm:px-8 py-7">
           <div>
-            <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">CUSTOMERS</h1>
-            <p className="text-white/90 text-lg font-semibold">Manage your card shop customers</p>
+            <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Management</p>
+            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">Customers</h1>
+            <p className="text-white/60 text-sm font-medium mt-1">
+              {customerList.length > 0 ? `${customerList.length} registered` : 'Manage your card shop customers'}
+            </p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             {customerList.length > 0 && (
               <>
                 <button
                   onClick={() => setShowTestEmailModal(true)}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
                   title="Send a test email to preview the introduction email"
                 >
                   <Eye className="w-4 h-4" />
@@ -411,7 +413,7 @@ export default function Customers() {
                 <button
                   onClick={handleSendBulkIntroEmails}
                   disabled={sendingIntroEmails}
-                  className="bg-blue-500/90 hover:bg-blue-600 text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-blue-400 shadow-lg disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-blue-600 disabled:opacity-50" style={{ background: 'rgba(59,130,246,0.85)', color: 'white' }}
                   title="Send introduction email to all customers in active submissions"
                 >
                   {sendingIntroEmails ? (
@@ -425,14 +427,14 @@ export default function Customers() {
                 </button>
                 <button
                   onClick={handleDeleteAll}
-                  className="bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-red-400 shadow-lg"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-red-600" style={{ background: 'rgba(239,68,68,0.85)', color: 'white' }}
                 >
                   <Trash2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Delete All</span>
                 </button>
               </>
             )}
-            <label className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg cursor-pointer">
+            <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 cursor-pointer" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}>
               <FileSpreadsheet className="w-4 h-4" />
               <span className="hidden sm:inline">{importingCSV ? 'Importing...' : 'Import CSV'}</span>
               <input
@@ -444,9 +446,12 @@ export default function Customers() {
               />
             </label>
             <ExportButton endpoint="/customers/export.csv" label="" />
-            <Link to="/customers/new" className="bg-white text-brand-600 px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105">
+            <Link to="/customers/new"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/25"
+              style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', color: 'white' }}
+            >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Customer</span>
+              <span className="hidden sm:inline">New Customer</span>
             </Link>
           </div>
         </div>
@@ -468,7 +473,7 @@ export default function Customers() {
                 className="btn btn-primary gap-2"
               >
                 <Package className="w-4 h-4" />
-                Add to Submission
+                Assign to Submission
               </button>
               <button
                 onClick={handleBulkDelete}
@@ -513,16 +518,14 @@ export default function Customers() {
           <div className="p-12 text-center">
             <Users className="w-12 h-12 text-brand-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {search ? 'No matching customers' : 'No customers yet'}
+              {search ? 'No matching customers' : 'No customers'}
             </h3>
             <p className="text-gray-500 mb-4">
-              {search
-                ? 'Try adjusting your search'
-                : 'Add your first customer to get started'}
+              {search ? 'Try adjusting your search' : 'Create a customer record to begin tracking submissions.'}
             </p>
             {!search && (
               <Link to="/customers/new" className="btn btn-primary">
-                Add Customer
+                New Customer
               </Link>
             )}
           </div>
@@ -607,7 +610,7 @@ export default function Customers() {
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Package className="w-6 h-6 text-brand-600" />
-                Add Customers to Submission
+                Assign to Submission
               </h3>
               <button
                 onClick={() => setShowAddToSubmissionModal(false)}
@@ -714,7 +717,7 @@ export default function Customers() {
                 className="flex-1 bg-brand-600 text-white px-6 py-3 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <Package className="w-4 h-4" />
-                Add to Submission
+                Assign to Submission
               </button>
               <button
                 onClick={() => setShowAddToSubmissionModal(false)}
@@ -765,7 +768,7 @@ export default function Customers() {
                 autoFocus
               />
               <p className="text-xs text-gray-500 mt-2">
-                💡 The test email will show sample customer and submission data
+                The test email will use sample customer and submission data
               </p>
             </div>
 

@@ -40,8 +40,8 @@ async function createSingleOffer({ company_id, user_id, card_id, offer_price, me
 
   const result = await db.query(
     `INSERT INTO buyback_offers (
-      company_id, card_id, customer_id, offer_price, message,
-      offered_by_user_id, expires_at, status
+      company_id, card_id, customer_id, offer_amount, offer_message,
+      created_by, expires_at, status
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *`,
     [
@@ -180,9 +180,9 @@ router.get("/stats/summary", authenticate, async (req, res) => {
         COUNT(*) FILTER (WHERE status = 'accepted') as accepted_offers,
         COUNT(*) FILTER (WHERE status = 'rejected') as rejected_offers,
         COUNT(*) FILTER (WHERE status = 'paid') as paid_offers,
-        COALESCE(SUM(offer_price) FILTER (WHERE status = 'pending'), 0) as pending_value,
-        COALESCE(SUM(offer_price) FILTER (WHERE status = 'accepted'), 0) as accepted_value,
-        COALESCE(SUM(offer_price) FILTER (WHERE status = 'paid'), 0) as paid_value
+        COALESCE(SUM(offer_amount) FILTER (WHERE status = 'pending'), 0) as pending_value,
+        COALESCE(SUM(offer_amount) FILTER (WHERE status = 'accepted'), 0) as accepted_value,
+        COALESCE(SUM(offer_amount) FILTER (WHERE status = 'paid'), 0) as paid_value
       FROM buyback_offers
       WHERE company_id = $1`,
       [company_id]
@@ -216,7 +216,7 @@ router.get("/", authenticate, async (req, res) => {
       FROM buyback_offers bo
       LEFT JOIN cards c ON bo.card_id = c.id
       LEFT JOIN customers cu ON bo.customer_id = cu.id
-      LEFT JOIN users u ON bo.offered_by_user_id = u.id
+      LEFT JOIN users u ON bo.created_by = u.id
       LEFT JOIN submissions s ON c.submission_id = s.id
       WHERE bo.company_id = $1
     `;
@@ -243,7 +243,7 @@ router.get("/", authenticate, async (req, res) => {
 
     if (payment_status) {
       paramCount++;
-      query += ` AND bo.payment_status = $${paramCount}`;
+      query += ` AND bo.status = $${paramCount}`;
       params.push(payment_status);
     }
 
@@ -278,7 +278,7 @@ router.get("/:id", authenticate, async (req, res) => {
       FROM buyback_offers bo
       LEFT JOIN cards c ON bo.card_id = c.id
       LEFT JOIN customers cu ON bo.customer_id = cu.id
-      LEFT JOIN users u ON bo.offered_by_user_id = u.id
+      LEFT JOIN users u ON bo.created_by = u.id
       LEFT JOIN submissions s ON c.submission_id = s.id
       WHERE bo.id = $1 AND bo.company_id = $2`,
       [id, company_id]
@@ -369,9 +369,8 @@ router.patch("/:id/mark-paid", authenticate, async (req, res) => {
       `UPDATE buyback_offers
        SET status = 'paid',
            paid_at = NOW(),
-           payment_status = 'completed',
            payment_method = $1,
-           payment_id = $2
+           stripe_payment_intent_id = $2
        WHERE id = $3 AND company_id = $4
        RETURNING *`,
       [payment_method || 'venmo', payment_reference || null, id, company_id]
@@ -437,7 +436,7 @@ router.post("/:id/payment", authenticate, async (req, res) => {
 
     // Create Stripe payment intent
     const paymentIntent = await stripeService.createPaymentIntent(
-      offer.offer_price,
+      offer.offer_amount,
       {
         offer_id: offer.id,
         customer_id: offer.customer_id,
@@ -450,7 +449,7 @@ router.post("/:id/payment", authenticate, async (req, res) => {
 
     // Update offer with payment intent ID
     await db.query(
-      `UPDATE buyback_offers SET payment_id = $1, payment_method = 'stripe', payment_status = 'processing' WHERE id = $2`,
+      `UPDATE buyback_offers SET stripe_payment_intent_id = $1, payment_method = 'stripe' WHERE id = $2`,
       [paymentIntent.id, id]
     );
 
@@ -475,7 +474,7 @@ router.post("/:id/payment/confirm", authenticate, async (req, res) => {
     const { payment_intent_id } = req.body;
 
     const offerCheck = await db.query(
-      "SELECT id, payment_id FROM buyback_offers WHERE id = $1 AND company_id = $2",
+      "SELECT id, stripe_payment_intent_id FROM buyback_offers WHERE id = $1 AND company_id = $2",
       [id, company_id]
     );
 
@@ -486,7 +485,7 @@ router.post("/:id/payment/confirm", authenticate, async (req, res) => {
     const offer = offerCheck.rows[0];
 
     // Verify payment intent matches
-    if (offer.payment_id !== payment_intent_id) {
+    if (offer.stripe_payment_intent_id !== payment_intent_id) {
       return res.status(400).json({ error: "Payment intent mismatch" });
     }
 
@@ -496,7 +495,7 @@ router.post("/:id/payment/confirm", authenticate, async (req, res) => {
     if (paymentIntent.status === "succeeded") {
       // Mark offer as paid
       await db.query(
-        `UPDATE buyback_offers SET status = 'paid', payment_status = 'completed', paid_at = NOW() WHERE id = $1`,
+        `UPDATE buyback_offers SET status = 'paid', paid_at = NOW() WHERE id = $1`,
         [id]
       );
 

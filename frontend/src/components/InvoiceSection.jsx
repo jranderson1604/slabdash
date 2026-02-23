@@ -71,7 +71,7 @@ export default function InvoiceSection({ submission, onInvoiceSent }) {
 
         <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-3">
           <p className="text-sm text-blue-800">
-            💡 <strong>Tip:</strong> Preview lets you review and edit costs before sending. Invoices will include pickup codes for pickup customers.
+            <strong>Tip:</strong> Preview lets you review and edit costs before sending. Invoices will include pickup codes for pickup customers.
           </p>
         </div>
       </div>

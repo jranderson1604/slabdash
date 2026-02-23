@@ -131,13 +131,14 @@ router.get('/turnaround', authenticate, async (req, res) => {
       `SELECT
          COALESCE(service_level, 'Unknown') AS service_level,
          COUNT(*) AS count,
-         ROUND(AVG(EXTRACT(DAY FROM (updated_at - date_sent)))) AS avg_days,
-         ROUND(MIN(EXTRACT(DAY FROM (updated_at - date_sent)))) AS min_days,
-         ROUND(MAX(EXTRACT(DAY FROM (updated_at - date_sent)))) AS max_days
+         ROUND(AVG(COALESCE(date_graded, date_shipped) - date_sent)) AS avg_days,
+         ROUND(MIN(COALESCE(date_graded, date_shipped) - date_sent)) AS min_days,
+         ROUND(MAX(COALESCE(date_graded, date_shipped) - date_sent)) AS max_days
        FROM submissions
        WHERE company_id = $1
          AND (grades_ready = true OR shipped = true OR picked_up = true)
          AND date_sent IS NOT NULL
+         AND COALESCE(date_graded, date_shipped) IS NOT NULL
        GROUP BY service_level
        ORDER BY avg_days ASC`,
       [cid]

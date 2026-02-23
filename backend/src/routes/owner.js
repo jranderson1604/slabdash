@@ -385,4 +385,47 @@ router.delete('/companies/:id', async (req, res) => {
   }
 });
 
+// ─── PLATFORM ANALYTICS ──────────────────────────────────────────
+
+router.get('/platform-analytics', async (req, res) => {
+  try {
+    const [featuresR, growthR, revenueR] = await Promise.all([
+      db.query(`
+        SELECT
+          COUNT(*) FILTER (WHERE psa_api_key IS NOT NULL AND psa_api_key != '') AS psa_connected,
+          COUNT(*) FILTER (WHERE sam_enabled = true) AS sam_enabled,
+          COUNT(*) FILTER (WHERE auto_refresh_enabled = true) AS auto_refresh,
+          COUNT(*) FILTER (WHERE email_notifications_enabled = true) AS email_notifications,
+          COUNT(*) AS total
+        FROM companies
+      `),
+      db.query(`
+        SELECT
+          TO_CHAR(DATE_TRUNC('month', created_at), 'YYYY-MM') AS month,
+          COUNT(*) AS new_shops
+        FROM companies
+        WHERE created_at >= NOW() - INTERVAL '6 months'
+        GROUP BY DATE_TRUNC('month', created_at)
+        ORDER BY month ASC
+      `),
+      db.query(`
+        SELECT
+          COALESCE(SUM(total_cost), 0) AS total_revenue,
+          COALESCE(ROUND(AVG(card_count), 1), 0) AS avg_cards_per_submission,
+          COALESCE(MAX(card_count), 0) AS max_cards
+        FROM submissions
+      `),
+    ]);
+
+    res.json({
+      features: featuresR.rows[0],
+      growth: growthR.rows,
+      revenue: revenueR.rows[0],
+    });
+  } catch (err) {
+    console.error('[Owner] Platform analytics error:', err.message);
+    res.status(500).json({ error: 'Failed to load platform analytics' });
+  }
+});
+
 module.exports = router;

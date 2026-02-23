@@ -373,7 +373,7 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
           {/* Warning */}
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <p className="text-sm text-yellow-800">
-              ⚠️ <strong>Before sending:</strong> Review all costs and customer emails. Once sent, invoices cannot be unsent.
+              <strong>Before sending:</strong> Review all costs and customer emails. Once sent, invoices cannot be unsent.
             </p>
           </div>
         </div>

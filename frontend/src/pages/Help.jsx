@@ -64,26 +64,14 @@ function StepCard({ number, title, description, icon: Icon }) {
 export default function Help() {
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="relative overflow-hidden rounded-3xl page-header-glass p-8 mb-8">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"
-          style={{ background: 'rgba(255, 216, 196, 0.25)' }}
-        />
-        <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"
-          style={{ background: 'rgba(255, 185, 160, 0.2)' }}
-        />
-        <div className="absolute top-0 left-0 right-0 h-px"
-          style={{ background: 'linear-gradient(90deg, transparent, rgba(255, 216, 196, 0.5), transparent)' }}
-        />
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 shadow-xl mb-8">
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
 
-        <div className="relative">
-          <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg flex items-center gap-3">
-            <HelpCircle className="w-10 h-10" />
-            HELP & INSTRUCTIONS
-          </h1>
-          <p className="text-lg font-semibold" style={{ color: 'rgba(255, 248, 240, 0.85)' }}>
-            Everything you need to know about using SlabDash
-          </p>
+        <div className="relative px-6 sm:px-8 py-7">
+          <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Documentation</p>
+          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">Help & Instructions</h1>
+          <p className="text-white/60 text-sm font-medium mt-1">Everything you need to know about using SlabDash</p>
         </div>
       </div>
 
@@ -294,13 +282,15 @@ export default function Help() {
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <a
             href="mailto:support@slabdash.app"
-            className="px-6 py-3 bg-white text-brand-700 rounded-lg font-bold hover:bg-gray-100 transition-colors shadow-lg"
+            className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all"
+            style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.5)', color: '#E8543D' }}
           >
             Email Support
           </a>
           <a
             href="#settings"
-            className="px-6 py-3 bg-white/20 backdrop-blur-sm text-white border-2 border-white/50 rounded-lg font-bold hover:bg-white/30 transition-colors"
+            className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
+            style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
           >
             View Settings
           </a>

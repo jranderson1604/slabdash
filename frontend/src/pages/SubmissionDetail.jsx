@@ -176,7 +176,7 @@ function CardRow({ card, onUpdate, onDelete }) {
             ) : (
               <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-yellow-100">
                 <Upload className="w-5 h-5 text-yellow-600 mb-1" />
-                <span className="text-[10px] text-yellow-700 text-center px-1">Drop or click</span>
+                <span className="text-[10px] text-yellow-700 text-center px-1">Upload image</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -200,14 +200,14 @@ function CardRow({ card, onUpdate, onDelete }) {
             )}
           </div>
           <div className="flex-1">
-            <p className="font-medium text-gray-900">{card.description || card.player_name || 'Untitled'}</p>
+            <p className="font-medium text-gray-900">{card.description || card.player_name || '—'}</p>
             {card.player_name && (
               <p className="text-xs text-gray-500">
                 {card.year} {card.card_set || card.brand} {card.player_name}
               </p>
             )}
             {!hasImages && (
-              <p className="text-xs text-yellow-600 mt-1">⚠️ No image</p>
+              <p className="text-xs text-yellow-600 mt-1">No image</p>
             )}
           </div>
         </div>
@@ -963,14 +963,16 @@ export default function SubmissionDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-6 shadow-xl">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 shadow-xl">
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
 
-        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 sm:px-8 py-7">
           <div className="flex items-center gap-4">
-            <Link to="/submissions" className="p-2 hover:bg-white/20 backdrop-blur-sm rounded-lg transition-all">
+            <Link to="/submissions"
+              className="p-2 rounded-xl transition-all hover:bg-white/20 flex-shrink-0"
+              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}
+            >
               <ArrowLeft className="w-5 h-5 text-white" />
             </Link>
             <div className="flex-1">
@@ -1009,11 +1011,12 @@ export default function SubmissionDetail() {
                 </div>
               ) : (
                 <>
-                  <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-lg">
-                    {submission.psa_submission_number || submission.internal_id || 'SUBMISSION'}
+                  <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Submission</p>
+                  <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                    {submission.psa_submission_number || submission.internal_id || 'No ID'}
                   </h1>
                   {submission.psa_order_number && (
-                    <p className="text-white/90 text-lg font-semibold mt-1">Order #{submission.psa_order_number}</p>
+                    <p className="text-white/60 text-sm font-medium mt-0.5">Order #{submission.psa_order_number}</p>
                   )}
                 </>
               )}
@@ -1025,7 +1028,7 @@ export default function SubmissionDetail() {
                 <button
                   onClick={handleSaveEdit}
                   disabled={saving}
-                  className="bg-white text-brand-600 px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-60" style={{ background: 'rgba(255,255,255,0.9)', color: '#E8543D' }}
                 >
                   {saving ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1037,7 +1040,7 @@ export default function SubmissionDetail() {
                 <button
                   onClick={handleCancelEdit}
                   disabled={saving}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
                 >
                   <X className="w-4 h-4" />
                   <span className="hidden sm:inline">Cancel</span>
@@ -1047,14 +1050,14 @@ export default function SubmissionDetail() {
               <>
                 <button
                   onClick={handleEdit}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
                 >
                   <Edit2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Edit</span>
                 </button>
                 <button
                   onClick={() => setShowTestEmailModal(true)}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
                   title="Preview status update email"
                 >
                   <Eye className="w-4 h-4" />
@@ -1063,7 +1066,7 @@ export default function SubmissionDetail() {
                 <button
                   onClick={handleSendUpdate}
                   disabled={sendingEmail}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 disabled:opacity-50" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
                 >
                   {sendingEmail ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1076,13 +1079,13 @@ export default function SubmissionDetail() {
                   <button
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 disabled:opacity-50" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
                   >
                     <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                     <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
                   </button>
                 )}
-                <button onClick={handleDelete} className="bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-red-400 shadow-lg">
+                <button onClick={handleDelete} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'rgba(220,38,38,0.85)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}>
                   <Trash2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Delete</span>
                 </button>
@@ -1576,7 +1579,7 @@ export default function SubmissionDetail() {
             <div className="mb-4 p-5 bg-gray-50 rounded-lg border border-gray-200">
               <div className="flex items-center justify-between mb-3">
                 <label className="block text-base font-semibold text-gray-900">
-                  Add Customer to This Submission
+                  Assign Customer
                 </label>
               </div>
 
@@ -1828,7 +1831,7 @@ export default function SubmissionDetail() {
 
             <div className="p-6 space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800 font-medium mb-2">📋 CSV Format Instructions:</p>
+                <p className="text-sm text-blue-800 font-medium mb-2">CSV Format Instructions:</p>
                 <p className="text-sm text-blue-700 mb-2">Paste your CSV data with two columns:</p>
                 <ul className="text-sm text-blue-700 list-disc ml-5 space-y-1">
                   <li><strong>Column 1:</strong> PSA Cert Number (e.g., 12345678)</li>
@@ -1857,7 +1860,7 @@ export default function SubmissionDetail() {
               {bulkAssignResult && (
                 <div className="space-y-3">
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <p className="font-semibold text-green-900 mb-2">✅ Results Summary</p>
+                    <p className="font-semibold text-green-900 mb-2">Results Summary</p>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div><span className="text-gray-600">Total:</span> <strong>{bulkAssignResult.summary.total}</strong></div>
                       <div><span className="text-green-600">Assigned:</span> <strong>{bulkAssignResult.summary.assigned}</strong></div>
@@ -1868,7 +1871,7 @@ export default function SubmissionDetail() {
 
                   {bulkAssignResult.unmatched.length > 0 && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <p className="font-semibold text-yellow-900 mb-2">⚠️ Unmatched Customers</p>
+                      <p className="font-semibold text-yellow-900 mb-2">Unmatched Customers</p>
                       <div className="text-sm text-yellow-800 space-y-1 max-h-32 overflow-auto">
                         {bulkAssignResult.unmatched.map((item, idx) => (
                           <div key={idx}>Line {item.lineNumber}: {item.certNumber} → "{item.customerIdentifier}" (customer not found)</div>
@@ -1879,7 +1882,7 @@ export default function SubmissionDetail() {
 
                   {bulkAssignResult.notFound.length > 0 && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                      <p className="font-semibold text-red-900 mb-2">❌ Cards Not Found</p>
+                      <p className="font-semibold text-red-900 mb-2">Cards Not Found</p>
                       <div className="text-sm text-red-800 space-y-1 max-h-32 overflow-auto">
                         {bulkAssignResult.notFound.map((item, idx) => (
                           <div key={idx}>Cert #{item.certNumber}: {item.reason}</div>

@@ -1396,7 +1396,7 @@ function PortalSettingsTab({ data, jwtToken, onRefresh, onLogout, setShowProfile
 
   const allOffers = data.buybackOffers || [];
   const acceptedOffers = allOffers.filter(o => o.status === 'accepted' || o.status === 'paid');
-  const totalEarnings = acceptedOffers.reduce((sum, o) => sum + parseFloat(o.offer_price || 0), 0);
+  const totalEarnings = acceptedOffers.reduce((sum, o) => sum + parseFloat(o.offer_amount || 0), 0);
 
   const settingsSections = [
     {
@@ -1829,7 +1829,7 @@ function JWTBuybackCard({ offer, jwtToken, onRefresh }) {
   const [responding, setResponding] = useState(false);
 
   const handleResponse = async (response) => {
-    if (!confirm(`${response === 'accepted' ? 'Accept' : 'Decline'} this offer for $${offer.offer_price}?`)) return;
+    if (!confirm(`${response === 'accepted' ? 'Accept' : 'Decline'} this offer for $${offer.offer_amount}?`)) return;
     setResponding(true);
     try {
       await fetch(`${API_URL}/portal/buyback-offers/${offer.id}/respond`, {
@@ -1856,7 +1856,7 @@ function JWTBuybackCard({ offer, jwtToken, onRefresh }) {
             {[offer.card_grade && `PSA ${offer.card_grade}`, offer.psa_cert_number && `Cert #${offer.psa_cert_number}`].filter(Boolean).join(' \u00B7 ')}
           </p>
         </div>
-        <p className="text-xl font-black ml-3" style={{ color: '#059669' }}>${parseFloat(offer.offer_price).toFixed(2)}</p>
+        <p className="text-xl font-black ml-3" style={{ color: '#059669' }}>${parseFloat(offer.offer_amount).toFixed(2)}</p>
       </div>
       <div className="flex gap-2">
         <button onClick={() => handleResponse('accepted')} disabled={responding}
