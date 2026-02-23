@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { AlertCircle, Loader2, ArrowRight, Mail, RefreshCw } from 'lucide-react';
+import { AlertCircle, Loader2, ArrowRight, Mail, RefreshCw, Clock, XCircle } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
@@ -11,6 +11,8 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [unverified, setUnverified] = useState(null); // email string if unverified
+  const [awaitingApproval, setAwaitingApproval] = useState(false);
+  const [rejected, setRejected] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [resendDone, setResendDone] = useState(false);
   const { login } = useAuth();
@@ -20,6 +22,8 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setUnverified(null);
+    setAwaitingApproval(false);
+    setRejected(false);
     setResendDone(false);
     setLoading(true);
 
@@ -30,6 +34,10 @@ export default function Login() {
       const data = err.response?.data;
       if (data?.email_unverified) {
         setUnverified(data.email || email);
+      } else if (data?.awaiting_approval) {
+        setAwaitingApproval(true);
+      } else if (data?.rejected) {
+        setRejected(true);
       } else {
         setError(data?.error || 'Login failed. Please try again.');
       }
@@ -127,6 +135,36 @@ export default function Login() {
                     Resend verification email
                   </button>
                 )}
+              </div>
+            )}
+
+            {awaitingApproval && (
+              <div className="rounded-xl p-4 text-sm"
+                style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.25)' }}>
+                <div className="flex items-start gap-2">
+                  <Clock className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-500" />
+                  <div>
+                    <p className="font-bold" style={{ color: '#2C2416' }}>Awaiting approval</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(44,36,22,0.6)' }}>
+                      Your account is pending review. You'll receive an email once approved.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {rejected && (
+              <div className="rounded-xl p-4 text-sm"
+                style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                <div className="flex items-start gap-2">
+                  <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400" />
+                  <div>
+                    <p className="font-bold text-red-700">Application not approved</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(44,36,22,0.6)' }}>
+                      Contact us if you think this is a mistake.
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
 

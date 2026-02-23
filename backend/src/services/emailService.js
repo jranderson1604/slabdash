@@ -1058,6 +1058,86 @@ const sendAdminVerificationEmail = async (email, name, token) => {
     });
 };
 
+/**
+ * Notify the SlabDash owner when a new shop registers
+ */
+const sendOwnerNewRegistrationEmail = async (shopEmail, shopUserName, shopName) => {
+    const ownerEmail = process.env.OWNER_EMAIL;
+    if (!ownerEmail) return; // no owner email configured — skip silently
+
+    const defaultConfig = getDefaultEmailConfig();
+    const mg = mailgun.client({ username: 'api', key: defaultConfig.mailgun_api_key });
+
+    const frontendUrl = process.env.FRONTEND_URL || 'https://slabdash.app';
+    const subject = `New SlabDash registration: ${escapeHtml(shopName)}`;
+    const html = `
+        <html><body style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #F5F0EB;">
+            <div style="background: linear-gradient(135deg, #FF8170, #E8543D); padding: 32px; text-align: center; border-radius: 0 0 20px 20px;">
+                <h1 style="color: #fff; font-size: 22px; font-weight: 900; margin: 0;">New Registration</h1>
+            </div>
+            <div style="padding: 28px;">
+                <p style="color: #2C2416; font-size: 15px; line-height: 1.6;"><strong>${escapeHtml(shopName)}</strong> just signed up for SlabDash.</p>
+                <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+                    <tr><td style="padding: 8px 12px; background: #fff; border-radius: 8px 8px 0 0; border-bottom: 1px solid #f0e8df; font-size: 13px; color: rgba(44,36,22,0.5);">Name</td><td style="padding: 8px 12px; background: #fff; font-size: 13px; font-weight: 600; color: #2C2416;">${escapeHtml(shopUserName)}</td></tr>
+                    <tr><td style="padding: 8px 12px; background: #fff; border-radius: 0 0 8px 8px; font-size: 13px; color: rgba(44,36,22,0.5);">Email</td><td style="padding: 8px 12px; background: #fff; font-size: 13px; font-weight: 600; color: #2C2416;">${escapeHtml(shopEmail)}</td></tr>
+                </table>
+                <p style="color: rgba(44,36,22,0.65); font-size: 14px;">They've verified their email and are waiting for your approval.</p>
+                <div style="text-align: center; margin: 24px 0;">
+                    <a href="${frontendUrl}/owner" style="display: inline-block; background: linear-gradient(135deg, #FF8170, #E8543D); color: #fff; text-decoration: none; padding: 14px 32px; border-radius: 14px; font-weight: 800; font-size: 15px;">Review in Dashboard</a>
+                </div>
+            </div>
+        </body></html>
+    `;
+
+    await mg.messages.create(defaultConfig.mailgun_domain, {
+        from: `${defaultConfig.from_name} <${defaultConfig.from_email}>`,
+        to: [ownerEmail],
+        subject,
+        html,
+        text: `New SlabDash registration: ${shopName} (${shopUserName}, ${shopEmail}). Review at ${frontendUrl}/owner`
+    });
+};
+
+/**
+ * Notify a shop admin that their account has been approved
+ */
+const sendAdminApprovedEmail = async (email, name) => {
+    const defaultConfig = getDefaultEmailConfig();
+    const mg = mailgun.client({ username: 'api', key: defaultConfig.mailgun_api_key });
+
+    const displayName = name || 'there';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://slabdash.app';
+    const subject = "Your SlabDash account is approved!";
+    const html = `
+        <html><body style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #F5F0EB;">
+            <div style="background: linear-gradient(135deg, #FF8170, #E8543D); padding: 40px 32px; text-align: center; border-radius: 0 0 20px 20px;">
+                <h1 style="color: #fff; font-size: 28px; font-weight: 900; margin: 0;">You're in! 🎉</h1>
+                <p style="color: rgba(255,248,240,0.8); font-size: 14px; margin-top: 8px;">Your SlabDash account has been approved.</p>
+            </div>
+            <div style="padding: 32px;">
+                <p style="color: #2C2416; font-size: 16px; line-height: 1.6;">Hey ${escapeHtml(displayName)},</p>
+                <p style="color: rgba(44,36,22,0.65); font-size: 14px; line-height: 1.7;">
+                    Great news — your SlabDash account has been approved! You can now log in and start tracking your PSA submissions.
+                </p>
+                <div style="text-align: center; margin: 32px 0;">
+                    <a href="${frontendUrl}/login" style="display: inline-block; background: linear-gradient(135deg, #FF8170, #E8543D); color: #fff; text-decoration: none; padding: 16px 40px; border-radius: 14px; font-weight: 800; font-size: 16px; box-shadow: 0 4px 16px rgba(255,107,89,0.35);">Log in to SlabDash</a>
+                </div>
+                <p style="color: rgba(44,36,22,0.4); font-size: 12px; text-align: center; margin-top: 32px;">
+                    &copy; 2026 SlabDash &middot; Professional PSA submission tracking for card shops
+                </p>
+            </div>
+        </body></html>
+    `;
+
+    await mg.messages.create(defaultConfig.mailgun_domain, {
+        from: `${defaultConfig.from_name} <${defaultConfig.from_email}>`,
+        to: [email],
+        subject,
+        html,
+        text: `Hey ${displayName}, your SlabDash account has been approved! Log in at ${frontendUrl}/login`
+    });
+};
+
 module.exports = {
     sendSubmissionUpdateEmail,
     sendSubmissionConfirmationEmail,
@@ -1069,6 +1149,8 @@ module.exports = {
     sendWaitlistConfirmationEmail,
     sendWaitlistVerificationEmail,
     sendAdminVerificationEmail,
+    sendOwnerNewRegistrationEmail,
+    sendAdminApprovedEmail,
     sendEmail,
     testEmailConfig,
     sendIntroductionEmail,

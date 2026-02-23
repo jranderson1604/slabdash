@@ -69,7 +69,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 
         const result = await db.query(
             `SELECT u.id, u.company_id, u.email, u.name, u.role, u.password_hash,
-             u.email_verified,
+             u.email_verified, u.approved,
              c.name as company_name, c.slug as company_slug, c.shop_code as company_shop_code,
              c.psa_api_key IS NOT NULL as has_psa_key,
              c.primary_color, c.background_color, c.sidebar_color,
@@ -96,6 +96,22 @@ router.post('/login', loginLimiter, async (req, res) => {
                 error: 'Please verify your email before logging in.',
                 email_unverified: true,
                 email: user.email
+            });
+        }
+
+        // Block accounts awaiting manual approval
+        if (user.approved === null || user.approved === undefined) {
+            return res.status(403).json({
+                error: 'Your account is pending approval. You\'ll receive an email when approved.',
+                awaiting_approval: true
+            });
+        }
+
+        // Block rejected accounts
+        if (user.approved === false) {
+            return res.status(403).json({
+                error: 'Your account application was not approved. Contact us if you think this is a mistake.',
+                rejected: true
             });
         }
 
@@ -193,16 +209,23 @@ router.post('/register', registerLimiter, async (req, res) => {
         );
         const user = userResult.rows[0];
 
-        // Send verification email
+        // Send verification email to the registrant
         try {
             await email().sendAdminVerificationEmail(emailInput.toLowerCase(), name, verificationToken);
         } catch (emailErr) {
             console.error('[Auth] Verification email failed:', emailErr.message);
         }
 
+        // Notify the SlabDash owner of a new registration
+        try {
+            await email().sendOwnerNewRegistrationEmail(emailInput.toLowerCase(), name, companyName.slice(0, 255));
+        } catch (emailErr) {
+            console.error('[Auth] Owner notification email failed:', emailErr.message);
+        }
+
         res.json({
             pending: true,
-            message: "Account created! Check your email to verify your address before logging in."
+            message: "Account created! Check your email to verify your address."
         });
     } catch (error) {
         console.error('Registration error:', error);
@@ -216,7 +239,7 @@ router.get('/verify-account/:token', async (req, res) => {
         const { token } = req.params;
 
         const result = await db.query(
-            `SELECT u.id, u.email, u.email_verified, u.email_verification_expires
+            `SELECT u.id, u.email, u.email_verified, u.email_verification_expires, u.approved
              FROM users u WHERE u.email_verification_token = $1`,
             [token]
         );
@@ -228,7 +251,15 @@ router.get('/verify-account/:token', async (req, res) => {
         const user = result.rows[0];
 
         if (user.email_verified) {
-            return res.json({ success: true, already: true, message: 'Email already verified. You can log in.' });
+            const alreadyApproved = user.approved === true;
+            return res.json({
+                success: true,
+                already: true,
+                pending_approval: !alreadyApproved,
+                message: alreadyApproved
+                    ? 'Email already verified. You can log in.'
+                    : 'Email already verified. Your account is pending approval.'
+            });
         }
 
         if (user.email_verification_expires && new Date(user.email_verification_expires) < new Date()) {
@@ -240,7 +271,11 @@ router.get('/verify-account/:token', async (req, res) => {
             [user.id]
         );
 
-        res.json({ success: true, message: 'Email verified! You can now log in to SlabDash.' });
+        res.json({
+            success: true,
+            pending_approval: true,
+            message: "Email verified! Your account is now pending approval. You'll receive an email once approved."
+        });
     } catch (error) {
         console.error('Verify account error:', error);
         res.status(500).json({ error: 'Verification failed' });

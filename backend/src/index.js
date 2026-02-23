@@ -607,6 +607,19 @@ async function startServer() {
       console.warn("⚠ system_config migration warning:", migrationError.message);
     }
 
+    // Manual admin approval column
+    try {
+      await db.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS approved BOOLEAN DEFAULT NULL;
+      `);
+      // Backfill: users that pre-date this feature are already approved
+      await db.query(`UPDATE users SET approved = TRUE WHERE approved IS NULL AND email_verified = TRUE`);
+      console.log("✓ Migration: users approved column ensured");
+    } catch (migrationError) {
+      console.warn("⚠ users approved migration warning:", migrationError.message);
+    }
+
     // Initialize scheduled tasks (cron jobs)
     try {
       initializeScheduler();

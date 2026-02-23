@@ -362,6 +362,7 @@ export default function OwnerDashboard() {
   const [health, setHealth] = useState(null);
   const [loadingHealth, setLoadingHealth] = useState(false);
   const [waitlist, setWaitlist] = useState([]);
+  const [pendingApprovals, setPendingApprovals] = useState([]);
   const [inviteCode, setInviteCode] = useState(null); // current active code
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [inviteCodeSaving, setInviteCodeSaving] = useState(false);
@@ -371,17 +372,19 @@ export default function OwnerDashboard() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true); setError(null);
-      const [statsRes, companiesRes, blogRes, analyticsRes] = await Promise.all([
+      const [statsRes, companiesRes, blogRes, analyticsRes, approvalsRes] = await Promise.all([
         fetch(`${API_URL}/owner/stats`, { headers: authHeaders() }),
         fetch(`${API_URL}/owner/companies`, { headers: authHeaders() }),
         fetch(`${API_URL}/blog/all`, { headers: authHeaders() }),
         fetch(`${API_URL}/owner/platform-analytics`, { headers: authHeaders() }),
+        fetch(`${API_URL}/owner/pending-approvals`, { headers: authHeaders() }),
       ]);
       if (!statsRes.ok) throw new Error('Failed to load platform data');
       setStats(await statsRes.json());
       setCompanies(await companiesRes.json());
       if (blogRes.ok) setBlogPosts(await blogRes.json());
       if (analyticsRes.ok) setPlatformAnalytics(await analyticsRes.json());
+      if (approvalsRes.ok) setPendingApprovals(await approvalsRes.json());
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   }, []);
@@ -391,10 +394,11 @@ export default function OwnerDashboard() {
   const loadHealth = async () => {
     setLoadingHealth(true);
     try {
-      const [healthRes, wlRes, inviteRes] = await Promise.all([
+      const [healthRes, wlRes, inviteRes, approvalsRes] = await Promise.all([
         fetch(`${API_URL}/owner/system-health`, { headers: authHeaders() }),
         fetch(`${API_URL}/owner/waitlist`, { headers: authHeaders() }),
         fetch(`${API_URL}/owner/invite-code`, { headers: authHeaders() }),
+        fetch(`${API_URL}/owner/pending-approvals`, { headers: authHeaders() }),
       ]);
       if (healthRes.ok) setHealth(await healthRes.json());
       if (wlRes.ok) setWaitlist(await wlRes.json());
@@ -403,6 +407,7 @@ export default function OwnerDashboard() {
         setInviteCode(ic.invite_code || null);
         setInviteCodeInput(ic.invite_code || '');
       }
+      if (approvalsRes.ok) setPendingApprovals(await approvalsRes.json());
     } finally { setLoadingHealth(false); }
   };
 
@@ -527,8 +532,14 @@ export default function OwnerDashboard() {
       <div className="flex gap-1 p-1 rounded-2xl bg-gray-100/80 w-fit">
         {TABS.map(t => (
           <button key={t} onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${tab === t ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+            className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all ${tab === t ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
             {t}
+            {t === 'System' && pendingApprovals.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-white text-[9px] font-black flex items-center justify-center"
+                style={{ background: '#E8543D' }}>
+                {pendingApprovals.length}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -925,6 +936,55 @@ export default function OwnerDashboard() {
                   </div>
                 </div>
               )}
+
+              {/* Pending Admin Approvals */}
+              <div className="card overflow-hidden">
+                <div className="px-6 py-4 border-b border-white/20 flex items-center gap-2">
+                  <UserCheck className="w-4 h-4" style={{ color: 'rgb(var(--brand-500))' }} />
+                  <h2 className="text-base font-bold">Pending Approvals</h2>
+                  {pendingApprovals.length > 0 && (
+                    <span className="ml-auto badge badge-green">{pendingApprovals.length} pending</span>
+                  )}
+                </div>
+                {pendingApprovals.length === 0 ? (
+                  <div className="p-10 text-center text-sm text-gray-400">No pending approvals</div>
+                ) : (
+                  <div className="divide-y divide-black/[0.03]">
+                    {pendingApprovals.map(u => (
+                      <div key={u.id} className="px-6 py-4 flex items-center gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900">{u.name}</p>
+                          <p className="text-xs text-gray-400">{u.email}</p>
+                          <p className="text-xs font-medium mt-0.5" style={{ color: 'rgba(44,36,22,0.4)' }}>{u.company_name}</p>
+                        </div>
+                        <span className="text-xs text-gray-400">{timeAgo(u.created_at)}</span>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={async () => {
+                              await fetch(`${API_URL}/owner/pending-approvals/${u.id}/approve`, { method: 'POST', headers: authHeaders() });
+                              setPendingApprovals(prev => prev.filter(a => a.id !== u.id));
+                              toast.success(`${u.name} approved — welcome email sent`);
+                            }}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-white transition-colors"
+                            style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}>
+                            Approve
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (!confirm(`Reject ${u.name}? They will not be able to log in.`)) return;
+                              await fetch(`${API_URL}/owner/pending-approvals/${u.id}/reject`, { method: 'POST', headers: authHeaders() });
+                              setPendingApprovals(prev => prev.filter(a => a.id !== u.id));
+                              toast.success('Account rejected');
+                            }}
+                            className="px-3 py-1.5 rounded-lg text-xs font-bold text-red-600 bg-red-50 hover:bg-red-100 transition-colors">
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
 
               <div className="card overflow-hidden">
                 <div className="px-6 py-4 border-b border-white/20 flex items-center gap-2">

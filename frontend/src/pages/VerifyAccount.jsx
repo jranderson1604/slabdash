@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { CheckCircle2, XCircle, Loader2, ArrowRight, Mail } from 'lucide-react';
+import { CheckCircle2, XCircle, Loader2, ArrowRight, Mail, Clock } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export default function VerifyAccount() {
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
-  const [status, setStatus] = useState('loading'); // loading | success | already | expired | error
+  // loading | pending_approval | already_pending | already | expired | error
+  const [status, setStatus] = useState('loading');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -21,7 +22,15 @@ export default function VerifyAccount() {
       .then(async (res) => {
         const data = await res.json();
         if (res.ok && data.success) {
-          setStatus(data.already ? 'already' : 'success');
+          if (data.pending_approval && !data.already) {
+            setStatus('pending_approval');
+          } else if (data.already && data.pending_approval) {
+            setStatus('already_pending');
+          } else if (data.already) {
+            setStatus('already');
+          } else {
+            setStatus('pending_approval'); // default after new verification
+          }
           setMessage(data.message);
         } else if (res.status === 410) {
           setStatus('expired');
@@ -64,33 +73,35 @@ export default function VerifyAccount() {
               </>
             )}
 
-            {status === 'success' && (
+            {(status === 'pending_approval' || status === 'already_pending') && (
               <>
                 <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
-                  style={{ background: 'rgba(16,185,129,0.1)' }}>
-                  <CheckCircle2 className="w-9 h-9 text-green-500" />
+                  style={{ background: 'rgba(251,191,36,0.1)' }}>
+                  <Clock className="w-9 h-9 text-amber-500" />
                 </div>
-                <h2 className="text-xl font-black mb-2" style={{ color: '#2C2416' }}>Account verified!</h2>
-                <p className="text-sm mb-6" style={{ color: 'rgba(44,36,22,0.55)' }}>
-                  {message || "Your email is confirmed. You can now log in to SlabDash."}
+                <h2 className="text-xl font-black mb-2" style={{ color: '#2C2416' }}>
+                  {status === 'already_pending' ? 'Awaiting approval' : 'Email confirmed!'}
+                </h2>
+                <p className="text-sm mb-2" style={{ color: 'rgba(44,36,22,0.55)' }}>
+                  {status === 'pending_approval'
+                    ? "Your email is verified. Your account is now pending review by the SlabDash team."
+                    : "Your email is already verified and your account is pending review."}
                 </p>
-                <Link to="/login"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
-                  style={{ background: 'linear-gradient(135deg, #FF8170, #E8543D)', boxShadow: '0 4px 16px rgba(255,107,89,0.3)' }}>
-                  Log in to SlabDash <ArrowRight className="w-4 h-4" />
-                </Link>
+                <p className="text-sm mb-6 font-medium" style={{ color: 'rgba(44,36,22,0.55)' }}>
+                  You'll receive an email when your account is approved.
+                </p>
               </>
             )}
 
             {status === 'already' && (
               <>
                 <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
-                  style={{ background: 'rgba(255,129,112,0.1)' }}>
-                  <CheckCircle2 className="w-9 h-9" style={{ color: '#FF8170' }} />
+                  style={{ background: 'rgba(16,185,129,0.1)' }}>
+                  <CheckCircle2 className="w-9 h-9 text-green-500" />
                 </div>
                 <h2 className="text-xl font-black mb-2" style={{ color: '#2C2416' }}>Already verified</h2>
                 <p className="text-sm mb-6" style={{ color: 'rgba(44,36,22,0.55)' }}>
-                  Your account is already active. Go ahead and log in.
+                  Your account is active. Go ahead and log in.
                 </p>
                 <Link to="/login"
                   className="inline-flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white transition-all hover:opacity-90"
