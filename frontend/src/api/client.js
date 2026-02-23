@@ -149,7 +149,9 @@ export const emailTemplates = {
   // Custom email sender endpoints
   sendToCustomer: (customerId, emailData) => api.post(`/email-sender/customer/${customerId}`, emailData),
   sendToSubmission: (submissionId, emailData) => api.post(`/email-sender/submission/${submissionId}`, emailData),
-  sendBulkCustomEmail: (emailData) => api.post('/email-sender/bulk-active', emailData)
+  sendBulkCustomEmail: (emailData) => api.post('/email-sender/bulk-active', emailData),
+  notifyGradesReady: () => api.post('/email-sender/notify-grades-ready'),
+  notifyGradesReadyCount: () => api.get('/email-sender/notify-grades-ready/count'),
 };
 
 export const psaImport = {

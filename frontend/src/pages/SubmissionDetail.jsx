@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import confetti from 'canvas-confetti';
 import { submissions, cards, customers, emailTemplates } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -32,8 +33,16 @@ import {
   Zap,
   Mail,
   Eye,
+  Copy,
+  Sparkles,
 } from 'lucide-react';
 import { format } from 'date-fns';
+
+function fireGradeConfetti() {
+  confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 }, colors: ['#FF8170', '#E8543D', '#FFD700', '#10B981', '#3B82F6'] });
+  setTimeout(() => confetti({ particleCount: 60, spread: 100, origin: { y: 0.4 }, angle: 60 }), 200);
+  setTimeout(() => confetti({ particleCount: 60, spread: 100, origin: { y: 0.4 }, angle: 120 }), 350);
+}
 
 function StepTimeline({ steps }) {
   if (!steps?.length) return null;
@@ -88,6 +97,7 @@ function CardRow({ card, onUpdate, onDelete }) {
     try {
       const res = await cards.lookupCert(card.id);
       onUpdate(res.data.card);
+      if (res.data.card?.grade === '10') fireGradeConfetti();
     } catch (error) {
       console.error('Lookup failed:', error);
     } finally {
@@ -100,6 +110,7 @@ function CardRow({ card, onUpdate, onDelete }) {
       const res = await cards.update(card.id, { grade });
       onUpdate(res.data);
       setEditing(false);
+      if (grade === '10') fireGradeConfetti();
     } catch (error) {
       console.error('Update failed:', error);
     }
@@ -592,6 +603,8 @@ export default function SubmissionDetail() {
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const [selectedSport, setSelectedSport] = useState('All');
   const [autoDetecting, setAutoDetecting] = useState(false);
+  const [fetchingAllPrices, setFetchingAllPrices] = useState(false);
+  const [fetchPricesProgress, setFetchPricesProgress] = useState(null);
 
   const loadSubmission = async () => {
     try {
@@ -886,6 +899,40 @@ export default function SubmissionDetail() {
     }
   };
 
+  const handleClone = () => {
+    navigate('/submissions/new', {
+      state: {
+        clone: {
+          service_level: submission.service_level,
+          customer_id: submission.linked_customers?.[0]?.id || null,
+          customer_name: submission.linked_customers?.[0]?.name || null,
+        }
+      }
+    });
+  };
+
+  const handleFetchAllPrices = async () => {
+    const cardsWithCert = (submission.cards || []).filter(c => c.psa_cert_number);
+    if (cardsWithCert.length === 0) {
+      toast.error('No cards with PSA cert numbers to look up');
+      return;
+    }
+    setFetchingAllPrices(true);
+    setFetchPricesProgress({ done: 0, total: cardsWithCert.length, updated: 0 });
+    for (let i = 0; i < cardsWithCert.length; i++) {
+      try {
+        await cards.lookupCert(cardsWithCert[i].id);
+        setFetchPricesProgress(p => ({ ...p, done: i + 1, updated: p.updated + 1 }));
+      } catch {
+        setFetchPricesProgress(p => ({ ...p, done: i + 1 }));
+      }
+    }
+    await loadSubmission();
+    setFetchingAllPrices(false);
+    setFetchPricesProgress(null);
+    toast.success(`Fetched grades/prices for ${cardsWithCert.length} cards`);
+  };
+
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -1085,6 +1132,10 @@ export default function SubmissionDetail() {
                     <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
                   </button>
                 )}
+                <button onClick={handleClone} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }} title="Clone this submission">
+                  <Copy className="w-4 h-4" />
+                  <span className="hidden sm:inline">Clone</span>
+                </button>
                 <button onClick={handleDelete} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-80" style={{ background: 'rgba(220,38,38,0.85)', border: 'var(--hdr-btn-border)', color: 'white' }}>
                   <Trash2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Delete</span>
@@ -1231,6 +1282,24 @@ export default function SubmissionDetail() {
                       <>
                         <Zap className="w-4 h-4" />
                         Auto-Detect
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleFetchAllPrices}
+                    disabled={fetchingAllPrices || !submission.cards?.some(c => c.psa_cert_number)}
+                    className="btn btn-secondary gap-2 whitespace-nowrap"
+                    title="Fetch grades and prices for all cards with cert numbers"
+                  >
+                    {fetchingAllPrices ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {fetchPricesProgress ? `${fetchPricesProgress.done}/${fetchPricesProgress.total}` : 'Fetching...'}
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Fetch All
                       </>
                     )}
                   </button>

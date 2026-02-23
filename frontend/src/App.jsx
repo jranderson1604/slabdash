@@ -1,10 +1,12 @@
 ﻿import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { useState, useEffect } from 'react';
 
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import UpgradeModal from './components/UpgradeModal';
+import CommandPalette from './components/CommandPalette';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -56,8 +58,24 @@ function HomeRoute() {
 }
 
 function AppRoutes() {
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        if (user) setPaletteOpen(p => !p);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [user]);
+
   return (
-    <Routes>
+    <>
+      <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+      <Routes>
       <Route path="/" element={<HomeRoute />} />
       <Route path="/demo" element={<Demo />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
@@ -87,6 +105,7 @@ function AppRoutes() {
       <Route path="/help" element={<ProtectedRoute><Help /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   );
 }
 
