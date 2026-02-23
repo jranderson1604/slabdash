@@ -499,6 +499,8 @@ async function startServer() {
         );
       `);
       await db.query(`CREATE INDEX IF NOT EXISTS idx_waitlist_email ON waitlist(email)`);
+      await db.query(`ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS verified BOOLEAN DEFAULT FALSE`);
+      await db.query(`ALTER TABLE waitlist ADD COLUMN IF NOT EXISTS verification_token VARCHAR(100)`);
       console.log("✓ Migration: Waitlist table ensured");
     } catch (migrationError) {
       console.warn("⚠ Waitlist migration warning:", migrationError.message);

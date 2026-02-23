@@ -959,6 +959,54 @@ const sendOwnerProblemOrderEmail = async (submissionId) => {
     }
 };
 
+/**
+ * Send waitlist email verification link
+ */
+const sendWaitlistVerificationEmail = async (email, shopName, token) => {
+    const defaultConfig = getDefaultEmailConfig();
+    const mg = mailgun.client({ username: 'api', key: defaultConfig.mailgun_api_key });
+
+    const name = shopName || 'there';
+    const frontendUrl = process.env.FRONTEND_URL || 'https://slabdash.app';
+    const verifyLink = `${frontendUrl}/verify-email?token=${token}`;
+    const subject = "Verify your email — SlabDash waitlist";
+    const html = `
+        <html><body style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #F5F0EB;">
+            <div style="background: linear-gradient(135deg, #FF8170, #E8543D); padding: 40px 32px; text-align: center; border-radius: 0 0 20px 20px;">
+                <h1 style="color: #fff; font-size: 28px; font-weight: 900; margin: 0;">One step to go!</h1>
+                <p style="color: rgba(255,248,240,0.8); font-size: 14px; margin-top: 8px;">Verify your email to join the SlabDash waitlist.</p>
+            </div>
+            <div style="padding: 32px;">
+                <p style="color: #2C2416; font-size: 16px; line-height: 1.6;">Hey ${escapeHtml(name)},</p>
+                <p style="color: rgba(44,36,22,0.65); font-size: 14px; line-height: 1.7;">
+                    Thanks for signing up! Click the button below to verify your email address and lock in your spot on the waitlist.
+                </p>
+                <div style="text-align: center; margin: 32px 0;">
+                    <a href="${verifyLink}" style="display: inline-block; background: linear-gradient(135deg, #FF8170, #E8543D); color: #fff; text-decoration: none; padding: 16px 40px; border-radius: 14px; font-weight: 800; font-size: 16px; box-shadow: 0 4px 16px rgba(255,107,89,0.35);">Verify My Email</a>
+                </div>
+                <p style="color: rgba(44,36,22,0.45); font-size: 12px; line-height: 1.6;">
+                    Or copy this link into your browser:<br/>
+                    <span style="color: #FF8170; word-break: break-all;">${verifyLink}</span>
+                </p>
+                <p style="color: rgba(44,36,22,0.35); font-size: 12px; margin-top: 24px;">
+                    If you didn't sign up for SlabDash, you can safely ignore this email.
+                </p>
+                <p style="color: rgba(44,36,22,0.4); font-size: 12px; text-align: center; margin-top: 32px;">
+                    &copy; 2026 SlabDash &middot; Professional PSA submission tracking for card shops
+                </p>
+            </div>
+        </body></html>
+    `;
+
+    await mg.messages.create(defaultConfig.mailgun_domain, {
+        from: `${defaultConfig.from_name} <${defaultConfig.from_email}>`,
+        to: [email],
+        subject,
+        html,
+        text: `Hey ${name}, verify your SlabDash waitlist email by visiting: ${verifyLink}`
+    });
+};
+
 module.exports = {
     sendSubmissionUpdateEmail,
     sendSubmissionConfirmationEmail,
@@ -968,6 +1016,7 @@ module.exports = {
     sendOwnerProblemOrderEmail,
     sendPasswordResetEmail,
     sendWaitlistConfirmationEmail,
+    sendWaitlistVerificationEmail,
     sendEmail,
     testEmailConfig,
     sendIntroductionEmail,

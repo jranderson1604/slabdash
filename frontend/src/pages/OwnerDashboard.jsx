@@ -933,6 +933,9 @@ export default function OwnerDashboard() {
                           <p className="text-sm font-semibold text-gray-900">{entry.email || entry.name || 'Unknown'}</p>
                           {entry.shop_name && <p className="text-xs text-gray-400">{entry.shop_name}</p>}
                         </div>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${entry.verified ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                          {entry.verified ? 'Verified' : 'Unverified'}
+                        </span>
                         <span className="text-xs text-gray-400">{timeAgo(entry.created_at)}</span>
                         <button onClick={async () => {
                           await fetch(`${API_URL}/owner/waitlist/${entry.id}`, { method: 'DELETE', headers: authHeaders() });
