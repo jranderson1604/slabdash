@@ -1085,7 +1085,7 @@ export default function SubmissionDetail() {
                     <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
                   </button>
                 )}
-                <button onClick={handleDelete} className="bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-red-400 shadow-lg">
+                <button onClick={handleDelete} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'rgba(220,38,38,0.85)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}>
                   <Trash2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Delete</span>
                 </button>

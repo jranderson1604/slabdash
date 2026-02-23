@@ -89,7 +89,7 @@ export default function NewSubmission() {
           <button
             type="button"
             onClick={() => setShowScanner(!showScanner)}
-            className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
           >
             <Camera className="w-4 h-4" />
             <span className="hidden sm:inline">{showScanner ? 'Hide Scanner' : 'Scan Form'}</span>

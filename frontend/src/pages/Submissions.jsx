@@ -697,7 +697,7 @@ export default function Submissions() {
                 <button
                   onClick={handleRefreshAll}
                   disabled={refreshingAll || sendingUpdate}
-                  className="bg-white text-brand-700 px-4 py-2.5 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-[1.02] disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 disabled:opacity-50" style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.5)', color: '#E8543D' }}
                 >
                   {refreshingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                   {refreshingAll ? `${refreshProgress?.current || 0}/${refreshProgress?.total || 0}` : 'Refresh All'}
