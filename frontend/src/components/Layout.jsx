@@ -123,21 +123,23 @@ export default function Layout({ children }) {
         />
       )}
 
-      {/* Sidebar - Dark glass */}
+      {/* Sidebar */}
       <aside
         className={`fixed top-0 left-0 z-50 h-full w-64 transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
         style={{
-          background: 'linear-gradient(180deg, rgba(2, 6, 14, 0.98) 0%, rgba(1, 4, 10, 0.99) 100%)',
+          background: darkMode
+            ? 'linear-gradient(180deg, rgba(2, 6, 14, 0.98) 0%, rgba(1, 4, 10, 0.99) 100%)'
+            : '#FFF4EC',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          borderRight: '1px solid rgba(255,129,112,0.08)',
-          boxShadow: 'inset -1px 0 0 rgba(255,129,112,0.04)',
+          borderRight: darkMode ? '1px solid rgba(255,129,112,0.08)' : '1px solid rgba(255,129,112,0.15)',
+          boxShadow: darkMode ? 'inset -1px 0 0 rgba(255,129,112,0.04)' : '2px 0 20px rgba(255,129,112,0.06)',
         }}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between px-4 h-16 relative" style={{ borderBottom: '1px solid rgba(255,129,112,0.08)' }}>
+        <div className="flex items-center justify-between px-4 h-16 relative" style={{ borderBottom: darkMode ? '1px solid rgba(255,129,112,0.08)' : '1px solid rgba(255,129,112,0.12)' }}>
           <Link to="/dashboard" className="flex items-center gap-2.5">
             <img
               src="/images/logo-icon.png.svg"
@@ -147,22 +149,22 @@ export default function Layout({ children }) {
             />
             <div>
               <p className="text-xs font-black tracking-[0.15em] uppercase" style={{ color: '#FF8170' }}>SLABDASH</p>
-              <p className="text-[9px] uppercase tracking-[0.1em]" style={{ color: 'rgba(255,129,112,0.5)' }}>Card Grading Tracker</p>
+              <p className="text-[9px] uppercase tracking-[0.1em]" style={{ color: darkMode ? 'rgba(255,129,112,0.5)' : 'rgba(199,68,48,0.5)' }}>Card Grading Tracker</p>
             </div>
           </Link>
           <button
             onClick={() => setSidebarOpen(false)}
             className="lg:hidden"
-            style={{ color: 'rgba(255,129,112,0.5)' }}
+            style={{ color: darkMode ? 'rgba(255,129,112,0.5)' : 'rgba(199,68,48,0.5)' }}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Company name — OPERATOR ID */}
-        <div className="px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,129,112,0.06)' }}>
-          <p className="text-[9px] uppercase tracking-[0.15em] font-bold" style={{ color: 'rgba(255,129,112,0.4)' }}>SHOP</p>
-          <p className="text-sm font-bold truncate" style={{ color: 'rgba(255,129,112,0.9)' }}>{company?.name || 'Loading...'}</p>
+        {/* Company name */}
+        <div className="px-4 py-2.5" style={{ borderBottom: darkMode ? '1px solid rgba(255,129,112,0.06)' : '1px solid rgba(255,129,112,0.1)' }}>
+          <p className="text-[9px] uppercase tracking-[0.15em] font-bold" style={{ color: darkMode ? 'rgba(255,129,112,0.4)' : 'rgba(199,68,48,0.5)' }}>SHOP</p>
+          <p className="text-sm font-bold truncate" style={{ color: darkMode ? 'rgba(255,129,112,0.9)' : '#C74430' }}>{company?.name || 'Loading...'}</p>
         </div>
 
         {/* Navigation */}
@@ -183,8 +185,8 @@ export default function Layout({ children }) {
                   boxShadow: '0 2px 12px rgba(255,129,112,0.15), inset 0 1px 0 rgba(255,129,112,0.08)',
                   border: '1px solid rgba(255,129,112,0.25)',
                 } : {
-                  color: 'rgba(255,255,255,0.6)',
-                  border: '1px solid rgba(255,255,255,0.06)',
+                  color: darkMode ? 'rgba(255,255,255,0.6)' : 'rgba(44,36,22,0.6)',
+                  border: darkMode ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(255,129,112,0.08)',
                 }}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -195,7 +197,7 @@ export default function Layout({ children }) {
 
           {/* Owner separator */}
           {user?.role === 'owner' && (
-            <div className="my-2" style={{ borderTop: '1px solid rgba(255,129,112,0.06)' }} />
+            <div className="my-2" style={{ borderTop: darkMode ? '1px solid rgba(255,129,112,0.06)' : '1px solid rgba(255,129,112,0.1)' }} />
           )}
 
           {/* Regular navigation */}
@@ -203,7 +205,7 @@ export default function Layout({ children }) {
             const isActive = location.pathname === item.href ||
               (item.href !== '/dashboard' && item.href !== '/' && location.pathname.startsWith(item.href));
 
-            // Special styling for SAM AI (highlighted) with glow
+            // Special styling for SAM AI
             if (item.highlight) {
               return (
                 <Link
@@ -217,7 +219,7 @@ export default function Layout({ children }) {
                     border: '1px solid rgba(255,129,112,0.3)',
                   } : {
                     background: 'rgba(255,129,112,0.07)',
-                    color: '#FF8170',
+                    color: '#E8543D',
                     border: '1px solid rgba(255,129,112,0.15)',
                   }}
                 >
@@ -225,7 +227,7 @@ export default function Layout({ children }) {
                   <span className="slabdash-label font-bold" style={{ letterSpacing: '0.12em' }}>SAM AI</span>
                   <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-sm" style={{
                     background: 'rgba(255,129,112,0.15)',
-                    color: '#FF8170',
+                    color: '#E8543D',
                     border: '1px solid rgba(255,129,112,0.2)',
                     letterSpacing: '0.1em',
                   }}>AI</span>
@@ -241,11 +243,11 @@ export default function Layout({ children }) {
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200"
                 style={isActive ? {
                   background: 'linear-gradient(135deg, rgba(255,129,112,0.15), rgba(255,107,89,0.1))',
-                  color: '#FF8170',
+                  color: '#E8543D',
                   borderLeft: '2px solid rgba(255,129,112,0.6)',
                   paddingLeft: '10px',
                 } : {
-                  color: 'rgba(255,255,255,0.65)',
+                  color: darkMode ? 'rgba(255,255,255,0.65)' : 'rgba(44,36,22,0.65)',
                 }}
               >
                 <item.icon className="w-4 h-4 flex-shrink-0" />
@@ -256,18 +258,21 @@ export default function Layout({ children }) {
         </nav>
 
         {/* System Status */}
-        <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(255,129,112,0.08)' }}>
+        <div className="px-4 py-3" style={{ borderTop: darkMode ? '1px solid rgba(255,129,112,0.08)' : '1px solid rgba(255,129,112,0.12)' }}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <div className={`w-2 h-2 rounded-full flex-shrink-0 ${company?.hasPsaKey ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-              <span className="text-xs font-medium truncate" style={{ color: 'rgba(255,255,255,0.45)' }}>
+              <span className="text-xs font-medium truncate" style={{ color: darkMode ? 'rgba(255,255,255,0.45)' : 'rgba(44,36,22,0.5)' }}>
                 PSA {company?.hasPsaKey ? 'connected' : 'not connected'}
               </span>
             </div>
             <button
               onClick={() => setDarkMode(d => !d)}
               className="rounded-lg p-1.5 transition-all flex-shrink-0"
-              style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.08)' }}
+              style={darkMode
+                ? { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.08)' }
+                : { background: 'rgba(199,68,48,0.08)', color: 'rgba(44,36,22,0.5)', border: '1px solid rgba(199,68,48,0.15)' }
+              }
               title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}

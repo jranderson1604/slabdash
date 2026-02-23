@@ -199,27 +199,27 @@ export default function CustomerDetail() {
 
   return (
     <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 shadow-xl">
-        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
-        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
+      <div className="relative overflow-hidden rounded-3xl" style={{ background: 'var(--hdr-gradient)', boxShadow: 'var(--hdr-shadow)', border: 'var(--hdr-border)' }}>
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
 
         <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 sm:px-8 py-7">
           <div className="flex items-center gap-4">
             <Link to="/customers"
               className="p-2 rounded-xl transition-all hover:bg-white/20 flex-shrink-0"
-              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}
+              style={{ background: 'var(--hdr-back-bg)', border: 'var(--hdr-back-border)' }}
             >
-              <ArrowLeft className="w-5 h-5 text-white" />
+              <ArrowLeft className="w-5 h-5" style={{ color: 'var(--hdr-btn-color)' }} />
             </Link>
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
-                style={{ background: 'rgba(255,255,255,0.2)', border: '2px solid rgba(255,255,255,0.35)' }}
+                style={{ background: 'var(--hdr-circle-1)', border: '2px solid var(--hdr-circle-1)' }}
               >
-                <span className="text-lg font-bold text-white">{customer.name.charAt(0).toUpperCase()}</span>
+                <span className="text-lg font-bold" style={{ color: 'var(--hdr-btn-primary-bg)' }}>{customer.name.charAt(0).toUpperCase()}</span>
               </div>
               <div>
-                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">{customer.name}</h1>
-                <p className="text-white/60 text-sm font-medium mt-0.5">{customer.email}</p>
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: 'var(--hdr-title)' }}>{customer.name}</h1>
+                <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--hdr-sub)' }}>{customer.email}</p>
               </div>
             </div>
           </div>
@@ -228,14 +228,14 @@ export default function CustomerDetail() {
               <>
                 <button onClick={() => setEditing(true)}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
-                  style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                  style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                 >
                   <Edit2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Edit</span>
                 </button>
                 <button onClick={handleDelete}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-red-600"
-                  style={{ background: 'rgba(239,68,68,0.85)', color: 'white' }}
+                  style={{ background: 'rgba(239,68,68,0.85)', border: 'var(--hdr-btn-border)', color: 'white' }}
                 >
                   <Trash2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Delete</span>
@@ -245,7 +245,7 @@ export default function CustomerDetail() {
               <>
                 <button onClick={() => setEditing(false)}
                   className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
-                  style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                  style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                 >
                   <X className="w-4 h-4" />
                   <span className="hidden sm:inline">Cancel</span>

@@ -65,13 +65,13 @@ export default function Help() {
   return (
     <div className="max-w-5xl mx-auto">
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 shadow-xl mb-8">
-        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
-        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
 
         <div className="relative px-6 sm:px-8 py-7">
-          <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Documentation</p>
-          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">Help & Instructions</h1>
-          <p className="text-white/60 text-sm font-medium mt-1">Everything you need to know about using SlabDash</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: 'var(--hdr-eyebrow)' }}>Documentation</p>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight" style={{ color: 'var(--hdr-title)' }}>Help & Instructions</h1>
+          <p className="text-sm font-medium mt-1" style={{ color: 'var(--hdr-sub)' }}>Everything you need to know about using SlabDash</p>
         </div>
       </div>
 
@@ -276,21 +276,21 @@ export default function Help() {
         </div>
       </Section>
 
-      <div className="bg-gradient-to-br from-brand-500 to-brand-600 rounded-xl p-8 text-white text-center">
-        <h3 className="text-2xl font-bold mb-2">Still have questions?</h3>
-        <p className="mb-4 text-brand-100">We're here to help you get the most out of SlabDash</p>
+      <div className="rounded-xl p-8 text-center" style={{ background: 'var(--hdr-gradient)', border: 'var(--hdr-border)', boxShadow: 'var(--hdr-shadow)' }}>
+        <h3 className="text-2xl font-bold mb-2" style={{ color: 'var(--hdr-title)' }}>Still have questions?</h3>
+        <p className="mb-4" style={{ color: 'var(--hdr-sub)' }}>We're here to help you get the most out of SlabDash</p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <a
             href="mailto:support@slabdash.app"
             className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all"
-            style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.5)', color: '#E8543D' }}
+            style={{ background: 'var(--hdr-btn-primary-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-primary-color)' }}
           >
             Email Support
           </a>
           <a
             href="#settings"
             className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
-            style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+            style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
           >
             View Settings
           </a>

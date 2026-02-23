@@ -220,28 +220,27 @@ export default function Dashboard() {
 
       {/* ── Hero Banner ─────────────────────────────────── */}
       <div className="relative rounded-3xl overflow-hidden"
-        style={{ background: 'linear-gradient(135deg, #FF8170 0%, #FF6B59 40%, #E8543D 75%, #C74430 100%)' }}
+        style={{ background: 'var(--hdr-gradient)', boxShadow: 'var(--hdr-shadow)', border: 'var(--hdr-border)' }}
       >
         {/* Decorative shapes */}
-        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
-        <div className="absolute -bottom-10 left-1/2 w-72 h-72 rounded-full" style={{ background: 'rgba(0,0,0,0.05)' }} />
-        <div className="absolute top-0 left-0 w-full h-full" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.04) 0%, transparent 60%)' }} />
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 left-1/2 w-72 h-72 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
 
         <div className="relative px-6 sm:px-8 py-7">
           {/* Top row: name + actions */}
           <div className="flex items-start justify-between gap-4 mb-6">
             <div>
-              <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Dashboard</p>
-              <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: 'var(--hdr-eyebrow)' }}>Dashboard</p>
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight" style={{ color: 'var(--hdr-title)' }}>
                 {company?.name}
               </h1>
-              <p className="text-white/60 text-sm font-medium mt-1">PSA Card Grading Tracker</p>
+              <p className="text-sm font-medium mt-1" style={{ color: 'var(--hdr-sub)' }}>PSA Card Grading Tracker</p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0 mt-1">
               <button
                 onClick={() => setShowWalkthrough(true)}
-                className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
-                style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)', color: 'white' }}
+                className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-80"
+                style={{ background: 'var(--hdr-back-bg)', border: 'var(--hdr-back-border)', color: 'var(--hdr-btn-color)' }}
               >
                 <PlayCircle className="w-4 h-4" />
                 <span className="hidden sm:inline">Tour</span>
@@ -250,8 +249,8 @@ export default function Dashboard() {
                 <button
                   onClick={handleRefreshAll}
                   disabled={refreshing}
-                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/30 disabled:opacity-60"
-                  style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', color: 'white' }}
+                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-80 disabled:opacity-60"
+                  style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                 >
                   <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                   <span className="hidden sm:inline">{refreshing ? 'Syncing...' : 'Sync PSA'}</span>
@@ -261,22 +260,22 @@ export default function Dashboard() {
           </div>
 
           {/* Key metrics */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 pt-6" style={{ borderTop: '1px solid rgba(255,255,255,0.2)' }}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-5 pt-6" style={{ borderTop: '1px solid var(--hdr-circle-1)' }}>
             <div>
-              <p className="text-4xl sm:text-5xl font-black text-white tabular-nums leading-none">{stats?.inProgress ?? 0}</p>
-              <p className="text-white/55 text-[11px] font-bold uppercase tracking-widest mt-2">Active</p>
+              <p className="text-4xl sm:text-5xl font-black tabular-nums leading-none" style={{ color: 'var(--hdr-title)' }}>{stats?.inProgress ?? 0}</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest mt-2" style={{ color: 'var(--hdr-eyebrow)' }}>Active</p>
             </div>
             <div>
-              <p className="text-4xl sm:text-5xl font-black text-white tabular-nums leading-none">{stats?.gradesReady ?? 0}</p>
-              <p className="text-white/55 text-[11px] font-bold uppercase tracking-widest mt-2">Grades Ready</p>
+              <p className="text-4xl sm:text-5xl font-black tabular-nums leading-none" style={{ color: 'var(--hdr-title)' }}>{stats?.gradesReady ?? 0}</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest mt-2" style={{ color: 'var(--hdr-eyebrow)' }}>Grades Ready</p>
             </div>
             <div>
-              <p className="text-4xl sm:text-5xl font-black text-white tabular-nums leading-none">{stats?.problems ?? 0}</p>
-              <p className="text-white/55 text-[11px] font-bold uppercase tracking-widest mt-2">Problems</p>
+              <p className="text-4xl sm:text-5xl font-black tabular-nums leading-none" style={{ color: 'var(--hdr-title)' }}>{stats?.problems ?? 0}</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest mt-2" style={{ color: 'var(--hdr-eyebrow)' }}>Problems</p>
             </div>
             <div>
-              <p className="text-4xl sm:text-5xl font-black text-white tabular-nums leading-none">{stats?.totalCustomers ?? 0}</p>
-              <p className="text-white/55 text-[11px] font-bold uppercase tracking-widest mt-2">Customers</p>
+              <p className="text-4xl sm:text-5xl font-black tabular-nums leading-none" style={{ color: 'var(--hdr-title)' }}>{stats?.totalCustomers ?? 0}</p>
+              <p className="text-[11px] font-bold uppercase tracking-widest mt-2" style={{ color: 'var(--hdr-eyebrow)' }}>Customers</p>
             </div>
           </div>
         </div>

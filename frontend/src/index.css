@@ -47,6 +47,23 @@
   --glass-border: rgba(255, 255, 255, 0.35);
   --glass-highlight: rgba(255, 255, 255, 0.7);
   --glass-shadow: rgba(0, 0, 0, 0.04);
+
+  /* Page header tokens — light mode (warm cream) */
+  --hdr-gradient: linear-gradient(135deg, #FFF4EC 0%, #FFE4D4 100%);
+  --hdr-shadow: 0 4px 24px rgba(255, 129, 112, 0.1), 0 1px 0 rgba(255, 129, 112, 0.12);
+  --hdr-border: 1px solid rgba(255, 129, 112, 0.2);
+  --hdr-eyebrow: rgba(199, 68, 48, 0.6);
+  --hdr-title: rgb(44, 36, 22);
+  --hdr-sub: rgba(44, 36, 22, 0.58);
+  --hdr-circle-1: rgba(255, 129, 112, 0.07);
+  --hdr-circle-2: rgba(255, 129, 112, 0.04);
+  --hdr-btn-bg: rgba(199, 68, 48, 0.08);
+  --hdr-btn-border: 1px solid rgba(199, 68, 48, 0.22);
+  --hdr-btn-color: rgb(44, 36, 22);
+  --hdr-btn-primary-bg: rgb(199, 68, 48);
+  --hdr-btn-primary-color: #FFF8F0;
+  --hdr-back-bg: rgba(199, 68, 48, 0.07);
+  --hdr-back-border: 1px solid rgba(199, 68, 48, 0.18);
 }
 
 /* ═══════════════════════════════════════════ */
@@ -83,6 +100,23 @@
   --glass-border: rgba(255, 129, 112, 0.15);
   --glass-highlight: rgba(255, 165, 100, 0.1);
   --glass-shadow: rgba(0, 0, 0, 0.55);
+
+  /* Page header tokens — dark mode (coral gradient) */
+  --hdr-gradient: linear-gradient(135deg, #FF8170 0%, #FF6B59 40%, #E8543D 75%, #C74430 100%);
+  --hdr-shadow: 0 10px 40px rgba(255, 107, 89, 0.3), 0 4px 16px rgba(0, 0, 0, 0.15);
+  --hdr-border: none;
+  --hdr-eyebrow: rgba(255, 255, 255, 0.5);
+  --hdr-title: rgb(255, 255, 255);
+  --hdr-sub: rgba(255, 255, 255, 0.6);
+  --hdr-circle-1: rgba(255, 255, 255, 0.07);
+  --hdr-circle-2: rgba(0, 0, 0, 0.06);
+  --hdr-btn-bg: rgba(255, 255, 255, 0.15);
+  --hdr-btn-border: 1px solid rgba(255, 255, 255, 0.25);
+  --hdr-btn-color: rgb(255, 255, 255);
+  --hdr-btn-primary-bg: rgba(255, 255, 255, 0.9);
+  --hdr-btn-primary-color: #E8543D;
+  --hdr-back-bg: rgba(255, 255, 255, 0.12);
+  --hdr-back-border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 @layer base {
