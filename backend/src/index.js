@@ -579,6 +579,34 @@ async function startServer() {
       console.warn("⚠ trial_ends_at migration warning:", migrationError.message);
     }
 
+    // Admin email verification + system config
+    try {
+      await db.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE,
+        ADD COLUMN IF NOT EXISTS email_verification_token VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS email_verification_expires TIMESTAMP WITH TIME ZONE;
+      `);
+      // Treat all existing users as already verified (they pre-date this feature)
+      await db.query(`UPDATE users SET email_verified = TRUE WHERE email_verified = FALSE`);
+      console.log("✓ Migration: users email_verified columns ensured");
+    } catch (migrationError) {
+      console.warn("⚠ users email_verified migration warning:", migrationError.message);
+    }
+
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS system_config (
+          key VARCHAR(100) PRIMARY KEY,
+          value TEXT,
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `);
+      console.log("✓ Migration: system_config table ensured");
+    } catch (migrationError) {
+      console.warn("⚠ system_config migration warning:", migrationError.message);
+    }
+
     // Initialize scheduled tasks (cron jobs)
     try {
       initializeScheduler();

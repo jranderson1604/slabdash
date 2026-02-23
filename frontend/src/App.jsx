@@ -31,6 +31,7 @@ import Analytics from './pages/Analytics';
 import SAMAI from './pages/SAMAI';
 import Demo from './pages/Demo';
 import VerifyEmail from './pages/VerifyEmail';
+import VerifyAccount from './pages/VerifyAccount';
 import { Loader2 } from 'lucide-react';
 
 function ProtectedRoute({ children }) {
@@ -60,6 +61,7 @@ function AppRoutes() {
       <Route path="/" element={<HomeRoute />} />
       <Route path="/demo" element={<Demo />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/verify-account" element={<VerifyAccount />} />
       <Route path="/portal" element={<Portal />} />
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />

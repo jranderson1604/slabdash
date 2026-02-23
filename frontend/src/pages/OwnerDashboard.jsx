@@ -362,6 +362,9 @@ export default function OwnerDashboard() {
   const [health, setHealth] = useState(null);
   const [loadingHealth, setLoadingHealth] = useState(false);
   const [waitlist, setWaitlist] = useState([]);
+  const [inviteCode, setInviteCode] = useState(null); // current active code
+  const [inviteCodeInput, setInviteCodeInput] = useState('');
+  const [inviteCodeSaving, setInviteCodeSaving] = useState(false);
 
   if (user?.role !== 'owner') return <Navigate to="/dashboard" replace />;
 
@@ -388,12 +391,18 @@ export default function OwnerDashboard() {
   const loadHealth = async () => {
     setLoadingHealth(true);
     try {
-      const [healthRes, wlRes] = await Promise.all([
+      const [healthRes, wlRes, inviteRes] = await Promise.all([
         fetch(`${API_URL}/owner/system-health`, { headers: authHeaders() }),
         fetch(`${API_URL}/owner/waitlist`, { headers: authHeaders() }),
+        fetch(`${API_URL}/owner/invite-code`, { headers: authHeaders() }),
       ]);
       if (healthRes.ok) setHealth(await healthRes.json());
       if (wlRes.ok) setWaitlist(await wlRes.json());
+      if (inviteRes.ok) {
+        const ic = await inviteRes.json();
+        setInviteCode(ic.invite_code || null);
+        setInviteCodeInput(ic.invite_code || '');
+      }
     } finally { setLoadingHealth(false); }
   };
 
@@ -948,6 +957,65 @@ export default function OwnerDashboard() {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Invite Code / Registration Gate */}
+              <div className="card overflow-hidden">
+                <div className="px-6 py-4 border-b border-white/20 flex items-center gap-2">
+                  <Key className="w-4 h-4" style={{ color: 'rgb(var(--brand-500))' }} />
+                  <h2 className="text-base font-bold">Registration Invite Code</h2>
+                  {inviteCode ? (
+                    <span className="ml-auto badge badge-green text-xs">Active</span>
+                  ) : (
+                    <span className="ml-auto badge badge-gray text-xs">Open (no code required)</span>
+                  )}
+                </div>
+                <div className="p-6 space-y-4">
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    Set a code that shops must enter to create an account. Leave blank to allow open registration.
+                  </p>
+                  {inviteCode && (
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                      style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
+                      <span className="text-xs font-semibold text-green-700">Current code:</span>
+                      <code className="text-sm font-black tracking-widest" style={{ color: '#2C2416' }}>{inviteCode}</code>
+                    </div>
+                  )}
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      className="input flex-1 font-mono tracking-widest uppercase"
+                      placeholder="e.g. SLAB-2026"
+                      value={inviteCodeInput}
+                      onChange={e => setInviteCodeInput(e.target.value.toUpperCase())}
+                      maxLength={32}
+                    />
+                    <button
+                      disabled={inviteCodeSaving}
+                      onClick={async () => {
+                        setInviteCodeSaving(true);
+                        try {
+                          const res = await fetch(`${API_URL}/owner/invite-code`, {
+                            method: 'POST',
+                            headers: authHeaders(),
+                            body: JSON.stringify({ invite_code: inviteCodeInput.trim() || null }),
+                          });
+                          const data = await res.json();
+                          setInviteCode(data.invite_code || null);
+                          setInviteCodeInput(data.invite_code || '');
+                          toast.success(data.invite_code ? 'Invite code set!' : 'Code removed — registration is now open');
+                        } catch { toast.error('Failed to save'); }
+                        finally { setInviteCodeSaving(false); }
+                      }}
+                      className="btn btn-primary whitespace-nowrap"
+                    >
+                      {inviteCodeSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save'}
+                    </button>
+                  </div>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    Share this code with shops you want to onboard. They'll enter it on the sign-up page.
+                  </p>
+                </div>
               </div>
             </>
           )}

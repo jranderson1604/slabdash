@@ -428,4 +428,41 @@ router.get('/platform-analytics', async (req, res) => {
   }
 });
 
+// ─── INVITE CODE / REGISTRATION GATE ────────────────────────────
+
+// GET current invite code + registration mode
+router.get('/invite-code', async (req, res) => {
+  try {
+    const result = await db.query(
+      "SELECT value FROM system_config WHERE key = 'registration_invite_code'"
+    );
+    res.json({ invite_code: result.rows[0]?.value || null });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch invite code' });
+  }
+});
+
+// POST set or update invite code (pass null/empty to disable)
+router.post('/invite-code', async (req, res) => {
+  try {
+    const { invite_code } = req.body;
+    const value = invite_code?.trim() || null;
+
+    if (value) {
+      await db.query(
+        `INSERT INTO system_config (key, value, updated_at)
+         VALUES ('registration_invite_code', $1, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+        [value]
+      );
+    } else {
+      await db.query("DELETE FROM system_config WHERE key = 'registration_invite_code'");
+    }
+
+    res.json({ success: true, invite_code: value });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update invite code' });
+  }
+});
+
 module.exports = router;
