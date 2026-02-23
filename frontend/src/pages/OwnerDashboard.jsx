@@ -952,6 +952,10 @@ export default function OwnerDashboard() {
                   <div className="divide-y divide-black/[0.03]">
                     {pendingApprovals.map(u => (
                       <div key={u.id} className="px-6 py-4 flex items-center gap-4">
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                          style={{ background: 'rgba(255,129,112,0.12)', color: '#E8543D' }}>
+                          {u.name?.[0]?.toUpperCase() || '?'}
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-semibold text-gray-900">{u.name}</p>
                           <p className="text-xs text-gray-400">{u.email}</p>
@@ -1038,7 +1042,8 @@ export default function OwnerDashboard() {
                     <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
                       style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
                       <span className="text-xs font-semibold text-green-700">Current code:</span>
-                      <code className="text-sm font-black tracking-widest" style={{ color: '#2C2416' }}>{inviteCode}</code>
+                      <code className="text-sm font-black tracking-widest flex-1" style={{ color: '#2C2416' }}>{inviteCode}</code>
+                      <CopyButton text={inviteCode} />
                     </div>
                   )}
                   <div className="flex gap-3">

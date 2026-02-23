@@ -41,8 +41,7 @@ export default function VerifyEmail() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link to="/" className="inline-flex items-center gap-2">
-            <img src="/images/logo-icon.png.svg" alt="SlabDash" className="h-10 w-10" />
-            <span className="text-2xl font-black" style={{ color: '#2C2416' }}>SlabDash</span>
+            <img src="/images/logo-full.png.svg" alt="SlabDash" className="h-14 w-auto" />
           </Link>
         </div>
 
