@@ -160,49 +160,74 @@ export default function CardDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/cards" className="text-gray-400 hover:text-gray-600">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{card.description}</h1>
-            <p className="text-gray-500 text-sm mt-1">
-              {card.year} {card.brand} {card.player_name}
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          {editing ? (
-            <>
-              <button onClick={() => setEditing(false)} className="btn btn-secondary">
-                Cancel
-              </button>
-              <button onClick={handleSave} className="btn btn-primary">
-                <Save className="w-4 h-4" />
-                Save Changes
-              </button>
-            </>
-          ) : (
-            <>
-              {card.grade && (
-                <button
-                  onClick={() => navigate(`/buyback/new?card_id=${card.id}`)}
-                  className="btn btn-primary bg-green-600 hover:bg-green-700"
-                >
-                  <DollarSign className="w-4 h-4" />
-                  Create Buyback Offer
-                </button>
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 shadow-xl">
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
+        <div className="relative px-6 sm:px-8 py-7">
+          <div className="flex items-center gap-4">
+            <Link
+              to="/cards"
+              className="p-2 rounded-xl transition-all hover:bg-white/20 flex-shrink-0"
+              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}
+              aria-label="Back to Cards"
+            >
+              <ArrowLeft className="w-5 h-5 text-white" />
+            </Link>
+            <div className="flex-1 min-w-0">
+              <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Library</p>
+              <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">{card.description}</h1>
+              <p className="text-white/60 text-sm font-medium mt-1">{card.year} {card.brand} {card.player_name}</p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {editing ? (
+                <>
+                  <button
+                    onClick={() => setEditing(false)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
+                    style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                    style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.5)', color: '#E8543D' }}
+                  >
+                    <Save className="w-4 h-4" />
+                    Save Changes
+                  </button>
+                </>
+              ) : (
+                <>
+                  {card.grade && (
+                    <button
+                      onClick={() => navigate(`/buyback/new?card_id=${card.id}`)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
+                      style={{ background: 'rgba(16,185,129,0.85)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                    >
+                      <DollarSign className="w-4 h-4" />
+                      Create Buyback Offer
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
+                    style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                  >
+                    Edit Details
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
+                    style={{ background: 'rgba(220,38,38,0.85)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                </>
               )}
-              <button onClick={() => setEditing(true)} className="btn btn-secondary">
-                Edit Details
-              </button>
-              <button onClick={handleDelete} className="btn btn-secondary text-red-600 hover:bg-red-50">
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
-            </>
-          )}
+            </div>
+          </div>
         </div>
       </div>
 
