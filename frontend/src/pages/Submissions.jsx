@@ -669,22 +669,22 @@ export default function Submissions() {
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
       {/* HEADER */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-600 via-brand-700 to-brand-800 shadow-xl">
-        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.06)' }} />
-        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
+      <div className="relative overflow-hidden rounded-3xl" style={{ background: 'var(--hdr-gradient)', boxShadow: 'var(--hdr-shadow)', border: 'var(--hdr-border)' }}>
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
 
         <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 px-6 sm:px-8 py-7">
           <div>
-            <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Tracking</p>
-            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight mb-1">Submissions</h1>
-            <div className="flex items-center gap-4 text-sm text-white/70">
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: 'var(--hdr-eyebrow)' }}>Tracking</p>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight mb-1" style={{ color: 'var(--hdr-title)' }}>Submissions</h1>
+            <div className="flex items-center gap-4 text-sm" style={{ color: 'var(--hdr-sub)' }}>
               <span>{subs.length} total</span>
               <span>{totalCards} cards</span>
               <span>{totalCustomers} customers</span>
             </div>
             {/* Smart auto-refresh indicator */}
             {company?.hasPsaKey && activeCount > 0 && (
-              <div className="flex items-center gap-1.5 mt-1.5 text-xs text-white/40">
+              <div className="flex items-center gap-1.5 mt-1.5 text-xs" style={{ color: 'var(--hdr-eyebrow)' }}>
                 <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
                 <span>Auto-refresh active — {activeCount} submissions monitored</span>
               </div>
@@ -697,7 +697,7 @@ export default function Submissions() {
                 <button
                   onClick={handleRefreshAll}
                   disabled={refreshingAll || sendingUpdate}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 disabled:opacity-50" style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.5)', color: '#E8543D' }}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 disabled:opacity-50" style={{ background: 'var(--hdr-btn-primary-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-primary-color)' }}
                 >
                   {refreshingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                   {refreshingAll ? `${refreshProgress?.current || 0}/${refreshProgress?.total || 0}` : 'Refresh All'}
@@ -706,7 +706,7 @@ export default function Submissions() {
                 <button
                   onClick={handleSendWeeklyUpdate}
                   disabled={sendingUpdate || refreshingAll}
-                  className="bg-white/15 hover:bg-white/25 text-white px-3 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 border border-white/20 disabled:opacity-50"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl font-semibold transition-all disabled:opacity-50" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                 >
                   {sendingUpdate ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   <span className="hidden sm:inline">{sendingUpdate ? 'Sending...' : 'Weekly Report'}</span>
@@ -716,7 +716,7 @@ export default function Submissions() {
 
             <button
               onClick={() => setShowCsvImport(true)}
-              className="bg-white/15 hover:bg-white/25 text-white px-3 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 border border-white/20"
+              className="flex items-center gap-2 px-3 py-2.5 rounded-xl font-semibold transition-all" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
             >
               <Upload className="w-4 h-4" />
               <span className="hidden sm:inline">Import</span>
@@ -724,7 +724,7 @@ export default function Submissions() {
 
             <ExportButton endpoint="/submissions/export.csv" label="" />
 
-            <Link to="/submissions/new" className="bg-white/15 hover:bg-white/25 text-white px-3 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 border border-white/20">
+            <Link to="/submissions/new" className="flex items-center gap-2 px-3 py-2.5 rounded-xl font-semibold transition-all" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}>
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">New</span>
             </Link>
@@ -733,7 +733,7 @@ export default function Submissions() {
 
         {/* Refresh progress bar */}
         {refreshingAll && refreshProgress && (
-          <div className="mt-4 rounded-xl p-3 bg-white/15 text-white">
+          <div className="mt-4 rounded-xl p-3" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}>
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -741,35 +741,35 @@ export default function Submissions() {
               </div>
               <span className="text-sm font-mono">
                 {refreshProgress.current}/{refreshProgress.total}
-                {refreshProgress.updated > 0 && <span className="text-green-300 ml-2">+{refreshProgress.updated}</span>}
-                {refreshProgress.errors > 0 && <span className="text-red-300 ml-1">{refreshProgress.errors} err</span>}
+                {refreshProgress.updated > 0 && <span className="text-emerald-600 ml-2">+{refreshProgress.updated}</span>}
+                {refreshProgress.errors > 0 && <span className="text-red-500 ml-1">{refreshProgress.errors} err</span>}
               </span>
             </div>
-            <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+            <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--hdr-circle-1)' }}>
               <div
-                className="h-full bg-white rounded-full transition-all duration-300"
-                style={{ width: `${refreshProgress.total > 0 ? (refreshProgress.current / refreshProgress.total) * 100 : 0}%` }}
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${refreshProgress.total > 0 ? (refreshProgress.current / refreshProgress.total) * 100 : 0}%`, background: 'var(--hdr-btn-primary-bg)' }}
               />
             </div>
             {refreshProgress.submissionNumber && (
-              <p className="text-xs text-white/50 mt-1">
+              <p className="text-xs mt-1" style={{ color: 'var(--hdr-eyebrow)' }}>
                 #{refreshProgress.submissionNumber}
                 {refreshProgress.status === 'error' && (
-                  <span className="text-red-300 ml-1">
+                  <span className="text-red-500 ml-1">
                     {refreshProgress.errorType === 'not_found' ? 'not found' :
                      refreshProgress.errorType === 'auth_error' ? 'auth error' :
                      'error'}
                   </span>
                 )}
                 {refreshProgress.hadChanges && (
-                  <span className="text-green-300 ml-1">
+                  <span className="text-emerald-600 ml-1">
                     {refreshProgress.stepChanged ? 'step changed' :
                      refreshProgress.progressDelta ? `+${refreshProgress.progressDelta}%` :
                      'updated'}
                   </span>
                 )}
                 {!refreshProgress.hadChanges && refreshProgress.status === 'success' && (
-                  <span className="text-white/30 ml-1">no changes</span>
+                  <span className="ml-1" style={{ color: 'var(--hdr-eyebrow)', opacity: 0.6 }}>no changes</span>
                 )}
               </p>
             )}
@@ -778,10 +778,13 @@ export default function Submissions() {
 
         {/* Update result toast */}
         {updateResult && (
-          <div className={`mt-4 rounded-xl p-3 flex items-center gap-3 ${
-            updateResult.success ? 'bg-white/20 text-white' : 'bg-red-500/30 text-white'
-          }`}>
-            {updateResult.success ? <CheckCircle2 className="w-5 h-5 flex-shrink-0" /> : <AlertCircle className="w-5 h-5 flex-shrink-0" />}
+          <div className="mt-4 rounded-xl p-3 flex items-center gap-3"
+            style={updateResult.success
+              ? { background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }
+              : { background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: 'inherit' }
+            }
+          >
+            {updateResult.success ? <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-500" /> : <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-500" />}
             <div className="flex-1 text-sm">
               {updateResult.success ? (
                 <>
@@ -793,7 +796,7 @@ export default function Submissions() {
                 <span>{updateResult.message}</span>
               )}
             </div>
-            <button onClick={() => setUpdateResult(null)} className="text-white/70 hover:text-white">
+            <button onClick={() => setUpdateResult(null)} style={{ color: 'var(--hdr-eyebrow)' }}>
               <X className="w-4 h-4" />
             </button>
           </div>

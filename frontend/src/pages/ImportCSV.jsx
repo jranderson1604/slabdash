@@ -76,12 +76,12 @@ export default function ImportCSV() {
   return (
     <div className="container py-8">
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 shadow-xl mb-2">
-        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
-        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
         <div className="relative px-6 sm:px-8 py-7">
-          <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Import</p>
-          <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">Import PSA CSV</h1>
-          <p className="text-white/60 text-sm font-medium mt-1">Upload a CSV export from PSA to automatically import submissions and card data</p>
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: 'var(--hdr-eyebrow)' }}>Import</p>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight" style={{ color: 'var(--hdr-title)' }}>Import PSA CSV</h1>
+          <p className="text-sm font-medium mt-1" style={{ color: 'var(--hdr-sub)' }}>Upload a CSV export from PSA to automatically import submissions and card data</p>
         </div>
       </div>
 

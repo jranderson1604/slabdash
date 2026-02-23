@@ -160,23 +160,23 @@ export default function CardDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 shadow-xl">
-        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
-        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
+      <div className="relative overflow-hidden rounded-3xl" style={{ background: 'var(--hdr-gradient)', boxShadow: 'var(--hdr-shadow)', border: 'var(--hdr-border)' }}>
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
         <div className="relative px-6 sm:px-8 py-7">
           <div className="flex items-center gap-4">
             <Link
               to="/cards"
               className="p-2 rounded-xl transition-all hover:bg-white/20 flex-shrink-0"
-              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}
+              style={{ background: 'var(--hdr-back-bg)', border: 'var(--hdr-back-border)' }}
               aria-label="Back to Cards"
             >
-              <ArrowLeft className="w-5 h-5 text-white" />
+              <ArrowLeft className="w-5 h-5" style={{ color: 'var(--hdr-btn-color)' }} />
             </Link>
             <div className="flex-1 min-w-0">
-              <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Library</p>
-              <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">{card.description}</h1>
-              <p className="text-white/60 text-sm font-medium mt-1">{card.year} {card.brand} {card.player_name}</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: 'var(--hdr-eyebrow)' }}>Library</p>
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight" style={{ color: 'var(--hdr-title)' }}>{card.description}</h1>
+              <p className="text-sm font-medium mt-1" style={{ color: 'var(--hdr-sub)' }}>{card.year} {card.brand} {card.player_name}</p>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {editing ? (
@@ -184,14 +184,14 @@ export default function CardDetail() {
                   <button
                     onClick={() => setEditing(false)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
-                    style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                    style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleSave}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
-                    style={{ background: 'rgba(255,255,255,0.9)', border: '1px solid rgba(255,255,255,0.5)', color: '#E8543D' }}
+                    style={{ background: 'var(--hdr-btn-primary-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-primary-color)' }}
                   >
                     <Save className="w-4 h-4" />
                     Save Changes
@@ -203,7 +203,7 @@ export default function CardDetail() {
                     <button
                       onClick={() => navigate(`/buyback/new?card_id=${card.id}`)}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
-                      style={{ background: 'rgba(16,185,129,0.85)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                      style={{ background: 'rgba(16,185,129,0.85)', border: 'var(--hdr-btn-border)', color: 'white' }}
                     >
                       <DollarSign className="w-4 h-4" />
                       Create Buyback Offer
@@ -212,14 +212,14 @@ export default function CardDetail() {
                   <button
                     onClick={() => setEditing(true)}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
-                    style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                    style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                   >
                     Edit Details
                   </button>
                   <button
                     onClick={handleDelete}
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
-                    style={{ background: 'rgba(220,38,38,0.85)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                    style={{ background: 'rgba(220,38,38,0.85)', border: 'var(--hdr-btn-border)', color: 'white' }}
                   >
                     <Trash2 className="w-4 h-4" />
                     Delete

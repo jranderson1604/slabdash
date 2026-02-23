@@ -387,15 +387,15 @@ export default function Customers() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 shadow-xl">
-        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
-        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
+      <div className="relative overflow-hidden rounded-3xl" style={{ background: 'var(--hdr-gradient)', boxShadow: 'var(--hdr-shadow)', border: 'var(--hdr-border)' }}>
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
 
         <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 sm:px-8 py-7">
           <div>
-            <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Management</p>
-            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight leading-tight">Customers</h1>
-            <p className="text-white/60 text-sm font-medium mt-1">
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: 'var(--hdr-eyebrow)' }}>Management</p>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight" style={{ color: 'var(--hdr-title)' }}>Customers</h1>
+            <p className="text-sm font-medium mt-1" style={{ color: 'var(--hdr-sub)' }}>
               {customerList.length > 0 ? `${customerList.length} registered` : 'Manage your card shop customers'}
             </p>
           </div>
@@ -404,7 +404,7 @@ export default function Customers() {
               <>
                 <button
                   onClick={() => setShowTestEmailModal(true)}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                   title="Send a test email to preview the introduction email"
                 >
                   <Eye className="w-4 h-4" />
@@ -434,7 +434,7 @@ export default function Customers() {
                 </button>
               </>
             )}
-            <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 cursor-pointer" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}>
+            <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 cursor-pointer" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}>
               <FileSpreadsheet className="w-4 h-4" />
               <span className="hidden sm:inline">{importingCSV ? 'Importing...' : 'Import CSV'}</span>
               <input
@@ -447,8 +447,8 @@ export default function Customers() {
             </label>
             <ExportButton endpoint="/customers/export.csv" label="" />
             <Link to="/customers/new"
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/25"
-              style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)', color: 'white' }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-80"
+              style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
             >
               <Plus className="w-4 h-4" />
               <span className="hidden sm:inline">New Customer</span>

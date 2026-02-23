@@ -963,23 +963,23 @@ export default function SubmissionDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 shadow-xl">
-        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'rgba(255,255,255,0.07)' }} />
-        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'rgba(0,0,0,0.06)' }} />
+      <div className="relative overflow-hidden rounded-3xl" style={{ background: 'var(--hdr-gradient)', boxShadow: 'var(--hdr-shadow)', border: 'var(--hdr-border)' }}>
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
 
         <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 sm:px-8 py-7">
           <div className="flex items-center gap-4">
             <Link to="/submissions"
               className="p-2 rounded-xl transition-all hover:bg-white/20 flex-shrink-0"
-              style={{ background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)' }}
+              style={{ background: 'var(--hdr-back-bg)', border: 'var(--hdr-back-border)' }}
             >
-              <ArrowLeft className="w-5 h-5 text-white" />
+              <ArrowLeft className="w-5 h-5" style={{ color: 'var(--hdr-btn-color)' }} />
             </Link>
             <div className="flex-1">
               {editing ? (
                 <div className="space-y-2">
                   <div>
-                    <label className="text-xs text-white/80 font-bold uppercase">PSA Submission #</label>
+                    <label className="text-xs font-bold uppercase" style={{ color: 'var(--hdr-eyebrow)' }}>PSA Submission #</label>
                     <input
                       type="text"
                       value={editForm.psa_submission_number}
@@ -989,7 +989,7 @@ export default function SubmissionDetail() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-white/80 font-bold uppercase">PSA Order #</label>
+                    <label className="text-xs font-bold uppercase" style={{ color: 'var(--hdr-eyebrow)' }}>PSA Order #</label>
                     <input
                       type="text"
                       value={editForm.psa_order_number}
@@ -999,7 +999,7 @@ export default function SubmissionDetail() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-white/80 font-bold uppercase">Internal ID</label>
+                    <label className="text-xs font-bold uppercase" style={{ color: 'var(--hdr-eyebrow)' }}>Internal ID</label>
                     <input
                       type="text"
                       value={editForm.internal_id}
@@ -1011,12 +1011,12 @@ export default function SubmissionDetail() {
                 </div>
               ) : (
                 <>
-                  <p className="text-white/50 text-[10px] font-bold uppercase tracking-[0.15em] mb-1">Submission</p>
-                  <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: 'var(--hdr-eyebrow)' }}>Submission</p>
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: 'var(--hdr-title)' }}>
                     {submission.psa_submission_number || submission.internal_id || 'No ID'}
                   </h1>
                   {submission.psa_order_number && (
-                    <p className="text-white/60 text-sm font-medium mt-0.5">Order #{submission.psa_order_number}</p>
+                    <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--hdr-sub)' }}>Order #{submission.psa_order_number}</p>
                   )}
                 </>
               )}
@@ -1040,7 +1040,7 @@ export default function SubmissionDetail() {
                 <button
                   onClick={handleCancelEdit}
                   disabled={saving}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                 >
                   <X className="w-4 h-4" />
                   <span className="hidden sm:inline">Cancel</span>
@@ -1050,14 +1050,14 @@ export default function SubmissionDetail() {
               <>
                 <button
                   onClick={handleEdit}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                 >
                   <Edit2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Edit</span>
                 </button>
                 <button
                   onClick={() => setShowTestEmailModal(true)}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                   title="Preview status update email"
                 >
                   <Eye className="w-4 h-4" />
@@ -1066,7 +1066,7 @@ export default function SubmissionDetail() {
                 <button
                   onClick={handleSendUpdate}
                   disabled={sendingEmail}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 disabled:opacity-50" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 disabled:opacity-50" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                 >
                   {sendingEmail ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1079,13 +1079,13 @@ export default function SubmissionDetail() {
                   <button
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 disabled:opacity-50" style={{ background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 disabled:opacity-50" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                   >
                     <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                     <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
                   </button>
                 )}
-                <button onClick={handleDelete} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'rgba(220,38,38,0.85)', border: '1px solid rgba(255,255,255,0.25)', color: 'white' }}>
+                <button onClick={handleDelete} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-80" style={{ background: 'rgba(220,38,38,0.85)', border: 'var(--hdr-btn-border)', color: 'white' }}>
                   <Trash2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Delete</span>
                 </button>

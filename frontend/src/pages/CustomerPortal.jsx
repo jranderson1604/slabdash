@@ -51,7 +51,7 @@ function ProgressPipeline({ currentStep, shipped }) {
   return (
     <div>
       {/* Bar */}
-      <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.06)' }}>
+      <div className="relative h-2 rounded-full overflow-hidden" style={{ background: 'var(--hdr-circle-2)' }}>
         <div className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
           style={{
             width: `${progress}%`,
