@@ -3,8 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 const multer = require('multer');
-const csv = require('csv-parser');
-const { Readable } = require('stream');
+const { parse: parseCsv } = require('csv-parse/sync');
 const { getLimits } = require('../config/tierLimits');
 
 // Multer memory storage for CSV files
@@ -71,15 +70,10 @@ router.post('/upload-csv', authenticate, upload.single('csv'), async (req, res) 
     const errors = [];
 
     // Parse CSV
-    const csvData = [];
-    const stream = Readable.from(req.file.buffer.toString());
-
-    await new Promise((resolve, reject) => {
-      stream
-        .pipe(csv())
-        .on('data', (row) => csvData.push(row))
-        .on('end', resolve)
-        .on('error', reject);
+    const csvData = parseCsv(req.file.buffer, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
     });
 
     // Process each row
