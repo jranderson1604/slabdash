@@ -428,4 +428,98 @@ router.get('/platform-analytics', async (req, res) => {
   }
 });
 
+// ─── ADMIN ACCOUNT APPROVALS ─────────────────────────────────────
+
+let _emailService;
+const email = () => {
+  if (!_emailService) _emailService = require('../services/emailService');
+  return _emailService;
+};
+
+// GET pending approvals (verified but not yet approved/rejected)
+router.get('/pending-approvals', async (req, res) => {
+  try {
+    const result = await db.query(`
+      SELECT u.id, u.email, u.name, u.created_at,
+             c.id as company_id, c.name as company_name
+      FROM users u
+      JOIN companies c ON u.company_id = c.id
+      WHERE u.email_verified = TRUE AND u.approved IS NULL
+      ORDER BY u.created_at ASC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch pending approvals' });
+  }
+});
+
+// POST approve a user
+router.post('/pending-approvals/:userId/approve', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const result = await db.query(
+      `UPDATE users SET approved = TRUE WHERE id = $1 RETURNING id, email, name`,
+      [userId]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
+    const user = result.rows[0];
+    try {
+      await email().sendAdminApprovedEmail(user.email, user.name);
+    } catch (emailErr) {
+      console.error('[Owner] Approval email failed:', emailErr.message);
+    }
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to approve user' });
+  }
+});
+
+// POST reject a user
+router.post('/pending-approvals/:userId/reject', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    await db.query(`UPDATE users SET approved = FALSE WHERE id = $1`, [userId]);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to reject user' });
+  }
+});
+
+// ─── INVITE CODE / REGISTRATION GATE ────────────────────────────
+
+// GET current invite code + registration mode
+router.get('/invite-code', async (req, res) => {
+  try {
+    const result = await db.query(
+      "SELECT value FROM system_config WHERE key = 'registration_invite_code'"
+    );
+    res.json({ invite_code: result.rows[0]?.value || null });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch invite code' });
+  }
+});
+
+// POST set or update invite code (pass null/empty to disable)
+router.post('/invite-code', async (req, res) => {
+  try {
+    const { invite_code } = req.body;
+    const value = invite_code?.trim() || null;
+
+    if (value) {
+      await db.query(
+        `INSERT INTO system_config (key, value, updated_at)
+         VALUES ('registration_invite_code', $1, NOW())
+         ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+        [value]
+      );
+    } else {
+      await db.query("DELETE FROM system_config WHERE key = 'registration_invite_code'");
+    }
+
+    res.json({ success: true, invite_code: value });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update invite code' });
+  }
+});
+
 module.exports = router;

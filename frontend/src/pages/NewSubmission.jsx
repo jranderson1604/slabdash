@@ -1,23 +1,25 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { submissions, customers } from '../api/client';
-import { ArrowLeft, Loader2, Plus, Camera } from 'lucide-react';
+import { ArrowLeft, Loader2, Plus, Camera, Copy } from 'lucide-react';
 import Scanner from '../components/Scanner';
 import PageHeader from '../components/PageHeader';
 
 export default function NewSubmission() {
   const navigate = useNavigate();
+  const location = useLocation();
   const toast = useToast();
+  const clone = location.state?.clone;
   const [customerList, setCustomerList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [overrideExisting, setOverrideExisting] = useState(false);
   const [formData, setFormData] = useState({
-    customer_id: '',
+    customer_id: clone?.customer_id || '',
     internal_id: '',
     psa_submission_number: '',
-    service_level: '',
+    service_level: clone?.service_level || '',
     date_sent: '',
     notes: '',
   });
@@ -96,6 +98,17 @@ export default function NewSubmission() {
           </button>
         }
       />
+
+      {/* Clone banner */}
+      {clone && (
+        <div className="flex items-center gap-3 px-5 py-3 rounded-2xl mb-4"
+          style={{ background: 'rgba(255,129,112,0.08)', border: '1px solid rgba(255,129,112,0.2)' }}>
+          <Copy className="w-4 h-4 flex-shrink-0" style={{ color: '#E8543D' }} />
+          <p className="text-sm font-semibold" style={{ color: '#E8543D' }}>
+            Cloning — pre-filled with service level{clone.customer_name ? ` and customer (${clone.customer_name})` : ''}. Enter a new PSA number to save.
+          </p>
+        </div>
+      )}
 
       {/* Scanner Section */}
       {showScanner && (

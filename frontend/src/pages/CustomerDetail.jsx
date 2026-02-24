@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '../context/ToastContext';
 import { customers, submissions } from '../api/client';
 import PageHeader from '../components/PageHeader';
@@ -28,7 +29,7 @@ import {
   Plus,
   Eye,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
 export default function CustomerDetail() {
   const { id } = useParams();
@@ -461,6 +462,17 @@ export default function CustomerDetail() {
                   {customer.recent_submissions?.filter(s => !s.shipped).length || 0} in progress
                 </dd>
               </div>
+              {customer.last_login_at && (
+                <div className="pt-3 border-t border-gray-100">
+                  <dt className="text-gray-500 flex items-center gap-2 text-xs mb-1">
+                    <Eye className="w-4 h-4" />
+                    Last Portal Visit
+                  </dt>
+                  <dd className="text-sm font-medium text-gray-900" title={format(new Date(customer.last_login_at), 'MMM d, yyyy h:mm a')}>
+                    {formatDistanceToNow(new Date(customer.last_login_at), { addSuffix: true })}
+                  </dd>
+                </div>
+              )}
             </dl>
           </div>
 
@@ -513,6 +525,15 @@ export default function CustomerDetail() {
                       <Mail className="w-4 h-4" />
                       Email
                     </button>
+                  </div>
+                  {/* QR code — customer can scan with phone */}
+                  <div className="flex flex-col items-center gap-2 pt-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Customer QR Code</p>
+                    <div className="p-3 rounded-xl inline-block"
+                      style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.07)', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+                      <QRCodeSVG value={portalLink} size={128} level="H" />
+                    </div>
+                    <p className="text-xs text-gray-400 text-center">Show or print this for the customer to scan</p>
                   </div>
                 </div>
               )}

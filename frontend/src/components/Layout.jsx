@@ -447,8 +447,8 @@ export default function Layout({ children }) {
         </main>
       </div>
 
-      {/* SAM AI Assistant - floating button on all pages */}
-      <SAMAssistant />
+      {/* SAM AI Assistant - floating button on all pages except SAM page */}
+      {location.pathname !== '/sam' && <SAMAssistant />}
       {showShortcuts && <KeyboardShortcutsModal onClose={() => setShowShortcuts(false)} />}
     </div>
   );

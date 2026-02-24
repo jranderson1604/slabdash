@@ -59,6 +59,12 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
   const customerCount = submission.linked_customers?.length || 0;
   const cardCount = submission.card_count || submission.cards?.length || 0;
 
+  const daysSinceSent = submission.date_sent && !submission.shipped
+    ? Math.floor((Date.now() - new Date(submission.date_sent)) / 86400000)
+    : 0;
+  const isStaleWarning = daysSinceSent > 90 && daysSinceSent <= 180;
+  const isStaleCritical = daysSinceSent > 180;
+
   const handleRefresh = async (e) => {
     e.stopPropagation();
     setRefreshing(true);
@@ -116,7 +122,11 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
 
   return (
     <div
-      className="group relative bg-white rounded-xl border border-gray-200 hover:border-brand-300 hover:shadow-md transition-all cursor-pointer"
+      className="group relative bg-white rounded-xl border transition-all cursor-pointer hover:shadow-md"
+      style={{
+        borderColor: isStaleCritical ? 'rgba(239,68,68,0.45)' : isStaleWarning ? 'rgba(245,158,11,0.45)' : 'rgb(229,231,235)',
+        boxShadow: isStaleCritical ? '0 0 0 2px rgba(239,68,68,0.12), inset 0 0 20px rgba(239,68,68,0.03)' : isStaleWarning ? '0 0 0 2px rgba(245,158,11,0.12), inset 0 0 20px rgba(245,158,11,0.03)' : undefined,
+      }}
       onClick={() => navigate(`/submissions/${submission.id}`)}
     >
       {/* Top accent bar — service level color */}

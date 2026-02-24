@@ -1167,9 +1167,12 @@ export default function Landing() {
               Join the waitlist — we'll notify you about new features and early access deals.
             </p>
             {waitlistStatus === 'success' ? (
-              <div className="flex items-center justify-center gap-2 py-3">
-                <CheckCircle2 className="w-5 h-5 text-green-400" />
-                <p className="text-sm font-bold text-green-400">{waitlistMsg}</p>
+              <div className="py-4 text-center">
+                <Mail className="w-8 h-8 mx-auto mb-2" style={{ color: '#FF8170' }} />
+                <p className="text-sm font-bold text-white mb-1">{waitlistMsg}</p>
+                <p className="text-xs" style={{ color: 'rgba(255,248,240,0.45)' }}>
+                  Click the link in the email to confirm your spot.
+                </p>
               </div>
             ) : (
               <form onSubmit={submitWaitlist} className="space-y-2">

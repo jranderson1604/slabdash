@@ -18,7 +18,7 @@ import {
   X,
   CheckSquare,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
 function CustomerRow({ customer, onDelete, onSendPortalLink, selected, onSelect }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -95,6 +95,15 @@ function CustomerRow({ customer, onDelete, onSendPortalLink, selected, onSelect 
         <span className={`badge ${customer.portal_access_enabled ? 'badge-green' : 'badge-gray'}`}>
           {customer.portal_access_enabled ? 'Enabled' : 'Disabled'}
         </span>
+      </td>
+      <td>
+        {customer.last_login_at ? (
+          <span className="text-gray-600 text-xs" title={format(new Date(customer.last_login_at), 'MMM d, yyyy h:mm a')}>
+            {formatDistanceToNow(new Date(customer.last_login_at), { addSuffix: true })}
+          </span>
+        ) : (
+          <span className="text-gray-400 text-xs">Never</span>
+        )}
       </td>
       <td>
         <span className="text-gray-500">
@@ -547,6 +556,7 @@ export default function Customers() {
                   <th>Submissions</th>
                   <th>Cards</th>
                   <th>Portal</th>
+                  <th>Last Visit</th>
                   <th>Added</th>
                   <th className="w-10"></th>
                 </tr>

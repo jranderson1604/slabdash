@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
-import { submissions, psa, companies, buyback } from '../api/client';
+import { submissions, psa, companies, buyback, emailTemplates } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import AdminWalkthrough from '../components/AdminWalkthrough';
 import OnboardingChecklist from '../components/OnboardingChecklist';
@@ -21,6 +21,7 @@ import {
   PlayCircle,
   Zap,
   BarChart3,
+  Mail,
 } from 'lucide-react';
 
 function UsageMeter({ label, current, limit, percent }) {
@@ -108,6 +109,7 @@ export default function Dashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [refreshProgress, setRefreshProgress] = useState(null);
   const [showWalkthrough, setShowWalkthrough] = useState(false);
+  const [notifyingReady, setNotifyingReady] = useState(false);
 
   const loadData = async () => {
     try {
@@ -138,6 +140,23 @@ export default function Dashboard() {
       console.error('Failed to load dashboard data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleNotifyReady = async () => {
+    setNotifyingReady(true);
+    try {
+      const res = await emailTemplates.notifyGradesReady();
+      const count = res.data.count;
+      if (count > 0) {
+        toast.success(`Emailed ${count} customer${count !== 1 ? 's' : ''} about their grades`);
+      } else {
+        toast.success('No customers to notify — check that customers are linked to those submissions');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to send notifications');
+    } finally {
+      setNotifyingReady(false);
     }
   };
 
@@ -280,6 +299,33 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Grades-ready notification banner */}
+      {stats?.gradesReady > 0 && (
+        <div className="flex items-center justify-between gap-4 px-5 py-4 rounded-2xl"
+          style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.2)' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(16,185,129,0.12)' }}>
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm font-bold" style={{ color: '#065f46' }}>
+                {stats.gradesReady} submission{stats.gradesReady !== 1 ? 's' : ''} ready for pickup
+              </p>
+              <p className="text-xs" style={{ color: '#047857' }}>Notify linked customers that their grades have come in</p>
+            </div>
+          </div>
+          <button
+            onClick={handleNotifyReady}
+            disabled={notifyingReady}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-60 whitespace-nowrap"
+            style={{ background: 'linear-gradient(135deg, #10b981, #059669)' }}
+          >
+            {notifyingReady ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+            {notifyingReady ? 'Sending...' : 'Notify Customers'}
+          </button>
+        </div>
+      )}
 
       {/* PSA API Warning */}
       {!company?.hasPsaKey && (

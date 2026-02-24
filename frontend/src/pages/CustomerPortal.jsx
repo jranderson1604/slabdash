@@ -398,6 +398,82 @@ function BuybackCard({ offer, onRespond }) {
 }
 
 // ============================================
+// GRADE SNAPSHOT — histogram + best card
+// ============================================
+function GradeSnapshot({ cards }) {
+  const graded = cards.filter(c => c.grade && parseFloat(c.grade) > 0);
+  if (graded.length < 2) return null;
+
+  const dist = graded.reduce((acc, c) => {
+    const g = parseFloat(c.grade) >= 10 ? '10' : c.grade.toString();
+    acc[g] = (acc[g] || 0) + 1;
+    return acc;
+  }, {});
+  const entries = Object.entries(dist).sort((a, b) => parseFloat(b[0]) - parseFloat(a[0]));
+  const maxCount = Math.max(...entries.map(e => e[1]));
+  const bestCard = [...graded].sort((a, b) => parseFloat(b.grade) - parseFloat(a.grade))[0];
+  const topGrade = parseFloat(bestCard?.grade);
+
+  const gradeColor = (g) => {
+    const n = parseFloat(g);
+    if (n === 10) return '#059669';
+    if (n >= 9) return '#10b981';
+    if (n >= 8) return '#0ea5e9';
+    if (n >= 7) return '#6366f1';
+    return '#9ca3af';
+  };
+
+  return (
+    <div className="rounded-2xl p-5 mb-2"
+      style={{ background: 'rgba(255,255,255,0.6)', border: '1px solid rgba(255,255,255,0.5)', boxShadow: '0 2px 20px rgba(0,0,0,0.03)' }}>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-sm font-black uppercase tracking-wide" style={{ color: 'rgb(var(--dark))' }}>Your Grade Summary</h3>
+        <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+          style={{ background: 'rgba(var(--brand-500),0.08)', color: 'rgb(var(--brand-600))' }}>
+          {graded.length} graded
+        </span>
+      </div>
+
+      {/* Best card callout */}
+      {bestCard && (
+        <div className="flex items-center gap-3 mb-4 px-3.5 py-3 rounded-xl"
+          style={{
+            background: topGrade === 10 ? 'rgba(5,150,105,0.07)' : 'rgba(0,0,0,0.03)',
+            border: topGrade === 10 ? '1px solid rgba(5,150,105,0.15)' : '1px solid rgba(0,0,0,0.05)',
+          }}>
+          <div className="w-10 h-10 rounded-lg flex flex-col items-center justify-center flex-shrink-0"
+            style={{ background: gradeColor(bestCard.grade) + '18', border: `1.5px solid ${gradeColor(bestCard.grade)}30` }}>
+            <span className="text-lg font-black leading-none" style={{ color: gradeColor(bestCard.grade) }}>{bestCard.grade}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold uppercase tracking-wide" style={{ color: 'var(--text-secondary)' }}>
+              {topGrade === 10 ? '⭐ Best Card — PSA 10' : 'Best Card'}
+            </p>
+            <p className="text-sm font-semibold truncate" style={{ color: 'rgb(var(--dark))' }}>
+              {bestCard.player_name || bestCard.description || 'Card'}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Grade histogram */}
+      <div className="space-y-2">
+        {entries.map(([grade, count]) => (
+          <div key={grade} className="flex items-center gap-3">
+            <span className="text-xs font-bold w-12 shrink-0 text-right" style={{ color: gradeColor(grade) }}>PSA {grade}</span>
+            <div className="flex-1 h-2.5 rounded-full overflow-hidden" style={{ background: 'rgba(0,0,0,0.06)' }}>
+              <div className="h-full rounded-full transition-all duration-700"
+                style={{ width: `${Math.max(6, (count / maxCount) * 100)}%`, background: gradeColor(grade) }} />
+            </div>
+            <span className="text-xs font-bold w-4 shrink-0" style={{ color: 'var(--text-secondary)' }}>{count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================
 // CARD GALLERY — simplified
 // ============================================
 function GalleryCard({ card, token, onUpload }) {
@@ -719,6 +795,9 @@ export default function CustomerPortal() {
         {/* Submissions Tab */}
         {activeTab === 'submissions' && (
           <>
+            {/* Grade snapshot — only when customer has graded cards */}
+            <GradeSnapshot cards={cards} />
+
             {activeSubmissions.length === 0 && completedSubmissions.length === 0 ? (
               <div className="card p-12 text-center">
                 <Package className="w-16 h-16 mx-auto mb-4" style={{ color: 'rgba(44, 36, 22, 0.15)' }} />
