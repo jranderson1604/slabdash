@@ -51,7 +51,7 @@ router.get('/companies', async (req, res) => {
         COUNT(DISTINCT u.id) as user_count,
         COUNT(DISTINCT cu.id) as customer_count,
         COUNT(DISTINCT s.id) as submission_count,
-        COUNT(DISTINCT ca.id) as card_count,
+        COUNT(DISTINCT ca.id)::int as card_count,
         COUNT(DISTINCT CASE WHEN s.shipped = false AND (s.picked_up IS NULL OR s.picked_up = false) THEN s.id END) as active_submissions,
         COUNT(DISTINCT CASE WHEN s.shipped = true OR s.picked_up = true THEN s.id END) as shipped_submissions,
         COUNT(DISTINCT CASE WHEN s.grades_ready = true AND s.shipped = false AND (s.picked_up IS NULL OR s.picked_up = false) THEN s.id END) as ready_submissions,

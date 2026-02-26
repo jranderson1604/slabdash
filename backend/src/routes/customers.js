@@ -79,7 +79,7 @@ router.get('/:id', authenticate, async (req, res) => {
 
         // Get all submissions for this customer via submission_customers join table
         const submissionsQuery = `
-            SELECT s.*, COUNT(c.id) as card_count
+            SELECT s.*, COUNT(c.id)::int as card_count
             FROM submissions s
             INNER JOIN submission_customers sc ON s.id = sc.submission_id
             LEFT JOIN cards c ON s.id = c.submission_id
@@ -443,7 +443,7 @@ router.post('/:id/send-introduction-email', authenticate, async (req, res) => {
         // Get customer's submissions
         const submissionsResult = await db.query(
             `SELECT s.id, s.psa_submission_number, s.internal_id, s.service_level, s.current_step,
-                    s.progress_percent, s.grades_ready, COUNT(c.id) as card_count
+                    s.progress_percent, s.grades_ready, COUNT(c.id)::int as card_count
              FROM submissions s
              LEFT JOIN cards c ON s.id = c.submission_id
              WHERE s.id IN (
@@ -664,7 +664,7 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
                 // Get customer's submissions
                 const submissionsResult = await db.query(
                     `SELECT s.id, s.psa_submission_number, s.internal_id, s.service_level, s.current_step,
-                            s.progress_percent, s.grades_ready, COUNT(c.id) as card_count
+                            s.progress_percent, s.grades_ready, COUNT(c.id)::int as card_count
                      FROM submissions s
                      LEFT JOIN cards c ON s.id = c.submission_id
                      WHERE s.id IN (
@@ -821,7 +821,7 @@ router.get("/export.csv", authenticate, async (req, res) => {
     const result = await db.query(
       `SELECT
          c.name, c.email, c.phone, c.notes,
-         COUNT(DISTINCT ca.id) AS card_count,
+         COUNT(DISTINCT ca.id)::int AS card_count,
          COUNT(DISTINCT ca.id) FILTER (WHERE ca.grade IS NOT NULL) AS graded_count,
          c.created_at
        FROM customers c

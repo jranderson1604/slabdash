@@ -307,7 +307,7 @@ function ServiceLevelGroup({ level, submissions: groupSubs, onRefresh, onDelete,
   const activeCount = groupSubs.filter(s => !s.shipped && s.progress_percent < 100).length;
   const readyCount = groupSubs.filter(s => s.grades_ready && !s.shipped).length;
   const problemCount = groupSubs.filter(s => s.problem_order).length;
-  const totalCards = groupSubs.reduce((sum, s) => sum + (s.card_count || s.cards?.length || 0), 0);
+  const totalCards = groupSubs.reduce((sum, s) => sum + (parseInt(s.card_count) || s.cards?.length || 0), 0);
 
   return (
     <div className="mb-4">
@@ -673,7 +673,7 @@ export default function Submissions() {
   const completedCount = subs.filter(s => s.shipped || s.progress_percent >= 100).length;
   const problemCount = subs.filter(s => s.problem_order).length;
   const staleCount = subs.filter(s => !s.shipped && !s.problem_order && s.estimated?.isOverdue).length;
-  const totalCards = subs.reduce((sum, s) => sum + (s.card_count || s.cards?.length || 0), 0);
+  const totalCards = subs.reduce((sum, s) => sum + (parseInt(s.card_count) || s.cards?.length || 0), 0);
   const totalCustomers = new Set(subs.flatMap(s => (s.linked_customers || []).map(c => c.id))).size;
 
   return (

@@ -624,7 +624,7 @@ router.get('/access', portalAccessLimiter, async (req, res) => {
                 s.id, s.internal_id, s.psa_submission_number, s.service_level,
                 s.current_step, s.progress_percent, s.grades_ready, s.shipped,
                 s.problem_order, s.date_sent, s.return_tracking,
-                (SELECT COUNT(*) FROM cards WHERE submission_id = s.id) as card_count,
+                (SELECT COUNT(*)::int FROM cards WHERE submission_id = s.id) as card_count,
                 (SELECT json_agg(json_build_object(
                     'id', c.id,
                     'description', c.description,
@@ -805,7 +805,7 @@ router.get('/submissions', authenticateCustomer, async (req, res) => {
                     s.invoice_sent_at,
                     sc.customer_cost,
                     sc.invoice_sent as customer_invoice_sent,
-                    (SELECT COUNT(*) FROM cards WHERE submission_id = s.id) as card_count
+                    (SELECT COUNT(*)::int FROM cards WHERE submission_id = s.id) as card_count
              FROM submissions s
              LEFT JOIN submission_customers sc ON s.id = sc.submission_id AND sc.customer_id = $1
              WHERE s.customer_id = $1 OR sc.customer_id IS NOT NULL
@@ -1109,7 +1109,7 @@ router.get('/pickups', authenticateCustomer, async (req, res) => {
                 sc.delivery_method,
                 sc.shipping_address,
                 sc.customer_cost,
-                (SELECT COUNT(*) FROM cards WHERE submission_id = s.id AND customer_owner_id = $1) as my_card_count
+                (SELECT COUNT(*)::int FROM cards WHERE submission_id = s.id AND customer_owner_id = $1) as my_card_count
              FROM submissions s
              LEFT JOIN submission_customers sc ON s.id = sc.submission_id AND sc.customer_id = $1
              WHERE (s.customer_id = $1 OR sc.customer_id = $1)
@@ -1136,7 +1136,7 @@ router.get('/invoices', authenticateCustomer, async (req, res) => {
                 s.total_cost as submission_total,
                 sc.customer_cost,
                 sc.invoice_sent,
-                (SELECT COUNT(*) FROM cards WHERE submission_id = s.id AND customer_owner_id = $1) as card_count
+                (SELECT COUNT(*)::int FROM cards WHERE submission_id = s.id AND customer_owner_id = $1) as card_count
              FROM submissions s
              LEFT JOIN submission_customers sc ON s.id = sc.submission_id AND sc.customer_id = $1
              WHERE (s.customer_id = $1 OR sc.customer_id = $1)
