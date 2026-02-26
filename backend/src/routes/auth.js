@@ -395,6 +395,16 @@ router.post('/logout', authenticate, async (req, res) => {
     }
 });
 
+// Heartbeat — keeps user "online" for the owner dashboard live count
+router.post('/heartbeat', authenticate, async (req, res) => {
+    try {
+        await db.query('UPDATE users SET last_seen_at = NOW() WHERE id = $1', [req.user.id]);
+        res.json({ ok: true });
+    } catch {
+        res.json({ ok: true }); // best-effort, don't break clients
+    }
+});
+
 // Version check (no secrets exposed)
 router.get('/version', (req, res) => {
     res.json({

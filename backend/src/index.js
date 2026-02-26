@@ -525,7 +525,11 @@ async function startServer() {
         ALTER TABLE users
         ADD COLUMN IF NOT EXISTS last_logout_at TIMESTAMP WITH TIME ZONE;
       `);
-      console.log("✓ Migration: last_logout_at column ensured");
+      await db.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP WITH TIME ZONE;
+      `);
+      console.log("✓ Migration: last_logout_at / last_seen_at columns ensured");
     } catch (migrationError) {
       console.warn("⚠ last_logout_at migration warning:", migrationError.message);
     }
