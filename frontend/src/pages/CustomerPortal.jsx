@@ -658,7 +658,7 @@ export default function CustomerPortal() {
 
   // Quick stats for summary
   const gradesReadyCount = activeSubmissions.filter(s => s.grades_ready).length;
-  const totalCards = data.submissions.reduce((sum, s) => sum + (s.card_count || s.cards?.length || 0), 0);
+  const totalCards = data.submissions.reduce((sum, s) => sum + (parseInt(s.card_count) || s.cards?.length || 0), 0);
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'rgb(var(--bg-color))' }}>

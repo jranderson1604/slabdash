@@ -14,7 +14,7 @@ router.get("/", authenticate, async (req, res) => {
 
     let query = `
       SELECT s.*, c.name as customer_name, c.email as customer_email,
-             (SELECT COUNT(*) FROM cards WHERE submission_id = s.id) as card_count
+             (SELECT COUNT(*)::int FROM cards WHERE submission_id = s.id) as card_count
       FROM submissions s
       LEFT JOIN customers c ON s.customer_id = c.id
       WHERE s.company_id = $1

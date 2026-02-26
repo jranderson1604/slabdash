@@ -1044,7 +1044,7 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
   const completedSubmissions = subs.filter(s => s.picked_up || (s.shipped && !s.pickup_code));
   const pendingOffers = (data.buybackOffers || []).filter(o => o.status === 'pending');
   const hasSAM = data.company?.sam_enabled;
-  const totalCards = subs.reduce((sum, s) => sum + (s.card_count || s.cards?.length || 0), 0);
+  const totalCards = subs.reduce((sum, s) => sum + (parseInt(s.card_count) || s.cards?.length || 0), 0);
   const allCards = data.cards || [];
   const gradedCards = allCards.filter(c => c.grade);
 

@@ -157,7 +157,7 @@ router.get('/top-customers', authenticate, async (req, res) => {
     const result = await db.query(
       `SELECT
          cu.id, cu.name, cu.email,
-         COUNT(DISTINCT c.id) AS card_count,
+         COUNT(DISTINCT c.id)::int AS card_count,
          COUNT(DISTINCT c.id) FILTER (WHERE c.grade IS NOT NULL) AS graded_count,
          ROUND(AVG(CASE WHEN c.grade ~ '^[0-9]+(\\.[0-9]+)?$' THEN c.grade::numeric END), 2) AS avg_grade
        FROM customers cu
