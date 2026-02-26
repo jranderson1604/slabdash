@@ -1138,6 +1138,77 @@ const sendAdminApprovedEmail = async (email, name) => {
     });
 };
 
+/**
+ * Send a daily digest email to the shop owner summarizing all newly-graded submissions.
+ * @param {string} companyId
+ * @param {Array} submissions - array of { psa_submission_number, service_level, card_count }
+ */
+const sendDailyGradesDigestEmail = async (companyId, submissions) => {
+    try {
+        const companyResult = await db.query(
+            `SELECT c.name as company_name, c.email as company_email,
+                    u.email as owner_email, u.name as owner_name
+             FROM companies c
+             LEFT JOIN users u ON u.company_id = c.id AND u.role IN ('owner', 'admin')
+             WHERE c.id = $1
+             ORDER BY u.role = 'owner' DESC
+             LIMIT 1`,
+            [companyId]
+        );
+        if (companyResult.rows.length === 0) return;
+        const row = companyResult.rows[0];
+        const ownerEmail = row.owner_email || row.company_email;
+        if (!ownerEmail) return;
+
+        const config = await getCompanyEmailConfig(companyId);
+        if (!config.email_notifications_enabled) return;
+
+        const count = submissions.length;
+        const subject = `${count} submission${count !== 1 ? 's' : ''} graded — SlabDash daily update`;
+        const date = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+
+        const rows = submissions.map(s => `
+            <tr style="border-bottom: 1px solid #e5e7eb;">
+                <td style="padding: 10px 12px; font-weight: 600; color: #1f2937;">#${escapeHtml(s.psa_submission_number || '—')}</td>
+                <td style="padding: 10px 12px; color: #6b7280;">${escapeHtml(s.service_level || '—')}</td>
+                <td style="padding: 10px 12px; color: #6b7280;">${s.card_count || '—'}</td>
+            </tr>`).join('');
+
+        const html = `
+            <html><body style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #F5F0EB;">
+                <div style="background: linear-gradient(135deg, #FF8170, #e06050); padding: 32px; text-align: center; border-radius: 0 0 20px 20px;">
+                    <div style="font-size: 36px; margin-bottom: 8px;">🎉</div>
+                    <h1 style="color: white; margin: 0; font-size: 22px; font-weight: 800;">${count} Submission${count !== 1 ? 's' : ''} Graded</h1>
+                    <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0; font-size: 14px;">${date}</p>
+                </div>
+                <div style="background: #fff; padding: 28px 24px; border: 1px solid #e5e7eb; border-top: none;">
+                    <p style="color: #2C2416; font-size: 15px;">Hi ${escapeHtml(row.owner_name || 'there')},</p>
+                    <p style="color: rgba(44,36,22,0.7); font-size: 14px; line-height: 1.6;">
+                        The following submission${count !== 1 ? 's have' : ' has'} grades ready as of today. Log in to view grades, generate invoices, or notify customers.
+                    </p>
+                    <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px;">
+                        <thead>
+                            <tr style="background: #f3f4f6; border-bottom: 2px solid #e5e7eb;">
+                                <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #374151;">Submission #</th>
+                                <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #374151;">Service Level</th>
+                                <th style="padding: 10px 12px; text-align: left; font-weight: 600; color: #374151;">Cards</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                    <p style="color: rgba(44,36,22,0.4); font-size: 11px; margin-top: 28px; text-align: center;">
+                        ${escapeHtml(row.company_name)} &middot; Powered by SlabDash
+                    </p>
+                </div>
+            </body></html>`;
+
+        await _sendViaProvider(config, ownerEmail, subject, html);
+        console.log(`[Email] Daily grades digest sent to ${ownerEmail} (${count} submissions)`);
+    } catch (err) {
+        console.error('[Email] sendDailyGradesDigestEmail error:', err.message);
+    }
+};
+
 module.exports = {
     sendSubmissionUpdateEmail,
     sendSubmissionConfirmationEmail,
@@ -1155,5 +1226,6 @@ module.exports = {
     testEmailConfig,
     sendIntroductionEmail,
     getEmailTemplate,
-    renderTemplate
+    renderTemplate,
+    sendDailyGradesDigestEmail
 };
