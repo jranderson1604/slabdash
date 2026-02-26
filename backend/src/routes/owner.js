@@ -522,4 +522,26 @@ router.post('/invite-code', async (req, res) => {
   }
 });
 
+// Live online count — users who sent a heartbeat in the last 2 minutes
+router.get('/online', async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT COUNT(*)::int AS count,
+              json_agg(json_build_object(
+                'name', u.name,
+                'email', u.email,
+                'company', c.name,
+                'last_seen', u.last_seen_at
+              ) ORDER BY u.last_seen_at DESC) AS users
+       FROM users u
+       LEFT JOIN companies c ON u.company_id = c.id
+       WHERE u.last_seen_at > NOW() - INTERVAL '2 minutes'
+         AND u.is_active = true`
+    );
+    res.json({ count: result.rows[0].count, users: result.rows[0].users || [] });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get online count' });
+  }
+});
+
 module.exports = router;

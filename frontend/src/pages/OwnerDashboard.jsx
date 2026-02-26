@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { Navigate } from 'react-router-dom';
@@ -367,6 +367,11 @@ export default function OwnerDashboard() {
   const [inviteCodeInput, setInviteCodeInput] = useState('');
   const [inviteCodeSaving, setInviteCodeSaving] = useState(false);
 
+  const [onlineCount, setOnlineCount] = useState(0);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [showOnlineList, setShowOnlineList] = useState(false);
+  const onlineRef = useRef(null);
+
   if (user?.role !== 'owner') return <Navigate to="/dashboard" replace />;
 
   const loadData = useCallback(async () => {
@@ -390,6 +395,29 @@ export default function OwnerDashboard() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  useEffect(() => {
+    const fetchOnline = async () => {
+      try {
+        const res = await fetch(`${API_URL}/owner/online`, { headers: authHeaders() });
+        if (res.ok) {
+          const data = await res.json();
+          setOnlineCount(data.count);
+          setOnlineUsers(data.users || []);
+        }
+      } catch {}
+    };
+    fetchOnline();
+    const interval = setInterval(fetchOnline, 30_000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!showOnlineList) return;
+    const handler = (e) => { if (onlineRef.current && !onlineRef.current.contains(e.target)) setShowOnlineList(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showOnlineList]);
 
   const loadHealth = async () => {
     setLoadingHealth(true);
@@ -515,6 +543,45 @@ export default function OwnerDashboard() {
         subtitle={`${fmt(stats?.total_shops)} shops · ${fmt(stats?.total_submissions)} submissions · ${fmt(stats?.total_customers)} customers`}
         actions={
           <div className="flex items-center gap-2">
+            {/* Live users online indicator */}
+            <div className="relative" ref={onlineRef}>
+              <button
+                onClick={() => setShowOnlineList(v => !v)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-gray-200 shadow-sm hover:bg-gray-50 transition-colors text-sm font-semibold text-gray-700"
+                title="Users online now"
+              >
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+                </span>
+                {onlineCount} online
+              </button>
+              {showOnlineList && (
+                <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-2xl shadow-xl border border-gray-100 z-50 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-500 uppercase tracking-wide">Active now</span>
+                    <span className="text-xs text-gray-400">last 2 min</span>
+                  </div>
+                  {onlineUsers.length === 0 ? (
+                    <div className="px-4 py-4 text-sm text-gray-400 text-center">No users online</div>
+                  ) : (
+                    <ul className="max-h-72 overflow-y-auto divide-y divide-gray-50">
+                      {onlineUsers.map((u, i) => (
+                        <li key={i} className="flex items-center gap-3 px-4 py-2.5">
+                          <span className="w-7 h-7 rounded-full bg-brand-100 text-brand-700 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                            {(u.name || u.email || '?')[0].toUpperCase()}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-gray-800 truncate">{u.name || u.email}</p>
+                            <p className="text-xs text-gray-400 truncate">{u.company}</p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </div>
             <button onClick={loadData} className="btn btn-secondary p-2" title="Refresh data">
               <RotateCcw className="w-4 h-4" />
             </button>
