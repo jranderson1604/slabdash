@@ -484,6 +484,74 @@ async function runScheduledRefreshes() {
   await runSmartRefresh();
 }
 
+/**
+ * Send daily grades-ready digest emails to shop owners.
+ * Runs every hour; only sends if the current hour matches the company's configured digest hour
+ * and the digest hasn't already been sent today.
+ */
+async function sendDailyDigests() {
+  const now = new Date();
+  const currentHour = now.getUTCHours();
+  const todayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+
+  let companiesResult;
+  try {
+    companiesResult = await db.query(
+      `SELECT c.id, c.name, c.refresh_digest_hour, c.refresh_digest_last_sent
+       FROM companies c
+       WHERE c.refresh_digest_enabled = true
+         AND c.auto_refresh_enabled = true
+         AND c.refresh_digest_hour = $1
+         AND (c.refresh_digest_last_sent IS NULL OR c.refresh_digest_last_sent < $2)`,
+      [currentHour, todayStart]
+    );
+  } catch (err) {
+    if (err.code === '42703') {
+      // Migration hasn't run yet
+      return;
+    }
+    console.error('[Digest] Failed to query companies:', err.message);
+    return;
+  }
+
+  if (companiesResult.rows.length === 0) return;
+
+  const { sendDailyGradesDigestEmail } = emailService;
+
+  for (const company of companiesResult.rows) {
+    try {
+      // Find all submissions pending digest for this company
+      const subsResult = await db.query(
+        `SELECT psa_submission_number, service_level, card_count
+         FROM submissions
+         WHERE company_id = $1 AND grades_ready_pending_digest = true`,
+        [company.id]
+      );
+
+      if (subsResult.rows.length > 0) {
+        await sendDailyGradesDigestEmail(company.id, subsResult.rows);
+        // Mark submissions as digested
+        await db.query(
+          `UPDATE submissions SET grades_ready_pending_digest = false
+           WHERE company_id = $1 AND grades_ready_pending_digest = true`,
+          [company.id]
+        );
+        console.log(`[Digest] Sent digest for ${company.name} (${subsResult.rows.length} submissions)`);
+      } else {
+        console.log(`[Digest] No pending grades for ${company.name}, skipping email`);
+      }
+
+      // Always update last_sent so we don't re-check this company until tomorrow
+      await db.query(
+        `UPDATE companies SET refresh_digest_last_sent = NOW() WHERE id = $1`,
+        [company.id]
+      );
+    } catch (err) {
+      console.error(`[Digest] Error for ${company.name}:`, err.message);
+    }
+  }
+}
+
 module.exports = {
   runScheduledRefreshes,
   runSmartRefresh,
@@ -492,4 +560,5 @@ module.exports = {
   shouldRunRefresh,
   generateRefreshCSV,
   refreshCompanySubmissions,
+  sendDailyDigests,
 };

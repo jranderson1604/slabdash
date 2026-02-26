@@ -31,7 +31,16 @@ function initializeScheduler() {
     }
   });
 
-  console.log('Scheduler initialized (smart refresh every 2 hours)');
+  // Daily grades digest — runs every hour, sends email when it's the company's configured hour
+  cron.schedule('0 * * * *', async () => {
+    try {
+      await scheduledRefreshService.sendDailyDigests();
+    } catch (error) {
+      console.error('[Cron] Daily digest error:', error.message);
+    }
+  });
+
+  console.log('Scheduler initialized (smart refresh every 2 hours, daily digest check every hour)');
 }
 
 module.exports = {

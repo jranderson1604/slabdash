@@ -335,6 +335,19 @@ async function startServer() {
       `);
       console.log("✓ Migration: Auto-refresh scheduling columns ensured");
 
+      // Daily grades digest settings
+      await db.query(`
+        ALTER TABLE companies
+        ADD COLUMN IF NOT EXISTS refresh_digest_enabled BOOLEAN DEFAULT TRUE,
+        ADD COLUMN IF NOT EXISTS refresh_digest_hour INTEGER DEFAULT 8,
+        ADD COLUMN IF NOT EXISTS refresh_digest_last_sent TIMESTAMP WITH TIME ZONE;
+      `);
+      await db.query(`
+        ALTER TABLE submissions
+        ADD COLUMN IF NOT EXISTS grades_ready_pending_digest BOOLEAN DEFAULT FALSE;
+      `);
+      console.log("✓ Migration: Daily digest columns ensured");
+
       // Auto-enable SAM for all companies (it's a core feature)
       await db.query(`UPDATE companies SET sam_enabled = TRUE WHERE sam_enabled IS NOT TRUE`);
 

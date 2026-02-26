@@ -621,13 +621,15 @@ const updateSubmissionFromPsa = async (submissionId, psaData) => {
         }
     }
 
-    // Notify shop owner when grades first become ready
+    // Notify shop owner when grades first become ready — queue for daily digest
     if (parsed.gradesReady && !prev.grades_ready) {
         try {
-            const { sendOwnerGradesReadyEmail } = require('./emailService');
-            await sendOwnerGradesReadyEmail(submissionId);
-        } catch (emailError) {
-            console.error('Failed to send owner grades-ready email:', emailError.message);
+            await db.query(
+                `UPDATE submissions SET grades_ready_pending_digest = true WHERE id = $1`,
+                [submissionId]
+            );
+        } catch (digestErr) {
+            console.error('Failed to queue grades-ready digest:', digestErr.message);
         }
         if (prev.company_id) {
             const { fireWebhook } = require('./webhookService');
@@ -967,6 +969,8 @@ const getRefreshPriority = (submission) => {
     const step = submission.current_step;
     const service = (submission.service_level || '').toLowerCase();
     const isExpress = service.includes('express') || service.includes('walk');
+    // Slow tiers: Value Bulk, Value, Economy, Bulk — can take weeks to months
+    const isSlow = service.includes('bulk') || service.includes('economy') || service.includes('value');
 
     // Shipped or picked up — no refresh needed
     if (submission.shipped || submission.picked_up) return { hours: 0, tier: 'none' };
@@ -980,6 +984,17 @@ const getRefreshPriority = (submission) => {
         return { hours: 6, tier: 'high' };
     }
 
+    // Slow service levels (Value Bulk, Economy, Bulk) — check infrequently until near done
+    if (isSlow) {
+        // Near completion — check daily
+        if (['Grades Ready', 'QA Checks', 'Assembly'].includes(step)) return { hours: 24, tier: 'low' };
+        // Active processing — check every 2 days
+        if (['Research & ID', 'Grading'].includes(step)) return { hours: 48, tier: 'low' };
+        // Early stages — check every 3 days
+        return { hours: 72, tier: 'low' };
+    }
+
+    // Standard tiers (Regular, etc.)
     // Early stages (Arrived, Order Prep) — package just landed
     if (!step || step === 'Arrived' || step === 'Order Prep') return { hours: 8, tier: 'medium' };
 

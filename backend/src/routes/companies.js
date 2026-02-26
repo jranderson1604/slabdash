@@ -10,6 +10,8 @@ router.get('/settings', authenticate, async (req, res) => {
         const result = await db.query(
             `SELECT id, name, slug, email, phone, website, logo_url, psa_api_key,
              auto_refresh_enabled, auto_refresh_interval_hours,
+             refresh_digest_enabled, refresh_digest_hour,
+             last_auto_refresh,
              email_notifications_enabled, smtp_host, smtp_port, smtp_secure,
              smtp_user, from_email, from_name, company_logo_url, use_custom_smtp,
              plan, service_level_pricing, tax_percentage, sam_enabled, shop_code, created_at
@@ -38,6 +40,7 @@ router.patch('/settings', authenticate, async (req, res) => {
         const allowed = [
             'name', 'email', 'phone', 'website', 'logo_url',
             'psa_api_key', 'auto_refresh_enabled', 'auto_refresh_interval_hours',
+            'refresh_digest_enabled', 'refresh_digest_hour',
             'email_notifications_enabled', 'smtp_host', 'smtp_port', 'smtp_secure',
             'smtp_user', 'smtp_password', 'from_email', 'from_name', 'company_logo_url',
             'use_custom_smtp', 'service_level_pricing', 'tax_percentage', 'sam_enabled'
@@ -186,7 +189,8 @@ router.get('/auto-refresh-settings', authenticate, async (req, res) => {
     try {
         const result = await db.query(
             `SELECT auto_refresh_enabled, auto_refresh_schedule, auto_refresh_day_of_week,
-                    auto_refresh_hour, auto_refresh_email, last_auto_refresh
+                    auto_refresh_hour, auto_refresh_email, last_auto_refresh,
+                    refresh_digest_enabled, refresh_digest_hour, refresh_digest_last_sent
              FROM companies WHERE id = $1`,
             [req.user.company_id]
         );
@@ -210,7 +214,9 @@ router.patch('/auto-refresh-settings', authenticate, async (req, res) => {
             auto_refresh_schedule,
             auto_refresh_day_of_week,
             auto_refresh_hour,
-            auto_refresh_email
+            auto_refresh_email,
+            refresh_digest_enabled,
+            refresh_digest_hour
         } = req.body;
 
         // Validate schedule if provided
@@ -226,6 +232,10 @@ router.patch('/auto-refresh-settings', authenticate, async (req, res) => {
         // Validate hour if provided
         if (auto_refresh_hour !== undefined && (auto_refresh_hour < 0 || auto_refresh_hour > 23)) {
             return res.status(400).json({ error: 'Invalid hour. Must be 0-23' });
+        }
+
+        if (refresh_digest_hour !== undefined && (refresh_digest_hour < 0 || refresh_digest_hour > 23)) {
+            return res.status(400).json({ error: 'Invalid digest hour. Must be 0-23' });
         }
 
         const updates = [];
@@ -257,6 +267,16 @@ router.patch('/auto-refresh-settings', authenticate, async (req, res) => {
             values.push(auto_refresh_email || null);
         }
 
+        if (refresh_digest_enabled !== undefined) {
+            updates.push(`refresh_digest_enabled = $${i++}`);
+            values.push(refresh_digest_enabled);
+        }
+
+        if (refresh_digest_hour !== undefined) {
+            updates.push(`refresh_digest_hour = $${i++}`);
+            values.push(refresh_digest_hour);
+        }
+
         if (updates.length === 0) {
             return res.status(400).json({ error: 'No valid fields to update' });
         }
@@ -265,7 +285,8 @@ router.patch('/auto-refresh-settings', authenticate, async (req, res) => {
         const result = await db.query(
             `UPDATE companies SET ${updates.join(', ')} WHERE id = $${i}
              RETURNING auto_refresh_enabled, auto_refresh_schedule, auto_refresh_day_of_week,
-                       auto_refresh_hour, auto_refresh_email, last_auto_refresh`,
+                       auto_refresh_hour, auto_refresh_email, last_auto_refresh,
+                       refresh_digest_enabled, refresh_digest_hour, refresh_digest_last_sent`,
             values
         );
 

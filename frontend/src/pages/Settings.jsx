@@ -102,6 +102,9 @@ export default function Settings() {
     psa_api_key: '',
     auto_refresh_enabled: true,
     auto_refresh_interval_hours: 6,
+    refresh_digest_enabled: true,
+    refresh_digest_hour: 8,
+    last_auto_refresh: null,
     email_notifications_enabled: true,
     sms_notifications_enabled: false,
     push_notifications_enabled: false,
@@ -194,6 +197,9 @@ export default function Settings() {
         psa_api_key: data.psa_api_key || '',
         auto_refresh_enabled: data.auto_refresh_enabled ?? true,
         auto_refresh_interval_hours: data.auto_refresh_interval_hours || 6,
+        refresh_digest_enabled: data.refresh_digest_enabled ?? true,
+        refresh_digest_hour: data.refresh_digest_hour ?? 8,
+        last_auto_refresh: data.last_auto_refresh || null,
         email_notifications_enabled: data.email_notifications_enabled ?? true,
         sms_notifications_enabled: data.sms_notifications_enabled ?? false,
         push_notifications_enabled: data.push_notifications_enabled ?? false,
@@ -432,7 +438,7 @@ export default function Settings() {
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold text-gray-900">Auto-refresh submissions</p>
-                    <p className="text-sm text-gray-500 mt-0.5">Automatically update submission statuses from PSA</p>
+                    <p className="text-sm text-gray-500 mt-0.5">Automatically update submission statuses from PSA every 2 hours</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
                     <input type="checkbox" checked={settings.auto_refresh_enabled}
@@ -441,18 +447,76 @@ export default function Settings() {
                     <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600" />
                   </label>
                 </div>
+
+                {settings.auto_refresh_enabled && (() => {
+                  const lastRefresh = settings.last_auto_refresh ? new Date(settings.last_auto_refresh) : null;
+                  const now = new Date();
+                  // Cron: minute 15 of every even hour (0:15, 2:15, 4:15...)
+                  const nextRefresh = (() => {
+                    const d = new Date(now);
+                    d.setSeconds(0, 0);
+                    d.setMinutes(15);
+                    const currentHour = d.getHours();
+                    const nextEvenHour = currentHour % 2 === 0 && now.getMinutes() < 15
+                      ? currentHour
+                      : currentHour % 2 === 0
+                        ? currentHour + 2
+                        : currentHour + 1;
+                    d.setHours(nextEvenHour % 24);
+                    if (d <= now) d.setDate(d.getDate() + 1);
+                    return d;
+                  })();
+                  const fmtTime = (d) => d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                  const fmtRelative = (d) => {
+                    const mins = Math.round((d - now) / 60000);
+                    if (mins < 1) return 'less than a minute';
+                    if (mins < 60) return `${mins}m`;
+                    return `${Math.round(mins / 60)}h`;
+                  };
+                  return (
+                    <div className="flex gap-4 text-sm">
+                      <div className="flex-1 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2.5">
+                        <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-0.5">Last refresh</p>
+                        <p className="font-semibold text-gray-800">{lastRefresh ? fmtTime(lastRefresh) : '—'}</p>
+                        {lastRefresh && <p className="text-xs text-gray-400">{lastRefresh.toLocaleDateString()}</p>}
+                      </div>
+                      <div className="flex-1 rounded-lg bg-brand-50 border border-brand-200 px-3 py-2.5">
+                        <p className="text-xs font-medium text-brand-500 uppercase tracking-wide mb-0.5">Next refresh</p>
+                        <p className="font-semibold text-brand-700">{fmtTime(nextRefresh)}</p>
+                        <p className="text-xs text-brand-400">in {fmtRelative(nextRefresh)}</p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {settings.auto_refresh_enabled && (
-                  <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Refresh Interval</label>
-                    <select value={settings.auto_refresh_interval_hours}
-                      onChange={(e) => setSettings({ ...settings, auto_refresh_interval_hours: parseInt(e.target.value) })}
-                      className="input w-auto" style={{ border: '1.5px solid #d1d5db', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                      <option value={1}>Every hour</option>
-                      <option value={3}>Every 3 hours</option>
-                      <option value={6}>Every 6 hours</option>
-                      <option value={12}>Every 12 hours</option>
-                      <option value={24}>Once daily</option>
-                    </select>
+                  <div className="pt-2 border-t border-gray-100 space-y-3">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">Daily digest email</p>
+                        <p className="text-sm text-gray-500 mt-0.5">Get one summary email per day instead of an alert per submission</p>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                        <input type="checkbox" checked={settings.refresh_digest_enabled}
+                          onChange={(e) => setSettings({ ...settings, refresh_digest_enabled: e.target.checked })}
+                          className="sr-only peer" />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-brand-100 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-brand-600" />
+                      </label>
+                    </div>
+                    {settings.refresh_digest_enabled && (
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Send digest at</label>
+                        <select value={settings.refresh_digest_hour}
+                          onChange={(e) => setSettings({ ...settings, refresh_digest_hour: parseInt(e.target.value) })}
+                          className="input w-auto" style={{ border: '1.5px solid #d1d5db', background: '#fff', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                          {Array.from({ length: 24 }, (_, h) => {
+                            const label = h === 0 ? '12:00 AM' : h < 12 ? `${h}:00 AM` : h === 12 ? '12:00 PM' : `${h - 12}:00 PM`;
+                            return <option key={h} value={h}>{label}</option>;
+                          })}
+                        </select>
+                        <p className="text-xs text-gray-400 mt-1">Times are UTC. Only sent on days when grades come in.</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
