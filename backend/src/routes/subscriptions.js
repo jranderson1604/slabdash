@@ -151,6 +151,17 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  // Idempotency check — skip already-processed events
+  try {
+    const existing = await db.query('SELECT id FROM stripe_events WHERE event_id = $1', [event.id]);
+    if (existing.rows.length > 0) {
+      return res.sendStatus(200);
+    }
+    await db.query('INSERT INTO stripe_events (event_id, event_type) VALUES ($1, $2)', [event.id, event.type]);
+  } catch (idempotencyErr) {
+    console.warn('Stripe idempotency check failed (table may not exist yet):', idempotencyErr.message);
+  }
+
   // Handle the event
   try {
     switch (event.type) {
@@ -241,14 +252,32 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         break;
       }
 
+      case 'invoice.paid': {
+        // Clear any active grace period when payment succeeds
+        const paidInvoice = event.data.object;
+        await db.query(
+          `UPDATE companies SET payment_failed_at = NULL, updated_at = NOW() WHERE stripe_customer_id = $1`,
+          [paidInvoice.customer]
+        );
+        break;
+      }
+
       case 'invoice.payment_failed': {
         const invoice = event.data.object;
 
         console.warn(`⚠️  Payment failed for Stripe customer ${invoice.customer}`);
 
+        // Record first failure time for grace period tracking
+        await db.query(
+          `UPDATE companies
+           SET payment_failed_at = COALESCE(payment_failed_at, NOW()), updated_at = NOW()
+           WHERE stripe_customer_id = $1`,
+          [invoice.customer]
+        );
+
         try {
           const companyResult = await db.query(
-            `SELECT c.id, c.name, c.email, u.email as owner_email
+            `SELECT c.id, c.name, c.email, c.payment_failed_at, u.email as owner_email
              FROM companies c
              LEFT JOIN users u ON u.company_id = c.id AND u.role = 'admin'
              WHERE c.stripe_customer_id = $1
@@ -258,6 +287,18 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
 
           if (companyResult.rows.length > 0) {
             const company = companyResult.rows[0];
+
+            // Downgrade to free after 3-day grace period
+            const failedAt = company.payment_failed_at ? new Date(company.payment_failed_at) : new Date();
+            const gracePeriodMs = 3 * 24 * 60 * 60 * 1000;
+            if (Date.now() - failedAt.getTime() > gracePeriodMs) {
+              await db.query(
+                `UPDATE companies SET plan = 'free', stripe_subscription_id = NULL, payment_failed_at = NULL, updated_at = NOW() WHERE id = $1`,
+                [company.id]
+              );
+              console.warn(`⬇️  Company ${company.id} downgraded to free after grace period expired`);
+            }
+
             const recipientEmail = company.owner_email || company.email;
 
             if (recipientEmail) {

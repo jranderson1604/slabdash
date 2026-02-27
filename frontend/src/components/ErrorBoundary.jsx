@@ -13,6 +13,12 @@ export default class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error('ErrorBoundary caught:', error, info.componentStack);
+    try {
+      const Sentry = require('@sentry/react');
+      Sentry.captureException(error, { extra: { componentStack: info.componentStack } });
+    } catch {
+      // Sentry not initialized
+    }
   }
 
   render() {

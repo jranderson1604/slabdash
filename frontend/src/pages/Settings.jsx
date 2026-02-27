@@ -117,6 +117,11 @@ export default function Settings() {
   const [newServiceLevel, setNewServiceLevel] = useState('');
   const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
   const [pwSaving, setPwSaving] = useState(false);
+  const [exportLoading, setExportLoading] = useState(false);
+  const [deleteModal, setDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const [showPw, setShowPw] = useState({ current: false, next: false, confirm: false });
   const pwMatch = pwForm.confirm.length > 0 && pwForm.next === pwForm.confirm;
   const pwMismatch = pwForm.confirm.length > 0 && pwForm.next !== pwForm.confirm;
@@ -305,6 +310,53 @@ export default function Settings() {
       toast.error(error.response?.data?.error || 'Failed to change password');
     } finally {
       setPwSaving(false);
+    }
+  };
+
+  const handleExportData = async () => {
+    setExportLoading(true);
+    try {
+      const token = localStorage.getItem('slabdash_token');
+      const res = await fetch(`${API_URL}/account/export`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `slabdash-export-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Export downloaded');
+    } catch {
+      toast.error('Export failed. Please try again.');
+    } finally {
+      setExportLoading(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== 'DELETE MY ACCOUNT') {
+      toast.error('Type exactly: DELETE MY ACCOUNT');
+      return;
+    }
+    setDeleteLoading(true);
+    try {
+      const token = localStorage.getItem('slabdash_token');
+      const res = await fetch(`${API_URL}/account/delete`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: deletePassword, confirmation: deleteConfirmText }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Deletion failed');
+      localStorage.removeItem('slabdash_token');
+      window.location.href = '/';
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -761,6 +813,81 @@ export default function Settings() {
               </div>
             </div>
           </SettingsSection>
+
+          {/* Data Export */}
+          <SettingsSection icon={Download} title="Export Your Data" description="Download a full copy of your account data (GDPR data portability)">
+            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+              Export includes your shop info, all customers, submissions, cards, and buyback offers as a JSON file.
+            </p>
+            <button onClick={handleExportData} disabled={exportLoading} className="btn btn-secondary gap-2">
+              {exportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+              Download My Data
+            </button>
+          </SettingsSection>
+
+          {/* Danger Zone */}
+          <div className="card p-6" style={{ border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.02)' }}>
+            <div className="flex items-start gap-4 mb-4">
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.12)' }}>
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-red-700">Danger Zone</h2>
+                <p className="text-sm font-medium text-red-500">These actions are permanent and cannot be undone.</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-4 rounded-xl" style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.1)' }}>
+              <div>
+                <p className="font-semibold text-red-800">Delete Account</p>
+                <p className="text-sm text-red-600">Permanently delete your account, all customers, submissions, and data.</p>
+              </div>
+              <button onClick={() => setDeleteModal(true)} className="btn text-sm font-bold text-red-600 hover:bg-red-50 border border-red-200 px-4 py-2 rounded-xl transition-colors">
+                Delete Account
+              </button>
+            </div>
+          </div>
+
+          {/* Delete confirmation modal */}
+          {deleteModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}>
+              <div className="w-full max-w-md rounded-2xl p-6"
+                style={{ background: 'white', boxShadow: '0 25px 60px rgba(0,0,0,0.2)' }}>
+                <div className="flex items-center gap-3 mb-4">
+                  <AlertTriangle className="w-6 h-6 text-red-500 flex-shrink-0" />
+                  <h3 className="text-lg font-bold text-gray-900">Delete Account Permanently</h3>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  This will permanently delete <strong>{company?.name}</strong> and all associated data including customers, submissions, cards, and billing history. <strong>This cannot be undone.</strong>
+                </p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="label text-xs mb-1">Type <strong>DELETE MY ACCOUNT</strong> to confirm</label>
+                    <input type="text" value={deleteConfirmText}
+                      onChange={e => setDeleteConfirmText(e.target.value)}
+                      className="input" placeholder="DELETE MY ACCOUNT" />
+                  </div>
+                  <div>
+                    <label className="label text-xs mb-1">Your password</label>
+                    <input type="password" value={deletePassword}
+                      onChange={e => setDeletePassword(e.target.value)}
+                      className="input" placeholder="Confirm with your password" autoComplete="current-password" />
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-6">
+                  <button onClick={() => { setDeleteModal(false); setDeletePassword(''); setDeleteConfirmText(''); }}
+                    className="btn btn-secondary flex-1">Cancel</button>
+                  <button onClick={handleDeleteAccount}
+                    disabled={deleteLoading || deleteConfirmText !== 'DELETE MY ACCOUNT' || !deletePassword}
+                    className="flex-1 btn font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 gap-2">
+                    {deleteLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    Delete Forever
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
