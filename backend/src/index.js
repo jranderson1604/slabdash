@@ -1,4 +1,16 @@
 require("dotenv").config();
+
+// Sentry must be initialized before any other requires
+const Sentry = require("@sentry/node");
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || "development",
+    tracesSampleRate: process.env.NODE_ENV === "production" ? 0.1 : 0,
+  });
+  console.log("✓ Sentry error tracking initialized");
+}
+
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -38,6 +50,7 @@ const analyticsRoutes = require("./routes/analytics");
 const webhooksRoutes = require("./routes/webhooks");
 const auditRoutes = require("./routes/audit");
 const cardImportRoutes = require("./routes/cardImport");
+const accountRoutes = require("./routes/account");
 
 /* -------------------- STARTUP VALIDATION -------------------- */
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
@@ -61,6 +74,10 @@ for (const envVar of warnEnvVars) {
 /* -------------------- GLOBAL ERROR HANDLERS -------------------- */
 process.on('unhandledRejection', (reason, promise) => {
   console.error('⚠️  Unhandled Promise Rejection:', reason);
+  if (process.env.SENTRY_DSN) {
+    const Sentry = require("@sentry/node");
+    Sentry.captureException(reason);
+  }
 });
 
 process.on('uncaughtException', (error) => {
@@ -236,6 +253,7 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/webhooks", webhooksRoutes);
 app.use("/api/audit", auditRoutes);
 app.use("/api/card-import", cardImportRoutes);
+app.use("/api/account", accountRoutes);
 
 /* -------------------- 404 HANDLER -------------------- */
 
@@ -248,6 +266,7 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   // Log full error server-side, never expose internals to client
   console.error("API Error:", err.message);
+  if (process.env.SENTRY_DSN) Sentry.captureException(err);
   const status = err.status || 500;
   res.status(status).json({
     error: status === 500 ? "Internal server error" : (err.message || "Internal server error")
@@ -658,6 +677,14 @@ async function startServer() {
       console.log("✓ Migration: users approved column ensured");
     } catch (migrationError) {
       console.warn("⚠ users approved migration warning:", migrationError.message);
+    }
+
+    // Dunning: payment_failed_at on companies
+    try {
+      await db.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS payment_failed_at TIMESTAMP WITH TIME ZONE`);
+      console.log("✓ Migration: companies.payment_failed_at ensured");
+    } catch (migrationError) {
+      console.warn("⚠ payment_failed_at migration warning:", migrationError.message);
     }
 
     // Admin lockout + password reset columns on users table

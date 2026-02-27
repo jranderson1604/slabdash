@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.74.0",
     "@google-cloud/vision": "^5.3.4",
     "@sendgrid/mail": "^8.1.6",
+    "@sentry/node": "^10.40.0",
     "axios": "^1.6.2",
     "bcryptjs": "^2.4.3",
     "cheerio": "1.0.0-rc.10",
