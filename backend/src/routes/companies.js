@@ -14,6 +14,7 @@ router.get('/settings', authenticate, async (req, res) => {
              last_auto_refresh,
              email_notifications_enabled, smtp_host, smtp_port, smtp_secure,
              smtp_user, from_email, from_name, company_logo_url, use_custom_smtp,
+             contact_email,
              plan, service_level_pricing, tax_percentage, sam_enabled, shop_code, created_at
              FROM companies WHERE id = $1`,
             [req.user.company_id]
@@ -43,7 +44,7 @@ router.patch('/settings', authenticate, async (req, res) => {
             'refresh_digest_enabled', 'refresh_digest_hour',
             'email_notifications_enabled', 'smtp_host', 'smtp_port', 'smtp_secure',
             'smtp_user', 'smtp_password', 'from_email', 'from_name', 'company_logo_url',
-            'use_custom_smtp', 'service_level_pricing', 'tax_percentage', 'sam_enabled'
+            'use_custom_smtp', 'contact_email', 'service_level_pricing', 'tax_percentage', 'sam_enabled'
         ];
         const updates = [], values = [];
         const skippedFields = [];
