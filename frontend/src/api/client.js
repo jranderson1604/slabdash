@@ -81,6 +81,7 @@ export const submissions = {
       headers: { 'Content-Type': 'multipart/form-data' }
     }),
   importCSV: (id, csvData) => api.post(`/submissions/${id}/import-csv`, { csvData }),
+  bulkAddCustomer: (customerId, submissionIds) => api.post('/submissions/bulk-add-customer', { customerId, submissionIds }),
   fixShippedStatus: () => api.post('/submissions/fix-shipped-status'),
   verifyPickupCode: (data) => api.post('/submissions/verify-pickup-code', data)
 };
