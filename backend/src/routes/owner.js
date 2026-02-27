@@ -132,6 +132,25 @@ router.patch('/companies/:id', async (req, res) => {
   }
 });
 
+// ─── LIFETIME ACCESS ─────────────────────────────────────────────
+
+router.post('/companies/:id/grant-lifetime', async (req, res) => {
+  try {
+    const result = await db.query(
+      `UPDATE companies
+       SET plan = 'enterprise', trial_ends_at = NULL, plan_expires_at = NULL, updated_at = NOW()
+       WHERE id = $1 RETURNING name, plan`,
+      [req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Company not found' });
+    const { name } = result.rows[0];
+    console.log(`[Owner] Granted lifetime enterprise access to "${name}"`);
+    res.json({ success: true, plan: 'enterprise', trial_ends_at: null, plan_expires_at: null });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to grant lifetime access' });
+  }
+});
+
 // ─── PSA KEY MANAGEMENT ──────────────────────────────────────────
 
 router.post('/companies/:id/clear-psa-key', async (req, res) => {

@@ -68,6 +68,7 @@ function CompanyDrawer({ company, onClose, onUpdate, toast }) {
   const [editField, setEditField] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState(false);
+  const [grantingLifetime, setGrantingLifetime] = useState(false);
 
   useEffect(() => {
     setLoadingUsers(true);
@@ -92,6 +93,20 @@ function CompanyDrawer({ company, onClose, onUpdate, toast }) {
   };
 
   const toggle = (field, current) => save(field, !current);
+
+  const grantLifetime = async () => {
+    if (!confirm(`Grant lifetime enterprise access to "${company.name}"? This removes any trial or expiry.`)) return;
+    setGrantingLifetime(true);
+    try {
+      const res = await fetch(`${API_URL}/owner/companies/${company.id}/grant-lifetime`, {
+        method: 'POST', headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+      onUpdate({ ...company, plan: 'enterprise', trial_ends_at: null, plan_expires_at: null });
+      toast.success('Lifetime enterprise access granted');
+    } catch (e) { toast.error(e.message); }
+    finally { setGrantingLifetime(false); }
+  };
 
   const triggerRefresh = async () => {
     if (!company.has_psa_key) { toast.error('No PSA API key configured'); return; }
@@ -222,6 +237,17 @@ function CompanyDrawer({ company, onClose, onUpdate, toast }) {
               { value: 'pro', label: 'Pro' },
               { value: 'enterprise', label: 'Enterprise' },
             ]} />
+            <div className="flex items-center justify-between py-2.5">
+              <div>
+                <p className="text-sm text-gray-500">Lifetime Access</p>
+                <p className="text-xs text-gray-400">Enterprise forever, no trial or expiry</p>
+              </div>
+              <button onClick={grantLifetime} disabled={grantingLifetime}
+                className="btn btn-secondary text-xs py-1.5 px-3 flex items-center gap-1.5">
+                {grantingLifetime ? <Loader2 className="w-3 h-3 animate-spin" /> : <Crown className="w-3 h-3" />}
+                Grant Lifetime
+              </button>
+            </div>
           </div>
 
           {/* PSA / Features */}
