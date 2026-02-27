@@ -906,6 +906,67 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
   }
 });
 
+// Bulk add one customer to multiple submissions
+router.post("/bulk-add-customer", authenticate, async (req, res) => {
+  try {
+    const { customerId, submissionIds } = req.body;
+
+    if (!customerId) {
+      return res.status(400).json({ error: 'Customer ID required' });
+    }
+    if (!Array.isArray(submissionIds) || submissionIds.length === 0) {
+      return res.status(400).json({ error: 'Submission IDs required' });
+    }
+
+    // Verify customer belongs to this company
+    const customerCheck = await db.query(
+      'SELECT id FROM customers WHERE id = $1 AND company_id = $2',
+      [customerId, req.user.company_id]
+    );
+    if (customerCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    let added = 0;
+    let skipped = 0;
+
+    for (const submissionId of submissionIds) {
+      try {
+        const submissionCheck = await db.query(
+          'SELECT id FROM submissions WHERE id = $1 AND company_id = $2',
+          [submissionId, req.user.company_id]
+        );
+        if (submissionCheck.rows.length === 0) { skipped++; continue; }
+
+        const existing = await db.query(
+          'SELECT id FROM submission_customers WHERE submission_id = $1 AND customer_id = $2',
+          [submissionId, customerId]
+        );
+        if (existing.rows.length > 0) { skipped++; continue; }
+
+        await db.query(
+          'INSERT INTO submission_customers (submission_id, customer_id) VALUES ($1, $2)',
+          [submissionId, customerId]
+        );
+        added++;
+      } catch (err) {
+        console.error(`Failed to link submission ${submissionId}:`, err);
+        skipped++;
+      }
+    }
+
+    res.json({
+      success: true,
+      added,
+      skipped,
+      message: `Added to ${added} submission${added !== 1 ? 's' : ''}${skipped > 0 ? `, skipped ${skipped} already linked` : ''}`
+    });
+  } catch (error) {
+    console.error('Bulk add customer error:', error);
+    res.status(500).json({ error: 'Failed to add customer to submissions' });
+  }
+});
+
 // Admin endpoint to fix corrupted shipped statuses
 router.post("/fix-shipped-status", authenticate, requireRole("owner", "admin"), async (req, res) => {
   try {

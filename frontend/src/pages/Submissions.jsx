@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
-import { submissions, emailTemplates, psaImport, psa } from '../api/client';
+import { submissions, customers as customersApi, emailTemplates, psaImport, psa } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import ProgressBar from '../components/ProgressBar';
 import ExportButton from '../components/ExportButton';
@@ -10,7 +10,7 @@ import {
   Plus, Search, RefreshCw, Filter, MoreVertical, Eye, Trash2,
   Package, Loader2, AlertCircle, CheckCircle2, Clock, Info, Users,
   User, X, ExternalLink, Mail, Send, Upload, Download, ChevronDown,
-  ChevronRight, Zap, Calendar, ArrowUpDown, PackageCheck
+  ChevronRight, Zap, Calendar, ArrowUpDown, PackageCheck, UserPlus, Square, CheckSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -49,7 +49,7 @@ function formatTimeAgo(dateStr) {
 // ============================================
 // SUBMISSION CARD — inline refresh, clear status
 // ============================================
-function SubmissionCard({ submission, onRefresh, onDelete }) {
+function SubmissionCard({ submission, onRefresh, onDelete, selectable, selected, onToggleSelect }) {
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [refreshResult, setRefreshResult] = useState(null);
@@ -124,11 +124,19 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
     <div
       className="group relative bg-white rounded-xl border transition-all cursor-pointer hover:shadow-md"
       style={{
-        borderColor: isStaleCritical ? 'rgba(239,68,68,0.45)' : isStaleWarning ? 'rgba(245,158,11,0.45)' : 'rgb(229,231,235)',
-        boxShadow: isStaleCritical ? '0 0 0 2px rgba(239,68,68,0.12), inset 0 0 20px rgba(239,68,68,0.03)' : isStaleWarning ? '0 0 0 2px rgba(245,158,11,0.12), inset 0 0 20px rgba(245,158,11,0.03)' : undefined,
+        borderColor: selected ? '#FF8170' : isStaleCritical ? 'rgba(239,68,68,0.45)' : isStaleWarning ? 'rgba(245,158,11,0.45)' : 'rgb(229,231,235)',
+        boxShadow: selected ? '0 0 0 2px rgba(255,129,112,0.3)' : isStaleCritical ? '0 0 0 2px rgba(239,68,68,0.12), inset 0 0 20px rgba(239,68,68,0.03)' : isStaleWarning ? '0 0 0 2px rgba(245,158,11,0.12), inset 0 0 20px rgba(245,158,11,0.03)' : undefined,
       }}
-      onClick={() => navigate(`/submissions/${submission.id}`)}
+      onClick={() => selectable ? onToggleSelect(submission.id) : navigate(`/submissions/${submission.id}`)}
     >
+      {selectable && (
+        <div className="absolute top-2 left-2 z-10" onClick={(e) => { e.stopPropagation(); onToggleSelect(submission.id); }}>
+          {selected
+            ? <CheckSquare className="w-5 h-5 text-brand-500" />
+            : <Square className="w-5 h-5 text-gray-300" />
+          }
+        </div>
+      )}
       {/* Top accent bar — service level color */}
       <div className={`h-1 rounded-t-xl ${config.color}`} />
 
@@ -300,7 +308,7 @@ function SubmissionCard({ submission, onRefresh, onDelete }) {
 // ============================================
 // SERVICE LEVEL GROUP — collapsible section
 // ============================================
-function ServiceLevelGroup({ level, submissions: groupSubs, onRefresh, onDelete, defaultOpen = true }) {
+function ServiceLevelGroup({ level, submissions: groupSubs, onRefresh, onDelete, defaultOpen = true, selectable, selectedIds, onToggleSelect }) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   const config = getServiceConfig(level);
 
@@ -363,6 +371,9 @@ function ServiceLevelGroup({ level, submissions: groupSubs, onRefresh, onDelete,
               submission={sub}
               onRefresh={onRefresh}
               onDelete={onDelete}
+              selectable={selectable}
+              selected={selectedIds?.has(sub.id)}
+              onToggleSelect={onToggleSelect}
             />
           ))}
         </div>
@@ -394,6 +405,51 @@ export default function Submissions() {
   const [pickupResult, setPickupResult] = useState(null);
   const [pickupLoading, setPickupLoading] = useState(false);
   const [pickupError, setPickupError] = useState('');
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [showBulkCustomerModal, setShowBulkCustomerModal] = useState(false);
+  const [bulkCustomerSearch, setBulkCustomerSearch] = useState('');
+  const [allCustomers, setAllCustomers] = useState([]);
+  const [bulkAdding, setBulkAdding] = useState(false);
+
+  const toggleSelectMode = () => {
+    setSelectMode(v => !v);
+    setSelectedIds(new Set());
+  };
+
+  const handleToggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const openBulkCustomerModal = async () => {
+    try {
+      const res = await customersApi.list({ limit: 500 });
+      setAllCustomers(res.data.customers || []);
+    } catch (e) {
+      setAllCustomers([]);
+    }
+    setBulkCustomerSearch('');
+    setShowBulkCustomerModal(true);
+  };
+
+  const handleBulkAddCustomer = async (customerId) => {
+    setBulkAdding(true);
+    try {
+      const res = await submissions.bulkAddCustomer(customerId, [...selectedIds]);
+      toast.success(res.data.message || 'Customer added to submissions');
+      setShowBulkCustomerModal(false);
+      setSelectMode(false);
+      setSelectedIds(new Set());
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Failed to add customer');
+    } finally {
+      setBulkAdding(false);
+    }
+  };
 
   const loadSubmissions = async () => {
     try {
@@ -858,6 +914,19 @@ export default function Submissions() {
           )}
         </div>
 
+        <button
+          onClick={toggleSelectMode}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all border ${
+            selectMode
+              ? 'bg-brand-50 text-brand-600 border-brand-200'
+              : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+          }`}
+          title="Select multiple submissions to bulk-add a customer"
+        >
+          <UserPlus className="w-4 h-4" />
+          <span className="hidden sm:inline">{selectMode ? 'Cancel' : 'Select'}</span>
+        </button>
+
         <form onSubmit={handlePickupCodeVerify} className="flex gap-2">
           <div className="relative">
             <PackageCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -924,6 +993,9 @@ export default function Submissions() {
               onRefresh={loadSubmissions}
               onDelete={handleDelete}
               defaultOpen={groupedSubs[level].some(s => !s.shipped && s.progress_percent < 100)}
+              selectable={selectMode}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
             />
           ))}
         </div>
@@ -1008,6 +1080,86 @@ export default function Submissions() {
                 <label htmlFor="csv-upload" className={`inline-flex items-center gap-2 bg-brand-600 text-white px-4 py-2 rounded-xl font-semibold cursor-pointer hover:bg-brand-700 ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
                   {importing ? <><Loader2 className="w-4 h-4 animate-spin" /> Importing...</> : <><Upload className="w-4 h-4" /> Select CSV</>}
                 </label>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FLOATING SELECTION BAR */}
+      {selectMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-gray-900 text-white px-5 py-3 rounded-2xl shadow-2xl">
+          <span className="text-sm font-semibold">{selectedIds.size} selected</span>
+          <button
+            onClick={openBulkCustomerModal}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-brand-500 hover:bg-brand-600 rounded-xl text-sm font-semibold transition-colors"
+          >
+            <UserPlus className="w-4 h-4" />
+            Add Customer
+          </button>
+          <button
+            onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }}
+            className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* BULK ADD CUSTOMER MODAL */}
+      {showBulkCustomerModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-brand-600" />
+                Add Customer to {selectedIds.size} Submission{selectedIds.size !== 1 ? 's' : ''}
+              </h3>
+              <button onClick={() => setShowBulkCustomerModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+            <div className="p-5 space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search customers..."
+                  value={bulkCustomerSearch}
+                  onChange={(e) => setBulkCustomerSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                  autoFocus
+                />
+              </div>
+              <div className="max-h-72 overflow-y-auto space-y-1">
+                {allCustomers
+                  .filter(c => {
+                    const q = bulkCustomerSearch.toLowerCase();
+                    return !q || c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q);
+                  })
+                  .map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => handleBulkAddCustomer(c.id)}
+                      disabled={bulkAdding}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-brand-50 transition-colors text-left disabled:opacity-50"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center flex-shrink-0">
+                        <User className="w-4 h-4 text-brand-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{c.name}</p>
+                        {c.email && <p className="text-xs text-gray-500 truncate">{c.email}</p>}
+                      </div>
+                      {bulkAdding && <Loader2 className="w-4 h-4 animate-spin ml-auto text-brand-500 flex-shrink-0" />}
+                    </button>
+                  ))}
+                {allCustomers.filter(c => {
+                  const q = bulkCustomerSearch.toLowerCase();
+                  return !q || c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q);
+                }).length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">No customers found</p>
+                )}
               </div>
             </div>
           </div>
