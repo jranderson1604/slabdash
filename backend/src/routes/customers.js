@@ -109,6 +109,10 @@ router.post('/', authenticate, async (req, res) => {
     try {
         const { email, name, phone, address_line1, city, state, postal_code, notes } = req.body;
         if (!email || !name) return res.status(400).json({ error: 'Email and name required' });
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return res.status(400).json({ error: 'Invalid email format' });
+        if (name.length > 255) return res.status(400).json({ error: 'Name too long (max 255 characters)' });
+        if (phone && phone.length > 50) return res.status(400).json({ error: 'Phone too long' });
+        if (notes && notes.length > 5000) return res.status(400).json({ error: 'Notes too long (max 5000 characters)' });
 
         // Enforce customer count limit
         const limits = getLimits(req.user.plan);
@@ -293,10 +297,15 @@ router.post('/import-csv', authenticate, async (req, res) => {
             const state = stateIndex >= 0 ? cols[stateIndex]?.trim() : null;
             const zip = zipIndex >= 0 ? cols[zipIndex]?.trim() : null;
 
-            // Skip if no email or name
+            // Skip if no email or name or invalid email
             if (!email || !name) {
                 skipped++;
                 errors.push(`Row ${i + 1}: Missing email or name`);
+                continue;
+            }
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                skipped++;
+                errors.push(`Row ${i + 1}: Invalid email format (${email})`);
                 continue;
             }
 

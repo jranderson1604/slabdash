@@ -34,6 +34,8 @@ import SAMAI from './pages/SAMAI';
 import Demo from './pages/Demo';
 import VerifyEmail from './pages/VerifyEmail';
 import VerifyAccount from './pages/VerifyAccount';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import { Loader2 } from 'lucide-react';
 
 function ProtectedRoute({ children }) {
@@ -80,6 +82,8 @@ function AppRoutes() {
       <Route path="/demo" element={<Demo />} />
       <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/verify-account" element={<VerifyAccount />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/portal" element={<Portal />} />
       <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
       <Route path="/register" element={<PublicRoute><Register /></PublicRoute>} />

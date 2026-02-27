@@ -45,6 +45,15 @@ router.get('/stats', async (req, res) => {
 
 router.get('/companies', async (req, res) => {
   try {
+    const limit = Math.min(parseInt(req.query.limit) || 100, 200);
+    const offset = parseInt(req.query.offset) || 0;
+    const search = req.query.search ? `%${req.query.search}%` : null;
+
+    const params = search ? [search, limit, offset] : [limit, offset];
+    const whereClause = search ? `WHERE c.name ILIKE $1 OR c.email ILIKE $1` : '';
+    const limitParam = search ? '$2' : '$1';
+    const offsetParam = search ? '$3' : '$2';
+
     const result = await db.query(`
       SELECT
         c.*,
@@ -62,9 +71,11 @@ router.get('/companies', async (req, res) => {
       LEFT JOIN customers cu ON c.id = cu.company_id
       LEFT JOIN submissions s ON c.id = s.company_id
       LEFT JOIN cards ca ON c.id = ca.company_id
+      ${whereClause}
       GROUP BY c.id
       ORDER BY c.created_at DESC
-    `);
+      LIMIT ${limitParam} OFFSET ${offsetParam}
+    `, params);
 
     const companies = result.rows.map(c => ({
       ...c,

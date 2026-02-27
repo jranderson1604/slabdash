@@ -436,11 +436,12 @@ router.post('/auth/forgot-password', authLimiter, async (req, res) => {
     const customer = customerResult.rows[0];
 
     const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
     const resetExpires = new Date(Date.now() + 60 * 60 * 1000);
 
     await db.query(
       `UPDATE customers SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3`,
-      [resetToken, resetExpires, customer.id]
+      [resetTokenHash, resetExpires, customer.id]
     );
 
     try {
@@ -471,10 +472,11 @@ router.post('/auth/reset-password', authLimiter, async (req, res) => {
       return res.status(400).json({ error: passwordError });
     }
 
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const customerResult = await db.query(
       `SELECT id FROM customers
        WHERE password_reset_token = $1 AND password_reset_expires > NOW()`,
-      [token]
+      [tokenHash]
     );
 
     if (customerResult.rows.length === 0) {

@@ -185,9 +185,13 @@ export default function Login() {
             </div>
 
             <div>
-              <label htmlFor="password" className="label block mb-1.5">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="password" className="label">Password</label>
+                <Link to="/forgot-password" className="text-xs font-medium transition-opacity hover:opacity-70"
+                  style={{ color: '#FC7B62' }}>
+                  Forgot password?
+                </Link>
+              </div>
               <input
                 id="password"
                 type="password"

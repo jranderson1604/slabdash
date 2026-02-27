@@ -69,7 +69,7 @@ router.post('/login', loginLimiter, async (req, res) => {
 
         const result = await db.query(
             `SELECT u.id, u.company_id, u.email, u.name, u.role, u.password_hash,
-             u.email_verified, u.approved,
+             u.email_verified, u.approved, u.failed_login_attempts, u.locked_until,
              c.name as company_name, c.slug as company_slug, c.shop_code as company_shop_code,
              c.psa_api_key IS NOT NULL as has_psa_key,
              c.primary_color, c.background_color, c.sidebar_color,
@@ -84,10 +84,31 @@ router.post('/login', loginLimiter, async (req, res) => {
         }
 
         const user = result.rows[0];
+
+        // Check account lockout
+        if (user.locked_until && new Date(user.locked_until) > new Date()) {
+            const minutesLeft = Math.ceil((new Date(user.locked_until) - Date.now()) / 60000);
+            return res.status(429).json({ error: `Account locked due to too many failed attempts. Try again in ${minutesLeft} minute(s).` });
+        }
+
         const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
         if (!passwordMatch) {
+            const attempts = (user.failed_login_attempts || 0) + 1;
+            const lockUntil = attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
+            await db.query(
+                'UPDATE users SET failed_login_attempts = $1, locked_until = $2 WHERE id = $3',
+                [attempts, lockUntil, user.id]
+            );
             return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        // Reset lockout on successful login
+        if (user.failed_login_attempts > 0 || user.locked_until) {
+            await db.query(
+                'UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1',
+                [user.id]
+            );
         }
 
         // Block unverified accounts
@@ -392,6 +413,89 @@ router.post('/logout', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Logout error:', error);
         res.status(500).json({ error: 'Logout failed' });
+    }
+});
+
+// Forgot password (admin users)
+const forgotPasswordLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests. Please try again later.' }
+});
+
+router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
+    // Always return the same message to prevent email enumeration
+    const successMsg = 'If that email is registered, you will receive a password reset link.';
+    try {
+        const { email: emailInput } = req.body;
+        if (!emailInput || !isValidEmail(emailInput)) {
+            return res.json({ message: successMsg });
+        }
+
+        const result = await db.query(
+            'SELECT id, name, email FROM users WHERE email = $1 AND is_active = true AND approved = true',
+            [emailInput.toLowerCase()]
+        );
+
+        if (result.rows.length === 0) return res.json({ message: successMsg });
+
+        const user = result.rows[0];
+        const rawToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+        const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+        await db.query(
+            'UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3',
+            [tokenHash, expires, user.id]
+        );
+
+        try {
+            await email().sendAdminPasswordResetEmail(user.email, user.name, rawToken);
+        } catch (emailErr) {
+            console.error('[Auth] Admin password reset email failed:', emailErr.message);
+        }
+
+        res.json({ message: successMsg });
+    } catch (error) {
+        console.error('Admin forgot password error:', error);
+        res.json({ message: successMsg });
+    }
+});
+
+// Reset password with token (admin users)
+router.post('/reset-password', forgotPasswordLimiter, async (req, res) => {
+    try {
+        const { token, password: newPassword } = req.body;
+        if (!token || !newPassword) {
+            return res.status(400).json({ error: 'Token and new password are required' });
+        }
+
+        const passwordError = isValidPassword(newPassword);
+        if (passwordError) return res.status(400).json({ error: passwordError });
+
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        const result = await db.query(
+            `SELECT id FROM users WHERE password_reset_token = $1 AND password_reset_expires > NOW() AND is_active = true`,
+            [tokenHash]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid or expired reset link. Request a new one.' });
+        }
+
+        const newHash = await bcrypt.hash(newPassword, 12);
+        await db.query(
+            `UPDATE users SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL,
+             failed_login_attempts = 0, locked_until = NULL WHERE id = $2`,
+            [newHash, result.rows[0].id]
+        );
+
+        res.json({ success: true, message: 'Password reset successfully. You can now log in.' });
+    } catch (error) {
+        console.error('Admin reset password error:', error);
+        res.status(500).json({ error: 'Failed to reset password' });
     }
 });
 

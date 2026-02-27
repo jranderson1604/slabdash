@@ -151,6 +151,17 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  // Idempotency check — skip already-processed events
+  try {
+    const existing = await db.query('SELECT id FROM stripe_events WHERE event_id = $1', [event.id]);
+    if (existing.rows.length > 0) {
+      return res.sendStatus(200);
+    }
+    await db.query('INSERT INTO stripe_events (event_id, event_type) VALUES ($1, $2)', [event.id, event.type]);
+  } catch (idempotencyErr) {
+    console.warn('Stripe idempotency check failed (table may not exist yet):', idempotencyErr.message);
+  }
+
   // Handle the event
   try {
     switch (event.type) {

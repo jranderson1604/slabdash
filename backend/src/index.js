@@ -47,6 +47,16 @@ for (const envVar of requiredEnvVars) {
     process.exit(1);
   }
 }
+if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
+  console.error('❌ JWT_SECRET is too short — must be at least 32 characters');
+  process.exit(1);
+}
+const warnEnvVars = ['STRIPE_SECRET_KEY', 'STRIPE_WEBHOOK_SECRET', 'ANTHROPIC_API_KEY', 'DEFAULT_MAILGUN_API_KEY'];
+for (const envVar of warnEnvVars) {
+  if (!process.env[envVar]) {
+    console.warn(`⚠️  Optional env var not set: ${envVar} — related features will be disabled`);
+  }
+}
 
 /* -------------------- GLOBAL ERROR HANDLERS -------------------- */
 process.on('unhandledRejection', (reason, promise) => {
@@ -103,8 +113,21 @@ const corsOptions = {
 };
 
 app.use(helmet({
-  contentSecurityPolicy: false, // Frontend handles CSP
-  crossOriginEmbedderPolicy: false, // Allow embedded resources
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'"],
+      frameSrc: ["'none'"],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+  frameguard: { action: 'deny' },
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
 }));
 app.use(compression());
 app.use(cors(corsOptions));
@@ -635,6 +658,49 @@ async function startServer() {
       console.log("✓ Migration: users approved column ensured");
     } catch (migrationError) {
       console.warn("⚠ users approved migration warning:", migrationError.message);
+    }
+
+    // Admin lockout + password reset columns on users table
+    try {
+      await db.query(`
+        ALTER TABLE users
+        ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0,
+        ADD COLUMN IF NOT EXISTS locked_until TIMESTAMP WITH TIME ZONE,
+        ADD COLUMN IF NOT EXISTS password_reset_token VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS password_reset_expires TIMESTAMP WITH TIME ZONE;
+      `);
+      console.log("✓ Migration: users lockout/reset columns ensured");
+    } catch (migrationError) {
+      console.warn("⚠ users lockout/reset migration warning:", migrationError.message);
+    }
+
+    // Stripe event idempotency table
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS stripe_events (
+          event_id VARCHAR(255) PRIMARY KEY,
+          event_type VARCHAR(100),
+          processed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `);
+      console.log("✓ Migration: stripe_events table ensured");
+    } catch (migrationError) {
+      console.warn("⚠ stripe_events migration warning:", migrationError.message);
+    }
+
+    // Missing performance indexes
+    try {
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(company_id, LOWER(email))`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_customers_company ON customers(company_id)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_submissions_company ON submissions(company_id)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_cards_company ON cards(company_id)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_users_company ON users(company_id)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_companies_slug ON companies(slug)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_companies_email ON companies(email)`);
+      console.log("✓ Migration: performance indexes ensured");
+    } catch (migrationError) {
+      console.warn("⚠ indexes migration warning:", migrationError.message);
     }
 
     // Initialize scheduled tasks (cron jobs)
