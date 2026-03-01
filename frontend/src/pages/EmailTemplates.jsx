@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { emailTemplates } from '../api/client';
 import {
   Plus,
@@ -313,6 +314,7 @@ function TemplateEditorModal({ template, onClose, onSave }) {
 
 export default function EmailTemplates() {
   const toast = useToast();
+  const confirm = useConfirm();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingTemplate, setEditingTemplate] = useState(null);
@@ -345,7 +347,7 @@ export default function EmailTemplates() {
   };
 
   const handleCreateDefaults = async () => {
-    if (!confirm('Create default email templates for all PSA steps? (This will not overwrite existing templates)')) return;
+    if (!await confirm({ title: 'Create Default Templates', message: 'Create default email templates for all PSA steps? Existing templates will not be overwritten.', confirmLabel: 'Create Templates', variant: 'info' })) return;
 
     setCreatingDefaults(true);
     try {
@@ -366,7 +368,7 @@ export default function EmailTemplates() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this template?')) return;
+    if (!await confirm({ title: 'Delete Template', message: 'Delete this email template? This cannot be undone.', variant: 'danger' })) return;
 
     try {
       await emailTemplates.delete(id);

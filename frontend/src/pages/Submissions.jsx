@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { submissions, customers as customersApi, emailTemplates, psaImport, psa } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import ProgressBar from '../components/ProgressBar';
@@ -102,7 +103,7 @@ function SubmissionCard({ submission, onRefresh, onDelete, selectable, selected,
 
   const handleDelete = async (e) => {
     e.stopPropagation();
-    if (!confirm('Delete this submission? This cannot be undone.')) return;
+    if (!await confirm({ title: 'Delete Submission', message: 'Delete this submission? This cannot be undone.', variant: 'danger' })) return;
     setMenuOpen(false);
     try {
       await submissions.delete(submission.id);
@@ -389,6 +390,7 @@ export default function Submissions() {
   const { company } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('active');
@@ -477,9 +479,7 @@ export default function Submissions() {
       return;
     }
 
-    if (!confirm('Send weekly update?\n\nThis will refresh all active submissions from PSA and email you a report with all changes, buyback offers, and status updates.')) {
-      return;
-    }
+    if (!await confirm({ title: 'Send Weekly Update', message: 'Refresh all active submissions from PSA and email you a report with all changes, buyback offers, and status updates?', confirmLabel: 'Send Update', variant: 'info' })) return;
 
     setSendingUpdate(true);
     setUpdateResult(null);

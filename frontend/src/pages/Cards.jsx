@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useConfirm } from '../context/ConfirmContext';
 import { cards } from '../api/client';
 import ExportButton from '../components/ExportButton';
 import {
@@ -24,6 +25,7 @@ import {
 } from 'lucide-react';
 
 export default function Cards() {
+  const confirm = useConfirm();
   const [cardList, setCardList] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -166,7 +168,7 @@ export default function Cards() {
   };
 
   const deleteSelected = async () => {
-    if (!confirm(`Delete ${selected.size} card(s)? This cannot be undone.`)) return;
+    if (!await confirm({ title: `Delete ${selected.size} Card${selected.size !== 1 ? 's' : ''}`, message: 'This cannot be undone.', variant: 'danger' })) return;
     const ids = [...selected];
     await Promise.allSettled(ids.map(id => cards.delete(id)));
     setCardList(prev => prev.filter(c => !selected.has(c.id)));

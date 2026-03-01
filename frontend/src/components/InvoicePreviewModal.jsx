@@ -75,9 +75,14 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
   // Show loading state
   if (loading) {
     return createPortal(
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
         <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
-          <div className="p-8 flex items-center justify-center">
+          <div className="flex justify-end p-3 pb-0">
+            <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="p-8 pt-4 flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
             <span className="ml-3 text-gray-600">Loading invoice preview...</span>
           </div>

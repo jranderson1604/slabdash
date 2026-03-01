@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { customers, submissions } from '../api/client';
 import ExportButton from '../components/ExportButton';
 import {
@@ -25,10 +26,11 @@ function CustomerRow({ customer, onDelete, onSendPortalLink, selected, onSelect 
   const [sendingLink, setSendingLink] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
 
   const handleDelete = async (e) => {
     e.stopPropagation();
-    if (!confirm(`Delete ${customer.name}? This cannot be undone.`)) return;
+    if (!await confirm({ title: `Delete ${customer.name}`, message: 'This cannot be undone.', variant: 'danger' })) return;
     setMenuOpen(false);
     try {
       await customers.delete(customer.id);
@@ -159,6 +161,7 @@ function CustomerRow({ customer, onDelete, onSendPortalLink, selected, onSelect 
 
 export default function Customers() {
   const toast = useToast();
+  const confirm = useConfirm();
   const [customerList, setCustomerList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -236,7 +239,7 @@ export default function Customers() {
 
   const handleBulkDelete = async () => {
     const count = selectedCustomers.size;
-    if (!confirm(`Delete ${count} customer(s)? This cannot be undone.`)) return;
+    if (!await confirm({ title: `Delete ${count} Customer${count !== 1 ? 's' : ''}`, message: 'This cannot be undone.', variant: 'danger' })) return;
 
     try {
       await customers.bulkDelete(Array.from(selectedCustomers));
@@ -286,7 +289,7 @@ export default function Customers() {
   };
 
   const handleDeleteAll = async () => {
-    if (!confirm(`WARNING: Delete ALL customers?\n\nThis will permanently delete every customer in your database. This cannot be undone.\n\nType YES in the next prompt to confirm.`)) return;
+    if (!await confirm({ title: 'Delete ALL Customers', message: 'This will permanently delete every customer in your database. This cannot be undone.', confirmLabel: 'Yes, Delete All', variant: 'danger' })) return;
 
     const confirmation = prompt('Type YES to confirm deletion of ALL customers:');
     if (confirmation !== 'YES') {
@@ -306,7 +309,7 @@ export default function Customers() {
   };
 
   const handleSendBulkIntroEmails = async () => {
-    if (!confirm(`Send introduction emails to all customers with active submissions?\n\nThis will send a welcome email with portal access and submission details to each customer.`)) return;
+    if (!await confirm({ title: 'Send Intro Emails', message: 'Send a welcome email with portal access and submission details to all customers with active submissions?', confirmLabel: 'Send Emails', variant: 'info' })) return;
 
     // Show progress modal
     setShowEmailProgressModal(true);

@@ -4,6 +4,7 @@ import { companies, psa, migration } from '../api/client';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import {
   Settings as SettingsIcon,
   Key,
@@ -81,6 +82,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 export default function Settings() {
   const { company, refreshUser } = useAuth();
   const toast = useToast();
+  const confirm = useConfirm();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState('psa');
 
@@ -154,9 +156,7 @@ export default function Settings() {
   };
 
   const runMigration = async () => {
-    if (!confirm('Run database migration? This will add columns for invoice generation, pickup code verification, and sport categorization.')) {
-      return;
-    }
+    if (!await confirm({ title: 'Run Database Migration', message: 'Add columns for invoice generation, pickup code verification, and sport categorization?', confirmLabel: 'Run Migration', variant: 'warning' })) return;
     try {
       setRunningMigration(true);
       const res = await migration.runInvoiceMigration();
@@ -1147,6 +1147,7 @@ export default function Settings() {
 // Webhooks management
 // ============================================
 function WebhooksTab() {
+  const confirm = useConfirm();
   const [webhooks, setWebhooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -1191,7 +1192,7 @@ function WebhooksTab() {
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this webhook?')) return;
+    if (!await confirm({ title: 'Delete Webhook', message: 'Remove this webhook endpoint?', variant: 'danger' })) return;
     await api.delete(`/webhooks/${id}`);
     setWebhooks(prev => prev.filter(w => w.id !== id));
   };

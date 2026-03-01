@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { submissions, customers } from '../api/client';
 import { ArrowLeft, Loader2, Plus, Camera, Copy } from 'lucide-react';
 import Scanner from '../components/Scanner';
@@ -10,6 +11,7 @@ export default function NewSubmission() {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
+  const confirm = useConfirm();
   const clone = location.state?.clone;
   const [customerList, setCustomerList] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -54,7 +56,7 @@ export default function NewSubmission() {
         const existingId = error.response.data.existing_submission_id;
         const message = error.response.data.message || 'This PSA submission number already exists';
 
-        if (confirm(`${message}\n\nWould you like to view the existing submission?`)) {
+        if (await confirm({ title: 'Duplicate Submission', message: `${message}\n\nWould you like to view the existing submission?`, confirmLabel: 'View Submission', variant: 'warning' })) {
           navigate(`/submissions/${existingId}`);
         }
       } else {

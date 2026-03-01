@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
 import { useToast } from '../context/ToastContext';
 import { customers, submissions, emailTemplates } from '../api/client';
 import {
@@ -435,7 +436,7 @@ export default function EmailSender() {
                 <p className="text-sm text-gray-600 mb-1">Body:</p>
                 <div className="bg-white border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
                   {preview.body ? (
-                    <div dangerouslySetInnerHTML={{ __html: preview.body }} />
+                    <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(preview.body) }} />
                   ) : (
                     <p className="text-gray-400 italic">Your email body will appear here</p>
                   )}
@@ -472,7 +473,7 @@ export default function EmailSender() {
                 <p className="font-semibold text-gray-900 text-lg">{preview.subject}</p>
               </div>
               <div className="border border-gray-200 rounded-lg p-6 bg-gray-50">
-                <div dangerouslySetInnerHTML={{ __html: preview.body }} />
+                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(preview.body) }} />
               </div>
             </div>
             <div className="p-4 border-t border-gray-200 flex justify-between">

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { Navigate } from 'react-router-dom';
 import StatCard from '../components/StatCard';
 import PageHeader from '../components/PageHeader';
@@ -60,6 +61,7 @@ function CopyButton({ text }) {
 // ─── Company Drawer ───────────────────────────────────────────────
 
 function CompanyDrawer({ company, onClose, onUpdate, toast }) {
+  const confirm = useConfirm();
   const [users, setUsers] = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -95,7 +97,7 @@ function CompanyDrawer({ company, onClose, onUpdate, toast }) {
   const toggle = (field, current) => save(field, !current);
 
   const grantLifetime = async () => {
-    if (!confirm(`Grant lifetime enterprise access to "${company.name}"? This removes any trial or expiry.`)) return;
+    if (!await confirm({ title: `Grant Lifetime Access`, message: `Grant lifetime enterprise access to "${company.name}"? This removes any trial or expiry.`, confirmLabel: 'Grant Access', variant: 'warning' })) return;
     setGrantingLifetime(true);
     try {
       const res = await fetch(`${API_URL}/owner/companies/${company.id}/grant-lifetime`, {
@@ -123,7 +125,7 @@ function CompanyDrawer({ company, onClose, onUpdate, toast }) {
   };
 
   const clearPsaKey = async () => {
-    if (!confirm(`Clear PSA API key for "${company.name}"?`)) return;
+    if (!await confirm({ title: 'Clear PSA Key', message: `Remove the PSA API key for "${company.name}"?`, confirmLabel: 'Clear Key', variant: 'warning' })) return;
     const res = await fetch(`${API_URL}/owner/companies/${company.id}/clear-psa-key`, {
       method: 'POST', headers: authHeaders(),
     });
@@ -365,6 +367,7 @@ const TABS = ['Overview', 'Shops', 'Announcements', 'System'];
 export default function OwnerDashboard() {
   const { user } = useAuth();
   const toast = useToast();
+  const confirm = useConfirm();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState(null);
   const [companies, setCompanies] = useState([]);
@@ -494,7 +497,7 @@ export default function OwnerDashboard() {
     finally { setBlogSaving(false); }
   };
   const deleteBlogPost = async (postId) => {
-    if (!confirm('Delete this post?')) return;
+    if (!await confirm({ title: 'Delete Post', message: 'Delete this announcement post?', variant: 'danger' })) return;
     const res = await fetch(`${API_URL}/blog/${postId}`, { method: 'DELETE', headers: authHeaders() });
     if (res.ok) { toast.success('Deleted'); setBlogPosts(prev => prev.filter(p => p.id !== postId)); }
   };
@@ -523,7 +526,7 @@ export default function OwnerDashboard() {
 
   // Companies
   const deleteCompany = async (company) => {
-    if (!confirm(`Delete "${company.name}" and ALL its data? This CANNOT be undone.`)) return;
+    if (!await confirm({ title: `Delete "${company.name}"`, message: 'Delete this shop and ALL its data? This CANNOT be undone.', confirmLabel: 'Delete Shop', variant: 'danger' })) return;
     const res = await fetch(`${API_URL}/owner/companies/${company.id}`, { method: 'DELETE', headers: authHeaders() });
     if (res.ok) {
       const d = await res.json();
@@ -1068,7 +1071,7 @@ export default function OwnerDashboard() {
                           </button>
                           <button
                             onClick={async () => {
-                              if (!confirm(`Reject ${u.name}? They will not be able to log in.`)) return;
+                              if (!await confirm({ title: `Reject ${u.name}`, message: 'They will not be able to log in.', confirmLabel: 'Reject', variant: 'warning' })) return;
                               await fetch(`${API_URL}/owner/pending-approvals/${u.id}/reject`, { method: 'POST', headers: authHeaders() });
                               setPendingApprovals(prev => prev.filter(a => a.id !== u.id));
                               toast.success('Account rejected');
