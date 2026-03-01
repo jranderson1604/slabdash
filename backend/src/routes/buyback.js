@@ -94,7 +94,7 @@ async function createSingleOffer({ company_id, user_id, card_id, offer_price, me
       },
       channels
     });
-    console.log(`Buyback offer created and notification sent to ${card.customer_email}: $${offer_price} for ${card.description}`);
+    console.log(`[Buyback] Offer created and notification sent: offer ID ${result.rows[0].id}`);
   } catch (notifErr) {
     console.warn(`Notification failed for offer (continuing): ${notifErr.message}`);
   }

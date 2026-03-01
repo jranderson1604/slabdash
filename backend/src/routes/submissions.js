@@ -1019,7 +1019,7 @@ router.post("/verify-pickup-code", authenticate, requireRole("owner", "admin"), 
       );
     } catch (error) {
       // Columns don't exist yet - use simpler query
-      console.log('Note: picked_up columns not found. Using fallback query.');
+      console.warn('Note: picked_up columns not found. Using fallback query.');
       hasPickupColumns = false;
 
       result = await db.query(
@@ -1072,7 +1072,7 @@ router.post("/verify-pickup-code", authenticate, requireRole("owner", "admin"), 
           [record.submission_id, record.customer_id]
         );
       } catch (error) {
-        console.log('Note: picked_up columns not found during update. Run migration to enable pickup tracking.');
+        console.warn('Note: picked_up columns not found during update. Run migration to enable pickup tracking.');
       }
     }
 

@@ -252,7 +252,6 @@ router.post('/import-csv', authenticate, async (req, res) => {
         const lines = csvData.trim().split('\n');
         const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
 
-        console.log('CSV Import - Headers found:', headers);
 
         // Find column indices (flexible for different CSV formats)
         const emailIndex = headers.findIndex(h => h.includes('email'));
@@ -329,17 +328,13 @@ router.post('/import-csv', authenticate, async (req, res) => {
                 );
 
                 imported++;
-                console.log(`Row ${i + 1}: Imported customer ${email}`);
             } catch (error) {
                 errors.push(`Row ${i + 1}: ${error.message}`);
                 console.error(`Row ${i + 1}: Error -`, error.message);
             }
         }
 
-        console.log(`\n=== IMPORT SUMMARY ===`);
-        console.log('Imported:', imported);
-        console.log('Skipped:', skipped);
-        console.log('Total rows:', lines.length - 1);
+        console.log(`[Customers] CSV import complete: ${imported} imported, ${skipped} skipped of ${lines.length - 1} rows`);
 
         res.json({
             success: true,
@@ -617,8 +612,7 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
 
         const customers = customersResult.rows;
 
-        console.log(`📊 Found ${customers.length} customers with submissions`);
-        console.log('Customer emails:', customers.map(c => c.email).join(', '));
+        console.log(`[Customers] Sending bulk intro emails to ${customers.length} customers`);
 
         if (customers.length === 0) {
             return res.json({
@@ -652,7 +646,7 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
                         skipped: true,
                         reason: 'Invalid email address'
                     });
-                    console.log(`⚠ Skipping invalid email for ${customer.name}: ${customer.email}`);
+                    console.warn(`[Customers] Skipping customer ID ${customer.id}: invalid email address`);
                     continue;
                 }
 

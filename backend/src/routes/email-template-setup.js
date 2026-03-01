@@ -253,7 +253,7 @@ router.post('/send-submission-update/:submissionId', authenticate, requireRole('
                 );
 
                 emailsSent++;
-                console.log(`✓ Submission update email sent to ${customer.email}`);
+                console.log(`[Email] Submission update sent to customer ID ${customer.id}`);
 
             } catch (error) {
                 console.error(`✗ Failed to send submission email to ${customer.email}:`, error.message);
@@ -456,7 +456,7 @@ router.post('/send-bulk-status-update', authenticate, requireRole('owner', 'admi
                 );
 
                 emailsSent++;
-                console.log(`✓ Bulk status email sent to ${customer.email}`);
+                console.log(`[Email] Bulk status email sent to customer ID ${customer.id}`);
 
             } catch (error) {
                 console.error(`✗ Failed to send bulk email to ${customer.email}:`, error.message);

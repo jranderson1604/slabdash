@@ -55,7 +55,7 @@ router.patch('/settings', authenticate, async (req, res) => {
                 // Skip fields that don't exist in database yet
                 if ((field === 'service_level_pricing' || field === 'tax_percentage') && !existingColumns.has(field)) {
                     skippedFields.push(field);
-                    console.log(`Note: Skipping ${field} - column not found. Run migration to add it.`);
+                    console.warn(`Note: Skipping ${field} - column not found. Run migration to add it.`);
                     continue;
                 }
 

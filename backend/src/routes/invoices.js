@@ -282,7 +282,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
         } catch (error) {
             // Fallback if tax_percentage column doesn't exist yet
             if (error.code === '42703') {
-                console.log('Note: tax_percentage column not found. Run migration to add it.');
+                console.warn('Note: tax_percentage column not found. Run migration to add it.');
                 submissionResult = await db.query(
                     `SELECT s.*, comp.name as company_name, 0 as tax_percentage
                      FROM submissions s
@@ -343,7 +343,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
                 );
             } catch (error) {
                 // Columns don't exist yet - run migration first
-                console.log('Note: psa_service_cost/additional_fees columns not found. Run migration to add them.');
+                console.warn('Note: psa_service_cost/additional_fees columns not found. Run migration to add them.');
             }
         }
 
@@ -360,7 +360,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
                 );
             } catch (error) {
                 // Column doesn't exist yet - run migration first
-                console.log('Note: invoice_number column not found. Invoice will be generated but not saved. Run migration to add it.');
+                console.warn('Note: invoice_number column not found. Invoice will be generated but not saved. Run migration to add it.');
             }
         }
 
@@ -386,7 +386,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
                 };
             }
         } catch (error) {
-            console.log('Note: mailgun columns not found in companies table. Using environment variables.');
+            console.warn('Note: mailgun columns not found in companies table. Using environment variables.');
         }
 
         // Fall back to environment variables if not set in database
@@ -426,7 +426,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
         try {
             taxPercentage = parseFloat(submission.tax_percentage) || 0;
         } catch (error) {
-            console.log('Note: tax_percentage column not found. Run migration to add it.');
+            console.warn('Note: tax_percentage column not found. Run migration to add it.');
         }
 
         const taxAmount = subtotal * (taxPercentage / 100);
@@ -457,7 +457,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
                         [customerPickupCode, submissionId, customer.customer_id]
                     );
                 } catch (error) {
-                    console.log('Note: pickup_code column not found in submission_customers. Run migration to add it.');
+                    console.warn('Note: pickup_code column not found in submission_customers. Run migration to add it.');
                 }
             }
 
@@ -512,7 +512,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
                     );
                 } catch (error) {
                     // Columns don't exist yet - invoice was still sent successfully
-                    console.log('Note: invoice_sent/customer_cost columns not found in submission_customers. Run migration to add them.');
+                    console.warn('Note: invoice_sent/customer_cost columns not found in submission_customers. Run migration to add them.');
                 }
             } else {
                 emailsFailed++;
@@ -530,7 +530,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
             );
         } catch (error) {
             // Columns don't exist yet - invoices were still sent successfully
-            console.log('Note: invoice_sent/invoice_sent_at columns not found in submissions. Run migration to add them.');
+            console.warn('Note: invoice_sent/invoice_sent_at columns not found in submissions. Run migration to add them.');
         }
 
         res.json({
