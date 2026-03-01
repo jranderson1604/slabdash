@@ -6,10 +6,10 @@ const stripeService = require('../services/stripe');
 const { getLimits } = require('../config/tierLimits');
 const { sendEmail } = require('../services/emailService');
 
-// Stripe Price IDs (create these in Stripe Dashboard)
+// Stripe Price IDs (set STRIPE_PRICE_SHOP and STRIPE_PRICE_ENTERPRISE in env)
 const PRICE_IDS = {
-  shop: process.env.STRIPE_PRICE_SHOP || 'price_shop',
-  enterprise: process.env.STRIPE_PRICE_ENTERPRISE || 'price_enterprise'
+  shop: process.env.STRIPE_PRICE_SHOP || null,
+  enterprise: process.env.STRIPE_PRICE_ENTERPRISE || null
 };
 
 // Create checkout session for subscription
@@ -20,6 +20,10 @@ router.post('/create-checkout', authenticate, async (req, res) => {
 
     if (!['shop', 'enterprise'].includes(plan)) {
       return res.status(400).json({ error: 'Invalid plan' });
+    }
+
+    if (!PRICE_IDS[plan]) {
+      return res.status(503).json({ error: 'Subscription billing is not configured on this server' });
     }
 
     // Get company details

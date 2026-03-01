@@ -65,8 +65,7 @@ async function sendInvoiceEmail(customer, submission, lineItems, subtotal, taxAm
                 <!-- Header with SlabDash Branding -->
                 <div style="background: linear-gradient(135deg, #FF8170 0%, #F07057 100%); padding: 40px 30px; text-align: center; position: relative;">
                     <div style="background: white; display: inline-block; padding: 16px 32px; border-radius: 16px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                        <img src="${process.env.LOGO_URL || 'https://i.imgur.com/placeholder.png'}" alt="SlabDash Logo" style="height: 45px; display: block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';" />
-                        <span style="font-family: 'Inter', Arial, sans-serif; font-size: 24px; font-weight: 800; color: #FF8170; letter-spacing: -0.5px; display: none;">SLABDASH</span>
+                        ${process.env.LOGO_URL ? `<img src="${process.env.LOGO_URL}" alt="SlabDash Logo" style="height: 45px; display: block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';" /><span style="font-family: 'Inter', Arial, sans-serif; font-size: 24px; font-weight: 800; color: #FF8170; letter-spacing: -0.5px; display: none;">SLABDASH</span>` : `<span style="font-family: 'Inter', Arial, sans-serif; font-size: 24px; font-weight: 800; color: #FF8170; letter-spacing: -0.5px;">SLABDASH</span>`}
                     </div>
                     <h1 style="color: white; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">Invoice</h1>
                     <p style="color: rgba(255,255,255,0.95); margin: 8px 0 0 0; font-size: 16px; font-weight: 500;">${companyName}</p>

@@ -447,7 +447,7 @@ router.post('/:id/send-introduction-email', authenticate, async (req, res) => {
             );
         }
 
-        const portalUrl = `${process.env.FRONTEND_URL || 'https://slabdash-8n99.vercel.app'}/portal?token=${token}`;
+        const portalUrl = `${process.env.FRONTEND_URL || 'https://slabdash.app'}/portal?token=${token}`;
 
         // Get customer's submissions
         const submissionsResult = await db.query(
@@ -553,7 +553,7 @@ router.post('/send-test-introduction-email', authenticate, async (req, res) => {
             </div>
         `;
 
-        const samplePortalUrl = `${process.env.FRONTEND_URL || 'https://slabdash-8n99.vercel.app'}/portal?token=sample-token-preview`;
+        const samplePortalUrl = `${process.env.FRONTEND_URL || 'https://slabdash.app'}/portal?token=sample-token-preview`;
 
         // Send email using email service
         const { sendIntroductionEmail } = require('../services/emailService');
@@ -668,7 +668,7 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
                     );
                 }
 
-                const portalUrl = `${process.env.FRONTEND_URL || 'https://slabdash-8n99.vercel.app'}/portal?token=${token}`;
+                const portalUrl = `${process.env.FRONTEND_URL || 'https://slabdash.app'}/portal?token=${token}`;
 
                 // Get customer's submissions
                 const submissionsResult = await db.query(
