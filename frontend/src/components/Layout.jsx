@@ -300,16 +300,17 @@ export default function Layout({ children }) {
               {/* Retro mode toggle */}
               <button
                 onClick={() => setRetroMode(r => !r)}
-                className="retro-mode-btn rounded-lg p-1.5 transition-all"
+                className="retro-mode-btn rounded-lg p-1.5 transition-all flex items-center gap-1"
                 style={retroMode
-                  ? { background: '#000080', color: '#ffffff', border: '1px solid #000040' }
+                  ? { background: '#000080', color: '#ffffff', border: '2px solid #ffffff', fontFamily: 'Tahoma, sans-serif', fontSize: '11px', fontWeight: 'bold', padding: '4px 8px' }
                   : darkMode
                     ? { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.08)' }
                     : { background: 'rgba(199,68,48,0.06)', color: 'rgba(44,36,22,0.4)', border: '1px solid rgba(199,68,48,0.12)' }
                 }
                 title={retroMode ? 'Exit retro mode' : 'Activate retro mode'}
               >
-                <Monitor className="w-3.5 h-3.5" />
+                <Monitor className="w-3.5 h-3.5 flex-shrink-0" />
+                {retroMode && <span>Exit XP Mode</span>}
               </button>
               {/* Dark mode toggle */}
               <button
