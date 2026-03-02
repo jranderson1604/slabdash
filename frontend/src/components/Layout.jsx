@@ -26,12 +26,14 @@ import {
   BarChart2,
   Moon,
   Sun,
+  Monitor,
 } from 'lucide-react';
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('slabdash-dark') !== 'false');
+  const [retroMode, setRetroMode] = useState(() => localStorage.getItem('slabdash-retro') === 'true');
   const [showShortcuts, setShowShortcuts] = useState(false);
   const { user, company, logout } = useAuth();
   const location = useLocation();
@@ -46,6 +48,16 @@ export default function Layout({ children }) {
       localStorage.setItem('slabdash-dark', 'false');
     }
   }, [darkMode]);
+
+  useEffect(() => {
+    if (retroMode) {
+      document.documentElement.classList.add('retro');
+      localStorage.setItem('slabdash-retro', 'true');
+    } else {
+      document.documentElement.classList.remove('retro');
+      localStorage.setItem('slabdash-retro', 'false');
+    }
+  }, [retroMode]);
 
   // Keyboard shortcuts — two-key sequences (g+d, n+s, etc.)
   useEffect(() => {
@@ -125,10 +137,14 @@ export default function Layout({ children }) {
 
       {/* Sidebar */}
       <aside
-        className={`fixed top-0 left-0 z-50 h-full w-64 transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col ${
+        className={`fixed top-0 left-0 z-50 h-full w-64 transform transition-transform duration-300 ease-in-out lg:translate-x-0 flex flex-col retro-sidebar ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
-        style={{
+        style={retroMode ? {
+          background: '#040604',
+          borderRight: '1px solid #00ff41',
+          boxShadow: 'none',
+        } : {
           background: darkMode
             ? 'linear-gradient(180deg, rgba(2, 6, 14, 0.98) 0%, rgba(1, 4, 10, 0.99) 100%)'
             : '#FFF4EC',
@@ -139,7 +155,7 @@ export default function Layout({ children }) {
         }}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between px-4 h-16 relative" style={{ borderBottom: darkMode ? '1px solid rgba(255,129,112,0.08)' : '1px solid rgba(255,129,112,0.12)' }}>
+        <div className="flex items-center justify-between px-4 h-16 relative" style={{ borderBottom: retroMode ? '1px solid #00ff41' : darkMode ? '1px solid rgba(255,129,112,0.08)' : '1px solid rgba(255,129,112,0.12)' }}>
           <Link to="/dashboard" className="flex items-center gap-2.5">
             <img
               src="/images/logo-icon.png.svg"
@@ -148,8 +164,8 @@ export default function Layout({ children }) {
               style={{ filter: 'brightness(1.05)' }}
             />
             <div>
-              <p className="text-xs font-black tracking-[0.15em] uppercase" style={{ color: '#FF8170' }}>SLABDASH</p>
-              <p className="text-[9px] uppercase tracking-[0.1em]" style={{ color: darkMode ? 'rgba(255,129,112,0.5)' : 'rgba(199,68,48,0.5)' }}>Card Grading Tracker</p>
+              <p className="text-xs font-black tracking-[0.15em] uppercase" style={{ color: retroMode ? '#00ff41' : '#FF8170' }}>SLABDASH</p>
+              <p className="text-[9px] uppercase tracking-[0.1em]" style={{ color: retroMode ? 'rgba(0,255,65,0.5)' : darkMode ? 'rgba(255,129,112,0.5)' : 'rgba(199,68,48,0.5)' }}>Card Grading Tracker</p>
             </div>
           </Link>
           <button
@@ -162,9 +178,9 @@ export default function Layout({ children }) {
         </div>
 
         {/* Company name */}
-        <div className="px-4 py-2.5" style={{ borderBottom: darkMode ? '1px solid rgba(255,129,112,0.06)' : '1px solid rgba(255,129,112,0.1)' }}>
-          <p className="text-[9px] uppercase tracking-[0.15em] font-bold" style={{ color: darkMode ? 'rgba(255,129,112,0.4)' : 'rgba(199,68,48,0.5)' }}>SHOP</p>
-          <p className="text-sm font-bold truncate" style={{ color: darkMode ? 'rgba(255,129,112,0.9)' : '#C74430' }}>{company?.name || 'Loading...'}</p>
+        <div className="px-4 py-2.5" style={{ borderBottom: retroMode ? '1px solid rgba(0,255,65,0.3)' : darkMode ? '1px solid rgba(255,129,112,0.06)' : '1px solid rgba(255,129,112,0.1)' }}>
+          <p className="text-[9px] uppercase tracking-[0.15em] font-bold" style={{ color: retroMode ? 'rgba(0,255,65,0.5)' : darkMode ? 'rgba(255,129,112,0.4)' : 'rgba(199,68,48,0.5)' }}>SHOP</p>
+          <p className="text-sm font-bold truncate" style={{ color: retroMode ? '#00ff41' : darkMode ? 'rgba(255,129,112,0.9)' : '#C74430' }}>{company?.name || 'Loading...'}</p>
         </div>
 
         {/* Navigation */}
@@ -179,15 +195,22 @@ export default function Layout({ children }) {
                 to={item.href}
                 onClick={() => setSidebarOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200"
-                style={isActive ? {
+                style={isActive ? (retroMode ? {
+                  background: 'rgba(0,255,65,0.15)',
+                  color: '#00ff41',
+                  border: '1px solid #00ff41',
+                } : {
                   background: 'linear-gradient(135deg, rgba(255,129,112,0.2), rgba(255,107,89,0.15))',
                   color: '#FF8170',
                   boxShadow: '0 2px 12px rgba(255,129,112,0.15), inset 0 1px 0 rgba(255,129,112,0.08)',
                   border: '1px solid rgba(255,129,112,0.25)',
+                }) : (retroMode ? {
+                  color: 'rgba(0,255,65,0.7)',
+                  border: '1px solid rgba(0,255,65,0.1)',
                 } : {
                   color: darkMode ? 'rgba(255,255,255,0.6)' : 'rgba(44,36,22,0.6)',
                   border: darkMode ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(255,129,112,0.08)',
-                }}
+                })}
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" />
                 <span className="slabdash-label">{item.name}</span>
@@ -197,7 +220,7 @@ export default function Layout({ children }) {
 
           {/* Owner separator */}
           {user?.role === 'owner' && (
-            <div className="my-2" style={{ borderTop: darkMode ? '1px solid rgba(255,129,112,0.06)' : '1px solid rgba(255,129,112,0.1)' }} />
+            <div className="my-2" style={{ borderTop: retroMode ? '1px solid rgba(0,255,65,0.2)' : darkMode ? '1px solid rgba(255,129,112,0.06)' : '1px solid rgba(255,129,112,0.1)' }} />
           )}
 
           {/* Regular navigation */}
@@ -241,14 +264,21 @@ export default function Layout({ children }) {
                 to={item.href}
                 onClick={() => setSidebarOpen(false)}
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200"
-                style={isActive ? {
+                style={isActive ? (retroMode ? {
+                  background: 'rgba(0,255,65,0.12)',
+                  color: '#00ff41',
+                  borderLeft: '2px solid #00ff41',
+                  paddingLeft: '10px',
+                } : {
                   background: 'linear-gradient(135deg, rgba(255,129,112,0.15), rgba(255,107,89,0.1))',
                   color: '#E8543D',
                   borderLeft: '2px solid rgba(255,129,112,0.6)',
                   paddingLeft: '10px',
+                }) : (retroMode ? {
+                  color: 'rgba(0,255,65,0.7)',
                 } : {
                   color: darkMode ? 'rgba(255,255,255,0.65)' : 'rgba(44,36,22,0.65)',
-                }}
+                })}
               >
                 <item.icon className="w-4 h-4 flex-shrink-0" />
                 <span className="slabdash-label">{item.name}</span>
@@ -258,25 +288,44 @@ export default function Layout({ children }) {
         </nav>
 
         {/* System Status */}
-        <div className="px-4 py-3" style={{ borderTop: darkMode ? '1px solid rgba(255,129,112,0.08)' : '1px solid rgba(255,129,112,0.12)' }}>
+        <div className="px-4 py-3" style={{ borderTop: retroMode ? '1px solid #00ff41' : darkMode ? '1px solid rgba(255,129,112,0.08)' : '1px solid rgba(255,129,112,0.12)' }}>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
-              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${company?.hasPsaKey ? 'bg-emerald-400' : 'bg-amber-400'}`} />
-              <span className="text-xs font-medium truncate" style={{ color: darkMode ? 'rgba(255,255,255,0.45)' : 'rgba(44,36,22,0.5)' }}>
+              <div className={`w-2 h-2 rounded-full flex-shrink-0 ${company?.hasPsaKey ? (retroMode ? 'bg-green-400' : 'bg-emerald-400') : 'bg-amber-400'}`} />
+              <span className="text-xs font-medium truncate" style={{ color: retroMode ? 'rgba(0,255,65,0.5)' : darkMode ? 'rgba(255,255,255,0.45)' : 'rgba(44,36,22,0.5)' }}>
                 PSA {company?.hasPsaKey ? 'connected' : 'not connected'}
               </span>
             </div>
-            <button
-              onClick={() => setDarkMode(d => !d)}
-              className="rounded-lg p-1.5 transition-all flex-shrink-0"
-              style={darkMode
-                ? { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.08)' }
-                : { background: 'rgba(199,68,48,0.08)', color: 'rgba(44,36,22,0.5)', border: '1px solid rgba(199,68,48,0.15)' }
-              }
-              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
-            </button>
+            <div className="flex items-center gap-1.5 flex-shrink-0">
+              {/* Retro mode toggle */}
+              <button
+                onClick={() => setRetroMode(r => !r)}
+                className="retro-mode-btn rounded-lg p-1.5 transition-all"
+                style={retroMode
+                  ? { background: '#00ff41', color: '#000', border: '1px solid #00ff41' }
+                  : darkMode
+                    ? { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.35)', border: '1px solid rgba(255,255,255,0.08)' }
+                    : { background: 'rgba(199,68,48,0.06)', color: 'rgba(44,36,22,0.4)', border: '1px solid rgba(199,68,48,0.12)' }
+                }
+                title={retroMode ? 'Exit retro mode' : 'Activate retro mode'}
+              >
+                <Monitor className="w-3.5 h-3.5" />
+              </button>
+              {/* Dark mode toggle */}
+              <button
+                onClick={() => setDarkMode(d => !d)}
+                className="rounded-lg p-1.5 transition-all"
+                style={retroMode
+                  ? { background: 'transparent', color: 'rgba(0,255,65,0.4)', border: '1px solid rgba(0,255,65,0.2)' }
+                  : darkMode
+                    ? { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)', border: '1px solid rgba(255,255,255,0.08)' }
+                    : { background: 'rgba(199,68,48,0.08)', color: 'rgba(44,36,22,0.5)', border: '1px solid rgba(199,68,48,0.15)' }
+                }
+                title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {darkMode ? <Sun className="w-3.5 h-3.5" /> : <Moon className="w-3.5 h-3.5" />}
+              </button>
+            </div>
           </div>
         </div>
       </aside>
