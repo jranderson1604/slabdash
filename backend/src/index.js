@@ -687,6 +687,14 @@ async function startServer() {
       console.warn("⚠ payment_failed_at migration warning:", migrationError.message);
     }
 
+    // Contact email: optional shop email shown in email footers
+    try {
+      await db.query(`ALTER TABLE companies ADD COLUMN IF NOT EXISTS contact_email VARCHAR(255)`);
+      console.log("✓ Migration: companies.contact_email ensured");
+    } catch (migrationError) {
+      console.warn("⚠ contact_email migration warning:", migrationError.message);
+    }
+
     // Admin lockout + password reset columns on users table
     try {
       await db.query(`

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { customers, submissions } from '../api/client';
 import PageHeader from '../components/PageHeader';
 import StatusBadge from '../components/StatusBadge';
@@ -35,6 +36,7 @@ export default function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -107,12 +109,13 @@ export default function CustomerDetail() {
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Delete ${customer.name}? This cannot be undone.`)) return;
+    if (!await confirm({ title: `Delete ${customer.name}`, message: 'This cannot be undone.', variant: 'danger' })) return;
     try {
       await customers.delete(id);
       navigate('/customers');
     } catch (error) {
       console.error('Delete failed:', error);
+      toast.error(error.response?.data?.error || 'Failed to delete customer');
     }
   };
 
@@ -124,6 +127,7 @@ export default function CustomerDetail() {
       setEditing(false);
     } catch (error) {
       console.error('Update failed:', error);
+      toast.error(error.response?.data?.error || 'Failed to save changes');
     } finally {
       setSaving(false);
     }
@@ -155,7 +159,7 @@ export default function CustomerDetail() {
   };
 
   const handleSendIntroductionEmail = async () => {
-    if (!confirm(`Send introduction email to ${customer.name}?\n\nThis will send a welcome email with portal access and submission details.`)) return;
+    if (!await confirm({ title: `Email ${customer.name}`, message: 'Send a welcome email with portal access and submission details?', confirmLabel: 'Send Email', variant: 'info' })) return;
 
     setSendingIntroEmail(true);
     try {

@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 import { submissions, cards, customers, emailTemplates } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import PickupCard from '../components/PickupCard';
 import InvoiceSection from '../components/InvoiceSection';
 import {
@@ -87,6 +88,7 @@ function CardRow({ card, onUpdate, onDelete }) {
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const toast = useToast();
+  const confirm = useConfirm();
 
   const cardImages = card.card_images ? (Array.isArray(card.card_images) ? card.card_images : JSON.parse(card.card_images)) : [];
   const hasImages = cardImages.length > 0;
@@ -100,6 +102,7 @@ function CardRow({ card, onUpdate, onDelete }) {
       if (res.data.card?.grade === '10') fireGradeConfetti();
     } catch (error) {
       console.error('Lookup failed:', error);
+      toast.error(error.response?.data?.error || 'Lookup failed');
     } finally {
       setLookingUp(false);
     }
@@ -113,6 +116,7 @@ function CardRow({ card, onUpdate, onDelete }) {
       if (grade === '10') fireGradeConfetti();
     } catch (error) {
       console.error('Update failed:', error);
+      toast.error(error.response?.data?.error || 'Failed to save grade');
     }
   };
 
@@ -574,6 +578,7 @@ export default function SubmissionDetail() {
   const navigate = useNavigate();
   const { company } = useAuth();
   const toast = useToast();
+  const confirm = useConfirm();
 
   const [submission, setSubmission] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -658,12 +663,13 @@ export default function SubmissionDetail() {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Delete this submission and all its cards? This cannot be undone.')) return;
+    if (!await confirm({ title: 'Delete Submission', message: 'Delete this submission and all its cards? This cannot be undone.', variant: 'danger' })) return;
     try {
       await submissions.delete(id);
       navigate('/submissions');
     } catch (error) {
       console.error('Delete failed:', error);
+      toast.error(error.response?.data?.error || 'Failed to delete submission');
     }
   };
 
@@ -674,9 +680,7 @@ export default function SubmissionDetail() {
       return;
     }
 
-    if (!confirm(`Send status update email to ${customerCount} customer(s)?`)) {
-      return;
-    }
+    if (!await confirm({ title: 'Send Status Update', message: `Send a status update email to ${customerCount} customer${customerCount !== 1 ? 's' : ''}?`, confirmLabel: 'Send Email', variant: 'info' })) return;
 
     setSendingEmail(true);
     try {
@@ -765,7 +769,7 @@ export default function SubmissionDetail() {
   };
 
   const handleCardDelete = async (cardId) => {
-    if (!confirm('Delete this card?')) return;
+    if (!await confirm({ title: 'Delete Card', message: 'Remove this card from the submission?', variant: 'danger' })) return;
     try {
       await cards.delete(cardId);
       setSubmission((prev) => ({
@@ -800,7 +804,7 @@ export default function SubmissionDetail() {
   };
 
   const handleRemoveLinkedCustomer = async (customerId) => {
-    if (!confirm('Remove this customer from the submission?')) return;
+    if (!await confirm({ title: 'Remove Customer', message: 'Remove this customer from the submission?', confirmLabel: 'Remove', variant: 'warning' })) return;
     try {
       await submissions.removeCustomer(id, customerId);
       await loadSubmission();
@@ -877,9 +881,7 @@ export default function SubmissionDetail() {
   };
 
   const handleAutoDetectSports = async () => {
-    if (!confirm('Auto-detect sports for all cards? This will categorize cards based on brands, player names, and keywords.')) {
-      return;
-    }
+    if (!await confirm({ title: 'Auto-Detect Sports', message: 'Categorize all cards based on brands, player names, and keywords?', confirmLabel: 'Auto-Detect', variant: 'info' })) return;
 
     setAutoDetecting(true);
     try {
@@ -1837,9 +1839,9 @@ export default function SubmissionDetail() {
                           </div>
                         </div>
                         <button
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            if (confirm(`Remove ${customer.name} from this submission?`)) {
+                            if (await confirm({ title: `Remove ${customer.name}`, message: 'Remove this customer from the submission?', confirmLabel: 'Remove', variant: 'warning' })) {
                               handleRemoveLinkedCustomer(customer.id);
                               if (submission.linked_customers.length === 1) {
                                 setShowCustomerListModal(false);

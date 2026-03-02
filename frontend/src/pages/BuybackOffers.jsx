@@ -2,10 +2,12 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { DollarSign, CheckCircle2, XCircle, Clock, TrendingUp, Search, Plus, Trash2 } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { buyback } from '../api/client';
 
 export default function BuybackOffers() {
   const toast = useToast();
+  const confirm = useConfirm();
   const [offers, setOffers] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -42,7 +44,7 @@ export default function BuybackOffers() {
   };
 
   const cancelOffer = async (offerId) => {
-    if (!confirm('Cancel this buyback offer?')) return;
+    if (!await confirm({ title: 'Cancel Offer', message: 'Cancel this buyback offer?', confirmLabel: 'Cancel Offer', variant: 'warning' })) return;
     try {
       await buyback.cancel(offerId);
       toast.success('Offer cancelled');
@@ -55,7 +57,7 @@ export default function BuybackOffers() {
   };
 
   const deleteOffer = async (offerId) => {
-    if (!confirm('Permanently delete this offer? This cannot be undone.')) return;
+    if (!await confirm({ title: 'Delete Offer', message: 'Permanently delete this offer? This cannot be undone.', variant: 'danger' })) return;
     try {
       await buyback.delete(offerId);
       toast.success('Offer deleted');

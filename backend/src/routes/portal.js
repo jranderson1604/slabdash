@@ -140,7 +140,7 @@ router.post('/auth/register', authLimiter, async (req, res) => {
       );
       customer = { id: existingCustomer.id, name: trimmedName, email: trimmedEmail };
       isAbsorbed = true;
-      console.log(`Customer absorbed: ${trimmedEmail} -> existing ID ${existingCustomer.id} (company: ${company.id})`);
+      console.log(`[Portal] Customer absorbed: ID ${existingCustomer.id} (company: ${company.id})`);
     } else {
       // Brand new customer — insert into customers table
       const portalToken = crypto.randomBytes(32).toString('hex');
@@ -153,11 +153,11 @@ router.post('/auth/register', authLimiter, async (req, res) => {
           [company.id, trimmedName, trimmedEmail, passwordHash, portalToken]
         );
         customer = { id: result.rows[0].id, name: trimmedName, email: trimmedEmail };
-        console.log(`New customer created: ${trimmedEmail} -> ID ${customer.id} (company: ${company.id})`);
+        console.log(`[Portal] New customer created: ID ${customer.id} (company: ${company.id})`);
       } catch (insertErr) {
         // Handle unique constraint violation (race condition or case mismatch)
         if (insertErr.code === '23505') {
-          console.log(`Unique constraint hit for ${trimmedEmail}, trying absorption...`);
+          console.log(`[Portal] Unique constraint hit on insert, trying absorption...`);
           const retry = await db.query(
             `SELECT id, name, password_hash FROM customers
              WHERE company_id = $1 AND LOWER(TRIM(email)) = $2`,
@@ -203,10 +203,10 @@ router.post('/auth/register', authLimiter, async (req, res) => {
           await db.query(
             `INSERT INTO submission_customers (submission_id, customer_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
             [sub.id, customer.id]
-          ).catch(() => {}); // ignore if submission_customers table has issues
+          ).catch(e => console.warn('[Portal] submission_customers insert skipped:', e.message));
         }
         if (unlinkedSubs.rows.length > 0) {
-          console.log(`Auto-linked ${unlinkedSubs.rows.length} submissions for new customer ${trimmedEmail}`);
+          console.log(`[Portal] Auto-linked ${unlinkedSubs.rows.length} submissions for new customer ID ${customer.id}`);
         }
       } catch (linkErr) {
         console.log('Auto-link submissions skipped:', linkErr.message);

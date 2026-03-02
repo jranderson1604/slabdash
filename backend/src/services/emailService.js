@@ -28,11 +28,30 @@ const renderTemplate = (template, variables) => {
 /**
  * Get company email configuration
  */
+const SLABDASH_CONTACT_EMAIL = 'slabdashllc@slabdash.app';
+
+/**
+ * Inject a contact footer into email HTML before </body>
+ */
+const injectContactFooter = (html, shopContactEmail) => {
+    const shopLine = shopContactEmail
+        ? ` or <a href="mailto:${shopContactEmail}" style="color:#FF8170;text-decoration:none">${shopContactEmail}</a>`
+        : '';
+    const footer = `
+<div style="margin-top:24px;padding-top:16px;border-top:1px solid #eee;font-size:12px;color:#888">
+  Questions? Contact us at <a href="mailto:${SLABDASH_CONTACT_EMAIL}" style="color:#FF8170;text-decoration:none">${SLABDASH_CONTACT_EMAIL}</a>${shopLine}
+</div>`;
+    if (html.includes('</body>')) {
+        return html.replace('</body>', footer + '\n</body>');
+    }
+    return html + footer;
+};
+
 const getCompanyEmailConfig = async (companyId) => {
     const result = await db.query(
         `SELECT smtp_host, smtp_port, smtp_secure, smtp_user, smtp_password,
                 from_email, from_name, email_notifications_enabled, company_logo_url,
-                use_custom_smtp
+                use_custom_smtp, contact_email
          FROM companies WHERE id = $1`,
         [companyId]
     );
@@ -163,7 +182,10 @@ const sendSubmissionUpdateEmail = async (submissionId, stepName, progressPercent
                 };
 
                 const subject = renderTemplate(template.subject, variables);
-                const bodyHtml = renderTemplate(template.body_html, variables);
+                const bodyHtml = injectContactFooter(
+                    renderTemplate(template.body_html, variables),
+                    config.contact_email
+                );
                 const bodyText = template.body_text
                     ? renderTemplate(template.body_text, variables)
                     : null;
@@ -332,7 +354,8 @@ const sendIntroductionEmail = async (companyId, customerEmail, emailData, isTest
 
         // Build email HTML from template
         const { emailTemplates } = require('./notificationService');
-        const { subject, html } = emailTemplates.welcomeIntroduction(emailData);
+        const { subject, html: rawHtml } = emailTemplates.welcomeIntroduction(emailData);
+        const html = injectContactFooter(rawHtml, config.contact_email);
 
         // Add test prefix if this is a test
         const finalSubject = isTest ? `[TEST PREVIEW] ${subject}` : subject;
@@ -390,6 +413,7 @@ const sendEmail = async ({ to, subject, html, text, companyId, attachments }) =>
             config = await getCompanyEmailConfig(companyId);
         }
 
+        const finalHtml = html ? injectContactFooter(html, config?.contact_email) : html;
         const useCustomSmtp = config?.use_custom_smtp;
 
         if (!useCustomSmtp) {
@@ -406,7 +430,7 @@ const sendEmail = async ({ to, subject, html, text, companyId, attachments }) =>
                 from: fromAddress,
                 to: Array.isArray(to) ? to : [to],
                 subject,
-                html,
+                html: finalHtml,
                 text: text || undefined
             };
 
@@ -429,7 +453,7 @@ const sendEmail = async ({ to, subject, html, text, companyId, attachments }) =>
                 from: fromAddress,
                 to: Array.isArray(to) ? to.join(', ') : to,
                 subject,
-                html,
+                html: finalHtml,
                 text: text || undefined
             };
 

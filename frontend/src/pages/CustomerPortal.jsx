@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useConfirm } from '../context/ConfirmContext';
 import { useSearchParams } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { format } from 'date-fns';
@@ -333,10 +334,11 @@ function CardRow({ card, token, onRefresh }) {
 // BUYBACK OFFER CARD
 // ============================================
 function BuybackCard({ offer, onRespond }) {
+  const confirm = useConfirm();
   const [responding, setResponding] = useState(false);
 
   const handleResponse = async (response) => {
-    if (!confirm(`${response === 'accepted' ? 'Accept' : 'Decline'} this offer for $${offer.offer_amount}?`)) return;
+    if (!await confirm({ title: response === 'accepted' ? 'Accept Offer' : 'Decline Offer', message: `${response === 'accepted' ? 'Accept' : 'Decline'} this offer for $${offer.offer_amount}?`, confirmLabel: response === 'accepted' ? 'Accept' : 'Decline', variant: response === 'accepted' ? 'info' : 'warning' })) return;
     setResponding(true);
     try { await onRespond(offer.id, response); } finally { setResponding(false); }
   };

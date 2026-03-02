@@ -2,6 +2,12 @@ import { useState, useRef, useEffect } from 'react';
 import { X, Send, Loader2, MessageCircle } from 'lucide-react';
 import api from '../api/client';
 
+function DashyAvatar({ className = 'w-16 h-16', fallback = '💬', fallbackClass = 'text-white text-3xl font-bold', animate = false }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <div className={`${fallbackClass}${animate ? ' animate-bounce' : ''}`}>{fallback}</div>;
+  return <img src="/images/DASHY.png" alt="Dashy" className={`${className}${animate ? ' animate-bounce' : ''}`} onError={() => setFailed(true)} />;
+}
+
 export default function DashyAssistant() {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
@@ -91,15 +97,7 @@ export default function DashyAssistant() {
           aria-label="Open Dashy Assistant"
         >
           <div className="relative w-16 h-16 flex items-center justify-center">
-            <img
-              src="/images/DASHY.png"
-              alt="Dashy"
-              className="w-16 h-16 animate-bounce"
-              onError={(e) => {
-                e.target.style.display = 'none';
-                e.target.parentElement.innerHTML = '<div class="text-white text-3xl font-bold animate-bounce">💬</div>';
-              }}
-            />
+            <DashyAvatar className="w-16 h-16" fallbackClass="text-white text-3xl font-bold" animate />
           </div>
           <div className="absolute -top-2 -right-2 w-7 h-7 bg-green-500 rounded-full border-2 border-white flex items-center justify-center">
             <MessageCircle className="w-4 h-4 text-white" />
@@ -114,15 +112,7 @@ export default function DashyAssistant() {
           <div className="bg-gradient-to-r from-brand-600 to-brand-700 text-white p-4 rounded-t-2xl flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <img
-                  src="/images/DASHY.png"
-                  alt="Dashy"
-                  className="w-10 h-10 rounded-full"
-                  onError={(e) => {
-                    e.target.style.display = 'none';
-                    e.target.parentElement.innerHTML = '<div class="text-white text-2xl font-bold">💬</div>';
-                  }}
-                />
+                <DashyAvatar className="w-10 h-10 rounded-full" fallbackClass="text-white text-2xl font-bold" />
               </div>
               <div>
                 <h3 className="font-bold text-lg text-white">Dashy</h3>
@@ -146,15 +136,7 @@ export default function DashyAssistant() {
               >
                 {msg.role === 'assistant' && (
                   <div className="w-8 h-8 flex-shrink-0 bg-brand-100 rounded-full flex items-center justify-center">
-                    <img
-                      src="/images/DASHY.png"
-                      alt="Dashy"
-                      className="w-8 h-8 rounded-full"
-                      onError={(e) => {
-                        e.target.style.display = 'none';
-                        e.target.parentElement.innerHTML = '<div class="text-brand-600 text-xl font-bold">D</div>';
-                      }}
-                    />
+                    <DashyAvatar className="w-8 h-8 rounded-full" fallback="D" fallbackClass="text-brand-600 text-xl font-bold" />
                   </div>
                 )}
                 <div
@@ -172,15 +154,7 @@ export default function DashyAssistant() {
             {isLoading && (
               <div className="flex gap-3">
                 <div className="w-8 h-8 flex-shrink-0 bg-brand-100 rounded-full flex items-center justify-center">
-                  <img
-                    src="/images/DASHY.png"
-                    alt="Dashy"
-                    className="w-8 h-8 rounded-full animate-bounce"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.parentElement.innerHTML = '<div class="text-brand-600 text-xl font-bold animate-bounce">💬</div>';
-                    }}
-                  />
+                  <DashyAvatar className="w-8 h-8 rounded-full" fallbackClass="text-brand-600 text-xl font-bold" animate />
                 </div>
                 <div className="bg-brand-100 border border-brand-200 rounded-2xl px-4 py-2">
                   <Loader2 className="w-4 h-4 text-brand-500 animate-spin" />

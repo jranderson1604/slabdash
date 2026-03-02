@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { cards } from '../api/client';
 import CompLookup from '../components/CompLookup';
 import {
@@ -19,6 +20,7 @@ export default function CardDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const toast = useToast();
+  const confirm = useConfirm();
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -102,7 +104,7 @@ export default function CardDetail() {
   };
 
   const handleDeleteImage = async (imageIndex) => {
-    if (!confirm('Delete this image?')) return;
+    if (!await confirm({ title: 'Delete Image', message: 'Remove this image from the card?', variant: 'danger' })) return;
 
     try {
       const res = await cards.deleteImage(id, imageIndex);
@@ -125,7 +127,7 @@ export default function CardDetail() {
   };
 
   const handleDelete = async () => {
-    if (!confirm('Delete this card? This cannot be undone.')) return;
+    if (!await confirm({ title: 'Delete Card', message: 'Delete this card? This cannot be undone.', variant: 'danger' })) return;
 
     try {
       await cards.delete(id);

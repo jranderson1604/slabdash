@@ -46,7 +46,7 @@ router.post('/generate-code/:submissionId', authenticate, requireRole('owner', '
             );
         } catch (error) {
             // pickup_code column doesn't exist - use simpler query
-            console.log('Note: pickup_code column not found in submissions table. This feature requires database migration.');
+            console.warn('Note: pickup_code column not found in submissions table. This feature requires database migration.');
             hasPickupCodeColumn = false;
 
             submission = await db.query(
@@ -112,7 +112,7 @@ router.post('/generate-code/:submissionId', authenticate, requireRole('owner', '
                 [pickupCode, submissionId]
             );
         } catch (error) {
-            console.log('Note: Cannot save pickup_code. Column does not exist in submissions table.');
+            console.warn('Note: Cannot save pickup_code. Column does not exist in submissions table.');
             return res.status(400).json({
                 error: 'Cannot save pickup code',
                 message: 'Database migration required'
@@ -155,7 +155,7 @@ router.post('/verify-pickup/:submissionId', authenticate, requireRole('owner', '
             );
         } catch (error) {
             // Columns don't exist - use simpler query
-            console.log('Note: pickup columns not found in submissions table.');
+            console.warn('Note: pickup columns not found in submissions table.');
             hasPickupColumns = false;
 
             submission = await db.query(
@@ -212,7 +212,7 @@ router.post('/verify-pickup/:submissionId', authenticate, requireRole('owner', '
                 [picked_up_by || 'Unknown', submissionId]
             );
         } catch (error) {
-            console.log('Note: Cannot update pickup status. Columns do not exist.');
+            console.warn('Note: Cannot update pickup status. Columns do not exist.');
         }
 
         // Log to pickup history
@@ -223,7 +223,7 @@ router.post('/verify-pickup/:submissionId', authenticate, requireRole('owner', '
                 [submissionId, codeVerified, picked_up_by || 'Unknown', notes || null, req.user.id]
             );
         } catch (error) {
-            console.log('Note: pickup_history table does not exist.');
+            console.warn('Note: pickup_history table does not exist.');
         }
 
         res.json({
@@ -276,7 +276,7 @@ router.get('/history/:submissionId', authenticate, async (req, res) => {
                 [submissionId]
             );
         } catch (error) {
-            console.log('Note: pickup_history table does not exist.');
+            console.warn('Note: pickup_history table does not exist.');
             return res.json({
                 success: true,
                 history: []
@@ -324,7 +324,7 @@ router.get('/lookup/:pickupCode', authenticate, async (req, res) => {
             );
         } catch (error) {
             // pickup_code column doesn't exist
-            console.log('Note: pickup_code column not found in submissions table.');
+            console.warn('Note: pickup_code column not found in submissions table.');
             return res.status(400).json({
                 error: 'Pickup lookup not available',
                 message: 'Database migration required. Pickup codes are now customer-specific.'

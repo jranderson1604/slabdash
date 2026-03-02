@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useConfirm } from '../context/ConfirmContext';
 import { useSearchParams } from 'react-router-dom';
 import CustomerPortal from './CustomerPortal';
 import { QRCodeSVG } from 'qrcode.react';
@@ -1826,10 +1827,11 @@ function JWTSubmissionCard({ submission, isExpanded, onToggle, jwtToken, onRefre
 // Buyback card for JWT portal
 // ============================================
 function JWTBuybackCard({ offer, jwtToken, onRefresh }) {
+  const confirm = useConfirm();
   const [responding, setResponding] = useState(false);
 
   const handleResponse = async (response) => {
-    if (!confirm(`${response === 'accepted' ? 'Accept' : 'Decline'} this offer for $${offer.offer_amount}?`)) return;
+    if (!await confirm({ title: response === 'accepted' ? 'Accept Offer' : 'Decline Offer', message: `${response === 'accepted' ? 'Accept' : 'Decline'} this offer for $${offer.offer_amount}?`, confirmLabel: response === 'accepted' ? 'Accept' : 'Decline', variant: response === 'accepted' ? 'info' : 'warning' })) return;
     setResponding(true);
     try {
       await fetch(`${API_URL}/portal/buyback-offers/${offer.id}/respond`, {

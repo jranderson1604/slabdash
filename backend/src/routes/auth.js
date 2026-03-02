@@ -397,7 +397,7 @@ router.post('/change-password', authenticate, async (req, res) => {
         const newHash = await bcrypt.hash(newPassword, 12);
         await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, req.user.id]);
 
-        console.log(`[Auth] Password changed for user ${req.user.email}`);
+        console.log(`[Auth] Password changed for user ID ${req.user.id}`);
         res.json({ success: true });
     } catch (error) {
         console.error('Change password error:', error);

@@ -357,7 +357,7 @@ router.post('/auto-detect-sports', authenticate, async (req, res) => {
                 });
             } catch (error) {
                 // Column might not exist yet
-                console.log('Note: sport column not found. Run migration first.');
+                console.warn('Note: sport column not found. Run migration first.');
                 return res.status(400).json({
                     error: 'Sport column not found',
                     message: 'Please run the database migration from Settings page to enable sport categorization.'
@@ -478,7 +478,7 @@ router.post('/bulk-assign', authenticate, async (req, res) => {
                     );
                 } catch (err) {
                     // Junction table might not exist, that's okay
-                    console.log('Note: submission_customers table update skipped');
+                    console.warn('Note: submission_customers table update skipped');
                 }
 
                 assigned.push({ certNumber: match.certNumber, customerName: match.customerName });
