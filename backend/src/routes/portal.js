@@ -1978,7 +1978,7 @@ You can scan cards! Tell customers they can upload a card photo for instant ID, 
 
         // Call Claude API with system prompt
         const response = await anthropic.messages.create({
-            model: 'claude-sonnet-4-5-20250929',
+            model: 'claude-sonnet-4-6',
             max_tokens: 1024,
             system: SAM_KNOWLEDGE + `\n\nCustomer name: ${customer.name}`,
             messages: [
@@ -2000,7 +2000,7 @@ You can scan cards! Tell customers they can upload a card photo for instant ID, 
 
         res.json({
             message: assistantMessage,
-            model: 'claude-sonnet-4-5',
+            model: 'claude-sonnet-4-6',
             ai_powered: true,
             mode: 'AI (Claude)',
             usage: tokenResult || null
@@ -2078,7 +2078,7 @@ router.post('/sam/scan', scanUpload.single('image'), async (req, res) => {
 
         // Analyze card with Claude vision
         const response = await anthropic.messages.create({
-            model: 'claude-sonnet-4-5-20250929',
+            model: 'claude-sonnet-4-6',
             max_tokens: 2048,
             messages: [
                 {

@@ -40,6 +40,7 @@ async function runMigrationsAndStart() {
   await runMigration('022_add_customer_email_opt_in.sql', 'Migration 022: Customer email opt-in');
   await runMigration('023_improve_refresh_system.sql', 'Migration 023: Refresh system improvements');
   await runMigration('024_add_submission_milestone_columns.sql', 'Migration 024: Submission milestone columns');
+  await runMigration('025_add_missing_card_columns.sql', 'Migration 025: Missing card columns');
   await runMigration('add_missing_columns.sql', 'Migration: Missing columns');
   await runMigration('add_sam_enabled.sql', 'Migration: SAM enabled flag');
   await runMigration('add_submission_images.sql', 'Migration: Submission images');

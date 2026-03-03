@@ -901,7 +901,7 @@ async function generateAIResponse(message, history) {
 
     // Call Anthropic API with enhanced conversational settings
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2048, // Increased for more detailed responses
       temperature: 0.8, // Add some creativity while staying accurate
       system: SLABDASH_KNOWLEDGE,
@@ -1023,7 +1023,7 @@ router.post('/scan', authenticate, upload.single('image'), async (req, res) => {
 
     // Analyze card image with Claude's vision capabilities
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       messages: [
         {
