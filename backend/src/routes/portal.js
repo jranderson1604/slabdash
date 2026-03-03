@@ -1667,6 +1667,119 @@ const checkSAMTokens = async (customerId, companyId, type = 'message') => {
     };
 };
 
+// Customer-focused SAM knowledge — full PSA expertise written for collectors
+const PORTAL_SAM_KNOWLEDGE = `You are SAM (Submission Assistant Manager), a PSA card grading expert and AI assistant for SlabDash.
+You're helping a CUSTOMER (a collector) through their card shop's customer portal.
+
+PERSONALITY:
+- Friendly, knowledgeable, honest, never condescending
+- Give specific numbers and real examples
+- Be REALISTIC — don't hype cards or promise grades you can't guarantee
+- Keep responses concise (3-5 paragraphs max)
+- You can look up live card prices and analyze card photos
+
+═══════════════════════════════════════
+PSA GRADING SCALE
+═══════════════════════════════════════
+• PSA 10 (GEM MINT) — Perfect. 55/45 centering or better, razor-sharp corners, no defects
+• PSA 9 (MINT) — Near perfect. 60/40 centering, 1 corner can have slight wear
+• PSA 8 (NM-MT) — Very nice. 65/35 centering, minor corner/edge wear on 2-3 corners
+• PSA 7 (NM) — Noticeable flaws. 70/30 centering, visible wear
+• PSA 6 (EX-MT) — Moderate wear, 75/25 centering
+• PSA 5-1 — Increasing damage, creases, stains
+
+WHAT GRADERS CHECK (in order of importance):
+1. Centering — Most critical for 10s. Even 1mm off can drop PSA 10 to PSA 9.
+2. Corners — Use magnifying glass. ANY white showing = PSA 8 ceiling.
+3. Edges — All 4 sides for chipping or whitening
+4. Surface — Check under angled light for scratches, print defects, wax stains. Back of card checked too.
+
+PSA 10 GEM RATE REALITY (2025 data):
+• Only ~34% of sports cards get PSA 10 (down from 40% in 2024)
+• PSA quietly tightened centering standards in early 2024 — 55/45 now required
+• TCG/Pokémon: ~50% gem rate (higher than sports)
+• Set realistic expectations — only 1 in 3 sports cards gems
+
+═══════════════════════════════════════
+SHOULD I GRADE THIS CARD?
+═══════════════════════════════════════
+ROI FORMULA: Graded value ÷ Grading fee = ROI multiple
+• 20x+ = Great | 10-20x = Good | 5-10x = Marginal | Under 5x = Don't grade
+
+REAL TOTAL COST TO GRADE (per card including shipping when batching):
+• Value Bulk: ~$25-27/card | Regular: ~$80/card | Express: ~$160/card
+
+EXAMPLE — WORTH IT:
+• Raw: $50 | PSA 9: $150 | PSA 10: $400 | Cost: ~$27 → PSA 9 profit: $73 ✅
+
+EXAMPLE — NOT WORTH IT:
+• Raw: $5 | PSA 10: $40 | Cost: ~$27 → profit: $8 ❌ (not worth the risk)
+
+HONEST REALITY: A PSA 6 or 7 often sells for LESS than raw. Only grade PSA 8+ candidates.
+
+═══════════════════════════════════════
+PSA SERVICE LEVELS & REAL TURNAROUND
+═══════════════════════════════════════
+PSA's posted estimates start AFTER "Order Prep" — not from when you ship.
+Add ~15 business days receiving queue + 7-14 days round-trip shipping to EVERYTHING.
+
+REAL total wait from when YOU ship:
+• Value Bulk ($24.99, "65 biz days") → 4-6 MONTHS total
+• Value ($32.99, "65 biz days") → 3-5 months total
+• Value Plus ($49.99, "45 biz days") → 2-4 months total
+• Regular ($79.99, "25 biz days") → 2-3 months total
+• Express (~$160, "10-20 biz days") → 3-6 weeks total (most reliable)
+• Super Express (~$300+, "5 biz days") → 2-3 weeks total
+• Walk-Through (~$600+, "1-2 biz days") → ~1 week total
+
+Express and above are the only tiers where PSA's times are close to reality.
+
+═══════════════════════════════════════
+PSA PROCESSING STEPS
+═══════════════════════════════════════
+1. Arrived — PSA received your package
+2. Order Prep — Scanned, entered into system. Turnaround clock starts here.
+3. Research & ID — Cards cross-referenced with PSA database. Autographs verified.
+4. Grading — At least 2 professional graders evaluate each card (Surface, Edges, Corners, Centering). If graders disagree, a 3rd breaks the tie. High-value cards get more scrutiny.
+5. Assembly — Labels printed, cards sonically sealed in slabs
+6. Grades Ready — YOUR GRADES ARE NOW VISIBLE! You can see results and choose: ship home, store in PSA Vault, or list on auction.
+7. QA Checks — Holders inspected, labels verified, spot-checks for declared value accuracy.
+8. Shipped — Cards sent back to shop with tracking
+
+═══════════════════════════════════════
+PRE-GRADING TIPS
+═══════════════════════════════════════
+1. Centering — Measure with ruler. 55/45 or better for PSA 10 shot. 1mm off = PSA 9 max.
+2. Corners — Jeweler's loupe on all 4. ANY white = PSA 8 ceiling.
+3. Edges — All 4 sides for chipping or whitening
+4. Surface — Tilt under bright angled light. Scratches are invisible straight-on!
+5. Back of card — Graders check both sides equally
+
+GRADING INCONSISTENCY IS REAL:
+• PSA grading has ~+/- 1 grade variability — same card, different day, potentially different result
+• High-value cards get more scrutiny; bulk cards get less
+• A 1-grade variance is normal and expected
+
+PSA UPCHARGE WARNING:
+• If your card grades above your declared value tier, PSA charges extra AFTER grading
+• This creates an "Accounting Hold" that delays your order
+• Always declare at the potential PSA 10 value — cheaper than an upcharge
+
+═══════════════════════════════════════
+LIVE PRICING & CARD SCANNING
+═══════════════════════════════════════
+PRICE LOOKUPS: Ask "how much is [card] worth?" and I'll pull real sold data:
+• Raw (ungraded) eBay prices | PSA 8, 9, and 10 sold comps | Recent sale prices
+This tells you exactly if grading makes financial sense for YOUR specific card.
+
+CARD SCANNING: Upload a card photo and I'll:
+• Identify the exact card (name, set, year, parallel, serial number)
+• Assess condition and estimate PSA grade
+• Pull live market prices for that exact variant
+• Give an honest grading recommendation
+
+When I have LIVE DATA: I cite specific numbers. "PSA 10s averaging $247 (12 sold)" — not guesses.`;
+
 // Get SAM usage stats for a customer
 router.get('/sam/usage', authenticateCustomer, async (req, res) => {
     try {
@@ -1797,7 +1910,7 @@ router.post('/sam/buy-tokens', authenticateCustomer, async (req, res) => {
     }
 });
 
-// SAM Chat endpoint for customer portal (token or JWT)
+// SAM Chat endpoint for customer portal (token or JWT) — streams via SSE
 router.post('/sam/chat', async (req, res) => {
     try {
         const { message, history } = req.body;
@@ -1813,7 +1926,6 @@ router.post('/sam/chat', async (req, res) => {
             return res.status(401).json({ error: authErr.message });
         }
 
-        // Check if company has SAM enabled
         if (!customer.sam_enabled) {
             return res.status(403).json({
                 error: 'SAM Assistant is not available',
@@ -1821,7 +1933,6 @@ router.post('/sam/chat', async (req, res) => {
             });
         }
 
-        // Check SAM token usage (15 free/day, then costs tokens)
         let tokenResult;
         try {
             tokenResult = await checkSAMTokens(customer.id, customer.company_id, 'message');
@@ -1838,7 +1949,6 @@ router.post('/sam/chat', async (req, res) => {
             });
         }
 
-        // Check API key before creating client
         const samApiKey = process.env.ANTHROPIC_API_KEY;
         if (!samApiKey) {
             return res.status(503).json({
@@ -1847,62 +1957,11 @@ router.post('/sam/chat', async (req, res) => {
             });
         }
 
-        // Import SAM service (same as admin SAM)
-        const Anthropic = require('@anthropic-ai/sdk');
-        const anthropic = new Anthropic({
-            apiKey: samApiKey
-        });
-
-        // SAM knowledge base (customer-focused, honest)
-        const SAM_KNOWLEDGE = `
-You are SAM (Submission Assistant Manager), a PSA card grading expert and AI assistant for SlabDash.
-
-You're helping a CUSTOMER through their card shop's portal. Be friendly, knowledgeable, and HONEST.
-
-IMPORTANT RULES:
-- You're talking to an END CUSTOMER, not shop staff. Keep explanations simple.
-- Be REALISTIC. Don't hype up cheap cards. If a card is worth $1-5 raw, grading costs $20+ and makes NO financial sense. Say so directly.
-- Only recommend grading if the graded value significantly exceeds the cost.
-- When you have LIVE PRICING DATA, cite specific numbers. Don't make up prices.
-- Keep responses concise (3-5 paragraphs max).
-
-PSA GRADING SCALE:
-• PSA 10 (GEM MINT) — Perfect. 55/45 centering or better, razor sharp corners, no defects
-• PSA 9 (MINT) — Near perfect. 60/40 centering, 1 corner can have slight wear
-• PSA 8 (NM-MT) — Very nice. 65/35 centering, minor corner/edge wear
-• PSA 7 (NM) — Noticeable flaws. 70/30 centering, visible wear
-• PSA 6 and below — Increasing wear, centering issues, creases
-
-4 GRADING PILLARS: Centering (most important for 10s), Corners, Edges, Surface
-
-PSA SERVICE LEVELS:
-• Bulk ($19-25, 65+ days) — cards worth $100-500 graded
-• Regular ($75-100, 30+ days) — cards worth $500-1500
-• Express ($150-200, 15+ days) — cards worth $1000-3000
-• Super Express/Walk-Through ($300-600+, 1-10 days) — high-value cards
-
-ROI FORMULA: Graded value ÷ Grading fee = ROI multiple
-• 20x+ = Great, 10-20x = Good, 5-10x = Marginal, Under 5x = Don't grade
-
-REALITY CHECK:
-• Grading costs $20+ minimum (bulk service). Add $10 shipping each way.
-• A $5 card graded PSA 10 might be worth $15. After $30+ in fees, you LOSE money.
-• Only grade if the PSA 10 value is at least 3-5x the total cost (grading + shipping).
-• Most modern cards don't get PSA 10 — expect PSA 9 as the realistic outcome.
-
-PRICING: We pull live market data from JustTCG and eBay. When pricing data is provided in the conversation, use those real numbers.
-
-You can scan cards! Tell customers they can upload a card photo for instant ID, pricing, and gradability assessment.
-`;
-
-        // Check if this is a pricing question and fetch comps
+        // Fetch live pricing data before streaming starts (if relevant)
         let pricingContext = null;
-        const pricingKeywords = ['price', 'value', 'worth', 'cost', 'comp', 'market', 'how much', 'what is', 'what\'s', 'selling for', 'going for'];
-        const hasPricingIntent = pricingKeywords.some(kw => message.toLowerCase().includes(kw));
-
-        if (hasPricingIntent) {
+        const pricingKeywords = ['price', 'value', 'worth', 'cost', 'comp', 'market', 'how much', 'what is', "what's", 'selling for', 'going for'];
+        if (pricingKeywords.some(kw => message.toLowerCase().includes(kw))) {
             try {
-                // Extract card name from message (strip pricing keywords)
                 let cardQuery = message;
                 const removePatterns = [
                     /how much is/i, /what is/i, /what's/i, /what are/i,
@@ -1912,13 +1971,10 @@ You can scan cards! Tell customers they can upload a card photo for instant ID, 
                     /pokemon|pokémon|magic|mtg|yu-gi-oh|yugioh|lorcana|digimon|one piece/gi,
                     /psa\s*\d+/gi, /a\s+/i, /the\s+/i, /\?/g
                 ];
-                for (const pattern of removePatterns) {
-                    cardQuery = cardQuery.replace(pattern, ' ');
-                }
+                for (const pattern of removePatterns) cardQuery = cardQuery.replace(pattern, ' ');
                 cardQuery = cardQuery.replace(/\s+/g, ' ').trim();
 
                 if (cardQuery.length >= 2) {
-                    // Detect game type
                     const lower = message.toLowerCase();
                     let game = '';
                     if (lower.includes('pokemon') || lower.includes('pokémon')) game = 'pokemon';
@@ -1928,18 +1984,11 @@ You can scan cards! Tell customers they can upload a card photo for instant ID, 
                     else if (lower.includes('one piece')) game = 'one-piece-card-game';
                     else if (lower.includes('digimon')) game = 'digimon-card-game';
 
-                    // Fetch graded pricing breakdown
-                    const gradedPricing = await fetchGradedPricing({
-                        name: cardQuery,
-                        game: game,
-                        sport: '',
-                    });
-
+                    const gradedPricing = await fetchGradedPricing({ name: cardQuery, game, sport: '' });
                     const hasSomeData = gradedPricing.raw?.available || gradedPricing.psa8?.available || gradedPricing.psa9?.available || gradedPricing.psa10?.available;
 
                     if (hasSomeData) {
                         const lines = ['LIVE PRICING DATA (include these numbers in your response):'];
-
                         if (gradedPricing.raw?.available && gradedPricing.raw.count > 0) {
                             lines.push(`RAW (ungraded): Avg $${gradedPricing.raw.avg.toFixed(2)} (${gradedPricing.raw.count} listings)`);
                         }
@@ -1952,7 +2001,6 @@ You can scan cards! Tell customers they can upload a card photo for instant ID, 
                             }
                         }
                         lines.push('\nPresent the raw value, then show PSA 8, 9, and 10 values so the customer sees the grading upside.');
-
                         pricingContext = lines.join('\n');
                         console.log(`💰 Portal chat: Got graded pricing for "${cardQuery}"`);
                     }
@@ -1962,64 +2010,69 @@ You can scan cards! Tell customers they can upload a card photo for instant ID, 
             }
         }
 
-        // Build conversation history
+        // Set up SSE streaming
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+
+        let closed = false;
+        req.on('close', () => { closed = true; });
+
+        const Anthropic = require('@anthropic-ai/sdk');
+        const anthropic = new Anthropic({ apiKey: samApiKey });
+
         const conversationHistory = (history || [])
             .filter(msg => msg.role && msg.content)
-            .slice(-5)
+            .slice(-10)
             .map(msg => ({
                 role: msg.role === 'assistant' ? 'assistant' : 'user',
                 content: msg.content
             }));
 
-        // Enrich message with pricing data if available
         const enrichedMessage = pricingContext
             ? `${message}\n\n[SYSTEM: ${pricingContext}]`
             : message;
 
-        // Call Claude API with system prompt
-        const response = await anthropic.messages.create({
-            model: 'claude-sonnet-4-6',
-            max_tokens: 1024,
-            system: SAM_KNOWLEDGE + `\n\nCustomer name: ${customer.name}`,
-            messages: [
-                ...conversationHistory,
-                {
-                    role: 'user',
-                    content: enrichedMessage
-                }
-            ]
-        });
+        try {
+            console.log(`🤖 Streaming portal SAM via claude-sonnet-4-6...`);
+            const stream = await anthropic.messages.create({
+                model: 'claude-sonnet-4-6',
+                max_tokens: 2048,
+                temperature: 0.8,
+                system: PORTAL_SAM_KNOWLEDGE + `\n\nCustomer name: ${customer.name}`,
+                messages: [...conversationHistory, { role: 'user', content: enrichedMessage }],
+                stream: true
+            });
 
-        const assistantMessage = response.content?.[0]?.text;
-        if (!assistantMessage) {
-            return res.status(502).json({
-                error: 'SAM received an empty response',
+            for await (const event of stream) {
+                if (closed) break;
+                if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+                    res.write(`data: ${JSON.stringify({ type: 'delta', text: event.delta.text })}\n\n`);
+                }
+            }
+
+            if (!closed) {
+                console.log('✅ Portal SAM stream complete');
+                res.write(`data: ${JSON.stringify({ type: 'done', ai_powered: true, usage: tokenResult })}\n\n`);
+            }
+        } catch (streamError) {
+            console.error('❌ Portal SAM stream error:', streamError.message);
+            if (!closed) {
+                res.write(`data: ${JSON.stringify({ type: 'error', message: 'Oops! SAM is having trouble right now. Please try again in a moment!' })}\n\n`);
+                res.write(`data: ${JSON.stringify({ type: 'done', ai_powered: false, usage: tokenResult })}\n\n`);
+            }
+        }
+
+        res.end();
+    } catch (error) {
+        console.error('Customer portal SAM chat error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({
+                error: 'Failed to get response from SAM',
                 message: 'Oops! SAM is having trouble right now. Please try again in a moment!'
             });
         }
-
-        res.json({
-            message: assistantMessage,
-            model: 'claude-sonnet-4-6',
-            ai_powered: true,
-            mode: 'AI (Claude)',
-            usage: tokenResult || null
-        });
-    } catch (error) {
-        console.error('Customer portal SAM chat error:', error);
-
-        // Check if Anthropic API key is missing
-        if (error.message?.includes('API key')) {
-            return res.status(500).json({
-                error: 'SAM is not configured yet',
-                message: 'The AI assistant is being set up. Please try again later!'
-            });
-        }
-
-        res.status(500).json({
-            error: 'Failed to get response from SAM',
-            message: 'Oops! SAM is having trouble right now. Please try again in a moment!'
-        });
     }
 });
 
