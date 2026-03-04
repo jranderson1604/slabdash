@@ -186,4 +186,14 @@ export const analytics = {
   topCustomers: () => api.get('/analytics/top-customers'),
 };
 
+export const points = {
+  getConfig: () => api.get('/points/config'),
+  updateConfig: (data) => api.patch('/points/config', data),
+  leaderboard: () => api.get('/points/leaderboard'),
+  getCustomer: (id) => api.get(`/points/customers/${id}`),
+  adjust: (id, data) => api.post(`/points/customers/${id}/adjust`, data),
+  redeem: (id, data) => api.post(`/points/customers/${id}/redeem`, data),
+  portalPoints: () => api.get('/portal/points'),
+};
+
 export default api;

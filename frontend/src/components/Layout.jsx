@@ -27,6 +27,7 @@ import {
   Moon,
   Sun,
   Monitor,
+  Star,
 } from 'lucide-react';
 
 export default function Layout({ children }) {
@@ -115,6 +116,7 @@ export default function Layout({ children }) {
     { name: 'Analytics', href: '/analytics', icon: BarChart2 },
     { name: 'Import CSV', href: '/import', icon: Upload },
     { name: 'Buyback Offers', href: '/buyback', icon: DollarSign },
+    { name: 'Rewards', href: '/rewards', icon: Star },
     { name: 'Email', href: '/email-settings', icon: Mail },
     { name: 'Help', href: '/help', icon: HelpCircle },
     { name: 'Settings', href: '/settings', icon: Settings },

@@ -51,6 +51,7 @@ const webhooksRoutes = require("./routes/webhooks");
 const auditRoutes = require("./routes/audit");
 const cardImportRoutes = require("./routes/cardImport");
 const accountRoutes = require("./routes/account");
+const pointsRoutes = require("./routes/points");
 
 /* -------------------- STARTUP VALIDATION -------------------- */
 const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
@@ -254,6 +255,7 @@ app.use("/api/webhooks", webhooksRoutes);
 app.use("/api/audit", auditRoutes);
 app.use("/api/card-import", cardImportRoutes);
 app.use("/api/account", accountRoutes);
+app.use("/api/points", pointsRoutes);
 
 /* -------------------- 404 HANDLER -------------------- */
 
@@ -743,6 +745,44 @@ async function startServer() {
       console.log("✓ Migration: performance indexes ensured");
     } catch (migrationError) {
       console.warn("⚠ indexes migration warning:", migrationError.message);
+    }
+
+    // Points rewards system tables
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS points_config (
+          id SERIAL PRIMARY KEY,
+          company_id INTEGER UNIQUE NOT NULL,
+          enabled BOOLEAN DEFAULT FALSE,
+          points_per_card INTEGER DEFAULT 10,
+          points_per_dollar NUMERIC(8,2) DEFAULT 0,
+          redemption_rate INTEGER DEFAULT 100,
+          min_redemption_points INTEGER DEFAULT 100,
+          welcome_bonus_points INTEGER DEFAULT 50,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+          updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS points_transactions (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          company_id INTEGER NOT NULL,
+          customer_id UUID NOT NULL,
+          amount INTEGER NOT NULL,
+          type VARCHAR(50) NOT NULL,
+          reference_type VARCHAR(50),
+          reference_id UUID,
+          description TEXT,
+          created_by INTEGER,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `);
+      await db.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS points_balance INTEGER DEFAULT 0`);
+      await db.query(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS lifetime_points_earned INTEGER DEFAULT 0`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_points_tx_customer ON points_transactions(customer_id, company_id)`);
+      console.log("✓ Migration: points rewards tables ensured");
+    } catch (migrationError) {
+      console.warn("⚠ points rewards migration warning:", migrationError.message);
     }
 
     // Initialize scheduled tasks (cron jobs)

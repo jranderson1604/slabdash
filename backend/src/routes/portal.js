@@ -2332,4 +2332,54 @@ Only include fields you can actually read from the card.`
     }
 });
 
+// ============================================
+// POINTS / REWARDS
+// ============================================
+
+router.get('/points', authenticateCustomer, async (req, res) => {
+  try {
+    const { id: customerId, company_id: companyId } = req.customer;
+
+    const customerResult = await db.query(
+      `SELECT COALESCE(points_balance, 0) as points_balance,
+              COALESCE(lifetime_points_earned, 0) as lifetime_points_earned
+       FROM customers WHERE id = $1`,
+      [customerId]
+    );
+
+    const configResult = await db.query(
+      'SELECT * FROM points_config WHERE company_id = $1',
+      [companyId]
+    );
+
+    const txResult = await db.query(
+      `SELECT amount, type, description, created_at
+       FROM points_transactions
+       WHERE customer_id = $1 AND company_id = $2
+       ORDER BY created_at DESC LIMIT 20`,
+      [customerId, companyId]
+    );
+
+    const config = configResult.rows[0] || { enabled: false, redemption_rate: 100 };
+    const balance = parseInt(customerResult.rows[0]?.points_balance || 0, 10);
+    const lifetimeEarned = parseInt(customerResult.rows[0]?.lifetime_points_earned || 0, 10);
+    const dollarValue = config.redemption_rate > 0
+      ? (balance / config.redemption_rate).toFixed(2)
+      : '0.00';
+
+    res.json({
+      enabled: config.enabled,
+      points_balance: balance,
+      lifetime_points_earned: lifetimeEarned,
+      dollar_value: parseFloat(dollarValue),
+      redemption_rate: config.redemption_rate,
+      min_redemption_points: config.min_redemption_points || 100,
+      transactions: txResult.rows,
+    });
+  } catch (err) {
+    console.error('Portal points error:', err);
+    res.status(500).json({ error: 'Failed to fetch points' });
+  }
+});
+
 module.exports = router;

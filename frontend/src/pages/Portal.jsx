@@ -718,12 +718,13 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
   const loadData = async () => {
     try {
       const headers = { Authorization: `Bearer ${jwtToken}` };
-      const [meRes, subsRes, statsRes, offersRes, cardsRes] = await Promise.all([
+      const [meRes, subsRes, statsRes, offersRes, cardsRes, pointsRes] = await Promise.all([
         fetch(`${API_URL}/portal/me`, { headers }),
         fetch(`${API_URL}/portal/submissions`, { headers }),
         fetch(`${API_URL}/portal/stats`, { headers }).catch(() => null),
         fetch(`${API_URL}/portal/buyback-offers`, { headers }).catch(() => null),
         fetch(`${API_URL}/portal/cards`, { headers }).catch(() => null),
+        fetch(`${API_URL}/portal/points`, { headers }).catch(() => null),
       ]);
 
       if (!meRes.ok) { onLogout(); return; }
@@ -732,6 +733,7 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
       const submissions = subsRes.ok ? await subsRes.json() : [];
       const offers = offersRes?.ok ? await offersRes.json() : [];
       const cards = cardsRes?.ok ? await cardsRes.json() : [];
+      const pointsData = pointsRes?.ok ? await pointsRes.json() : null;
 
       const subsWithCards = await Promise.all(
         submissions.map(async (sub) => {
@@ -746,7 +748,7 @@ function CustomerPortalJWT({ jwtToken, onLogout, showHomeScreenBanner, onDismiss
         })
       );
 
-      setData({ customer: me.customer, company: me.company, submissions: subsWithCards, buybackOffers: offers, cards });
+      setData({ customer: me.customer, company: me.company, submissions: subsWithCards, buybackOffers: offers, cards, pointsData });
       setLastPollTime(new Date().toISOString());
       setLoading(false);
     } catch (err) {
@@ -1104,6 +1106,17 @@ function JWTPortalView({ data, jwtToken, onLogout, onRefresh, showProfile, setSh
             {activeSubmissions.length === 0 && readyForPickup.length === 0 && completedSubmissions.length === 0 && 'No orders yet'}
             {activeSubmissions.length === 0 && readyForPickup.length === 0 && completedSubmissions.length > 0 && `${completedSubmissions.length} completed`}
           </p>
+          {data.pointsData?.enabled && data.pointsData.points_balance > 0 && (
+            <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold"
+              style={{ background: 'rgba(255,255,255,0.18)', color: '#fff' }}>
+              ★ {data.pointsData.points_balance.toLocaleString()} pts
+              {data.pointsData.dollar_value > 0 && (
+                <span style={{ color: 'rgba(255,248,240,0.7)', fontWeight: 600 }}>
+                  · ${data.pointsData.dollar_value} value
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -1445,6 +1458,51 @@ function PortalSettingsTab({ data, jwtToken, onRefresh, onLogout, setShowProfile
           )}
         </div>
       ))}
+
+      {/* Rewards / Points */}
+      {data.pointsData?.enabled && (
+        <div className="rounded-2xl p-4" style={{ background: '#FBF7F2', border: '1px solid rgba(44,36,22,0.06)' }}>
+          <div className="flex items-center gap-3 mb-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: 'rgba(255,129,112,0.08)' }}>
+              <span className="text-lg">★</span>
+            </div>
+            <div>
+              <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>Rewards Points</p>
+              <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                {(data.pointsData.lifetime_points_earned || 0).toLocaleString()} pts earned lifetime
+              </p>
+            </div>
+            <div className="ml-auto text-right">
+              <p className="text-xl font-black" style={{ color: '#E8543D' }}>
+                {(data.pointsData.points_balance || 0).toLocaleString()}
+              </p>
+              <p className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                current balance
+              </p>
+            </div>
+          </div>
+          {data.pointsData.points_balance > 0 && data.pointsData.dollar_value > 0 && (
+            <div className="text-xs font-semibold rounded-xl px-3 py-2 text-center"
+              style={{ background: 'rgba(255,129,112,0.06)', color: '#E8543D', border: '1px solid rgba(255,129,112,0.1)' }}>
+              Worth ${data.pointsData.dollar_value} in discounts — ask your shop to redeem
+            </div>
+          )}
+          {data.pointsData.transactions?.length > 0 && (
+            <div className="mt-3 space-y-1.5 pt-3" style={{ borderTop: '1px solid rgba(44,36,22,0.05)' }}>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-secondary)' }}>Recent Activity</p>
+              {data.pointsData.transactions.slice(0, 5).map((tx, i) => (
+                <div key={i} className="flex items-center justify-between text-xs">
+                  <span className="truncate flex-1 pr-2" style={{ color: 'var(--text-secondary)' }}>{tx.description}</span>
+                  <span className="font-bold flex-shrink-0" style={{ color: tx.amount > 0 ? '#059669' : '#dc2626' }}>
+                    {tx.amount > 0 ? '+' : ''}{tx.amount}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Buyback earnings summary */}
       {allOffers.length > 0 && (

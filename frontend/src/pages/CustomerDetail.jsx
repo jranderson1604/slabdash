@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { useToast } from '../context/ToastContext';
 import { useConfirm } from '../context/ConfirmContext';
-import { customers, submissions } from '../api/client';
+import { customers, submissions, points as pointsApi } from '../api/client';
 import PageHeader from '../components/PageHeader';
 import StatusBadge from '../components/StatusBadge';
 import ProgressBar from '../components/ProgressBar';
@@ -29,6 +29,10 @@ import {
   Search,
   Plus,
   Eye,
+  Star,
+  Gift,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 
@@ -54,6 +58,11 @@ export default function CustomerDetail() {
   const [showTestEmailModal, setShowTestEmailModal] = useState(false);
   const [testEmail, setTestEmail] = useState('');
   const [sendingTestEmail, setSendingTestEmail] = useState(false);
+  const [pointsData, setPointsData] = useState(null);
+  const [showAdjustModal, setShowAdjustModal] = useState(false);
+  const [adjustForm, setAdjustForm] = useState({ amount: '', description: '' });
+  const [adjusting, setAdjusting] = useState(false);
+  const [showPointsHistory, setShowPointsHistory] = useState(false);
 
   const loadCustomer = async () => {
     try {
@@ -81,7 +90,17 @@ export default function CustomerDetail() {
   useEffect(() => {
     loadCustomer();
     loadSubmissions();
+    loadPoints();
   }, [id]);
+
+  const loadPoints = async () => {
+    try {
+      const res = await pointsApi.getCustomer(id);
+      setPointsData(res.data);
+    } catch {
+      // points may not exist yet; non-fatal
+    }
+  };
 
   const loadSubmissions = async () => {
     try {
@@ -191,6 +210,23 @@ export default function CustomerDetail() {
       toast.error(error.response?.data?.error || 'Failed to send test email');
     } finally {
       setSendingTestEmail(false);
+    }
+  };
+
+  const handleAdjustPoints = async () => {
+    const amt = parseInt(adjustForm.amount, 10);
+    if (!amt || !adjustForm.description) return;
+    setAdjusting(true);
+    try {
+      await pointsApi.adjust(id, { amount: amt, description: adjustForm.description });
+      toast.success(`${amt > 0 ? '+' : ''}${amt} points applied`);
+      setShowAdjustModal(false);
+      setAdjustForm({ amount: '', description: '' });
+      loadPoints();
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to adjust points');
+    } finally {
+      setAdjusting(false);
     }
   };
 
@@ -480,6 +516,58 @@ export default function CustomerDetail() {
             </dl>
           </div>
 
+          {/* Points / Rewards */}
+          {pointsData && (
+            <div className="card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider flex items-center gap-2">
+                  <Star className="w-4 h-4" style={{ color: '#FF8170' }} />
+                  Rewards Points
+                </h3>
+                <button
+                  onClick={() => setShowAdjustModal(true)}
+                  className="text-xs font-semibold px-3 py-1 rounded-lg"
+                  style={{ background: 'rgba(255,129,112,0.1)', color: '#E8543D' }}
+                >
+                  Adjust
+                </button>
+              </div>
+              <div className="flex items-end gap-2 mb-3">
+                <span className="text-3xl font-black" style={{ color: '#E8543D' }}>
+                  {(pointsData.points_balance || 0).toLocaleString()}
+                </span>
+                <span className="text-sm font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>pts</span>
+              </div>
+              <div className="flex items-center justify-between text-xs mb-3" style={{ color: 'var(--text-secondary)' }}>
+                <span>{(pointsData.lifetime_points_earned || 0).toLocaleString()} earned lifetime</span>
+              </div>
+              {pointsData.transactions?.length > 0 && (
+                <div>
+                  <button
+                    onClick={() => setShowPointsHistory(v => !v)}
+                    className="flex items-center gap-1 text-xs font-semibold w-full"
+                    style={{ color: 'var(--text-secondary)' }}
+                  >
+                    {showPointsHistory ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    {showPointsHistory ? 'Hide' : 'Show'} history
+                  </button>
+                  {showPointsHistory && (
+                    <div className="mt-3 space-y-2">
+                      {pointsData.transactions.slice(0, 8).map(tx => (
+                        <div key={tx.id} className="flex items-center justify-between text-xs">
+                          <span className="truncate flex-1 pr-2" style={{ color: 'var(--text-secondary)' }}>{tx.description}</span>
+                          <span className="font-bold flex-shrink-0" style={{ color: tx.amount > 0 ? '#16a34a' : '#dc2626' }}>
+                            {tx.amount > 0 ? '+' : ''}{tx.amount}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="card p-6">
             <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider mb-4 flex items-center gap-2"><LinkIcon className="w-4 h-4" />Customer Portal</h3>
             <div className="space-y-4">
@@ -547,6 +635,55 @@ export default function CustomerDetail() {
           </div>
         </div>
       </div>
+
+      {/* Points Adjust Modal */}
+      {showAdjustModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Gift className="w-5 h-5" style={{ color: '#FF8170' }} />
+                Adjust Points
+              </h3>
+              <button onClick={() => setShowAdjustModal(false)}><X className="w-5 h-5 text-gray-400" /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="label">Amount <span className="text-gray-400 font-normal">(negative to deduct)</span></label>
+                <input
+                  type="number"
+                  className="input w-full"
+                  placeholder="e.g. 100 or -50"
+                  value={adjustForm.amount}
+                  onChange={e => setAdjustForm(f => ({ ...f, amount: e.target.value }))}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="label">Reason</label>
+                <input
+                  type="text"
+                  className="input w-full"
+                  placeholder="e.g. Referral bonus"
+                  value={adjustForm.description}
+                  onChange={e => setAdjustForm(f => ({ ...f, description: e.target.value }))}
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={handleAdjustPoints}
+                  disabled={adjusting || !adjustForm.amount || !adjustForm.description}
+                  className="btn-primary flex items-center gap-2 flex-1 justify-center"
+                >
+                  {adjusting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Star className="w-4 h-4" />}
+                  Apply
+                </button>
+                <button onClick={() => setShowAdjustModal(false)} className="btn flex-1 justify-center">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Test Email Modal */}
       {showTestEmailModal && (

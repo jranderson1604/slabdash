@@ -338,6 +338,13 @@ router.post("/", authenticate, async (req, res) => {
       console.error('Failed to queue confirmation email:', emailError.message);
     }
 
+    // Award loyalty points if customer linked (fire and forget)
+    if (customer_id) {
+      const { awardSubmissionPoints } = require('../services/pointsService');
+      const cardCount = parsedPsaData?.cardCount || 0;
+      awardSubmissionPoints(req.user.company_id, customer_id, submission.id, cardCount).catch(() => {});
+    }
+
     res.status(201).json({
       ...submission,
       psa_data_imported: !!parsedPsaData
