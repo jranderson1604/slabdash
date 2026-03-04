@@ -785,6 +785,30 @@ async function startServer() {
       console.warn("⚠ points rewards migration warning:", migrationError.message);
     }
 
+    // Reward coupons table
+    try {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS reward_coupons (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          code VARCHAR(12) UNIQUE NOT NULL,
+          company_id INTEGER NOT NULL,
+          customer_id UUID NOT NULL,
+          points_used INTEGER NOT NULL,
+          dollar_value NUMERIC(8,2) NOT NULL,
+          status VARCHAR(20) DEFAULT 'active',
+          expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+          redeemed_at TIMESTAMP WITH TIME ZONE,
+          redeemed_by INTEGER,
+          created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+        );
+      `);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_coupons_code ON reward_coupons(code)`);
+      await db.query(`CREATE INDEX IF NOT EXISTS idx_coupons_customer ON reward_coupons(customer_id, company_id)`);
+      console.log("✓ Migration: reward_coupons table ensured");
+    } catch (migrationError) {
+      console.warn("⚠ reward_coupons migration warning:", migrationError.message);
+    }
+
     // Initialize scheduled tasks (cron jobs)
     try {
       initializeScheduler();

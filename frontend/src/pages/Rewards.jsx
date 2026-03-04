@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useToast } from '../context/ToastContext';
 import { points } from '../api/client';
+import { QRCodeSVG } from 'qrcode.react';
 import PageHeader from '../components/PageHeader';
 import {
   Star,
@@ -16,6 +17,10 @@ import {
   ToggleRight,
   User,
   AlertCircle,
+  Ticket,
+  Search,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 
 function StatCard({ label, value, sub, icon: Icon }) {
@@ -44,6 +49,10 @@ export default function Rewards() {
   const [loadingBoard, setLoadingBoard] = useState(true);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({});
+  const [couponCode, setCouponCode] = useState('');
+  const [lookingUp, setLookingUp] = useState(false);
+  const [couponResult, setCouponResult] = useState(null);
+  const [redeeming, setRedeeming] = useState(false);
 
   useEffect(() => {
     loadAll();
@@ -94,6 +103,33 @@ export default function Rewards() {
   const totalPoints = leaderboard.reduce((s, c) => s + parseInt(c.lifetime_points_earned || 0, 10), 0);
   const activeMembers = leaderboard.length;
 
+  async function lookupCoupon(e) {
+    e.preventDefault();
+    if (!couponCode.trim()) return;
+    setLookingUp(true); setCouponResult(null);
+    try {
+      const res = await points.lookupCoupon(couponCode.trim());
+      setCouponResult(res.data);
+    } catch (err) {
+      const msg = err.response?.data?.error || 'Coupon not found';
+      setCouponResult({ error: msg });
+    }
+    setLookingUp(false);
+  }
+
+  async function redeemCoupon() {
+    if (!couponResult?.code) return;
+    setRedeeming(true);
+    try {
+      await points.redeemCoupon(couponResult.code);
+      toast.success(`Coupon ${couponResult.code} redeemed — $${parseFloat(couponResult.dollar_value).toFixed(2)} discount applied`);
+      setCouponResult(null); setCouponCode('');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Failed to redeem coupon');
+    }
+    setRedeeming(false);
+  }
+
   if (loadingConfig) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -126,6 +162,90 @@ export default function Rewards() {
           sub="earned on submission"
           icon={TrendingUp}
         />
+      </div>
+
+      {/* Coupon Lookup */}
+      <div className="card p-6">
+        <div className="flex items-center gap-3 mb-4">
+          <Ticket className="w-5 h-5" style={{ color: '#E8543D' }} />
+          <h2 className="text-lg font-bold" style={{ color: 'rgb(var(--dark))' }}>Redeem Customer Coupon</h2>
+        </div>
+        <form onSubmit={lookupCoupon} className="flex gap-3 mb-4">
+          <input
+            type="text"
+            value={couponCode}
+            onChange={e => { setCouponCode(e.target.value.toUpperCase()); setCouponResult(null); }}
+            placeholder="Enter coupon code e.g. ABCD-EF12"
+            className="input flex-1 font-mono tracking-wider uppercase"
+            style={{ letterSpacing: '0.1em' }}
+          />
+          <button type="submit" disabled={lookingUp || !couponCode.trim()}
+            className="btn-primary flex items-center gap-2 shrink-0">
+            {lookingUp ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+            Look Up
+          </button>
+        </form>
+
+        {couponResult && !couponResult.error && (
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(var(--border-rgb),0.5)' }}>
+            <div className="p-4 flex items-start gap-4" style={{ background: 'rgba(var(--surface-rgb),0.5)' }}>
+              {/* QR Code */}
+              <div className="p-3 rounded-xl shrink-0" style={{ background: '#fff', border: '1px solid rgba(44,36,22,0.08)' }}>
+                <QRCodeSVG value={couponResult.code} size={80} level="H" style={{ display: 'block' }} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <span className="text-lg font-black tracking-widest" style={{ color: '#E8543D', letterSpacing: '0.12em' }}>
+                    {couponResult.code}
+                  </span>
+                  {couponResult.state === 'valid' && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(5,150,105,0.1)', color: '#059669' }}>
+                      Valid
+                    </span>
+                  )}
+                  {couponResult.state === 'redeemed' && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(107,114,128,0.1)', color: '#6B7280' }}>
+                      Already Used
+                    </span>
+                  )}
+                  {couponResult.state === 'expired' && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ background: 'rgba(220,38,38,0.08)', color: '#DC2626' }}>
+                      Expired
+                    </span>
+                  )}
+                </div>
+                <p className="text-xl font-black mb-1" style={{ color: couponResult.state === 'valid' ? '#059669' : 'var(--text-secondary)' }}>
+                  ${parseFloat(couponResult.dollar_value).toFixed(2)} off
+                </p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  Customer: <span className="font-semibold" style={{ color: 'rgb(var(--dark))' }}>{couponResult.customer_name}</span>
+                  {couponResult.customer_email && ` · ${couponResult.customer_email}`}
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
+                  {couponResult.points_used?.toLocaleString()} pts used ·{' '}
+                  Expires {new Date(couponResult.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              </div>
+            </div>
+            {couponResult.state === 'valid' && (
+              <div className="px-4 py-3" style={{ borderTop: '1px solid rgba(var(--border-rgb),0.4)' }}>
+                <button onClick={redeemCoupon} disabled={redeeming}
+                  className="btn-primary flex items-center gap-2">
+                  {redeeming ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                  Apply ${parseFloat(couponResult.dollar_value).toFixed(2)} Discount
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {couponResult?.error && (
+          <div className="flex items-center gap-2 p-3 rounded-xl text-sm"
+            style={{ background: 'rgba(220,38,38,0.06)', border: '1px solid rgba(220,38,38,0.12)', color: '#DC2626' }}>
+            <XCircle className="w-4 h-4 flex-shrink-0" />
+            {couponResult.error}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

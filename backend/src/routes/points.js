@@ -171,4 +171,75 @@ router.post('/customers/:id/redeem', authenticate, async (req, res) => {
   }
 });
 
+// GET /api/points/coupons/lookup?code=XXXX — staff looks up a coupon
+router.get('/coupons/lookup', authenticate, async (req, res) => {
+  try {
+    const { code } = req.query;
+    if (!code) return res.status(400).json({ error: 'code is required' });
+
+    const result = await db.query(
+      `SELECT rc.*, c.name as customer_name, c.email as customer_email
+       FROM reward_coupons rc
+       JOIN customers c ON rc.customer_id = c.id
+       WHERE rc.code = $1 AND rc.company_id = $2`,
+      [code.toUpperCase().trim(), req.user.company_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Coupon not found' });
+    }
+
+    const coupon = result.rows[0];
+    const now = new Date();
+
+    if (coupon.status === 'redeemed') {
+      return res.json({ ...coupon, state: 'redeemed' });
+    }
+    if (new Date(coupon.expires_at) < now) {
+      return res.json({ ...coupon, state: 'expired' });
+    }
+    return res.json({ ...coupon, state: 'valid' });
+  } catch (err) {
+    console.error('Coupon lookup error:', err);
+    res.status(500).json({ error: 'Failed to look up coupon' });
+  }
+});
+
+// POST /api/points/coupons/:code/redeem — staff marks coupon as redeemed
+router.post('/coupons/:code/redeem', authenticate, async (req, res) => {
+  try {
+    const { code } = req.params;
+
+    const result = await db.query(
+      `SELECT * FROM reward_coupons WHERE code = $1 AND company_id = $2`,
+      [code.toUpperCase().trim(), req.user.company_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Coupon not found' });
+    }
+
+    const coupon = result.rows[0];
+    if (coupon.status === 'redeemed') {
+      return res.status(400).json({ error: 'Coupon has already been redeemed' });
+    }
+    if (new Date(coupon.expires_at) < new Date()) {
+      return res.status(400).json({ error: 'Coupon has expired' });
+    }
+
+    const updated = await db.query(
+      `UPDATE reward_coupons
+       SET status = 'redeemed', redeemed_at = NOW(), redeemed_by = $1
+       WHERE code = $2 AND company_id = $3
+       RETURNING *`,
+      [req.user.id, code.toUpperCase().trim(), req.user.company_id]
+    );
+
+    res.json(updated.rows[0]);
+  } catch (err) {
+    console.error('Coupon redeem error:', err);
+    res.status(500).json({ error: 'Failed to redeem coupon' });
+  }
+});
+
 module.exports = router;

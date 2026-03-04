@@ -2336,6 +2336,109 @@ Only include fields you can actually read from the card.`
 // POINTS / REWARDS
 // ============================================
 
+// ============================================
+// COUPONS
+// ============================================
+
+function generateCouponCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let part1 = '';
+  let part2 = '';
+  for (let i = 0; i < 4; i++) part1 += chars[Math.floor(Math.random() * chars.length)];
+  for (let i = 0; i < 4; i++) part2 += chars[Math.floor(Math.random() * chars.length)];
+  return `${part1}-${part2}`;
+}
+
+// POST /api/portal/coupons — customer converts points to a coupon
+router.post('/coupons', authenticateCustomer, async (req, res) => {
+  try {
+    const { id: customerId, company_id: companyId } = req.customer;
+    const { points: pointsRequested } = req.body;
+
+    if (!pointsRequested || pointsRequested <= 0) {
+      return res.status(400).json({ error: 'points must be a positive number' });
+    }
+
+    const configResult = await db.query(
+      'SELECT * FROM points_config WHERE company_id = $1',
+      [companyId]
+    );
+    const config = configResult.rows[0];
+    if (!config || !config.enabled) {
+      return res.status(400).json({ error: 'Rewards program is not enabled' });
+    }
+    if (pointsRequested < config.min_redemption_points) {
+      return res.status(400).json({
+        error: `Minimum redemption is ${config.min_redemption_points} points`
+      });
+    }
+
+    const customerResult = await db.query(
+      'SELECT COALESCE(points_balance, 0) as points_balance FROM customers WHERE id = $1',
+      [customerId]
+    );
+    const balance = parseInt(customerResult.rows[0]?.points_balance || 0, 10);
+    if (balance < pointsRequested) {
+      return res.status(400).json({ error: 'Insufficient points balance' });
+    }
+
+    const dollarValue = parseFloat((pointsRequested / config.redemption_rate).toFixed(2));
+
+    // Deduct points atomically
+    await db.query(
+      `UPDATE customers SET points_balance = points_balance - $1 WHERE id = $2`,
+      [pointsRequested, customerId]
+    );
+    await db.query(
+      `INSERT INTO points_transactions (company_id, customer_id, amount, type, description)
+       VALUES ($1, $2, $3, 'redeem', $4)`,
+      [companyId, customerId, -pointsRequested, `Converted ${pointsRequested} pts to coupon ($${dollarValue.toFixed(2)})`]
+    );
+
+    // Generate unique code (retry on collision)
+    let code;
+    let attempts = 0;
+    while (attempts < 10) {
+      code = generateCouponCode();
+      const existing = await db.query('SELECT id FROM reward_coupons WHERE code = $1', [code]);
+      if (existing.rows.length === 0) break;
+      attempts++;
+    }
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 30); // 30-day expiry
+
+    const couponResult = await db.query(
+      `INSERT INTO reward_coupons (code, company_id, customer_id, points_used, dollar_value, expires_at)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING *`,
+      [code, companyId, customerId, pointsRequested, dollarValue, expiresAt]
+    );
+
+    res.status(201).json(couponResult.rows[0]);
+  } catch (err) {
+    console.error('Portal generate coupon error:', err);
+    res.status(500).json({ error: 'Failed to generate coupon' });
+  }
+});
+
+// GET /api/portal/coupons — customer's coupons
+router.get('/coupons', authenticateCustomer, async (req, res) => {
+  try {
+    const { id: customerId, company_id: companyId } = req.customer;
+    const result = await db.query(
+      `SELECT * FROM reward_coupons
+       WHERE customer_id = $1 AND company_id = $2
+       ORDER BY created_at DESC LIMIT 20`,
+      [customerId, companyId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Portal get coupons error:', err);
+    res.status(500).json({ error: 'Failed to fetch coupons' });
+  }
+});
+
 router.get('/points', authenticateCustomer, async (req, res) => {
   try {
     const { id: customerId, company_id: companyId } = req.customer;

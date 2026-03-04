@@ -194,6 +194,13 @@ export const points = {
   adjust: (id, data) => api.post(`/points/customers/${id}/adjust`, data),
   redeem: (id, data) => api.post(`/points/customers/${id}/redeem`, data),
   portalPoints: () => api.get('/portal/points'),
+  lookupCoupon: (code) => api.get(`/points/coupons/lookup?code=${encodeURIComponent(code)}`),
+  redeemCoupon: (code) => api.post(`/points/coupons/${encodeURIComponent(code)}/redeem`),
+};
+
+export const portalCoupons = {
+  generate: (data) => api.post('/portal/coupons', data),
+  list: () => api.get('/portal/coupons'),
 };
 
 export default api;

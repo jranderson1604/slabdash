@@ -1396,10 +1396,256 @@ function CardRow({ card }) {
 // ============================================
 // Portal Settings Tab — profile, PIN, home screen, buyback history
 // ============================================
+// ============================================
+// Coupon Modal — convert points to scannable coupon
+// ============================================
+function CouponModal({ jwtToken, pointsData, onClose, onSuccess }) {
+  const minPts = pointsData.min_redemption_points || 100;
+  const rate = pointsData.redemption_rate || 100;
+  const maxPts = pointsData.points_balance || 0;
+  const defaultPts = Math.min(maxPts, Math.max(minPts, Math.floor(maxPts / 2 / minPts) * minPts || minPts));
+
+  const [pointsAmount, setPointsAmount] = useState(defaultPts);
+  const [generating, setGenerating] = useState(false);
+  const [coupon, setCoupon] = useState(null);
+  const [error, setError] = useState('');
+
+  const dollarPreview = (pointsAmount / rate).toFixed(2);
+  const canGenerate = pointsAmount >= minPts && pointsAmount <= maxPts;
+
+  const handleGenerate = async () => {
+    setGenerating(true); setError('');
+    try {
+      const res = await fetch(`${API_URL}/portal/coupons`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+        body: JSON.stringify({ points: pointsAmount }),
+      });
+      const d = await res.json();
+      if (!res.ok) { setError(d.error || 'Failed to generate coupon'); setGenerating(false); return; }
+      setCoupon(d);
+      if (onSuccess) onSuccess();
+    } catch { setError('Network error — try again'); }
+    setGenerating(false);
+  };
+
+  const expiryStr = coupon ? new Date(coupon.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+      style={{ background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)' }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="w-full max-w-sm rounded-3xl overflow-hidden"
+        style={{ background: 'rgb(var(--bg-color))', boxShadow: '0 24px 64px rgba(0,0,0,0.25)' }}>
+        {/* Header */}
+        <div className="relative px-5 pt-5 pb-4"
+          style={{ background: 'linear-gradient(135deg, rgba(255,129,112,0.12), rgba(232,84,61,0.08))' }}>
+          <button onClick={onClose} className="absolute top-4 right-4 w-8 h-8 rounded-full flex items-center justify-center"
+            style={{ background: 'rgba(44,36,22,0.06)' }}>
+            <X className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center"
+              style={{ background: 'linear-gradient(135deg, #FF8170, #E8543D)' }}>
+              <Award className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="font-black text-base" style={{ color: 'rgb(var(--dark))' }}>
+                {coupon ? 'Your Coupon' : 'Get Coupon'}
+              </p>
+              <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                {coupon ? 'Show this at the shop' : 'Convert points to a discount coupon'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 pb-6 pt-4">
+          {!coupon ? (
+            <>
+              {/* Points amount input */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>POINTS TO USE</label>
+                  <span className="text-xs font-bold" style={{ color: 'var(--text-secondary)' }}>
+                    {maxPts.toLocaleString()} available
+                  </span>
+                </div>
+                <input
+                  type="number"
+                  value={pointsAmount}
+                  onChange={(e) => setPointsAmount(Math.max(0, parseInt(e.target.value) || 0))}
+                  min={minPts}
+                  max={maxPts}
+                  step={minPts}
+                  className="w-full px-4 py-3 rounded-2xl text-center text-2xl font-black"
+                  style={{
+                    background: 'rgba(255,129,112,0.06)',
+                    border: `2px solid ${canGenerate ? 'rgba(255,129,112,0.3)' : 'rgba(44,36,22,0.1)'}`,
+                    color: 'rgb(var(--dark))',
+                    outline: 'none',
+                  }}
+                />
+                {/* Quick select buttons */}
+                <div className="flex gap-2 mt-2">
+                  {[minPts, Math.floor(maxPts * 0.5 / minPts) * minPts, maxPts]
+                    .filter((v, i, a) => v > 0 && a.indexOf(v) === i)
+                    .map(v => (
+                      <button key={v} onClick={() => setPointsAmount(v)}
+                        className="flex-1 py-1.5 rounded-xl text-[11px] font-bold"
+                        style={{
+                          background: pointsAmount === v ? 'rgba(255,129,112,0.15)' : 'rgba(44,36,22,0.04)',
+                          color: pointsAmount === v ? '#E8543D' : 'var(--text-secondary)',
+                          border: pointsAmount === v ? '1px solid rgba(255,129,112,0.3)' : '1px solid transparent',
+                        }}>
+                        {v.toLocaleString()}
+                      </button>
+                    ))}
+                </div>
+              </div>
+
+              {/* Dollar value preview */}
+              <div className="rounded-2xl p-4 mb-4 text-center"
+                style={{ background: 'rgba(255,129,112,0.06)', border: '1px solid rgba(255,129,112,0.12)' }}>
+                <p className="text-3xl font-black" style={{ color: '#E8543D' }}>${dollarPreview}</p>
+                <p className="text-xs font-semibold mt-1" style={{ color: 'var(--text-secondary)' }}>
+                  discount value · expires in 30 days
+                </p>
+              </div>
+
+              {error && (
+                <p className="text-xs text-center mb-3 font-semibold" style={{ color: '#DC2626' }}>{error}</p>
+              )}
+              {!canGenerate && pointsAmount > 0 && (
+                <p className="text-xs text-center mb-3 font-semibold" style={{ color: '#D97706' }}>
+                  Minimum is {minPts.toLocaleString()} points
+                </p>
+              )}
+
+              <button onClick={handleGenerate} disabled={!canGenerate || generating}
+                className="w-full py-3.5 rounded-2xl font-black text-white text-sm flex items-center justify-center gap-2"
+                style={{
+                  background: canGenerate ? 'linear-gradient(135deg, #FF8170, #E8543D)' : 'rgba(44,36,22,0.08)',
+                  color: canGenerate ? '#fff' : 'var(--text-secondary)',
+                  cursor: canGenerate ? 'pointer' : 'not-allowed',
+                }}>
+                {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Award className="w-4 h-4" />}
+                {generating ? 'Generating...' : `Generate $${dollarPreview} Coupon`}
+              </button>
+            </>
+          ) : (
+            <>
+              {/* Generated coupon with QR code */}
+              <div className="text-center mb-4">
+                <div className="inline-flex flex-col items-center p-5 rounded-3xl mb-4"
+                  style={{ background: '#fff', border: '2px solid rgba(255,129,112,0.2)', boxShadow: '0 8px 32px rgba(255,129,112,0.1)' }}>
+                  <QRCodeSVG value={coupon.code} size={180} level="H"
+                    imageSettings={{ excavate: true }}
+                    style={{ display: 'block' }} />
+                  <div className="mt-3 px-4 py-1.5 rounded-xl"
+                    style={{ background: 'rgba(255,129,112,0.08)' }}>
+                    <p className="text-lg font-black tracking-widest" style={{ color: '#E8543D', letterSpacing: '0.15em' }}>
+                      {coupon.code}
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-3xl font-black mb-1" style={{ color: '#059669' }}>
+                  ${parseFloat(coupon.dollar_value).toFixed(2)} off
+                </p>
+                <p className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                  {coupon.points_used.toLocaleString()} pts redeemed · expires {expiryStr}
+                </p>
+              </div>
+
+              <div className="rounded-2xl p-3 mb-4 text-center text-xs font-semibold"
+                style={{ background: 'rgba(5,150,105,0.06)', color: '#059669', border: '1px solid rgba(5,150,105,0.12)' }}>
+                Show the QR code or coupon code to your shop to apply this discount
+              </div>
+
+              <button onClick={onClose}
+                className="w-full py-3 rounded-2xl font-bold text-sm"
+                style={{ background: 'rgba(44,36,22,0.06)', color: 'rgb(var(--dark))' }}>
+                Done
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================
+// Coupon Card — shows a single coupon with QR
+// ============================================
+function CouponCard({ coupon }) {
+  const [showQR, setShowQR] = useState(false);
+  const isActive = coupon.status === 'active' && new Date(coupon.expires_at) > new Date();
+  const isExpired = coupon.status === 'active' && new Date(coupon.expires_at) <= new Date();
+  const isRedeemed = coupon.status === 'redeemed';
+
+  const statusColor = isActive ? '#059669' : '#9CA3AF';
+  const statusLabel = isRedeemed ? 'Used' : isExpired ? 'Expired' : 'Active';
+  const expiryStr = new Date(coupon.expires_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ background: '#fff', border: `1px solid ${isActive ? 'rgba(255,129,112,0.2)' : 'rgba(44,36,22,0.06)'}`, opacity: isActive ? 1 : 0.6 }}>
+      <div className="px-4 py-3 flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <p className="font-black text-sm tracking-wider" style={{ color: '#E8543D', letterSpacing: '0.08em' }}>
+              {coupon.code}
+            </p>
+            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+              style={{ background: `${statusColor}14`, color: statusColor }}>
+              {statusLabel}
+            </span>
+          </div>
+          <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+            ${parseFloat(coupon.dollar_value).toFixed(2)} off
+            {isActive ? ` · exp ${expiryStr}` : isRedeemed ? ' · redeemed' : ' · expired'}
+          </p>
+        </div>
+        {isActive && (
+          <button onClick={() => setShowQR(!showQR)}
+            className="text-[11px] font-bold px-3 py-1.5 rounded-xl shrink-0"
+            style={{ background: 'rgba(255,129,112,0.08)', color: '#E8543D' }}>
+            {showQR ? 'Hide' : 'Show QR'}
+          </button>
+        )}
+      </div>
+      {showQR && isActive && (
+        <div className="px-4 pb-4 flex justify-center">
+          <div className="p-4 rounded-2xl" style={{ background: '#fff', border: '1px solid rgba(255,129,112,0.15)' }}>
+            <QRCodeSVG value={coupon.code} size={160} level="H" style={{ display: 'block' }} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PortalSettingsTab({ data, jwtToken, onRefresh, onLogout, setShowProfile }) {
   const [isIOS, setIsIOS] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
+  const [showCouponModal, setShowCouponModal] = useState(false);
+  const [coupons, setCoupons] = useState([]);
+  const [loadingCoupons, setLoadingCoupons] = useState(false);
+
+  useEffect(() => {
+    if (data.pointsData?.enabled) loadCoupons();
+  }, [data.pointsData?.enabled]);
+
+  const loadCoupons = async () => {
+    setLoadingCoupons(true);
+    try {
+      const res = await fetch(`${API_URL}/portal/coupons`, { headers: { Authorization: `Bearer ${jwtToken}` } });
+      if (res.ok) setCoupons(await res.json());
+    } catch {}
+    setLoadingCoupons(false);
+  };
 
   useEffect(() => {
     const ua = navigator.userAgent || '';
@@ -1461,47 +1707,82 @@ function PortalSettingsTab({ data, jwtToken, onRefresh, onLogout, setShowProfile
 
       {/* Rewards / Points */}
       {data.pointsData?.enabled && (
-        <div className="rounded-2xl p-4" style={{ background: '#FBF7F2', border: '1px solid rgba(44,36,22,0.06)' }}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-              style={{ background: 'rgba(255,129,112,0.08)' }}>
-              <span className="text-lg">★</span>
+        <>
+          {showCouponModal && (
+            <CouponModal
+              jwtToken={jwtToken}
+              pointsData={data.pointsData}
+              onClose={() => setShowCouponModal(false)}
+              onSuccess={() => { loadCoupons(); onRefresh(); }}
+            />
+          )}
+          <div className="rounded-2xl p-4" style={{ background: '#FBF7F2', border: '1px solid rgba(44,36,22,0.06)' }}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                style={{ background: 'rgba(255,129,112,0.08)' }}>
+                <span className="text-lg">★</span>
+              </div>
+              <div>
+                <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>Rewards Points</p>
+                <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
+                  {(data.pointsData.lifetime_points_earned || 0).toLocaleString()} pts earned lifetime
+                </p>
+              </div>
+              <div className="ml-auto text-right">
+                <p className="text-xl font-black" style={{ color: '#E8543D' }}>
+                  {(data.pointsData.points_balance || 0).toLocaleString()}
+                </p>
+                <p className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                  current balance
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-bold" style={{ color: 'rgb(var(--dark))' }}>Rewards Points</p>
-              <p className="text-[11px]" style={{ color: 'var(--text-secondary)' }}>
-                {(data.pointsData.lifetime_points_earned || 0).toLocaleString()} pts earned lifetime
-              </p>
-            </div>
-            <div className="ml-auto text-right">
-              <p className="text-xl font-black" style={{ color: '#E8543D' }}>
-                {(data.pointsData.points_balance || 0).toLocaleString()}
-              </p>
-              <p className="text-[10px] font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                current balance
-              </p>
-            </div>
+
+            {/* Dollar value + Get Coupon CTA */}
+            {data.pointsData.points_balance >= (data.pointsData.min_redemption_points || 100) && (
+              <button onClick={() => setShowCouponModal(true)}
+                className="w-full py-3 rounded-xl font-bold text-sm flex items-center justify-center gap-2 mb-3"
+                style={{ background: 'linear-gradient(135deg, #FF8170, #E8543D)', color: '#fff' }}>
+                <Award className="w-4 h-4" />
+                Get ${data.pointsData.dollar_value} Coupon
+              </button>
+            )}
+            {data.pointsData.points_balance > 0 && data.pointsData.points_balance < (data.pointsData.min_redemption_points || 100) && (
+              <div className="text-xs font-semibold rounded-xl px-3 py-2 text-center mb-3"
+                style={{ background: 'rgba(255,129,112,0.06)', color: '#E8543D', border: '1px solid rgba(255,129,112,0.1)' }}>
+                {(data.pointsData.min_redemption_points || 100) - data.pointsData.points_balance} more pts until your first coupon
+              </div>
+            )}
+
+            {data.pointsData.transactions?.length > 0 && (
+              <div className="space-y-1.5 pt-3" style={{ borderTop: '1px solid rgba(44,36,22,0.05)' }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-secondary)' }}>Recent Activity</p>
+                {data.pointsData.transactions.slice(0, 5).map((tx, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs">
+                    <span className="truncate flex-1 pr-2" style={{ color: 'var(--text-secondary)' }}>{tx.description}</span>
+                    <span className="font-bold flex-shrink-0" style={{ color: tx.amount > 0 ? '#059669' : '#dc2626' }}>
+                      {tx.amount > 0 ? '+' : ''}{tx.amount}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          {data.pointsData.points_balance > 0 && data.pointsData.dollar_value > 0 && (
-            <div className="text-xs font-semibold rounded-xl px-3 py-2 text-center"
-              style={{ background: 'rgba(255,129,112,0.06)', color: '#E8543D', border: '1px solid rgba(255,129,112,0.1)' }}>
-              Worth ${data.pointsData.dollar_value} in discounts — ask your shop to redeem
+
+          {/* Active coupons */}
+          {coupons.filter(c => c.status === 'active' && new Date(c.expires_at) > new Date()).length > 0 && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest mb-2 px-1" style={{ color: 'var(--text-secondary)' }}>
+                Your Coupons
+              </p>
+              <div className="space-y-2">
+                {coupons
+                  .filter(c => c.status === 'active' && new Date(c.expires_at) > new Date())
+                  .map(c => <CouponCard key={c.id} coupon={c} />)}
+              </div>
             </div>
           )}
-          {data.pointsData.transactions?.length > 0 && (
-            <div className="mt-3 space-y-1.5 pt-3" style={{ borderTop: '1px solid rgba(44,36,22,0.05)' }}>
-              <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: 'var(--text-secondary)' }}>Recent Activity</p>
-              {data.pointsData.transactions.slice(0, 5).map((tx, i) => (
-                <div key={i} className="flex items-center justify-between text-xs">
-                  <span className="truncate flex-1 pr-2" style={{ color: 'var(--text-secondary)' }}>{tx.description}</span>
-                  <span className="font-bold flex-shrink-0" style={{ color: tx.amount > 0 ? '#059669' : '#dc2626' }}>
-                    {tx.amount > 0 ? '+' : ''}{tx.amount}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        </>
       )}
 
       {/* Buyback earnings summary */}
