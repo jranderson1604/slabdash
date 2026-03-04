@@ -872,7 +872,6 @@ async function fetchCompsForChat(parsedQuery) {
   }
 }
 
-/**
 // Chat endpoint — streams response via Server-Sent Events (SSE)
 router.post('/chat', authenticate, async (req, res) => {
   try {
