@@ -2,6 +2,9 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const { authenticate, requireRole } = require("../middleware/auth");
+const multer = require("multer");
+const cloudinary = require("../config/cloudinary");
+const upload = multer({ storage: multer.memoryStorage() });
 const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa, getCertificate, getCertWithImages, parseCertData, estimateSubmissionProgress, getHistoricalDurations, getRefreshPriority } = require("../services/psaService");
 const { normalizeServiceLevel } = require("../utils/serviceLevel");
 
@@ -1150,6 +1153,38 @@ router.get("/export.csv", authenticate, async (req, res) => {
   } catch (err) {
     console.error('Submissions CSV export error:', err.message);
     res.status(500).json({ error: 'Failed to export' });
+  }
+});
+
+// Upload form image to a submission (e.g. PSA submission form photo)
+router.post("/:id/images", authenticate, upload.single("image"), async (req, res) => {
+  try {
+    const subResult = await db.query(
+      "SELECT * FROM submissions WHERE id = $1 AND company_id = $2",
+      [req.params.id, req.companyId]
+    );
+    if (subResult.rows.length === 0) return res.status(404).json({ error: "Submission not found" });
+
+    if (!req.file) return res.status(400).json({ error: "No image provided" });
+
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "slabdash/submissions", resource_type: "image" },
+        (err, result) => (err ? reject(err) : resolve(result))
+      );
+      stream.end(req.file.buffer);
+    });
+
+    const existing = subResult.rows[0].form_images || [];
+    const updated = [...existing, uploadResult.secure_url];
+
+    await db.query("UPDATE submissions SET form_images = $1 WHERE id = $2", [JSON.stringify(updated), req.params.id]);
+
+    const sub = await db.query("SELECT * FROM submissions WHERE id = $1", [req.params.id]);
+    res.json({ submission: sub.rows[0], url: uploadResult.secure_url });
+  } catch (err) {
+    console.error("Submission image upload error:", err);
+    res.status(500).json({ error: "Failed to upload image" });
   }
 });
 

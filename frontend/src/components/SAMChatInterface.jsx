@@ -258,7 +258,7 @@ function ScanResultsCard({ scanResults }) {
 }
 
 export default function SAMChatInterface({ isCustomerPortal = false, token = null, jwtToken = null }) {
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  const API_URL = import.meta.env.VITE_API_URL || '/api';
   const navigate = useNavigate();
   const [messages, setMessages] = useState([
     {

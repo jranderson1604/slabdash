@@ -658,11 +658,11 @@ router.get("/export.csv", authenticate, async (req, res) => {
          s.psa_submission_number,
          ca.price_estimate, ca.notes, ca.created_at
        FROM cards ca
-       LEFT JOIN customers cu ON cu.id = ca.customer_owner_id
+       LEFT JOIN customers cu ON cu.id = ca.customer_id
        LEFT JOIN submissions s ON s.id = ca.submission_id
        WHERE ca.company_id = $1
        ORDER BY ca.created_at DESC`,
-      [req.user.company_id]
+      [req.companyId]
     );
 
     const headers = [

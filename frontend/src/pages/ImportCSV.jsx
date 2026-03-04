@@ -187,7 +187,7 @@ export default function ImportCSV() {
             >
               <p className="text-sm font-semibold" style={{ color: 'rgba(139, 92, 246, 0.8)' }}>Avg Cards/Sub</p>
               <p className="text-2xl font-black" style={{ color: 'rgb(var(--dark))' }}>
-                {(preview.totalCards / preview.totalSubmissions).toFixed(1)}
+                {(preview.totalCards / (preview.totalSubmissions || 1)).toFixed(1)}
               </p>
             </div>
           </div>

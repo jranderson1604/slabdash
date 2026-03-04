@@ -1238,7 +1238,33 @@ router.patch('/buyback-offers/:id/respond', authenticateCustomer, async (req, re
 
         // Notify shop owner of customer response
         console.log(`📧 Customer ${response} buyback offer #${req.params.id}`);
-        // TODO: Send notification to shop owner
+        try {
+            const { sendEmail } = require('../services/emailService');
+            const offerDetail = result.rows[0];
+            const companyResult = await db.query(
+                `SELECT co.id, co.name, u.email as owner_email
+                 FROM companies co
+                 JOIN users u ON u.company_id = co.id AND u.role = 'owner'
+                 WHERE co.id = $1 LIMIT 1`,
+                [offerDetail.company_id]
+            );
+            if (companyResult.rows.length > 0) {
+                const company = companyResult.rows[0];
+                const emoji = response === 'accepted' ? '✅' : '❌';
+                const verb = response === 'accepted' ? 'accepted' : 'rejected';
+                await sendEmail({
+                    to: company.owner_email,
+                    subject: `${emoji} Buyback offer ${verb} — ${req.customer.name}`,
+                    html: `<p><strong>${req.customer.name}</strong> has <strong>${verb}</strong> a buyback offer.</p>
+                           ${customer_response ? `<p>Their message: <em>${customer_response}</em></p>` : ''}
+                           <p>Log in to SlabDash to view the offer and take action.</p>`,
+                    text: `${req.customer.name} has ${verb} a buyback offer.${customer_response ? '\n\nTheir message: ' + customer_response : ''}\n\nLog in to SlabDash to view the offer.`,
+                    companyId: offerDetail.company_id,
+                });
+            }
+        } catch (notifyErr) {
+            console.error('Failed to notify shop owner of buyback response:', notifyErr.message);
+        }
 
         res.json(result.rows[0]);
     } catch (error) {

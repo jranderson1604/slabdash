@@ -452,6 +452,13 @@ async function startServer() {
       `);
       console.log("✓ Migration: SAM token system columns ensured");
 
+      // Submission form images column
+      await db.query(`
+        ALTER TABLE submissions
+        ADD COLUMN IF NOT EXISTS form_images JSONB DEFAULT '[]'::jsonb;
+      `);
+      console.log("✓ Migration: form_images column ensured on submissions");
+
       // Ensure PSA refresh tracking columns exist on submissions
       await db.query(`
         ALTER TABLE submissions
