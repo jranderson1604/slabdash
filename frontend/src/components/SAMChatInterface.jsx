@@ -3,6 +3,35 @@ import { Send, Loader2, Sparkles, TrendingUp, TrendingDown, Calculator, HelpCirc
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 
+// Read a Server-Sent Events stream from a fetch response
+async function readSSE(response, { onDelta, onDone, onError }) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const json = line.slice(6).trim();
+        if (!json) continue;
+        try {
+          const event = JSON.parse(json);
+          if (event.type === 'delta' && event.text) onDelta(event.text);
+          else if (event.type === 'done') onDone(event);
+          else if (event.type === 'error') onError?.(new Error(event.message || 'Stream error'));
+        } catch {}
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
 // Animation trigger keywords - maps keywords to animation types
 const ANIMATION_TRIGGERS = {
   greeting: ['hello', 'hi', 'hey', 'greetings'],
@@ -567,10 +596,8 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
   };
 
   const handleSend = async () => {
-    // Block if token-locked in customer portal
     if (isCustomerPortal && tokenLocked) return;
 
-    // If there's a pending image, send it as a scan
     if (pendingImage) {
       const text = input.trim() || '📸 Scan this card';
       setInput('');
@@ -580,108 +607,111 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
 
     if (!input.trim() || isLoading) return;
 
-    const userMessage = {
-      role: 'user',
-      content: input.trim(),
-      timestamp: new Date()
-    };
-
-    // Detect animation trigger from user input
+    const userMessage = { role: 'user', content: input.trim(), timestamp: new Date() };
     const triggerAnimation = detectAnimationTrigger(input);
-    if (triggerAnimation) {
-      playAnimation(triggerAnimation);
-    }
+    if (triggerAnimation) playAnimation(triggerAnimation);
 
     setMessages(prev => [...prev, userMessage]);
     const messageText = input.trim();
     setInput('');
     setIsLoading(true);
-
-    // Show typing animation while loading
     playAnimation('typing');
 
     try {
-      let response;
+      let fetchRes;
+
       if (isCustomerPortal && jwtToken) {
-        // Use fetch with JWT Bearer auth for customer portal
-        const res = await fetch(`${API_URL}/portal/sam/chat`, {
+        fetchRes = await fetch(`${API_URL}/portal/sam/chat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
           body: JSON.stringify({ message: messageText, history: messages.slice(-10) }),
         });
-        let data;
-        try {
-          data = await res.json();
-        } catch {
-          throw new Error('Server returned an invalid response');
-        }
-
-        // Handle out-of-tokens response
-        if (res.status === 429 && data.error === 'out_of_tokens') {
-          setTokenLocked(true);
-          if (data.usage) setSamUsage(prev => ({ ...prev, ...data.usage }));
-          const lockedMsg = {
-            role: 'assistant',
-            content: `You've used all ${data.usage?.daily_limit || 15} free messages for today! Grab a token pack below to keep chatting, or your free messages will reset at midnight.`,
-            timestamp: new Date()
-          };
-          setMessages(prev => [...prev, lockedMsg]);
-          playAnimation('confused');
-          setIsLoading(false);
-          return;
-        }
-
-        // Update usage from response
-        if (data.usage) {
-          setSamUsage(prev => ({ ...prev, ...data.usage }));
-          if (data.usage.remaining_free <= 0 && data.usage.token_balance <= 0) {
-            setTokenLocked(true);
-          }
-        }
-
-        response = { data };
       } else {
-        const endpoint = isCustomerPortal
-          ? `/portal/sam/chat?token=${token}`
-          : '/sam/chat';
-        response = await api.post(endpoint, {
-          message: messageText,
-          history: messages.slice(-10)
+        const endpoint = isCustomerPortal ? `/portal/sam/chat?token=${token}` : '/sam/chat';
+        const adminToken = localStorage.getItem('slabdash_token');
+        fetchRes = await fetch(`${API_URL}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(adminToken && !isCustomerPortal ? { Authorization: `Bearer ${adminToken}` } : {})
+          },
+          body: JSON.stringify({ message: messageText, history: messages.slice(-10) }),
         });
       }
 
-      // Log AI mode for debugging
-      console.log('═══════════════════════════════════');
-      console.log(`🤖 SAM Response Mode: ${response.data.mode || 'Unknown'}`);
-      console.log(`🔑 AI Powered: ${response.data.ai_powered ? 'YES' : 'NO'}`);
-      console.log(`📝 Response: ${(response.data.message || '').substring(0, 150)}...`);
-      console.log('═══════════════════════════════════');
-
-      const assistantMessage = {
-        role: 'assistant',
-        content: response.data.message || 'Sorry, I couldn\'t generate a response. Please try again!',
-        timestamp: new Date()
-      };
-
-      // Detect animation from assistant response
-      const responseAnimation = detectAnimationTrigger(response.data.message);
-      if (responseAnimation) {
-        playAnimation(responseAnimation);
-      } else {
-        startIdleCycle();
+      // Non-200 responses are JSON errors (token limit, auth, etc.)
+      if (!fetchRes.ok) {
+        const data = await fetchRes.json().catch(() => ({}));
+        if (fetchRes.status === 429 && data.error === 'out_of_tokens') {
+          setTokenLocked(true);
+          if (data.usage) setSamUsage(prev => ({ ...prev, ...data.usage }));
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `You've used all ${data.usage?.daily_limit || 15} free messages for today! Grab a token pack below to keep chatting, or your free messages will reset at midnight.`,
+            timestamp: new Date()
+          }]);
+          playAnimation('confused');
+          return;
+        }
+        throw new Error(data.message || data.error || 'Failed to get response');
       }
 
-      setMessages(prev => [...prev, assistantMessage]);
+      // 200 → SSE stream
+      setIsLoading(false);
+      const placeholder = { role: 'assistant', content: '', timestamp: new Date(), streaming: true };
+      setMessages(prev => [...prev, placeholder]);
+
+      let streamedContent = '';
+
+      await readSSE(fetchRes, {
+        onDelta: (text) => {
+          streamedContent += text;
+          setMessages(prev => {
+            const msgs = [...prev];
+            const last = msgs[msgs.length - 1];
+            if (last?.streaming) msgs[msgs.length - 1] = { ...last, content: last.content + text };
+            return msgs;
+          });
+        },
+        onDone: (event) => {
+          if (event.usage) {
+            setSamUsage(prev => ({ ...prev, ...event.usage }));
+            if (event.usage.remaining_free <= 0 && event.usage.token_balance <= 0) setTokenLocked(true);
+          }
+          setMessages(prev => {
+            const msgs = [...prev];
+            const last = msgs[msgs.length - 1];
+            if (last?.streaming) msgs[msgs.length - 1] = { ...last, streaming: false };
+            return msgs;
+          });
+          const anim = detectAnimationTrigger(streamedContent);
+          if (anim) playAnimation(anim);
+          else startIdleCycle();
+        },
+        onError: () => {
+          setMessages(prev => {
+            const msgs = [...prev];
+            const last = msgs[msgs.length - 1];
+            if (last?.streaming) msgs[msgs.length - 1] = { ...last, content: last.content || '😅 Oops! SAM hit a snag. Please try again.', streaming: false };
+            return msgs;
+          });
+          startIdleCycle();
+        }
+      });
+
     } catch (error) {
       console.error('SAM chat error:', error);
       playAnimation('confused');
-
-      const errorMessage = {
-        role: 'assistant',
-        content: '😅 Oops! I\'m having trouble connecting right now. Please try again in a moment!',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => {
+        const msgs = [...prev];
+        // Remove streaming placeholder if present
+        if (msgs[msgs.length - 1]?.streaming) msgs.pop();
+        return [...msgs, {
+          role: 'assistant',
+          content: '😅 Oops! I\'m having trouble connecting right now. Please try again in a moment!',
+          timestamp: new Date()
+        }];
+      });
     } finally {
       setIsLoading(false);
     }
@@ -822,7 +852,10 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
                     className="w-full max-w-sm rounded-2xl mb-4 border-2 border-[#FF8170]/30 shadow-xl"
                   />
                 )}
-                <p className="text-base leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>
+                <p className="text-base leading-relaxed whitespace-pre-wrap font-medium">
+                  {msg.content}
+                  {msg.streaming && <span className="inline-block w-0.5 h-4 bg-[#2C2416] ml-0.5 align-middle animate-pulse" />}
+                </p>
                 {msg.scanResults && (
                   <ScanResultsCard scanResults={msg.scanResults} />
                 )}
@@ -833,7 +866,7 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
             </div>
           ))}
 
-          {(isLoading || scanning) && (
+          {(isLoading || scanning) && !messages.some(m => m.streaming) && (
             <div className="flex gap-4">
               <div className="relative flex-shrink-0">
                 <div className="absolute inset-0 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] rounded-xl blur opacity-50 animate-pulse"></div>

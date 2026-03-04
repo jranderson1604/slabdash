@@ -873,67 +873,7 @@ async function fetchCompsForChat(parsedQuery) {
 }
 
 /**
- * Generate AI-powered response using Anthropic Claude
- * Falls back to rule-based responses if API key not configured
- */
-async function generateAIResponse(message, history) {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-
-  // If no API key, use rule-based responses
-  if (!apiKey) {
-    console.log('⚠️ Using rule-based SAM (no Anthropic API key configured)');
-    return generateSAMResponse(message, history);
-  }
-
-  try {
-    const anthropic = new Anthropic({ apiKey });
-
-    // Convert history to Anthropic format
-    const conversationHistory = (history || [])
-      .filter(msg => msg.role && msg.content)
-      .slice(-10) // Keep last 10 messages for context
-      .map(msg => ({
-        role: msg.role === 'assistant' ? 'assistant' : 'user',
-        content: msg.content
-      }));
-
-    console.log(`🤖 Calling Claude AI for SAM response...`);
-
-    // Call Anthropic API with enhanced conversational settings
-    const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 2048, // Increased for more detailed responses
-      temperature: 0.8, // Add some creativity while staying accurate
-      system: SLABDASH_KNOWLEDGE,
-      messages: [
-        ...conversationHistory,
-        {
-          role: 'user',
-          content: message
-        }
-      ]
-    });
-
-    // Extract text from response (with safety check)
-    const aiMessage = response.content?.[0]?.text;
-    if (!aiMessage) {
-      throw new Error('Anthropic API returned an empty or unexpected response');
-    }
-
-    console.log(`✅ SAM AI response generated (${response.usage?.input_tokens || 0} in, ${response.usage?.output_tokens || 0} out)`);
-
-    return aiMessage;
-
-  } catch (error) {
-    console.error('❌ Anthropic API error:', error.message);
-    console.error('❌ Full error details:', JSON.stringify({ status: error.status, type: error.type, code: error.code }, null, 2));
-
-    // Throw so the caller can include error info in response
-    throw error;
-  }
-}
-
-// Chat endpoint
+// Chat endpoint — streams response via Server-Sent Events (SSE)
 router.post('/chat', authenticate, async (req, res) => {
   try {
     const { message, history } = req.body;
@@ -942,59 +882,86 @@ router.post('/chat', authenticate, async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    console.log(`\n🔵 SAM Chat Request: "${message.substring(0, 50)}..."`);
-    console.log(`📊 API Key Status: ${process.env.ANTHROPIC_API_KEY ? '✅ SET' : '❌ NOT SET'}`);
+    console.log(`\n🔵 SAM Chat: "${message.substring(0, 60)}"`);
 
-    // Check if this is a pricing question and fetch comps in parallel
+    // Fetch live pricing data before streaming starts (if relevant)
     let pricingContext = null;
     const pricingQuery = detectPricingQuery(message);
     if (pricingQuery) {
-      console.log(`💰 Detected pricing query for: "${pricingQuery.query}" (game: ${pricingQuery.game || 'none'}, sport: ${pricingQuery.sport || 'none'})`);
       pricingContext = await fetchCompsForChat(pricingQuery);
-      if (pricingContext) {
-        console.log(`📊 Got live pricing data to inject into SAM context`);
+      if (pricingContext) console.log(`📊 Pricing data injected for: "${pricingQuery.query}"`);
+    }
+
+    const enrichedMessage = pricingContext
+      ? `${message}\n\n[SYSTEM: ${pricingContext}]`
+      : message;
+
+    // Set up SSE — consistent format for AI and rule-based paths
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    let closed = false;
+    req.on('close', () => { closed = true; });
+
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      console.log('⚠️  Rule-based SAM (no API key)');
+      const text = generateSAMResponse(message, history);
+      if (!closed) {
+        res.write(`data: ${JSON.stringify({ type: 'delta', text })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'done', ai_powered: false, mode: 'Rule-based (no API key)' })}\n\n`);
+      }
+      return res.end();
+    }
+
+    try {
+      const anthropic = new Anthropic({ apiKey });
+      const conversationHistory = (history || [])
+        .filter(msg => msg.role && msg.content)
+        .slice(-10)
+        .map(msg => ({
+          role: msg.role === 'assistant' ? 'assistant' : 'user',
+          content: msg.content
+        }));
+
+      console.log(`🤖 Streaming SAM via claude-sonnet-4-6...`);
+      const stream = await anthropic.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2048,
+        temperature: 0.8,
+        system: SLABDASH_KNOWLEDGE,
+        messages: [...conversationHistory, { role: 'user', content: enrichedMessage }],
+        stream: true
+      });
+
+      for await (const event of stream) {
+        if (closed) break;
+        if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+          res.write(`data: ${JSON.stringify({ type: 'delta', text: event.delta.text })}\n\n`);
+        }
+      }
+
+      if (!closed) {
+        console.log('✅ SAM stream complete');
+        res.write(`data: ${JSON.stringify({ type: 'done', ai_powered: true, mode: 'AI (Claude)' })}\n\n`);
+      }
+    } catch (streamError) {
+      console.error('❌ SAM stream error:', streamError.message);
+      if (!closed) {
+        const fallback = generateSAMResponse(message, history);
+        res.write(`data: ${JSON.stringify({ type: 'delta', text: fallback })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'done', ai_powered: false, mode: 'Rule-based fallback' })}\n\n`);
       }
     }
 
-    // Generate AI-powered response (with fallback to rule-based)
-    let responseMessage;
-    let mode;
-    let aiError = null;
-
-    try {
-      // If we have pricing data, inject it into the message so SAM can reference it
-      const enrichedMessage = pricingContext
-        ? `${message}\n\n[SYSTEM: ${pricingContext}]`
-        : message;
-      responseMessage = await generateAIResponse(enrichedMessage, history);
-      mode = 'AI (Claude)';
-    } catch (error) {
-      aiError = error.message;
-      console.log('⚠️ Falling back to rule-based SAM due to API error');
-      responseMessage = generateSAMResponse(message, history);
-      mode = 'Rule-based fallback';
-    }
-
-    if (!process.env.ANTHROPIC_API_KEY) {
-      mode = 'Rule-based (no API key)';
-    }
-
-    console.log(`📤 Response Mode: ${mode}`);
-    console.log(`📝 Response Preview: "${responseMessage.substring(0, 100)}..."\n`);
-
-    res.json({
-      message: responseMessage,
-      timestamp: new Date().toISOString(),
-      ai_powered: mode === 'AI (Claude)',
-      mode: mode,
-      ...(aiError && { ai_error: aiError })
-    });
-
+    res.end();
   } catch (error) {
     console.error('❌ SAM chat error:', error);
-    res.status(500).json({
-      error: 'Failed to process chat message'
-    });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to process chat message' });
+    }
   }
 });
 
@@ -1023,7 +990,7 @@ router.post('/scan', authenticate, upload.single('image'), async (req, res) => {
 
     // Analyze card image with Claude's vision capabilities
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       messages: [
         {

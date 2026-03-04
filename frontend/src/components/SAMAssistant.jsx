@@ -1,6 +1,34 @@
 import { useState, useRef, useEffect } from 'react';
 import { X, Send, Loader2, MessageCircle } from 'lucide-react';
-import api from '../api/client';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+
+async function readSSE(response, { onDelta, onDone }) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const json = line.slice(6).trim();
+        if (!json) continue;
+        try {
+          const event = JSON.parse(json);
+          if (event.type === 'delta' && event.text) onDelta(event.text);
+          else if (event.type === 'done') onDone(event);
+        } catch {}
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
 
 // SVG fallback shown when SAM image can't load
 function SamIcon({ className = '', style = {} }) {
@@ -69,35 +97,61 @@ export default function SAMAssistant() {
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
 
-    const userMessage = {
-      role: 'user',
-      content: input.trim(),
-      timestamp: new Date()
-    };
-
-    setMessages(prev => [...prev, userMessage]);
+    setMessages(prev => [...prev, { role: 'user', content: input.trim(), timestamp: new Date() }]);
     const messageText = input.trim();
     setInput('');
     setIsLoading(true);
 
     try {
-      const response = await api.post('/sam/chat', {
-        message: messageText,
-        history: messages.slice(-10)
+      const adminToken = localStorage.getItem('slabdash_token');
+      const fetchRes = await fetch(`${API_URL}/sam/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(adminToken ? { Authorization: `Bearer ${adminToken}` } : {})
+        },
+        body: JSON.stringify({ message: messageText, history: messages.slice(-10) }),
       });
 
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: response.data.message,
-        timestamp: new Date()
-      }]);
+      if (!fetchRes.ok) {
+        throw new Error('Failed to get response');
+      }
+
+      setIsLoading(false);
+      const placeholder = { role: 'assistant', content: '', timestamp: new Date(), streaming: true };
+      setMessages(prev => [...prev, placeholder]);
+
+      let streamedContent = '';
+      await readSSE(fetchRes, {
+        onDelta: (text) => {
+          streamedContent += text;
+          setMessages(prev => {
+            const msgs = [...prev];
+            const last = msgs[msgs.length - 1];
+            if (last?.streaming) msgs[msgs.length - 1] = { ...last, content: last.content + text };
+            return msgs;
+          });
+        },
+        onDone: () => {
+          setMessages(prev => {
+            const msgs = [...prev];
+            const last = msgs[msgs.length - 1];
+            if (last?.streaming) msgs[msgs.length - 1] = { ...last, streaming: false };
+            return msgs;
+          });
+        }
+      });
     } catch (error) {
       console.error('SAM chat error:', error);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'Oops! I\'m having trouble connecting right now. Please try again in a moment!',
-        timestamp: new Date()
-      }]);
+      setMessages(prev => {
+        const msgs = [...prev];
+        if (msgs[msgs.length - 1]?.streaming) msgs.pop();
+        return [...msgs, {
+          role: 'assistant',
+          content: 'Oops! I\'m having trouble connecting right now. Please try again in a moment!',
+          timestamp: new Date()
+        }];
+      });
     } finally {
       setIsLoading(false);
     }
@@ -233,12 +287,15 @@ export default function SAMAssistant() {
                     boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.5)',
                   }}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  <p className="text-sm whitespace-pre-wrap">
+                    {msg.content}
+                    {msg.streaming && <span className="inline-block w-0.5 h-3.5 bg-current ml-0.5 align-middle animate-pulse" />}
+                  </p>
                 </div>
               </div>
             ))}
 
-            {isLoading && (
+            {isLoading && !messages.some(m => m.streaming) && (
               <div className="flex gap-3">
                 <div className="w-8 h-8 flex-shrink-0 rounded-xl flex items-center justify-center p-0.5"
                   style={{
