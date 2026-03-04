@@ -1,21 +1,27 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { submissions, customers } from '../api/client';
-import { ArrowLeft, Loader2, Plus, Camera } from 'lucide-react';
+import { ArrowLeft, Loader2, Plus, Camera, Copy } from 'lucide-react';
 import Scanner from '../components/Scanner';
 import PageHeader from '../components/PageHeader';
 
 export default function NewSubmission() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const toast = useToast();
+  const confirm = useConfirm();
+  const clone = location.state?.clone;
   const [customerList, setCustomerList] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [overrideExisting, setOverrideExisting] = useState(false);
   const [formData, setFormData] = useState({
-    customer_id: '',
+    customer_id: clone?.customer_id || '',
     internal_id: '',
     psa_submission_number: '',
-    service_level: '',
+    service_level: clone?.service_level || '',
     date_sent: '',
     notes: '',
   });
@@ -50,11 +56,11 @@ export default function NewSubmission() {
         const existingId = error.response.data.existing_submission_id;
         const message = error.response.data.message || 'This PSA submission number already exists';
 
-        if (confirm(`${message}\n\nWould you like to view the existing submission?`)) {
+        if (await confirm({ title: 'Duplicate Submission', message: `${message}\n\nWould you like to view the existing submission?`, confirmLabel: 'View Submission', variant: 'warning' })) {
           navigate(`/submissions/${existingId}`);
         }
       } else {
-        alert(error.response?.data?.error || 'Failed to create submission');
+        toast.error(error.response?.data?.error || 'Failed to create submission');
       }
     } finally {
       setLoading(false);
@@ -87,13 +93,24 @@ export default function NewSubmission() {
           <button
             type="button"
             onClick={() => setShowScanner(!showScanner)}
-            className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
           >
             <Camera className="w-4 h-4" />
             <span className="hidden sm:inline">{showScanner ? 'Hide Scanner' : 'Scan Form'}</span>
           </button>
         }
       />
+
+      {/* Clone banner */}
+      {clone && (
+        <div className="flex items-center gap-3 px-5 py-3 rounded-2xl mb-4"
+          style={{ background: 'rgba(255,129,112,0.08)', border: '1px solid rgba(255,129,112,0.2)' }}>
+          <Copy className="w-4 h-4 flex-shrink-0" style={{ color: '#E8543D' }} />
+          <p className="text-sm font-semibold" style={{ color: '#E8543D' }}>
+            Cloning — pre-filled with service level{clone.customer_name ? ` and customer (${clone.customer_name})` : ''}. Enter a new PSA number to save.
+          </p>
+        </div>
+      )}
 
       {/* Scanner Section */}
       {showScanner && (
@@ -108,7 +125,7 @@ export default function NewSubmission() {
                 service_level: data.submission?.service_level || formData.service_level,
                 date_sent: data.customer?.date || formData.date_sent
               });
-              alert('Form auto-filled with scanned data!');
+              toast.success('Form auto-filled with scanned data!');
             }
           }} />
         </div>
@@ -263,7 +280,7 @@ export default function NewSubmission() {
 
       {/* Help text */}
       <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <h3 className="font-medium text-blue-900 mb-2">💡 Pro Tip</h3>
+        <h3 className="font-medium text-blue-900 mb-2">Pro Tip</h3>
         <p className="text-sm text-blue-800">
           Use the "Scan Form" button above to automatically extract submission details from your PSA form photo!
         </p>

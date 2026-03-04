@@ -1,59 +1,175 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Zap, AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, ArrowRight, Mail, RefreshCw, Clock, XCircle } from 'lucide-react';
+
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [unverified, setUnverified] = useState(null); // email string if unverified
+  const [awaitingApproval, setAwaitingApproval] = useState(false);
+  const [rejected, setRejected] = useState(false);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [resendDone, setResendDone] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setUnverified(null);
+    setAwaitingApproval(false);
+    setRejected(false);
+    setResendDone(false);
     setLoading(true);
 
     try {
       await login(email, password);
       navigate('/');
     } catch (err) {
-      setError(err.response?.data?.error || 'Login failed. Please try again.');
+      const data = err.response?.data;
+      if (data?.email_unverified) {
+        setUnverified(data.email || email);
+      } else if (data?.awaiting_approval) {
+        setAwaitingApproval(true);
+      } else if (data?.rejected) {
+        setRejected(true);
+      } else {
+        setError(data?.error || 'Login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const handleResend = async () => {
+    setResendLoading(true);
+    try {
+      await fetch(`${API_URL}/auth/resend-verification`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: unverified }),
+      });
+      setResendDone(true);
+    } catch {
+      // fail silently — message is generic anyway
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#FFF5F3] flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
-        {/* SlabDash Logo */}
-        <div className="flex justify-center mb-8">
+    <div className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden"
+      style={{ backgroundColor: 'rgb(var(--bg-color))' }}
+    >
+      {/* Background decorative blobs */}
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full blur-3xl -translate-y-1/3 translate-x-1/4"
+        style={{ background: 'rgba(255, 129, 112, 0.12)' }}
+      />
+      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full blur-3xl translate-y-1/3 -translate-x-1/4"
+        style={{ background: 'rgba(255, 185, 160, 0.1)' }}
+      />
+      <div className="absolute top-1/2 left-1/2 w-[300px] h-[300px] rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2"
+        style={{ background: 'rgba(255, 216, 196, 0.08)' }}
+      />
+
+      <div className="relative w-full max-w-sm">
+        {/* Logo + tagline */}
+        <div className="text-center mb-8">
           <img
             src="/images/logo-full.png.svg"
             alt="SlabDash"
-            className="h-80 w-full"
+            className="h-14 mx-auto"
           />
+          <p className="mt-3 text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+            PSA Submission Tracking for Card Shops
+          </p>
         </div>
-        <h2 className="mt-4 text-center text-xl text-gray-600">
-          PSA Submission Tracking for Card Shops
-        </h2>
-      </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-xl rounded-2xl sm:px-10">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Login card */}
+        <div className="p-6 sm:p-8 rounded-2xl scale-in"
+          style={{
+            background: 'rgba(255, 255, 255, 0.55)',
+            backdropFilter: 'blur(40px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
+            border: '1px solid rgba(255, 255, 255, 0.45)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.06), 0 4px 20px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.7)',
+          }}
+        >
+          <h2 className="text-lg font-semibold mb-6" style={{ color: 'var(--text-body)' }}>
+            Sign in to your account
+          </h2>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2 text-red-700 text-sm">
+              <div className="rounded-xl p-3 flex items-center gap-2 text-sm font-medium"
+                style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.15)', color: '#DC2626' }}>
                 <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 {error}
               </div>
             )}
 
+            {unverified && (
+              <div className="rounded-xl p-4 text-sm"
+                style={{ background: 'rgba(255,129,112,0.07)', border: '1px solid rgba(255,129,112,0.2)' }}>
+                <div className="flex items-start gap-2 mb-3">
+                  <Mail className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: '#E8543D' }} />
+                  <div>
+                    <p className="font-bold" style={{ color: '#2C2416' }}>Email not verified</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(44,36,22,0.6)' }}>
+                      Check your inbox for the verification link we sent to <strong>{unverified}</strong>.
+                    </p>
+                  </div>
+                </div>
+                {resendDone ? (
+                  <p className="text-xs font-semibold text-green-600">New link sent — check your inbox!</p>
+                ) : (
+                  <button type="button" onClick={handleResend} disabled={resendLoading}
+                    className="flex items-center gap-1.5 text-xs font-bold transition-opacity hover:opacity-70"
+                    style={{ color: '#E8543D' }}>
+                    {resendLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    Resend verification email
+                  </button>
+                )}
+              </div>
+            )}
+
+            {awaitingApproval && (
+              <div className="rounded-xl p-4 text-sm"
+                style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.25)' }}>
+                <div className="flex items-start gap-2">
+                  <Clock className="w-4 h-4 mt-0.5 flex-shrink-0 text-amber-500" />
+                  <div>
+                    <p className="font-bold" style={{ color: '#2C2416' }}>Awaiting approval</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(44,36,22,0.6)' }}>
+                      Your account is pending review. You'll receive an email once approved.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {rejected && (
+              <div className="rounded-xl p-4 text-sm"
+                style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                <div className="flex items-start gap-2">
+                  <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400" />
+                  <div>
+                    <p className="font-bold text-red-700">Application not approved</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(44,36,22,0.6)' }}>
+                      Contact us if you think this is a mistake.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div>
-              <label htmlFor="email" className="label">
+              <label htmlFor="email" className="label block mb-1.5">
                 Email address
               </label>
               <input
@@ -69,9 +185,13 @@ export default function Login() {
             </div>
 
             <div>
-              <label htmlFor="password" className="label">
-                Password
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label htmlFor="password" className="label">Password</label>
+                <Link to="/forgot-password" className="text-xs font-medium transition-opacity hover:opacity-70"
+                  style={{ color: '#FC7B62' }}>
+                  Forgot password?
+                </Link>
+              </div>
               <input
                 id="password"
                 type="password"
@@ -87,41 +207,38 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-[#FF8170] hover:bg-[#ff6b59] text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="btn btn-primary w-full flex items-center justify-center gap-2 mt-2"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
-                'Sign in'
+                <>
+                  Sign in
+                  <ArrowRight className="w-4 h-4" />
+                </>
               )}
             </button>
           </form>
-
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-gray-200" />
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white text-gray-500">New to SlabDash?</span>
-              </div>
-            </div>
-
-            <div className="mt-6">
-              <Link
-                to="/register"
-                className="block w-full py-2.5 bg-white text-gray-900 border-2 border-gray-200 hover:bg-gray-50 rounded-lg font-medium transition-colors text-center"
-              >
-                Create an account
-              </Link>
-            </div>
-          </div>
         </div>
 
-        <p className="mt-6 text-center text-sm text-gray-600">
-          Track your PSA submissions in real-time.
-          <br />
-          Give customers visibility into their orders.
+        {/* Register link */}
+        <div className="mt-6 text-center">
+          <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+            New to SlabDash?{' '}
+            <Link
+              to="/register"
+              className="font-semibold transition-colors"
+              style={{ color: '#FC7B62' }}
+              onMouseEnter={(e) => e.target.style.color = '#e8634c'}
+              onMouseLeave={(e) => e.target.style.color = '#FC7B62'}
+            >
+              Create an account
+            </Link>
+          </p>
+        </div>
+
+        <p className="mt-8 text-center text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+          Track submissions in real-time. Give customers visibility into their orders.
         </p>
       </div>
     </div>

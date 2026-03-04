@@ -96,7 +96,6 @@ router.post('/create-default-templates', authenticate, requireRole('owner', 'adm
         console.error('Create default templates error:', error);
         res.status(500).json({
             error: 'Failed to create default templates',
-            details: error.message
         });
     }
 });
@@ -254,7 +253,7 @@ router.post('/send-submission-update/:submissionId', authenticate, requireRole('
                 );
 
                 emailsSent++;
-                console.log(`✓ Submission update email sent to ${customer.email}`);
+                console.log(`[Email] Submission update sent to customer ID ${customer.id}`);
 
             } catch (error) {
                 console.error(`✗ Failed to send submission email to ${customer.email}:`, error.message);
@@ -282,7 +281,6 @@ router.post('/send-submission-update/:submissionId', authenticate, requireRole('
         console.error('Send submission update error:', error);
         res.status(500).json({
             error: 'Failed to send submission update',
-            details: error.message
         });
     }
 });
@@ -458,7 +456,7 @@ router.post('/send-bulk-status-update', authenticate, requireRole('owner', 'admi
                 );
 
                 emailsSent++;
-                console.log(`✓ Bulk status email sent to ${customer.email}`);
+                console.log(`[Email] Bulk status email sent to customer ID ${customer.id}`);
 
             } catch (error) {
                 console.error(`✗ Failed to send bulk email to ${customer.email}:`, error.message);
@@ -541,7 +539,6 @@ router.post('/send-bulk-status-update', authenticate, requireRole('owner', 'admi
         console.error('Bulk status update error:', error);
         res.status(500).json({
             error: 'Failed to send bulk status update',
-            details: error.message
         });
     }
 });
@@ -680,7 +677,6 @@ router.post('/send-test-submission-update', authenticate, async (req, res) => {
         console.error('Test submission update error:', error);
         res.status(500).json({
             error: 'Failed to send test email',
-            details: error.message
         });
     }
 });

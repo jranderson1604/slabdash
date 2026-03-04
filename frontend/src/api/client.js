@@ -13,9 +13,28 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const path = window.location.pathname;
+      const isPublicPage = path === '/login' || path === '/register' || path === '/' || path.startsWith('/portal');
+      if (!isPublicPage) {
+        localStorage.removeItem('slabdash_token');
+        window.location.href = '/login';
+      }
+    }
+    if (error.response?.status === 403 && error.response?.data?.upgrade) {
+      window.dispatchEvent(new CustomEvent('slabdash:upgrade', { detail: error.response.data }));
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const auth = {
   login: (email, password) => api.post('/auth/login', { email, password }),
   register: (data) => api.post('/auth/register', data),
+  logout: () => api.post('/auth/logout'),
   me: () => api.get('/auth/me', {
     headers: { 'Cache-Control': 'no-cache' },
     params: { _t: Date.now() } // Cache-busting timestamp
@@ -25,14 +44,16 @@ export const auth = {
 export const companies = {
   get: () => api.get('/companies/settings'),
   update: (data) => api.patch('/companies/settings', data),
-  updatePsaKey: (psaApiKey) => api.post('/companies/psa-key', { apiKey: psaApiKey })
+  updatePsaKey: (psaApiKey) => api.post('/companies/psa-key', { apiKey: psaApiKey }),
+  usage: () => api.get('/companies/usage'),
+  stats: () => api.get('/companies/stats'),
 };
 
 export const customers = {
   list: (params) => api.get('/customers', { params }),
   get: (id) => api.get(`/customers/${id}`),
   create: (data) => api.post('/customers', data),
-  update: (id, data) => api.put(`/customers/${id}`, data),
+  update: (id, data) => api.patch(`/customers/${id}`, data),
   delete: (id) => api.delete(`/customers/${id}`),
   sendPortalLink: (id) => api.post(`/customers/${id}/send-portal-link`),
   sendIntroductionEmail: (id) => api.post(`/customers/${id}/send-introduction-email`),
@@ -60,6 +81,7 @@ export const submissions = {
       headers: { 'Content-Type': 'multipart/form-data' }
     }),
   importCSV: (id, csvData) => api.post(`/submissions/${id}/import-csv`, { csvData }),
+  bulkAddCustomer: (customerId, submissionIds) => api.post('/submissions/bulk-add-customer', { customerId, submissionIds }),
   fixShippedStatus: () => api.post('/submissions/fix-shipped-status'),
   verifyPickupCode: (data) => api.post('/submissions/verify-pickup-code', data)
 };
@@ -84,7 +106,8 @@ export const cards = {
 
 export const psa = {
   testConnection: () => api.get('/psa/test'),
-  refreshAll: () => api.post('/psa/refresh-all')
+  refreshAll: () => api.post('/psa/refresh-all'),
+  sendWeeklyUpdate: (email) => api.post('/psa/send-weekly-update', { email }),
 };
 
 export const portal = {
@@ -97,10 +120,10 @@ export const buyback = {
   list: (params) => api.get('/buyback', { params }),
   get: (id) => api.get(`/buyback/${id}`),
   create: (data) => api.post('/buyback', data),
-  update: (id, data) => api.put(`/buyback/${id}`, data),
-  delete: (id) => api.delete(`/buyback/${id}`),
-  accept: (id, message) => api.post(`/buyback/${id}/accept`, { message }),
-  decline: (id, message) => api.post(`/buyback/${id}/decline`, { message })
+  stats: () => api.get('/buyback/stats/summary'),
+  cancel: (id) => api.patch(`/buyback/${id}/cancel`),
+  markPaid: (id, data) => api.patch(`/buyback/${id}/mark-paid`, data),
+  delete: (id) => api.delete(`/buyback/${id}`)
 };
 
 export const cardImport = {
@@ -127,7 +150,9 @@ export const emailTemplates = {
   // Custom email sender endpoints
   sendToCustomer: (customerId, emailData) => api.post(`/email-sender/customer/${customerId}`, emailData),
   sendToSubmission: (submissionId, emailData) => api.post(`/email-sender/submission/${submissionId}`, emailData),
-  sendBulkCustomEmail: (emailData) => api.post('/email-sender/bulk-active', emailData)
+  sendBulkCustomEmail: (emailData) => api.post('/email-sender/bulk-active', emailData),
+  notifyGradesReady: () => api.post('/email-sender/notify-grades-ready'),
+  notifyGradesReadyCount: () => api.get('/email-sender/notify-grades-ready/count'),
 };
 
 export const psaImport = {
@@ -150,6 +175,15 @@ export const invoices = {
 export const migration = {
   checkInvoiceStatus: () => api.get('/migration/check-invoice-status'),
   runInvoiceMigration: () => api.post('/migration/add-invoice-columns')
+};
+
+export const analytics = {
+  summary: () => api.get('/analytics/summary'),
+  gradeDistribution: () => api.get('/analytics/grade-distribution'),
+  monthlyTrends: () => api.get('/analytics/monthly-trends'),
+  serviceLevels: () => api.get('/analytics/service-levels'),
+  turnaround: () => api.get('/analytics/turnaround'),
+  topCustomers: () => api.get('/analytics/top-customers'),
 };
 
 export default api;

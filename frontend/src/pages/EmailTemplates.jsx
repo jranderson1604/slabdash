@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { emailTemplates } from '../api/client';
 import {
   Plus,
@@ -72,6 +74,7 @@ const TEMPLATE_VARIABLES = [
 ];
 
 function TemplateEditorModal({ template, onClose, onSave }) {
+  const toast = useToast();
   const [formData, setFormData] = useState({
     step_name: template?.step_name || '',
     subject: template?.subject || '',
@@ -85,7 +88,7 @@ function TemplateEditorModal({ template, onClose, onSave }) {
 
   const handleSave = async () => {
     if (!formData.step_name || !formData.subject || !formData.body_html) {
-      alert('Please fill in step name, subject, and email body');
+      toast.error('Please fill in step name, subject, and email body');
       return;
     }
 
@@ -99,7 +102,7 @@ function TemplateEditorModal({ template, onClose, onSave }) {
       onSave();
     } catch (error) {
       console.error('Failed to save template:', error);
-      alert('Failed to save template');
+      toast.error('Failed to save template');
     } finally {
       setSaving(false);
     }
@@ -107,7 +110,7 @@ function TemplateEditorModal({ template, onClose, onSave }) {
 
   const handlePreview = async () => {
     if (!template?.id) {
-      alert('Please save the template first to preview');
+      toast.error('Please save the template first to preview');
       return;
     }
 
@@ -117,7 +120,7 @@ function TemplateEditorModal({ template, onClose, onSave }) {
       setShowPreview(true);
     } catch (error) {
       console.error('Failed to load preview:', error);
-      alert('Failed to load preview');
+      toast.error('Failed to load preview');
     }
   };
 
@@ -287,8 +290,14 @@ function TemplateEditorModal({ template, onClose, onSave }) {
                 <p className="text-sm text-gray-500">Subject:</p>
                 <p className="font-semibold text-gray-900">{preview.subject}</p>
               </div>
-              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-                <div dangerouslySetInnerHTML={{ __html: preview.body_html }} />
+              <div className="border border-gray-200 rounded-lg bg-gray-50 overflow-hidden">
+                <iframe
+                  srcDoc={preview.body_html}
+                  sandbox=""
+                  title="Email Preview"
+                  className="w-full border-0"
+                  style={{ minHeight: '300px' }}
+                />
               </div>
             </div>
             <div className="p-4 border-t border-gray-200">
@@ -304,6 +313,8 @@ function TemplateEditorModal({ template, onClose, onSave }) {
 }
 
 export default function EmailTemplates() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingTemplate, setEditingTemplate] = useState(null);
@@ -336,35 +347,35 @@ export default function EmailTemplates() {
   };
 
   const handleCreateDefaults = async () => {
-    if (!confirm('Create default email templates for all PSA steps? (This will not overwrite existing templates)')) return;
+    if (!await confirm({ title: 'Create Default Templates', message: 'Create default email templates for all PSA steps? Existing templates will not be overwritten.', confirmLabel: 'Create Templates', variant: 'info' })) return;
 
     setCreatingDefaults(true);
     try {
       const response = await emailTemplates.createDefaults();
 
       if (response.data.success) {
-        alert(`Success! Created ${response.data.templates_created} new templates.`);
+        toast.success(`Created ${response.data.templates_created} new templates`);
         await loadTemplates();
       } else {
-        alert('Failed to create templates: ' + (response.data.error || 'Unknown error'));
+        toast.error('Failed to create templates: ' + (response.data.error || 'Unknown error'));
       }
     } catch (error) {
       console.error('Create defaults failed:', error);
-      alert('Failed to create default templates: ' + (error.response?.data?.error || error.message));
+      toast.error('Failed to create default templates: ' + (error.response?.data?.error || error.message));
     } finally {
       setCreatingDefaults(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this template?')) return;
+    if (!await confirm({ title: 'Delete Template', message: 'Delete this email template? This cannot be undone.', variant: 'danger' })) return;
 
     try {
       await emailTemplates.delete(id);
       await loadTemplates();
     } catch (error) {
       console.error('Failed to delete template:', error);
-      alert('Failed to delete template');
+      toast.error('Failed to delete template');
     }
   };
 
@@ -388,35 +399,41 @@ export default function EmailTemplates() {
   return (
     <div className="space-y-6">
       <EmailNav />
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
-
-        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">EMAIL TEMPLATES</h1>
-            <p className="text-white/90 text-lg font-semibold">Customize email notifications for each PSA step</p>
-          </div>
-          <div className="flex gap-3 flex-wrap">
-            {missingSteps.length > 0 && (
+      <div className="relative overflow-hidden rounded-3xl" style={{ background: 'var(--hdr-gradient)', boxShadow: 'var(--hdr-shadow)', border: 'var(--hdr-border)' }}>
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
+        <div className="relative px-6 sm:px-8 py-7">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: 'var(--hdr-eyebrow)' }}>Communications</p>
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight" style={{ color: 'var(--hdr-title)' }}>Email Templates</h1>
+              <p className="text-sm font-medium mt-1" style={{ color: 'var(--hdr-sub)' }}>Customize email notifications for each PSA step</p>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {missingSteps.length > 0 && (
+                <button
+                  onClick={handleCreateDefaults}
+                  disabled={creatingDefaults}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 disabled:opacity-50"
+                  style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
+                >
+                  {creatingDefaults ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle className="w-4 h-4" />
+                  )}
+                  <span className="hidden sm:inline">Create Defaults</span>
+                </button>
+              )}
               <button
-                onClick={handleCreateDefaults}
-                disabled={creatingDefaults}
-                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg disabled:opacity-50"
+                onClick={handleNew}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: 'var(--hdr-btn-primary-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-primary-color)' }}
               >
-                {creatingDefaults ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <CheckCircle className="w-4 h-4" />
-                )}
-                <span className="hidden sm:inline">Create Defaults</span>
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">New Template</span>
               </button>
-            )}
-            <button onClick={handleNew} className="bg-white text-brand-600 px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105">
-              <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">New Template</span>
-            </button>
+            </div>
           </div>
         </div>
       </div>
@@ -461,7 +478,7 @@ export default function EmailTemplates() {
         {templates.length === 0 && (
           <div className="col-span-full">
             <div className="card p-12 text-center">
-              <Mail className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <Mail className="w-12 h-12 text-brand-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No email templates yet</h3>
               <p className="text-gray-500 mb-4">Create templates for PSA steps to start sending notifications</p>
               <button onClick={handleNew} className="btn btn-primary">

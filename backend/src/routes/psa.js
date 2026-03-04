@@ -46,10 +46,9 @@ router.get("/test", authenticate, async (req, res) => {
       throw error;
     }
   } catch (error) {
-    console.error("PSA test error:", error);
+    console.error("PSA test error:", error.message);
     res.status(500).json({
-      error: "Failed to test PSA connection",
-      details: error.message
+      error: "Failed to test PSA connection"
     });
   }
 });
@@ -71,32 +70,34 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
       });
     }
 
-    // Get submissions that need refreshing:
-    // 1. All active submissions (progress < 100 and not shipped)
-    // 2. The most recent completed submission (to catch any final updates)
-    // This saves API calls by not refreshing old completed orders
+    // Smart filtering: only refresh submissions that actually need it
+    // 1. Active (not shipped) with a PSA number
+    // 2. Skip ones refreshed in the last 30 minutes (they're fresh)
+    // 3. Prioritize by urgency (problem orders first, then by staleness)
+    // 4. Cap at 30 per batch to avoid rate limits
     const submissions = await db.query(
-      `SELECT id, psa_submission_number, progress_percent, shipped, date_sent
+      `SELECT id, psa_submission_number, progress_percent, shipped, date_sent,
+              current_step, service_level, problem_order, grades_ready,
+              last_refreshed_at, picked_up
        FROM submissions
        WHERE company_id = $1
          AND psa_submission_number IS NOT NULL
-         AND (
-           -- Active submissions (not complete)
-           (progress_percent < 100 AND shipped = false)
-           OR
-           -- Most recent completed submission only
-           id = (
-             SELECT id FROM submissions
-             WHERE company_id = $1
-               AND psa_submission_number IS NOT NULL
-               AND (progress_percent >= 100 OR shipped = true)
-             ORDER BY date_sent DESC, created_at DESC
-             LIMIT 1
-           )
-         )
-       ORDER BY date_sent DESC, created_at DESC`,
+         AND shipped = false
+         AND (last_refreshed_at IS NULL OR last_refreshed_at < NOW() - INTERVAL '30 minutes')
+       ORDER BY
+         problem_order DESC,
+         last_refreshed_at ASC NULLS FIRST,
+         created_at DESC
+       LIMIT 30`,
       [req.user.company_id]
     );
+
+    // Also get the total active count so user knows scope
+    const totalActiveResult = await db.query(
+      `SELECT COUNT(*) FROM submissions WHERE company_id = $1 AND psa_submission_number IS NOT NULL AND shipped = false`,
+      [req.user.company_id]
+    );
+    const totalActive = parseInt(totalActiveResult.rows[0].count);
 
     // Set up Server-Sent Events for real-time progress
     res.writeHead(200, {
@@ -108,149 +109,118 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
     const total = submissions.rows.length;
     let updated = 0;
     let errors = 0;
-    const changeLog = []; // Track all changes for CSV report
+    const changeLog = [];
+    let clientDisconnected = false;
 
-    // Send initial progress
-    res.write(`data: ${JSON.stringify({ type: 'start', total, updated: 0, errors: 0 })}\n\n`);
+    // Handle client disconnect — stop refreshing if browser closes
+    req.on('close', () => { clientDisconnected = true; });
 
-    const { getSubmissionProgress, updateSubmissionFromPsa } = require('../services/psaService');
-
-    // Helper function to retry with exponential backoff on rate limit
-    const getSubmissionWithRetry = async (apiKey, submissionNumber, maxRetries = 3) => {
-      let lastError;
-      for (let attempt = 0; attempt <= maxRetries; attempt++) {
-        try {
-          const result = await getSubmissionProgress(apiKey, submissionNumber);
-          return result;
-        } catch (err) {
-          lastError = err;
-          // Check if it's a rate limit error (429)
-          if (err.response?.status === 429 && attempt < maxRetries) {
-            // Very aggressive backoff: 10s, 30s, 60s
-            const backoffDelay = Math.pow(3, attempt) * 10000;
-            // Add random jitter to prevent synchronized retries
-            const jitter = Math.random() * 5000;
-            const totalDelay = backoffDelay + jitter;
-            console.log(`Rate limited on ${submissionNumber}, retrying in ${Math.round(totalDelay/1000)}s (attempt ${attempt + 1}/${maxRetries})`);
-            await new Promise(resolve => setTimeout(resolve, totalDelay));
-            continue;
-          }
-          throw err;
-        }
-      }
-      throw lastError;
+    // Safe write helper — won't throw if client disconnected
+    const send = (data) => {
+      if (clientDisconnected) return;
+      try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch { clientDisconnected = true; }
     };
 
-    // Refresh each submission with rate limiting and retries
+    const { getSubmissionProgress, updateSubmissionFromPsa, isRateLimited, getDailyUsage } = require('../services/psaService');
+    const usage = getDailyUsage();
+    send({ type: 'start', total, totalActive, updated: 0, errors: 0, dailyUsage: usage });
+
     for (let i = 0; i < submissions.rows.length; i++) {
+      if (clientDisconnected) break;
+
       const submission = submissions.rows[i];
+
+      // Check global rate limit before each request
+      if (isRateLimited().limited) {
+        send({ type: 'rate_limited', message: 'PSA rate limit reached — stopping refresh', total, current: i, updated, errors });
+        break;
+      }
+
       try {
-        // Get submission progress from PSA API with retry logic
-        const result = await getSubmissionWithRetry(psaApiKey, submission.psa_submission_number);
+        // batch: true uses 10s spacing instead of 1.5s — stays under PSA limits
+        const result = await getSubmissionProgress(psaApiKey, submission.psa_submission_number, { batch: true });
+
+        if (result.rateLimited) {
+          const msg = result.dailyLimitReached
+            ? 'Daily API limit reached — refresh will resume tomorrow'
+            : 'PSA rate limit reached — stopping refresh';
+          send({ type: 'rate_limited', message: msg, total, current: i, updated, errors, dailyUsage: getDailyUsage() });
+          break;
+        }
 
         if (result.success && result.data) {
-          // Update submission with latest data (this also triggers email notifications)
           const updateResult = await updateSubmissionFromPsa(submission.id, result.data);
           const { changes } = updateResult;
 
-          // Log all changes for the report
-          if (changes.hadChanges) {
-            changeLog.push({
-              submissionNumber: changes.submissionNumber,
-              stepChanged: changes.stepChanged,
-              previousStep: changes.previousStep,
-              newStep: changes.newStep,
-              progressChanged: changes.progressChanged,
-              previousProgress: changes.previousProgress,
-              newProgress: changes.newProgress,
-              progressDelta: changes.progressDelta || 0,
-              statusChanged: changes.statusChanged,
-              gradesReady: changes.newGradesReady,
-              shipped: changes.newShipped,
-              problem: changes.newProblem,
-              timestamp: new Date().toISOString()
-            });
-          } else {
-            // Log no change
-            changeLog.push({
-              submissionNumber: changes.submissionNumber,
-              noChange: true,
-              currentStep: changes.newStep,
-              currentProgress: changes.newProgress,
-              timestamp: new Date().toISOString()
-            });
-          }
+          changeLog.push(changes.hadChanges
+            ? {
+                submissionNumber: changes.submissionNumber,
+                hadChanges: true,
+                stepChanged: changes.stepChanged,
+                previousStep: changes.previousStep,
+                newStep: changes.newStep,
+                progressChanged: changes.progressChanged,
+                previousProgress: changes.previousProgress,
+                newProgress: changes.newProgress,
+                progressDelta: changes.progressDelta || 0,
+                statusChanged: changes.statusChanged,
+                gradesReady: changes.newGradesReady,
+                shipped: changes.newShipped,
+                problem: changes.newProblem,
+                timestamp: new Date().toISOString()
+              }
+            : {
+                submissionNumber: changes.submissionNumber,
+                noChange: true,
+                currentStep: changes.newStep,
+                currentProgress: changes.newProgress,
+                timestamp: new Date().toISOString()
+              }
+          );
 
           updated++;
-
-          // Send progress update with change info
-          res.write(`data: ${JSON.stringify({
-            type: 'progress',
-            total,
-            current: i + 1,
-            updated,
-            errors,
+          send({
+            type: 'progress', total, current: i + 1, updated, errors,
             submissionNumber: submission.psa_submission_number,
             status: 'success',
             hadChanges: changes.hadChanges,
             stepChanged: changes.stepChanged,
             progressDelta: changes.progressDelta
-          })}\n\n`);
+          });
         } else {
           errors++;
-
           changeLog.push({
             submissionNumber: submission.psa_submission_number,
-            error: true,
-            errorMessage: result.error || 'Unknown error',
+            error: true, errorMessage: result.error || 'Unknown error',
+            errorType: result.errorType || 'unknown',
             timestamp: new Date().toISOString()
           });
-
-          // Send error update
-          res.write(`data: ${JSON.stringify({
-            type: 'progress',
-            total,
-            current: i + 1,
-            updated,
-            errors,
-            submissionNumber: submission.psa_submission_number,
-            status: 'error'
-          })}\n\n`);
+          send({
+            type: 'progress', total, current: i + 1, updated, errors,
+            submissionNumber: submission.psa_submission_number, status: 'error',
+            errorType: result.errorType || 'unknown',
+            errorMessage: result.error
+          });
         }
-
-        // Rate limit: wait 8-12 seconds between requests to avoid 429 errors
-        const baseDelay = 8000;
-        const jitter = Math.random() * 4000; // 0-4s random jitter
-        await new Promise(resolve => setTimeout(resolve, baseDelay + jitter));
       } catch (err) {
-        console.error(`Failed to refresh submission ${submission.psa_submission_number}:`, err.message);
+        console.error(`[PSA] Refresh error for ${submission.psa_submission_number}: ${err.message}`);
         errors++;
-
         changeLog.push({
           submissionNumber: submission.psa_submission_number,
-          error: true,
-          errorMessage: err.message,
+          error: true, errorMessage: err.message,
+          errorType: 'unknown',
           timestamp: new Date().toISOString()
         });
-
-        // Send error update
-        res.write(`data: ${JSON.stringify({
-          type: 'progress',
-          total,
-          current: i + 1,
-          updated,
-          errors,
-          submissionNumber: submission.psa_submission_number,
-          status: 'error',
-          error: err.message
-        })}\n\n`);
-
-        // After error, wait even longer (15-20s) before next request
-        await new Promise(resolve => setTimeout(resolve, 15000 + Math.random() * 5000));
+        send({
+          type: 'progress', total, current: i + 1, updated, errors,
+          submissionNumber: submission.psa_submission_number, status: 'error',
+          errorType: 'unknown',
+          errorMessage: err.message
+        });
       }
     }
 
-    // Store change log in the database for later retrieval
+    // Store change log
     try {
       await db.query(
         `INSERT INTO psa_refresh_logs (company_id, total_submissions, updated_count, error_count, change_log, created_by)
@@ -258,33 +228,27 @@ router.post("/refresh-all", authenticate, requireRole("owner", "admin"), async (
         [req.user.company_id, total, updated, errors, JSON.stringify(changeLog), req.user.id]
       );
     } catch (dbError) {
-      console.error('Failed to save refresh log:', dbError);
-      // Don't fail the whole refresh if logging fails
+      console.error('[PSA] Failed to save refresh log:', dbError.message);
     }
 
-    // Send completion with change summary
     const changedCount = changeLog.filter(c => c.hadChanges).length;
     const noChangeCount = changeLog.filter(c => c.noChange).length;
-    res.write(`data: ${JSON.stringify({
-      type: 'complete',
-      total,
-      updated,
-      errors,
-      changedCount,
-      noChangeCount,
-      message: `Refresh completed: ${changedCount} changed, ${noChangeCount} unchanged, ${errors} errors`,
+    const skippedCount = totalActive - total;
+    send({
+      type: 'complete', total, totalActive, updated, errors, changedCount, noChangeCount, skippedCount,
+      message: `Refresh completed: ${changedCount} changed, ${noChangeCount} unchanged, ${errors} errors` +
+        (skippedCount > 0 ? `, ${skippedCount} skipped (recently refreshed)` : ''),
+      dailyUsage: getDailyUsage(),
       changeLogAvailable: true
-    })}\n\n`);
+    });
 
-    res.end();
+    try { if (!clientDisconnected) res.end(); } catch { /* already closed */ }
   } catch (error) {
-    console.error("Refresh all error:", error);
-    res.write(`data: ${JSON.stringify({
-      type: 'error',
-      error: 'Failed to refresh submissions',
-      details: error.message
-    })}\n\n`);
-    res.end();
+    console.error('[PSA] Refresh all error:', error.message);
+    try {
+      res.write(`data: ${JSON.stringify({ type: 'error', error: 'Failed to refresh submissions' })}\n\n`);
+    } catch { /* client already gone */ }
+    try { res.end(); } catch { /* already closed */ }
   }
 });
 
@@ -316,10 +280,9 @@ router.post("/normalize-service-levels", authenticate, requireRole("owner", "adm
       updated
     });
   } catch (error) {
-    console.error("Normalize service levels error:", error);
+    console.error("Normalize service levels error:", error.message);
     res.status(500).json({
-      error: "Failed to normalize service levels",
-      details: error.message
+      error: "Failed to normalize service levels"
     });
   }
 });
@@ -342,10 +305,9 @@ router.get("/refresh-log/latest", authenticate, async (req, res) => {
 
     res.json({ hasLog: true, log: result.rows[0] });
   } catch (error) {
-    console.error("Get refresh log error:", error);
+    console.error("Get refresh log error:", error.message);
     res.status(500).json({
-      error: "Failed to get refresh log",
-      details: error.message
+      error: "Failed to get refresh log"
     });
   }
 });
@@ -428,11 +390,108 @@ router.get("/refresh-log/:id/csv", authenticate, async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(csv);
   } catch (error) {
-    console.error("Export CSV error:", error);
+    console.error("Export CSV error:", error.message);
     res.status(500).json({
-      error: "Failed to export CSV",
-      details: error.message
+      error: "Failed to export CSV"
     });
+  }
+});
+
+// Send weekly update — manual trigger by admin
+// Refreshes all active submissions from PSA, then sends the email report
+router.post("/send-weekly-update", authenticate, requireRole("owner", "admin"), async (req, res) => {
+  try {
+    const companyResult = await db.query(
+      `SELECT c.id, c.name, c.psa_api_key, u.email as owner_email
+       FROM companies c
+       LEFT JOIN users u ON u.company_id = c.id AND u.role = 'owner'
+       WHERE c.id = $1`,
+      [req.user.company_id]
+    );
+
+    if (companyResult.rows.length === 0) {
+      return res.status(404).json({ error: "Company not found" });
+    }
+
+    const company = companyResult.rows[0];
+
+    if (!company.psa_api_key) {
+      return res.status(400).json({ error: "PSA API key not configured" });
+    }
+
+    // Check rate limit — once per week
+    try {
+      const lastUpdateResult = await db.query(
+        `SELECT created_at FROM psa_refresh_logs
+         WHERE company_id = $1 ORDER BY created_at DESC LIMIT 1`,
+        [company.id]
+      );
+
+      if (lastUpdateResult.rows.length > 0) {
+        const lastUpdate = new Date(lastUpdateResult.rows[0].created_at);
+        const daysSinceLastUpdate = (Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60 * 24);
+
+        if (daysSinceLastUpdate < 6) {
+          return res.status(429).json({
+            error: "Weekly update already sent recently",
+            lastSent: lastUpdate.toISOString(),
+            nextAvailable: new Date(lastUpdate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+            daysRemaining: Math.ceil(7 - daysSinceLastUpdate)
+          });
+        }
+      }
+    } catch (e) {
+      // psa_refresh_logs table might not exist
+    }
+
+    const { runCompanyRefresh, sendRefreshReport } = require('../services/scheduledRefreshService');
+
+    // Run the refresh
+    const results = await runCompanyRefresh(company, company.psa_api_key);
+
+    if (results.rateLimited) {
+      return res.status(429).json({
+        error: `PSA API rate limited — try again in ${results.retryAfterMin} minutes`,
+        retryAfterMin: results.retryAfterMin
+      });
+    }
+
+    // Send the email report
+    const emailTo = req.body.email || company.owner_email || req.user.email;
+    if (emailTo) {
+      await sendRefreshReport({ ...company, owner_email: emailTo }, results, results.changeLog);
+    }
+
+    res.json({
+      success: true,
+      message: "Weekly update sent",
+      totalSubmissions: results.totalSubmissions,
+      updatedCount: results.updatedCount,
+      errorCount: results.errorCount,
+      emailSentTo: emailTo || null,
+      changesCount: results.changeLog.filter(c => c.hadChanges).length,
+    });
+  } catch (error) {
+    console.error("Send weekly update error:", error.message);
+    res.status(500).json({ error: "Failed to send weekly update" });
+  }
+});
+
+// Get current PSA API usage stats
+router.get("/usage", authenticate, async (req, res) => {
+  try {
+    const { getDailyUsage, isRateLimited } = require('../services/psaService');
+    const usage = getDailyUsage();
+    const rl = isRateLimited();
+
+    res.json({
+      ...usage,
+      rateLimited: rl.limited,
+      rateLimitedUntil: rl.limited ? new Date(Date.now() + rl.retryAfterMs).toISOString() : null,
+      retryAfterMin: rl.limited ? rl.retryAfterMin : 0,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to get usage stats" });
   }
 });
 

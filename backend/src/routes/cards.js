@@ -9,6 +9,17 @@ const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const upload = multer({ storage: multer.memoryStorage() });
 const { detectSport } = require('../utils/sportDetection');
+const { getLimits } = require('../config/tierLimits');
+
+// Helper: count cards created this calendar month for a company
+async function getMonthlyCardCount(companyId) {
+    const result = await db.query(
+        `SELECT COUNT(*) FROM cards WHERE company_id = $1
+         AND created_at >= date_trunc('month', NOW())`,
+        [companyId]
+    );
+    return parseInt(result.rows[0].count, 10);
+}
 
 // List cards
 router.get('/', authenticate, async (req, res) => {
@@ -73,7 +84,21 @@ router.post('/', authenticate, async (req, res) => {
     try {
         const { submission_id, description, year, brand, card_number, player_name, team, variation, psa_cert_number } = req.body;
         if (!submission_id || !description) return res.status(400).json({ error: 'Submission ID and description required' });
-        
+
+        // Enforce card/month limit
+        const limits = getLimits(req.user.plan);
+        if (limits.cards_per_month !== Infinity) {
+            const monthlyCount = await getMonthlyCardCount(req.companyId);
+            if (monthlyCount >= limits.cards_per_month) {
+                return res.status(403).json({
+                    error: 'Monthly card limit reached',
+                    limit: limits.cards_per_month,
+                    current: monthlyCount,
+                    upgrade: true
+                });
+            }
+        }
+
         const subCheck = await db.query('SELECT customer_id FROM submissions WHERE id = $1 AND company_id = $2', [submission_id, req.companyId]);
         if (subCheck.rows.length === 0) return res.status(404).json({ error: 'Submission not found' });
         
@@ -93,7 +118,32 @@ router.post('/bulk', authenticate, async (req, res) => {
     try {
         const { submission_id, cards } = req.body;
         if (!submission_id || !Array.isArray(cards)) return res.status(400).json({ error: 'Submission ID and cards array required' });
-        
+        if (cards.length > 500) return res.status(400).json({ error: 'Maximum 500 cards per bulk operation' });
+
+        // Enforce card/month limit
+        const limits = getLimits(req.user.plan);
+        if (limits.cards_per_month !== Infinity) {
+            const monthlyCount = await getMonthlyCardCount(req.companyId);
+            const remaining = limits.cards_per_month - monthlyCount;
+            if (remaining <= 0) {
+                return res.status(403).json({
+                    error: 'Monthly card limit reached',
+                    limit: limits.cards_per_month,
+                    current: monthlyCount,
+                    upgrade: true
+                });
+            }
+            if (cards.length > remaining) {
+                return res.status(403).json({
+                    error: `Bulk import would exceed monthly card limit. ${remaining} of ${limits.cards_per_month} cards remaining this month.`,
+                    limit: limits.cards_per_month,
+                    current: monthlyCount,
+                    remaining,
+                    upgrade: true
+                });
+            }
+        }
+
         const subCheck = await db.query('SELECT customer_id FROM submissions WHERE id = $1 AND company_id = $2', [submission_id, req.companyId]);
         if (subCheck.rows.length === 0) return res.status(404).json({ error: 'Submission not found' });
         
@@ -138,29 +188,60 @@ router.patch('/:id', authenticate, async (req, res) => {
     }
 });
 
-// Lookup cert
+// Lookup cert — fetches grade, images, and full cert data from PSA API
 router.post('/:id/lookup-cert', authenticate, async (req, res) => {
     try {
         if (!req.user.psa_api_key) return res.status(400).json({ error: 'PSA API key not configured' });
-        
+
         const cardResult = await db.query('SELECT * FROM cards WHERE id = $1 AND company_id = $2', [req.params.id, req.companyId]);
         if (cardResult.rows.length === 0) return res.status(404).json({ error: 'Card not found' });
-        
+
         const card = cardResult.rows[0];
         if (!card.psa_cert_number) return res.status(400).json({ error: 'No cert number' });
-        
-        const certResult = await psaService.getCertificate(req.user.psa_api_key, card.psa_cert_number);
+
+        // Fetch cert + images in parallel
+        const certResult = await psaService.getCertWithImages(req.user.psa_api_key, card.psa_cert_number);
         if (!certResult.success) return res.status(404).json({ error: certResult.error });
-        
+
         const cert = certResult.data;
+        const parsed = psaService.parseCertData(cert);
+
+        // Build update with all available fields
+        const updates = {
+            grade: parsed.grade,
+            psa_cert_data: JSON.stringify(cert),
+            status: 'graded',
+        };
+
+        if (parsed.playerName && !card.player_name) updates.player_name = parsed.playerName;
+        if (parsed.year && !card.year) updates.year = parsed.year;
+        if (parsed.brand && !card.brand) updates.brand = parsed.brand;
+        if (parsed.cardNumber && !card.card_number) updates.card_number = parsed.cardNumber;
+        if (parsed.variety && !card.variation) updates.variation = parsed.variety;
+        if (cert.images && cert.images.length > 0) updates.card_images = cert.images;
+
+        const setClauses = [];
+        const values = [];
+        let pi = 1;
+        for (const [key, value] of Object.entries(updates)) {
+            setClauses.push(`${key} = $${pi++}`);
+            values.push(value);
+        }
+        values.push(card.id);
+
         await db.query(
-            `UPDATE cards SET grade = $1, psa_cert_data = $2, status = 'graded' WHERE id = $3`,
-            [cert.CardGrade || cert.Grade, JSON.stringify(cert), card.id]
+            `UPDATE cards SET ${setClauses.join(', ')} WHERE id = $${pi}`,
+            values
         );
-        
+
         const updated = await db.query('SELECT * FROM cards WHERE id = $1', [card.id]);
-        res.json({ card: updated.rows[0], certData: cert });
+        res.json({
+            card: updated.rows[0],
+            certData: cert,
+            parsed,
+        });
     } catch (error) {
+        console.error('Cert lookup error:', error);
         res.status(500).json({ error: 'Failed to lookup cert' });
     }
 });
@@ -218,7 +299,7 @@ router.delete('/:id/images/:imageIndex', authenticate, async (req, res) => {
         const images = card.card_images || [];
         const imageIndex = parseInt(req.params.imageIndex);
 
-        if (imageIndex < 0 || imageIndex >= images.length) {
+        if (isNaN(imageIndex) || imageIndex < 0 || imageIndex >= images.length) {
             return res.status(400).json({ error: 'Invalid image index' });
         }
 
@@ -276,7 +357,7 @@ router.post('/auto-detect-sports', authenticate, async (req, res) => {
                 });
             } catch (error) {
                 // Column might not exist yet
-                console.log('Note: sport column not found. Run migration first.');
+                console.warn('Note: sport column not found. Run migration first.');
                 return res.status(400).json({
                     error: 'Sport column not found',
                     message: 'Please run the database migration from Settings page to enable sport categorization.'
@@ -296,7 +377,7 @@ router.post('/auto-detect-sports', authenticate, async (req, res) => {
         });
     } catch (error) {
         console.error('Auto-detect sports error:', error);
-        res.status(500).json({ error: 'Failed to auto-detect sports', details: error.message });
+        res.status(500).json({ error: 'Failed to auto-detect sports' });
     }
 });
 
@@ -397,7 +478,7 @@ router.post('/bulk-assign', authenticate, async (req, res) => {
                     );
                 } catch (err) {
                     // Junction table might not exist, that's okay
-                    console.log('Note: submission_customers table update skipped');
+                    console.warn('Note: submission_customers table update skipped');
                 }
 
                 assigned.push({ certNumber: match.certNumber, customerName: match.customerName });
@@ -422,7 +503,7 @@ router.post('/bulk-assign', authenticate, async (req, res) => {
         });
     } catch (error) {
         console.error('Bulk assign error:', error);
-        res.status(500).json({ error: 'Failed to bulk assign cards', details: error.message });
+        res.status(500).json({ error: 'Failed to bulk assign cards' });
     }
 });
 
@@ -498,7 +579,7 @@ router.post('/:id/lookup-price', authenticate, async (req, res) => {
         });
     } catch (error) {
         console.error('Price comp lookup error:', error);
-        res.status(500).json({ error: 'Failed to lookup price comps', details: error.message });
+        res.status(500).json({ error: 'Failed to lookup price comps' });
     }
 });
 
@@ -563,6 +644,55 @@ router.post('/:id/scan-image', authenticate, async (req, res) => {
         console.error('Scan image error:', error);
         res.status(500).json({ error: 'Failed to scan image' });
     }
+});
+
+// Export cards as CSV
+router.get("/export.csv", authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT
+         ca.description, ca.player_name, ca.year, ca.brand,
+         ca.card_number, ca.variation, ca.sport, ca.team,
+         ca.grade, ca.psa_cert_number,
+         cu.name AS customer_name,
+         s.psa_submission_number,
+         ca.price_estimate, ca.notes, ca.created_at
+       FROM cards ca
+       LEFT JOIN customers cu ON cu.id = ca.customer_owner_id
+       LEFT JOIN submissions s ON s.id = ca.submission_id
+       WHERE ca.company_id = $1
+       ORDER BY ca.created_at DESC`,
+      [req.user.company_id]
+    );
+
+    const headers = [
+      'Description','Player','Year','Brand','Card #','Variation','Sport','Team',
+      'Grade','PSA Cert #','Customer','Submission','Est. Value','Notes','Created'
+    ];
+    const escape = (v) => {
+      if (v == null) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = result.rows.map(r => [
+      r.description, r.player_name, r.year, r.brand,
+      r.card_number, r.variation, r.sport, r.team,
+      r.grade ? `PSA ${r.grade}` : '', r.psa_cert_number,
+      r.customer_name, r.psa_submission_number,
+      r.price_estimate, r.notes,
+      new Date(r.created_at).toISOString().split('T')[0]
+    ].map(escape).join(','));
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const date = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="cards-${date}.csv"`);
+    res.send(csv);
+  } catch (err) {
+    console.error('Cards CSV export error:', err.message);
+    res.status(500).json({ error: 'Failed to export' });
+  }
 });
 
 module.exports = router;

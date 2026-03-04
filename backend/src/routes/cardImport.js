@@ -3,8 +3,8 @@ const router = express.Router();
 const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 const multer = require('multer');
-const csv = require('csv-parser');
-const { Readable } = require('stream');
+const { parse: parseCsv } = require('csv-parse/sync');
+const { getLimits } = require('../config/tierLimits');
 
 // Multer memory storage for CSV files
 const upload = multer({
@@ -46,19 +46,34 @@ router.post('/upload-csv', authenticate, upload.single('csv'), async (req, res) 
     }
 
     const submission = submissionCheck.rows[0];
+
+    // Enforce card/month limit
+    const limits = getLimits(req.user.plan);
+    if (limits.cards_per_month !== Infinity) {
+      const monthResult = await db.query(
+        `SELECT COUNT(*) FROM cards WHERE company_id = $1
+         AND created_at >= date_trunc('month', NOW())`,
+        [req.user.company_id]
+      );
+      const monthlyCount = parseInt(monthResult.rows[0].count, 10);
+      if (monthlyCount >= limits.cards_per_month) {
+        return res.status(403).json({
+          error: 'Monthly card limit reached',
+          limit: limits.cards_per_month,
+          current: monthlyCount,
+          upgrade: true
+        });
+      }
+    }
+
     const results = [];
     const errors = [];
 
     // Parse CSV
-    const csvData = [];
-    const stream = Readable.from(req.file.buffer.toString());
-
-    await new Promise((resolve, reject) => {
-      stream
-        .pipe(csv())
-        .on('data', (row) => csvData.push(row))
-        .on('end', resolve)
-        .on('error', reject);
+    const csvData = parseCsv(req.file.buffer, {
+      columns: true,
+      skip_empty_lines: true,
+      trim: true,
     });
 
     // Process each row
@@ -154,7 +169,7 @@ router.post('/upload-csv', authenticate, upload.single('csv'), async (req, res) 
 
   } catch (error) {
     console.error('CSV upload error:', error);
-    res.status(500).json({ error: 'Failed to process CSV file', details: error.message });
+    res.status(500).json({ error: 'Failed to process CSV file' });
   }
 });
 

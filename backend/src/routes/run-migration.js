@@ -54,7 +54,6 @@ router.post('/add-card-count', authenticate, requireRole('owner', 'admin'), asyn
         res.status(500).json({
             success: false,
             error: 'Failed to run migration',
-            details: error.message
         });
     }
 });
@@ -200,7 +199,6 @@ router.post('/add-invoice-columns', authenticate, requireRole('owner', 'admin'),
         res.status(500).json({
             success: false,
             error: 'Failed to run invoice migration',
-            details: error.message
         });
     }
 });
@@ -295,7 +293,6 @@ router.get('/check-invoice-status', authenticate, async (req, res) => {
         console.error('Check migration error:', error);
         res.status(500).json({
             error: 'Failed to check migration status',
-            details: error.message
         });
     }
 });
@@ -395,7 +392,6 @@ router.post('/add-portal-enhancements', authenticate, requireRole('owner', 'admi
         res.status(500).json({
             success: false,
             error: 'Failed to run portal enhancements migration',
-            details: error.message
         });
     }
 });
@@ -490,8 +486,55 @@ router.get('/check-portal-status', authenticate, async (req, res) => {
         console.error('Check migration error:', error);
         res.status(500).json({
             error: 'Failed to check migration status',
-            details: error.message
         });
+    }
+});
+
+/**
+ * Create blog_posts table
+ */
+router.post('/create-blog-posts', authenticate, requireRole('owner', 'admin'), async (req, res) => {
+    try {
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS blog_posts (
+              id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+              title VARCHAR(500) NOT NULL,
+              body TEXT NOT NULL,
+              author_name VARCHAR(255) DEFAULT 'SlabDash Team',
+              published BOOLEAN DEFAULT true,
+              pinned BOOLEAN DEFAULT false,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            );
+        `);
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_blog_posts_published ON blog_posts(published, created_at DESC)`);
+        console.log('✓ Migration: blog_posts table created');
+        res.json({ success: true, message: 'blog_posts table ready' });
+    } catch (error) {
+        console.error('Migration error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+/**
+ * POST /api/migration/clear-psa-keys
+ * One-time utility: wipe PSA API keys from all companies.
+ * Owner-only. Call once, then you're done.
+ */
+router.post('/clear-psa-keys', authenticate, requireRole('owner'), async (req, res) => {
+    try {
+        const result = await db.query(
+            `UPDATE companies SET psa_api_key = NULL RETURNING id, name`
+        );
+        console.log(`[Migration] Cleared PSA API keys from ${result.rowCount} companies`);
+        res.json({
+            success: true,
+            cleared: result.rowCount,
+            companies: result.rows.map(r => r.name),
+        });
+    } catch (error) {
+        console.error('clear-psa-keys error:', error);
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 

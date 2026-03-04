@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>SlabDash - Pitch Deck</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box;}
+  :root{--brand:#FF8170;--brand-d:#E8543D;--dark:#2C2416;--cream:#FFF8F0;--green:#10B981;--blue:#3B82F6;--purple:#8B5CF6;--gold:#F59E0B;}
+  html,body{height:100%;overflow:hidden;background:#1a1118;color:var(--cream);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased;-webkit-text-size-adjust:100%;touch-action:pan-y;}
+
+  /* === SLIDE SYSTEM === */
+  .deck{position:relative;width:100%;height:100%;}
+  .slide{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;padding:24px 20px 80px;opacity:0;transform:translateX(40px);transition:all .5s cubic-bezier(.22,1,.36,1);pointer-events:none;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
+  .slide.active{opacity:1;transform:translateX(0);pointer-events:auto;}
+  .slide.prev{opacity:0;transform:translateX(-40px);}
+
+  /* === BACKGROUNDS === */
+  .bg-g{background:linear-gradient(160deg,#1a1118 0%,#2C2416 50%,#1f1610 100%);}
+  .bg-b{background:linear-gradient(135deg,var(--brand) 0%,var(--brand-d) 60%,#C74430 100%);}
+  .bg-p{background:linear-gradient(135deg,#4C1D95 0%,#7C3AED 50%,#6D28D9 100%);}
+  .bg-dk{background:linear-gradient(180deg,#0f0b07 0%,#1a1118 100%);}
+
+  .orb{position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none;animation:orbF 20s ease-in-out infinite;}
+  .o1{width:200px;height:200px;background:rgba(255,129,112,.1);top:-60px;right:-40px;}
+  .o2{width:160px;height:160px;background:rgba(59,130,246,.07);bottom:-40px;left:-30px;animation-delay:-7s;}
+  @keyframes orbF{0%,100%{transform:translate(0,0)}50%{transform:translate(10px,-15px)}}
+
+  /* === TYPOGRAPHY === */
+  h1{font-size:2rem;font-weight:900;letter-spacing:-.03em;line-height:1.1;}
+  h2{font-size:1.5rem;font-weight:800;letter-spacing:-.025em;line-height:1.15;margin-bottom:12px;}
+  h3{font-size:1.1rem;font-weight:700;margin-bottom:6px;}
+  p{font-size:.95rem;line-height:1.55;font-weight:500;}
+  .sub{font-size:1rem;font-weight:500;opacity:.7;margin-top:8px;line-height:1.4;}
+  .tg{background:linear-gradient(135deg,#FF8170,#E8543D);-webkit-background-clip:text;-webkit-text-fill-color:transparent;}
+  .tb{color:var(--brand)}.tgr{color:var(--green)}.tbl{color:var(--blue)}.tp{color:var(--purple)}.tgo{color:var(--gold)}
+  .tm{opacity:.45}.tc{text-align:center;}
+  .big{font-size:2.5rem;font-weight:900;letter-spacing:-.03em;}
+  .huge{font-size:3.2rem;font-weight:900;letter-spacing:-.04em;}
+  .label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;opacity:.5;}
+
+  /* === LAYOUT === */
+  .fw{width:100%;max-width:600px;margin:0 auto;}
+  .row{display:flex;gap:12px;flex-wrap:wrap;}
+  .col{flex:1;min-width:0;}
+  .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+  .mt1{margin-top:8px}.mt2{margin-top:16px}.mt3{margin-top:24px}
+
+  /* === COMPONENTS === */
+  .card{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:16px;position:relative;overflow:hidden;}
+  .card::before{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(135deg,rgba(255,255,255,.03) 0%,transparent 50%);pointer-events:none;}
+  .card-f{border-color:rgba(255,129,112,.2);box-shadow:0 4px 20px rgba(255,107,89,.1);}
+
+  .sc{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px 12px;text-align:center;flex:1;min-width:80px;}
+  .sc .v{font-size:1.6rem;font-weight:900;letter-spacing:-.02em;}
+  .sc .l{font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;opacity:.5;margin-top:2px;}
+
+  .ico{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;}
+
+  .feat{display:flex;gap:12px;align-items:flex-start;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:14px;}
+  .feat h4{font-size:.9rem;font-weight:700;margin-bottom:2px;}
+  .feat p{font-size:.78rem;opacity:.45;line-height:1.3;}
+
+  .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+  .dot-g{background:var(--green);box-shadow:0 0 6px rgba(16,185,129,.5);}
+  .si{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-radius:10px;padding:10px 12px;font-size:.82rem;font-weight:600;}
+
+  /* Bar chart */
+  .bar-r{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+  .bar-l{width:50px;font-size:.75rem;font-weight:700;text-align:right;flex-shrink:0;}
+  .bars{flex:1;display:flex;flex-direction:column;gap:3px;}
+  .bar{height:22px;border-radius:6px;display:flex;align-items:center;padding:0 8px;font-size:.7rem;font-weight:700;min-width:30px;}
+  .bar-rev{background:linear-gradient(90deg,var(--brand),var(--brand-d));box-shadow:0 2px 8px rgba(255,107,89,.2);}
+  .bar-cost{background:rgba(255,255,255,.1);}
+
+  /* Pricing */
+  .price-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:20px 14px;text-align:center;flex:1;min-width:0;}
+  .price-card.pop{background:rgba(255,129,112,.08);border-color:rgba(255,129,112,.2);box-shadow:0 4px 20px rgba(255,107,89,.1);}
+  .pop-tag{font-size:.6rem;font-weight:800;text-transform:uppercase;letter-spacing:.08em;background:linear-gradient(135deg,var(--brand),var(--brand-d));color:#fff;padding:2px 10px;border-radius:0 0 8px 8px;display:inline-block;margin-bottom:8px;}
+
+  /* Cost table */
+  .ct{width:100%;font-size:.82rem;}
+  .ct td{padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.04);vertical-align:middle;}
+  .ct .sn{font-weight:700;white-space:nowrap;}
+  .ct .sd{font-size:.72rem;opacity:.4;display:block;}
+  .ct .cv{text-align:right;font-weight:700;white-space:nowrap;}
+  .ct .cg{color:var(--green)}.ct .cf{color:rgba(16,185,129,.6)}
+  .ct .tot td{border-top:2px solid rgba(255,255,255,.08);font-weight:800;font-size:.95rem;padding-top:12px;}
+
+  /* Steps */
+  .step{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.05);border-radius:12px;padding:14px;counter-increment:s;}
+  .step::before{content:counter(s);display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand-d));font-size:.75rem;font-weight:800;margin-bottom:8px;}
+  .step h4{font-size:.85rem;font-weight:700;margin-bottom:2px;}
+  .step p{font-size:.75rem;opacity:.45;line-height:1.3;}
+  .steps{display:grid;grid-template-columns:1fr 1fr;gap:10px;counter-reset:s;}
+
+  /* Equity */
+  .eq-card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:16px;text-align:center;}
+  .eq-card.rec{border-color:rgba(255,129,112,.25);box-shadow:0 4px 24px rgba(255,107,89,.12);background:rgba(255,129,112,.06);}
+  .eq-pct{font-size:2rem;font-weight:900;letter-spacing:-.03em;}
+  .eq-role{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;opacity:.5;margin-top:2px;}
+
+  /* Callout */
+  .callout{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:14px 16px;display:flex;gap:12px;align-items:flex-start;}
+  .callout-i{font-size:1.4rem;flex-shrink:0;line-height:1;}
+
+  /* === NAV === */
+  .nav{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));background:rgba(15,11,7,.9);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid rgba(255,255,255,.06);z-index:100;}
+  .nb{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.08);color:var(--cream);padding:10px 20px;border-radius:10px;font-size:.85rem;font-weight:700;cursor:pointer;transition:all .2s;font-family:inherit;-webkit-tap-highlight-color:transparent;}
+  .nb:active{transform:scale(.96);}.nb:disabled{opacity:.25;}
+  .nb-p{background:linear-gradient(135deg,var(--brand),var(--brand-d));border-color:rgba(255,185,160,.3);box-shadow:0 4px 12px rgba(255,107,89,.25);}
+  .cnt{font-size:.72rem;font-weight:700;opacity:.35;letter-spacing:.06em;}
+
+  .prog{position:fixed;top:0;left:0;right:0;height:3px;background:rgba(255,255,255,.05);z-index:100;}
+  .prog-f{height:100%;background:linear-gradient(90deg,var(--brand),var(--brand-d));border-radius:0 2px 2px 0;transition:width .4s;box-shadow:0 0 8px rgba(255,107,89,.4);}
+
+  /* === STAGGER === */
+  .slide.active .stg>*{opacity:0;transform:translateY(16px);animation:si .45s forwards;}
+  .slide.active .stg>*:nth-child(1){animation-delay:.05s}
+  .slide.active .stg>*:nth-child(2){animation-delay:.12s}
+  .slide.active .stg>*:nth-child(3){animation-delay:.19s}
+  .slide.active .stg>*:nth-child(4){animation-delay:.26s}
+  .slide.active .stg>*:nth-child(5){animation-delay:.33s}
+  .slide.active .stg>*:nth-child(6){animation-delay:.4s}
+  .slide.active .stg>*:nth-child(7){animation-delay:.47s}
+  .slide.active .stg>*:nth-child(8){animation-delay:.54s}
+  @keyframes si{to{opacity:1;transform:translateY(0)}}
+
+  /* === DESKTOP === */
+  @media(min-width:700px){
+    .slide{padding:48px 48px 90px;align-items:center;}
+    .fw{max-width:900px;}
+    h1{font-size:3.2rem}h2{font-size:2.2rem}
+    .big{font-size:3.5rem}.huge{font-size:5rem}
+    .sc .v{font-size:2rem}
+    .g3-d{grid-template-columns:1fr 1fr 1fr;}
+    .orb{filter:blur(80px);}
+    .o1{width:350px;height:350px;}.o2{width:250px;height:250px;}
+  }
+</style>
+</head>
+<body>
+<div class="prog"><div class="prog-f" id="prog"></div></div>
+<div class="deck" id="deck">
+
+<!-- 1: TITLE -->
+<div class="slide bg-g active" data-s="0">
+  <div class="o1 orb"></div><div class="o2 orb"></div>
+  <div class="fw stg tc">
+    <p class="label" style="margin-bottom:12px">Business Overview &amp; Investment Opportunity</p>
+    <h1><span class="tg">SlabDash</span></h1>
+    <p class="sub">The all-in-one platform for PSA card grading shops.<br>Track orders. Manage customers. AI-powered insights.</p>
+    <div class="row mt3" style="justify-content:center;">
+      <div class="sc"><div class="v tb">$19</div><div class="l">Starting price</div></div>
+      <div class="sc"><div class="v tgr">95%</div><div class="l">Profit margin</div></div>
+      <div class="sc"><div class="v tbl">1,000+</div><div class="l">Target shops</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 2: PROBLEM -->
+<div class="slide bg-g" data-s="1">
+  <div class="o1 orb"></div>
+  <div class="fw stg">
+    <h2>The Problem We Solve</h2>
+    <p style="opacity:.55;margin-bottom:16px;">Card grading shops waste hours every week doing things manually.</p>
+    <div class="g2">
+      <div class="feat"><div class="ico" style="background:rgba(255,129,112,.12)">&#128197;</div><div><h4>Manual Checking</h4><p>Logging into PSA one-by-one to check 50+ orders. Takes hours.</p></div></div>
+      <div class="feat"><div class="ico" style="background:rgba(59,130,246,.12)">&#128231;</div><div><h4>Customer Emails</h4><p>"Where's my order?" calls all day. Shops respond manually every time.</p></div></div>
+      <div class="feat"><div class="ico" style="background:rgba(16,185,129,.12)">&#128200;</div><div><h4>No Price Data</h4><p>No quick way to look up what graded cards are worth on the market.</p></div></div>
+      <div class="feat"><div class="ico" style="background:rgba(139,92,246,.12)">&#129302;</div><div><h4>No AI Tools</h4><p>"Will this card grade a 10?" Shops guess. No tool exists for this.</p></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 3: SOLUTION -->
+<div class="slide bg-g" data-s="2">
+  <div class="o2 orb"></div>
+  <div class="fw stg">
+    <h2>What SlabDash Does</h2>
+    <p style="opacity:.55;margin-bottom:16px;">One platform replaces 5+ manual processes. Saves 5-10 hours/week.</p>
+    <div class="g2">
+      <div class="feat"><div class="ico" style="background:rgba(255,129,112,.12)">&#128230;</div><div><h4>Auto-Track PSA</h4><p>Connects directly to PSA. Status updates automatically.</p></div></div>
+      <div class="feat"><div class="ico" style="background:rgba(59,130,246,.12)">&#128241;</div><div><h4>Customer Portal</h4><p>Customers check their own status. Fewer calls for shop owners.</p></div></div>
+      <div class="feat"><div class="ico" style="background:rgba(139,92,246,.12)">&#129302;</div><div><h4>SAM AI</h4><p>AI expert that answers grading questions, scans cards, estimates value.</p></div></div>
+      <div class="feat"><div class="ico" style="background:rgba(16,185,129,.12)">&#128176;</div><div><h4>Pricing + Invoices</h4><p>Live eBay/TCG prices. Generate invoices in clicks.</p></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 4: PRICING -->
+<div class="slide bg-g" data-s="3">
+  <div class="o1 orb"></div>
+  <div class="fw stg tc">
+    <h2>How Shops Pay Us</h2>
+    <p style="opacity:.5;margin-bottom:20px;">Monthly subscriptions. Priced for real shops, not corporations.</p>
+    <div class="row" style="gap:10px;">
+      <div class="price-card">
+        <div class="label">Solo</div>
+        <div class="big tb" style="margin:6px 0 2px;">$19</div>
+        <div style="font-size:.8rem;opacity:.4;">/month</div>
+        <div style="text-align:left;font-size:.75rem;opacity:.5;line-height:1.9;margin-top:12px;">
+          &#10003; 50 submissions/mo<br>&#10003; PSA tracking<br>&#10003; Customer portal<br>&#10003; Email notifications
+        </div>
+        <div style="font-size:.7rem;opacity:.3;margin-top:8px;text-align:left;">For solo consignment operators</div>
+      </div>
+      <div class="price-card pop">
+        <div class="pop-tag">Popular</div>
+        <div class="label" style="color:var(--brand)">Shop</div>
+        <div class="big tg" style="margin:6px 0 2px;">$79</div>
+        <div style="font-size:.8rem;opacity:.4;">/month</div>
+        <div style="text-align:left;font-size:.75rem;opacity:.5;line-height:1.9;margin-top:12px;">
+          &#10003; Unlimited submissions<br>&#10003; SAM AI assistant<br>&#10003; Card scanner + pricing<br>&#10003; Invoice generation
+        </div>
+        <div style="font-size:.7rem;opacity:.3;margin-top:8px;text-align:left;">For single-location card shops</div>
+      </div>
+      <div class="price-card">
+        <div class="label">Enterprise</div>
+        <div class="big" style="margin:6px 0 2px;">$199</div>
+        <div style="font-size:.8rem;opacity:.4;">/month</div>
+        <div style="text-align:left;font-size:.75rem;opacity:.5;line-height:1.9;margin-top:12px;">
+          &#10003; Multi-location support<br>&#10003; API access<br>&#10003; Priority support<br>&#10003; Dedicated onboarding
+        </div>
+        <div style="font-size:.7rem;opacity:.3;margin-top:8px;text-align:left;">For shops with multiple locations</div>
+      </div>
+    </div>
+    <p style="margin-top:14px;font-size:.75rem;opacity:.3;">Stripe handles payments. They take 2.9% + $0.30 per charge (standard).</p>
+  </div>
+</div>
+
+<!-- 5: COSTS TODAY -->
+<div class="slide bg-g" data-s="4">
+  <div class="o2 orb"></div>
+  <div class="fw stg">
+    <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:4px;">
+      <h2 style="margin-bottom:0;">Our Costs</h2>
+      <span style="font-size:.7rem;font-weight:700;opacity:.4;background:rgba(255,129,112,.12);padding:3px 10px;border-radius:6px;">TODAY: 1-10 SHOPS</span>
+    </div>
+    <p style="opacity:.45;margin-bottom:16px;font-size:.85rem;">Every service explained simply. Most are free right now.</p>
+    <table class="ct">
+      <tr><td class="sn">&#9729;&#65039; Railway<span class="sd">Computer running our app 24/7</span></td><td class="cv cg">$5-10</td></tr>
+      <tr><td class="sn">&#127760; Vercel<span class="sd">Serves the website to browsers</span></td><td class="cv cf">FREE</td></tr>
+      <tr><td class="sn">&#128231; SendGrid<span class="sd">Sends emails for shops</span></td><td class="cv cf">FREE</td></tr>
+      <tr><td class="sn">&#128247; Cloudinary<span class="sd">Cloud storage for card photos</span></td><td class="cv cf">FREE</td></tr>
+      <tr><td class="sn">&#129302; Claude AI<span class="sd">Brain behind SAM assistant</span></td><td class="cv cg">$5-15</td></tr>
+      <tr><td class="sn">&#128065; Google Vision<span class="sd">Reads text on card photos</span></td><td class="cv cf">FREE</td></tr>
+      <tr><td class="sn">&#128181; eBay + PSA APIs<span class="sd">Prices + status tracking</span></td><td class="cv cf">FREE</td></tr>
+      <tr class="tot"><td class="sn">TOTAL</td><td class="cv cg" style="font-size:1.1rem;">~$10-25</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- 6: SCALING COSTS -->
+<div class="slide bg-g" data-s="5">
+  <div class="o1 orb"></div>
+  <div class="fw stg tc">
+    <h2>How Costs Scale</h2>
+    <p style="opacity:.5;margin-bottom:20px;">Costs grow slowly. Revenue grows fast.</p>
+    <div class="row">
+      <div class="card" style="flex:1;text-align:center;min-width:0;">
+        <div class="label">1-10 Shops</div>
+        <div class="big tgr" style="margin:4px 0;">$25</div>
+        <div style="font-size:.75rem;opacity:.4;">/mo costs</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);font-size:.8rem;opacity:.55;">Revenue: <strong class="tb">$375</strong></div>
+      </div>
+      <div class="card card-f" style="flex:1;text-align:center;min-width:0;">
+        <div class="label">10-50 Shops</div>
+        <div class="big tgr" style="margin:4px 0;">$120</div>
+        <div style="font-size:.75rem;opacity:.4;">/mo costs</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);font-size:.8rem;opacity:.55;">Revenue: <strong class="tb">$2,250</strong></div>
+      </div>
+      <div class="card" style="flex:1;text-align:center;min-width:0;">
+        <div class="label">50-200+</div>
+        <div class="big tgr" style="margin:4px 0;">$400</div>
+        <div style="font-size:.75rem;opacity:.4;">/mo costs</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);font-size:.8rem;opacity:.55;">Revenue: <strong class="tb">$7,500</strong></div>
+      </div>
+    </div>
+    <div class="callout mt2">
+      <div class="callout-i">&#128161;</div>
+      <div style="text-align:left;"><strong style="font-size:.85rem;">Why so cheap?</strong><span style="opacity:.5;font-size:.8rem;"> Most services have generous free tiers. We only pay more when revenue far exceeds the cost.</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 7: REVENUE CHART -->
+<div class="slide bg-g" data-s="6">
+  <div class="o2 orb"></div>
+  <div class="fw stg">
+    <h2 class="tc">Revenue vs. Costs</h2>
+    <p class="tc" style="opacity:.45;margin-bottom:20px;font-size:.85rem;">The gap only gets wider as we grow.</p>
+    <div>
+      <div class="bar-r"><div class="bar-l">5</div><div class="bars"><div class="bar bar-rev" style="width:2.5%"><span>$375</span></div><div class="bar bar-cost" style="width:1%"><span>$20</span></div></div></div>
+      <div class="bar-r"><div class="bar-l">10</div><div class="bars"><div class="bar bar-rev" style="width:5%"><span>$750</span></div><div class="bar bar-cost" style="width:1%"><span>$25</span></div></div></div>
+      <div class="bar-r"><div class="bar-l">25</div><div class="bars"><div class="bar bar-rev" style="width:12.5%"><span>$1,875</span></div><div class="bar bar-cost" style="width:1.5%"><span>$80</span></div></div></div>
+      <div class="bar-r"><div class="bar-l">50</div><div class="bars"><div class="bar bar-rev" style="width:25%"><span>$3,750</span></div><div class="bar bar-cost" style="width:2.5%"><span>$175</span></div></div></div>
+      <div class="bar-r"><div class="bar-l">100</div><div class="bars"><div class="bar bar-rev" style="width:50%"><span>$7,500</span></div><div class="bar bar-cost" style="width:5%"><span>$400</span></div></div></div>
+      <div class="bar-r"><div class="bar-l">200</div><div class="bars"><div class="bar bar-rev" style="width:100%"><span>$15,000</span></div><div class="bar bar-cost" style="width:6%"><span>$575</span></div></div></div>
+    </div>
+    <div style="display:flex;gap:16px;justify-content:center;margin-top:14px;">
+      <div style="display:flex;align-items:center;gap:6px;font-size:.75rem;font-weight:600;opacity:.5;"><div style="width:10px;height:10px;border-radius:3px;background:var(--brand);"></div>Revenue</div>
+      <div style="display:flex;align-items:center;gap:6px;font-size:.75rem;font-weight:600;opacity:.5;"><div style="width:10px;height:10px;border-radius:3px;background:rgba(255,255,255,.2);"></div>Costs</div>
+    </div>
+  </div>
+</div>
+
+<!-- 8: BIG NUMBER -->
+<div class="slide bg-b" data-s="7">
+  <div class="fw stg tc">
+    <p class="label" style="opacity:.6;margin-bottom:8px;">At 100 shops</p>
+    <div class="huge">$90K</div>
+    <p style="font-size:1.3rem;font-weight:800;opacity:.85;margin-top:4px;">/year in revenue</p>
+    <p style="font-size:1rem;font-weight:600;opacity:.65;margin-top:12px;">with only <strong style="opacity:1;">~$5,000/year</strong> in costs</p>
+    <div class="row mt3" style="justify-content:center;">
+      <div class="sc" style="background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.15);"><div class="v">95%</div><div class="l">Margin</div></div>
+      <div class="sc" style="background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.15);"><div class="v">1</div><div class="l">To break even</div></div>
+      <div class="sc" style="background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.15);"><div class="v">0</div><div class="l">Competitors</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 9: VISION - WITH INVESTMENT -->
+<div class="slide bg-p" data-s="8">
+  <div class="fw stg">
+    <h2 class="tc">With Investment, We Could...</h2>
+    <p class="tc" style="opacity:.65;margin-bottom:20px;font-size:.9rem;">Here's what becomes possible with capital and the right connections.</p>
+    <div class="g2">
+      <div class="feat" style="border-color:rgba(196,181,253,.15);background:rgba(255,255,255,.05);">
+        <div class="ico" style="background:rgba(196,181,253,.2)">&#127919;</div>
+        <div><h4>Sales Team</h4><p>Hire 1-2 people to call shops directly. PSA dealer list is public. Door-to-door demos.</p></div>
+      </div>
+      <div class="feat" style="border-color:rgba(196,181,253,.15);background:rgba(255,255,255,.05);">
+        <div class="ico" style="background:rgba(196,181,253,.2)">&#128640;</div>
+        <div><h4>Card Show Presence</h4><p>Booths at major card shows. Demos right where shop owners are. Direct signups on-site.</p></div>
+      </div>
+      <div class="feat" style="border-color:rgba(196,181,253,.15);background:rgba(255,255,255,.05);">
+        <div class="ico" style="background:rgba(196,181,253,.2)">&#129302;</div>
+        <div><h4>Advanced AI Scanner</h4><p>AI that grades cards from a photo with 90%+ accuracy. No competitor has this. Game changer.</p></div>
+      </div>
+      <div class="feat" style="border-color:rgba(196,181,253,.15);background:rgba(255,255,255,.05);">
+        <div class="ico" style="background:rgba(196,181,253,.2)">&#127760;</div>
+        <div><h4>Marketplace</h4><p>Let shops sell graded cards directly through SlabDash. Commission on every sale = new revenue stream.</p></div>
+      </div>
+    </div>
+    <div class="callout mt2" style="border-color:rgba(196,181,253,.15);">
+      <div class="callout-i">&#128170;</div>
+      <div style="text-align:left;"><strong style="font-size:.85rem;">With connections to shop owners:</strong><span style="opacity:.6;font-size:.8rem;"> warm intros close 5-10x faster than cold outreach. The right partner accelerates everything.</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 10: INVESTMENT PROJECTIONS -->
+<div class="slide bg-dk" data-s="9">
+  <div class="o1 orb"></div>
+  <div class="fw stg">
+    <h2 class="tc">Investment Scenario</h2>
+    <p class="tc" style="opacity:.45;margin-bottom:20px;font-size:.85rem;">What a $10-25K investment could return.</p>
+    <div class="g2">
+      <div class="card tc">
+        <div class="label">Year 1 Target</div>
+        <div class="big tb" style="margin:6px 0;">50</div>
+        <div style="font-size:.85rem;font-weight:600;opacity:.5;">paying shops</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);">
+          <div style="font-size:1.3rem;font-weight:900;color:var(--green);">$45K+</div>
+          <div style="font-size:.75rem;opacity:.4;">annual revenue</div>
+        </div>
+      </div>
+      <div class="card card-f tc">
+        <div class="label">Year 2 Target</div>
+        <div class="big tb" style="margin:6px 0;">200</div>
+        <div style="font-size:.85rem;font-weight:600;opacity:.5;">paying shops</div>
+        <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.06);">
+          <div style="font-size:1.3rem;font-weight:900;color:var(--green);">$180K+</div>
+          <div style="font-size:.75rem;opacity:.4;">annual revenue</div>
+        </div>
+      </div>
+    </div>
+    <div class="card mt2" style="text-align:center;">
+      <div class="label">Where the money goes</div>
+      <div class="g2 mt1" style="gap:8px;">
+        <div style="font-size:.8rem;"><strong class="tgo">40%</strong><span style="opacity:.45;"> Sales &amp; outreach</span></div>
+        <div style="font-size:.8rem;"><strong class="tp">25%</strong><span style="opacity:.45;"> Card show booths</span></div>
+        <div style="font-size:.8rem;"><strong class="tbl">20%</strong><span style="opacity:.45;"> AI/product development</span></div>
+        <div style="font-size:.8rem;"><strong class="tgr">15%</strong><span style="opacity:.45;"> Marketing content</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 11: EQUITY / PARTNERSHIP -->
+<div class="slide bg-g" data-s="10">
+  <div class="o1 orb"></div><div class="o2 orb"></div>
+  <div class="fw stg">
+    <h2 class="tc">Partnership Structure</h2>
+    <p class="tc" style="opacity:.45;margin-bottom:20px;font-size:.85rem;">Fair equity based on contribution level.</p>
+    <div class="row" style="gap:10px;">
+      <div class="eq-card" style="flex:1;">
+        <div class="label">Advisor</div>
+        <div class="eq-pct tbl">5-10%</div>
+        <div class="eq-role">Connections Only</div>
+        <div style="font-size:.75rem;opacity:.4;line-height:1.5;margin-top:10px;text-align:left;">
+          &#8226; Warm intros to shops<br>
+          &#8226; Industry advice<br>
+          &#8226; No capital required<br>
+          &#8226; Vests over 2 years
+        </div>
+      </div>
+      <div class="eq-card rec" style="flex:1;">
+        <div class="pop-tag" style="margin-bottom:4px;">Recommended</div>
+        <div class="label" style="color:var(--brand);">Investor + Advisor</div>
+        <div class="eq-pct tg">15-20%</div>
+        <div class="eq-role">Capital + Connections</div>
+        <div style="font-size:.75rem;opacity:.4;line-height:1.5;margin-top:10px;text-align:left;">
+          &#8226; $10-25K investment<br>
+          &#8226; Active introductions<br>
+          &#8226; Strategic guidance<br>
+          &#8226; Vests over 2-3 years
+        </div>
+      </div>
+      <div class="eq-card" style="flex:1;">
+        <div class="label">Active Partner</div>
+        <div class="eq-pct tp">25-30%</div>
+        <div class="eq-role">All-In</div>
+        <div style="font-size:.75rem;opacity:.4;line-height:1.5;margin-top:10px;text-align:left;">
+          &#8226; $25K+ investment<br>
+          &#8226; Part-time sales role<br>
+          &#8226; Major deal closer<br>
+          &#8226; Vests over 3 years
+        </div>
+      </div>
+    </div>
+    <div class="callout mt2">
+      <div class="callout-i">&#9878;&#65039;</div>
+      <div style="text-align:left;"><strong style="font-size:.85rem;">All equity should vest.</strong><span style="opacity:.5;font-size:.8rem;"> Meaning it's earned gradually over time, not given upfront. This protects both sides. Standard in startups.</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- 12: STATUS -->
+<div class="slide bg-g" data-s="11">
+  <div class="o2 orb"></div>
+  <div class="fw stg tc">
+    <h2>Everything Is Built &amp; Live</h2>
+    <p style="opacity:.45;margin-bottom:20px;font-size:.85rem;">The product is running in production right now.</p>
+    <div class="g3" style="gap:8px;">
+      <div class="si"><div class="dot dot-g"></div>Backend Server</div>
+      <div class="si"><div class="dot dot-g"></div>Frontend</div>
+      <div class="si"><div class="dot dot-g"></div>Payments</div>
+      <div class="si"><div class="dot dot-g"></div>Email System</div>
+      <div class="si"><div class="dot dot-g"></div>SAM AI</div>
+      <div class="si"><div class="dot dot-g"></div>PSA Tracking</div>
+      <div class="si"><div class="dot dot-g"></div>Card Scanner</div>
+      <div class="si"><div class="dot dot-g"></div>Customer Portal</div>
+      <div class="si"><div class="dot dot-g"></div>Price Lookups</div>
+    </div>
+  </div>
+</div>
+
+<!-- 13: NEXT STEPS -->
+<div class="slide bg-g" data-s="12">
+  <div class="o1 orb"></div>
+  <div class="fw stg">
+    <h2 class="tc">Next Steps</h2>
+    <p class="tc" style="opacity:.45;margin-bottom:20px;font-size:.85rem;">Four steps to first revenue.</p>
+    <div class="steps">
+      <div class="step"><h4>Beta Shops</h4><p>5-10 shops at a discount. Real feedback. Prove the value.</p></div>
+      <div class="step"><h4>PSA Dealers</h4><p>Market to authorized dealers. They have volume and pain points.</p></div>
+      <div class="step"><h4>Content</h4><p>YouTube, Reddit. Card communities are active online.</p></div>
+      <div class="step"><h4>Referrals</h4><p>Shops refer shops. Discount for referrer. Low-cost growth.</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- 14: CLOSING -->
+<div class="slide bg-b" data-s="13">
+  <div class="fw stg tc">
+    <h1 style="font-size:1.8rem;margin-bottom:20px;">The Bottom Line</h1>
+    <div style="text-align:left;font-size:.95rem;line-height:2.2;font-weight:600;">
+      <div>&#10003;&nbsp; Costs <strong>$10-25/month</strong> to run today</div>
+      <div>&#10003;&nbsp; Each shop pays <strong>$19-199/month</strong></div>
+      <div>&#10003;&nbsp; Break even with <strong>1 customer</strong></div>
+      <div>&#10003;&nbsp; 50 shops = <strong>$3.5K/month profit</strong></div>
+      <div>&#10003;&nbsp; 100 shops = <strong>$7K/month profit</strong></div>
+      <div>&#10003;&nbsp; <strong>90%+ margins</strong> at any scale</div>
+      <div>&#10003;&nbsp; Product is <strong>built and live</strong></div>
+      <div>&#10003;&nbsp; <strong>Zero direct competitors</strong></div>
+      <div>&#10003;&nbsp; Right partner <strong>accelerates everything</strong></div>
+    </div>
+    <p style="margin-top:24px;font-size:1.05rem;font-weight:800;opacity:.85;">The product is ready.<br>The market is waiting.<br>Let's go get it.</p>
+  </div>
+</div>
+
+</div>
+
+<!-- NAV -->
+<div class="nav">
+  <button class="nb" id="pb" onclick="go(-1)" disabled>&#8592; Back</button>
+  <span class="cnt" id="cnt">1 / 14</span>
+  <button class="nb nb-p" id="nb" onclick="go(1)">Next &#8594;</button>
+</div>
+
+<script>
+let c=0;const s=document.querySelectorAll('.slide'),t=s.length;
+function show(i){s.forEach((e,j)=>{e.classList.remove('active','prev');if(j===i)e.classList.add('active');else if(j<i)e.classList.add('prev');});document.getElementById('cnt').textContent=`${i+1} / ${t}`;document.getElementById('pb').disabled=i===0;const n=document.getElementById('nb');n.textContent=i===t-1?'Done':'Next \u2192';document.getElementById('prog').style.width=`${((i+1)/t)*100}%`;c=i;}
+function go(d){const n=c+d;if(n>=0&&n<t)show(n);}
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' '){e.preventDefault();go(1);}if(e.key==='ArrowLeft'){e.preventDefault();go(-1);}});
+let tx=0;document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;},{passive:true});
+document.addEventListener('touchend',e=>{const d=tx-e.changedTouches[0].clientX;if(Math.abs(d)>40)go(d>0?1:-1);},{passive:true});
+show(0);
+</script>
+</body>
+</html>

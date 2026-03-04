@@ -1,149 +1,109 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { submissions, emailTemplates, psaImport } from '../api/client';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
+import { submissions, customers as customersApi, emailTemplates, psaImport, psa } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import ProgressBar from '../components/ProgressBar';
+import ExportButton from '../components/ExportButton';
 import StatusBadge from '../components/StatusBadge';
-import PageHeader from '../components/PageHeader';
 import {
-  Plus,
-  Search,
-  RefreshCw,
-  Filter,
-  MoreVertical,
-  Eye,
-  Trash2,
-  Package,
-  PackageCheck,
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
-  Clock,
-  HelpCircle,
-  Info,
-  Users,
-  User,
-  X,
-  ExternalLink,
-  Mail,
-  Send,
-  Upload,
-  Truck,
-  Download,
-  FileText,
+  Plus, Search, RefreshCw, Filter, MoreVertical, Eye, Trash2,
+  Package, Loader2, AlertCircle, CheckCircle2, Clock, Info, Users,
+  User, X, ExternalLink, Mail, Send, Upload, Download, ChevronDown,
+  ChevronRight, Zap, Calendar, ArrowUpDown, PackageCheck, UserPlus, Square, CheckSquare
 } from 'lucide-react';
 import { format } from 'date-fns';
 
-function SubmissionRow({ submission, onRefresh, onDelete, isSelected, onToggleSelect }) {
-  const [menuOpen, setMenuOpen] = useState(false);
+// Service level display config (updated Feb 2026 turnaround times)
+const SERVICE_CONFIG = {
+  'Walk-Through': { color: 'bg-red-500', text: 'text-red-700', light: 'bg-red-50', border: 'border-red-200', speed: '1-2 days' },
+  'Walk-Thru': { color: 'bg-red-500', text: 'text-red-700', light: 'bg-red-50', border: 'border-red-200', speed: '1-2 days' },
+  'Super Express': { color: 'bg-orange-500', text: 'text-orange-700', light: 'bg-orange-50', border: 'border-orange-200', speed: '~5 days' },
+  'Express': { color: 'bg-amber-500', text: 'text-amber-700', light: 'bg-amber-50', border: 'border-amber-200', speed: '10-20 days' },
+  'Regular': { color: 'bg-green-500', text: 'text-green-700', light: 'bg-green-50', border: 'border-green-200', speed: '~25 days' },
+  'Standard': { color: 'bg-green-500', text: 'text-green-700', light: 'bg-green-50', border: 'border-green-200', speed: '~25 days' },
+  'Value Max': { color: 'bg-teal-500', text: 'text-teal-700', light: 'bg-teal-50', border: 'border-teal-200', speed: '~35 days' },
+  'Value Plus': { color: 'bg-blue-500', text: 'text-blue-700', light: 'bg-blue-50', border: 'border-blue-200', speed: '~45 days' },
+  'Plus': { color: 'bg-blue-500', text: 'text-blue-700', light: 'bg-blue-50', border: 'border-blue-200', speed: '~45 days' },
+  'Value': { color: 'bg-indigo-500', text: 'text-indigo-700', light: 'bg-indigo-50', border: 'border-indigo-200', speed: '~65 days' },
+  'Value Bulk': { color: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50', border: 'border-purple-200', speed: '~65 days' },
+  'Bulk': { color: 'bg-purple-500', text: 'text-purple-700', light: 'bg-purple-50', border: 'border-purple-200', speed: '~65 days' },
+  'Specialty': { color: 'bg-pink-500', text: 'text-pink-700', light: 'bg-pink-50', border: 'border-pink-200', speed: 'Varies' },
+  'Reholder': { color: 'bg-gray-500', text: 'text-gray-700', light: 'bg-gray-50', border: 'border-gray-200', speed: 'Varies' },
+};
+
+const getServiceConfig = (level) => SERVICE_CONFIG[level] || { color: 'bg-gray-400', text: 'text-gray-600', light: 'bg-gray-50', border: 'border-gray-200', speed: '' };
+
+function formatTimeAgo(dateStr) {
+  if (!dateStr) return '';
+  const ms = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+// ============================================
+// SUBMISSION CARD — inline refresh, clear status
+// ============================================
+function SubmissionCard({ submission, onRefresh, onDelete, selectable, selected, onToggleSelect }) {
   const [refreshing, setRefreshing] = useState(false);
-  const [showCustomersModal, setShowCustomersModal] = useState(false);
-  const [sendingEmail, setSendingEmail] = useState(false);
-  const [showTestEmailModal, setShowTestEmailModal] = useState(false);
-  const [testEmail, setTestEmail] = useState('');
-  const [sendingTestEmail, setSendingTestEmail] = useState(false);
-  const [editingServiceLevel, setEditingServiceLevel] = useState(false);
-  const [newServiceLevel, setNewServiceLevel] = useState(submission.service_level || '');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [refreshResult, setRefreshResult] = useState(null);
   const navigate = useNavigate();
 
-  const serviceLevelOptions = [
-    'Bulk',
-    'Value Bulk',
-    'Plus',
-    'Value Plus',
-    'Regular',
-    'Standard',
-    'Express',
-    'Super Express',
-    'Walk-Through',
-    'Walk-Thru',
-    'Specialty',
-    'Reholder'
-  ];
+  const config = getServiceConfig(submission.service_level);
+  const customerCount = submission.linked_customers?.length || 0;
+  const cardCount = submission.card_count || submission.cards?.length || 0;
 
-  const handleServiceLevelChange = async (e) => {
-    e.stopPropagation();
-    const value = e.target.value;
-    setNewServiceLevel(value);
-
-    try {
-      await submissions.update(submission.id, { service_level: value });
-      onRefresh();
-    } catch (error) {
-      console.error('Failed to update service level:', error);
-      alert('Failed to update service level');
-    }
-  };
+  const daysSinceSent = submission.date_sent && !submission.shipped
+    ? Math.floor((Date.now() - new Date(submission.date_sent)) / 86400000)
+    : 0;
+  const isStaleWarning = daysSinceSent > 90 && daysSinceSent <= 180;
+  const isStaleCritical = daysSinceSent > 180;
 
   const handleRefresh = async (e) => {
     e.stopPropagation();
     setRefreshing(true);
-    setMenuOpen(false);
+    setRefreshResult(null);
     try {
-      await submissions.refresh(submission.id);
+      const res = await submissions.refresh(submission.id);
+      const data = res.data;
+      const c = data.changes;
+      if (c?.hadChanges) {
+        // Build a descriptive change summary
+        const parts = [];
+        if (c.stepChanged) parts.push(`${c.previousStep} → ${c.newStep}`);
+        else if (c.progressChanged) parts.push(`+${c.progressDelta}%`);
+        if (c.gradesReady && !submission.grades_ready) parts.push('Grades ready!');
+        if (c.shipped && !submission.shipped) parts.push('Shipped!');
+        if (c.problemOrder && !submission.problem_order) parts.push('Problem flagged');
+        setRefreshResult({ type: 'updated', detail: parts.join(' · ') || 'Updated' });
+      } else {
+        setRefreshResult({ type: 'no-change' });
+      }
       onRefresh();
+      setTimeout(() => setRefreshResult(null), 5000);
     } catch (error) {
-      console.error('Refresh failed:', error);
+      const errData = error.response?.data;
+      const errMsg = errData?.errorType === 'rate_limit' ? 'Rate limited'
+        : errData?.errorType === 'not_found' ? 'Not found on PSA'
+        : errData?.errorType === 'auth_error' ? 'Bad API key'
+        : 'Failed';
+      setRefreshResult({ type: 'error', detail: errMsg });
+      setTimeout(() => setRefreshResult(null), 5000);
     } finally {
       setRefreshing(false);
     }
   };
 
-  const handleSendUpdate = async (e) => {
-    e.stopPropagation();
-    setMenuOpen(false);
-
-    const customerCount = submission.linked_customers?.length || 0;
-    if (customerCount === 0) {
-      alert('No customers linked to this submission');
-      return;
-    }
-
-    if (!confirm(`Send status update email to ${customerCount} customer(s) for this submission?`)) {
-      return;
-    }
-
-    setSendingEmail(true);
-    try {
-      const response = await emailTemplates.sendSubmissionUpdate(submission.id);
-      alert(response.data.message || `Email sent to ${response.data.emails_sent} customer(s)!`);
-    } catch (error) {
-      console.error('Send email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send status update');
-    } finally {
-      setSendingEmail(false);
-    }
-  };
-
-  const handlePreviewEmail = (e) => {
-    e.stopPropagation();
-    setMenuOpen(false);
-    setShowTestEmailModal(true);
-  };
-
-  const handleSendTestEmail = async () => {
-    if (!testEmail || !testEmail.includes('@')) {
-      alert('Please enter a valid email address');
-      return;
-    }
-
-    setSendingTestEmail(true);
-    try {
-      await emailTemplates.sendTestSubmissionUpdate(testEmail, submission.id);
-      alert(`Test status update email sent to ${testEmail}!\n\nCheck your inbox to preview the email.`);
-      setShowTestEmailModal(false);
-      setTestEmail('');
-    } catch (error) {
-      console.error('Send test email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send test email');
-    } finally {
-      setSendingTestEmail(false);
-    }
-  };
-
   const handleDelete = async (e) => {
     e.stopPropagation();
-    if (!confirm('Delete this submission? This cannot be undone.')) return;
+    if (!await confirm({ title: 'Delete Submission', message: 'Delete this submission? This cannot be undone.', variant: 'danger' })) return;
     setMenuOpen(false);
     try {
       await submissions.delete(submission.id);
@@ -153,302 +113,348 @@ function SubmissionRow({ submission, onRefresh, onDelete, isSelected, onToggleSe
     }
   };
 
-  const customerCount = submission.linked_customers?.length || 0;
+  const progressColor = submission.problem_order
+    ? 'bg-red-500'
+    : submission.shipped
+    ? 'bg-green-500'
+    : submission.grades_ready
+    ? 'bg-emerald-500'
+    : 'bg-brand-500';
 
   return (
-    <>
-      <tr
-        className="cursor-pointer"
-        onClick={() => navigate(`/submissions/${submission.id}`)}
-      >
-        <td onClick={(e) => e.stopPropagation()}>
-          <input
-            type="checkbox"
-            checked={isSelected}
-            onChange={() => onToggleSelect(submission.id)}
-            className="w-4 h-4 text-brand-600 rounded border-gray-300 focus:ring-brand-500"
-          />
-        </td>
-        <td>
-          <p className="font-medium text-gray-900">
-            {submission.psa_submission_number || submission.internal_id || '—'}
-          </p>
-        </td>
-        <td>
-          <p className="text-gray-700">
-            {submission.psa_order_number || '—'}
-          </p>
-        </td>
-        <td onClick={(e) => e.stopPropagation()}>
-          {customerCount > 0 ? (
-            <button
-              onClick={() => setShowCustomersModal(true)}
-              className="flex items-center gap-2 px-3 py-1.5 bg-brand-50 hover:bg-brand-100 text-brand-700 rounded-lg transition-colors"
-            >
-              <Users className="w-4 h-4" />
-              <span className="font-medium">{customerCount} customer{customerCount !== 1 ? 's' : ''}</span>
-            </button>
-          ) : (
-            <span className="text-gray-400">No customers</span>
-          )}
-        </td>
-      <td onClick={(e) => e.stopPropagation()}>
-        <select
-          value={newServiceLevel}
-          onChange={handleServiceLevelChange}
-          className="text-sm border border-gray-300 rounded-lg px-2 py-1 bg-white text-gray-900 hover:border-brand-500 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
-        >
-          <option value="">No Service Level</option>
-          {serviceLevelOptions.map(level => (
-            <option key={level} value={level}>{level}</option>
-          ))}
-        </select>
-      </td>
-      <td>
-        <ProgressBar percent={submission.progress_percent || 0} />
-      </td>
-      <td>
-        <StatusBadge submission={submission} />
-      </td>
-      <td>
-        <span className="text-gray-600">{submission.card_count || 0}</span>
-      </td>
-      <td>
-        <span className="text-gray-500">
-          {submission.date_sent ? format(new Date(submission.date_sent), 'MMM d, yyyy') : '—'}
-        </span>
-      </td>
-      <td onClick={(e) => e.stopPropagation()}>
-        <div className="relative">
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="p-1.5 rounded-lg hover:bg-gray-100"
-          >
-            {refreshing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <MoreVertical className="w-4 h-4 text-gray-500" />
+    <div
+      className="group relative bg-white rounded-xl border transition-all cursor-pointer hover:shadow-md"
+      style={{
+        borderColor: selected ? '#FF8170' : isStaleCritical ? 'rgba(239,68,68,0.45)' : isStaleWarning ? 'rgba(245,158,11,0.45)' : 'rgb(229,231,235)',
+        boxShadow: selected ? '0 0 0 2px rgba(255,129,112,0.3)' : isStaleCritical ? '0 0 0 2px rgba(239,68,68,0.12), inset 0 0 20px rgba(239,68,68,0.03)' : isStaleWarning ? '0 0 0 2px rgba(245,158,11,0.12), inset 0 0 20px rgba(245,158,11,0.03)' : undefined,
+      }}
+      onClick={() => selectable ? onToggleSelect(submission.id) : navigate(`/submissions/${submission.id}`)}
+    >
+      {selectable && (
+        <div className="absolute top-2 left-2 z-10" onClick={(e) => { e.stopPropagation(); onToggleSelect(submission.id); }}>
+          {selected
+            ? <CheckSquare className="w-5 h-5 text-brand-500" />
+            : <Square className="w-5 h-5 text-gray-300" />
+          }
+        </div>
+      )}
+      {/* Top accent bar — service level color */}
+      <div className={`h-1 rounded-t-xl ${config.color}`} />
+
+      <div className="p-4">
+        {/* Row 1: Submission # + Status + Refresh */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-bold text-gray-900 text-sm truncate">
+              {submission.psa_submission_number || submission.internal_id || 'No #'}
+            </span>
+            {submission.psa_order_number && (
+              <span className="text-xs text-gray-500 hidden sm:inline">
+                Order: {submission.psa_order_number}
+              </span>
             )}
-          </button>
+          </div>
 
-          {menuOpen && (
-            <>
-              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 z-20 mt-1 w-40 bg-white rounded-lg shadow-lg border border-gray-200 py-1 fade-in">
-                <Link
-                  to={`/submissions/${submission.id}`}
-                  className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <Eye className="w-4 h-4" />
-                  View Details
-                </Link>
-                <button
-                  onClick={handleRefresh}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  Refresh from PSA
-                </button>
-                <button
-                  onClick={handlePreviewEmail}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                >
-                  <Eye className="w-4 h-4" />
-                  Preview Email
-                </button>
-                <button
-                  onClick={handleSendUpdate}
-                  disabled={sendingEmail}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                >
-                  {sendingEmail ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
-                  )}
-                  Send Status Update
-                </button>
-                <button
-                  onClick={handleDelete}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Delete
-                </button>
-              </div>
-            </>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Refresh result indicator */}
+            {refreshResult?.type === 'updated' && (
+              <span className="text-xs text-green-600 font-medium animate-pulse max-w-[180px] truncate" title={refreshResult.detail}>
+                {refreshResult.detail || 'Updated!'}
+              </span>
+            )}
+            {refreshResult?.type === 'no-change' && (
+              <span className="text-xs text-gray-500">No changes</span>
+            )}
+            {refreshResult?.type === 'error' && (
+              <span className="text-xs text-red-500" title={refreshResult.detail}>
+                {refreshResult.detail || 'Failed'}
+              </span>
+            )}
+
+            {/* Inline refresh button — always visible */}
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="p-1.5 rounded-lg hover:bg-brand-50 text-gray-400 hover:text-brand-600 transition-colors disabled:opacity-50"
+              title="Refresh from PSA"
+            >
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin text-brand-500' : ''}`} />
+            </button>
+
+            {/* More menu */}
+            <div className="relative" onClick={(e) => e.stopPropagation()}>
+              <button
+                onClick={() => setMenuOpen(!menuOpen)}
+                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+              {menuOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+                  <div className="absolute right-0 z-20 mt-1 w-36 bg-white rounded-lg shadow-lg border border-gray-200 py-1">
+                    <Link
+                      to={`/submissions/${submission.id}`}
+                      className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                    >
+                      <Eye className="w-3.5 h-3.5" /> View Details
+                    </Link>
+                    <button
+                      onClick={handleDelete}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" /> Delete
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Row 2: Progress bar — uses estimated progress for smooth interpolation */}
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-medium text-gray-500">
+              {submission.current_step || 'Not Yet Sent'}
+              {submission.estimated?.currentStepLabel && !submission.shipped && (
+                <span className="text-gray-400 ml-1">({submission.estimated.currentStepLabel})</span>
+              )}
+            </span>
+            <span className="text-xs font-bold text-gray-700">
+              {submission.estimated?.estimatedProgress || submission.progress_percent || 0}%
+            </span>
+          </div>
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-1000 ease-out ${progressColor}`}
+              style={{ width: `${submission.estimated?.estimatedProgress || submission.progress_percent || 0}%` }}
+            />
+          </div>
+          {/* Estimated time remaining */}
+          {submission.estimated?.estimatedDaysRemaining > 0 && !submission.shipped && (
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-[10px] text-gray-500">
+                ~{submission.estimated.estimatedDaysRemaining} days remaining
+              </span>
+              {submission.refreshPriority && (
+                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
+                  submission.refreshPriority.tier === 'urgent' ? 'bg-red-50 text-red-600' :
+                  submission.refreshPriority.tier === 'high' ? 'bg-amber-50 text-amber-600' :
+                  submission.refreshPriority.tier === 'medium' ? 'bg-blue-50 text-blue-600' :
+                  'bg-gray-50 text-gray-500'
+                }`}>
+                  {submission.refreshPriority.tier} priority
+                </span>
+              )}
+            </div>
           )}
         </div>
-      </td>
-    </tr>
 
-      {/* Customers Modal */}
-      {showCustomersModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <Users className="w-5 h-5 text-brand-600" />
-                    Customers in Submission
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {submission.psa_submission_number || submission.internal_id}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowCustomersModal(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-            </div>
+        {/* Row 3: Status badges */}
+        <div className="flex items-center gap-2 flex-wrap mb-3">
+          <StatusBadge submission={submission} />
 
-            <div className="flex-1 overflow-y-auto p-6">
-              <div className="space-y-3">
-                {submission.linked_customers.map((customer) => (
-                  <Link
-                    key={customer.id}
-                    to={`/customers/${customer.id}`}
-                    onClick={() => setShowCustomersModal(false)}
-                    className="block border border-gray-200 rounded-lg p-4 hover:border-brand-300 hover:bg-brand-50 transition-all"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-gray-400" />
-                          <p className="font-medium text-gray-900">{customer.name}</p>
-                          <ExternalLink className="w-3 h-3 text-gray-400" />
-                        </div>
-                        <p className="text-sm text-gray-500 mt-1 ml-6">{customer.email}</p>
-                        {customer.phone && (
-                          <p className="text-sm text-gray-500 ml-6">{customer.phone}</p>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
+          {submission.service_level && (
+            <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${config.light} ${config.text} border ${config.border}`}>
+              {submission.service_level}
+            </span>
+          )}
 
-            <div className="p-4 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => setShowCustomersModal(false)}
-                className="btn btn-secondary w-full"
-              >
-                Close
-              </button>
-            </div>
+          {submission.problem_order && (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+              <AlertCircle className="w-3 h-3" /> Problem
+            </span>
+          )}
+
+          {/* Overdue indicator: step duration exceeded expected time by 50%+ */}
+          {!submission.shipped && !submission.problem_order && submission.estimated?.isOverdue && (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200" title={`At ${submission.current_step} for ${submission.estimated.daysAtCurrentStep} days (expected ~${submission.estimated.expectedStepDuration}). Overdue by ~${submission.estimated.overdueBy} days.`}>
+              <Clock className="w-3 h-3" /> Overdue
+            </span>
+          )}
+        </div>
+
+        {/* Row 4: Customers + Cards + Date + Last Refreshed */}
+        <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="flex items-center gap-3">
+            {customerCount > 0 && (
+              <span className="flex items-center gap-1">
+                <Users className="w-3.5 h-3.5" />
+                {customerCount}
+              </span>
+            )}
+            <span className="flex items-center gap-1">
+              <Package className="w-3.5 h-3.5" />
+              {cardCount} card{cardCount !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            {submission.last_refreshed_at && (
+              <span className="text-[10px] text-gray-500" title={`Last refreshed: ${new Date(submission.last_refreshed_at).toLocaleString()}`}>
+                <RefreshCw className="w-3 h-3 inline mr-0.5" />
+                {formatTimeAgo(submission.last_refreshed_at)}
+              </span>
+            )}
+            <span>
+              {submission.date_sent ? format(new Date(submission.date_sent), 'MMM d, yyyy') : '—'}
+            </span>
           </div>
         </div>
-      )}
-
-      {/* Test Email Modal */}
-      {showTestEmailModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4" onClick={(e) => e.stopPropagation()}>
-          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <Mail className="w-6 h-6 text-blue-600" />
-                Preview Status Update Email
-              </h3>
-              <button
-                onClick={() => {
-                  setShowTestEmailModal(false);
-                  setTestEmail('');
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            <p className="text-gray-600 mb-4">
-              Send a test status update email to preview how it will look for this submission.
-            </p>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Test Email Address
-              </label>
-              <input
-                type="email"
-                value={testEmail}
-                onChange={(e) => setTestEmail(e.target.value)}
-                placeholder="your@email.com"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                autoFocus
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleSendTestEmail}
-                disabled={sendingTestEmail || !testEmail}
-                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {sendingTestEmail ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Mail className="w-4 h-4" />
-                    Send Test Email
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  setShowTestEmailModal(false);
-                  setTestEmail('');
-                }}
-                className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
+      </div>
+    </div>
   );
 }
 
+// ============================================
+// SERVICE LEVEL GROUP — collapsible section
+// ============================================
+function ServiceLevelGroup({ level, submissions: groupSubs, onRefresh, onDelete, defaultOpen = true, selectable, selectedIds, onToggleSelect }) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+  const config = getServiceConfig(level);
+
+  const activeCount = groupSubs.filter(s => !s.shipped && s.progress_percent < 100).length;
+  const readyCount = groupSubs.filter(s => s.grades_ready && !s.shipped).length;
+  const problemCount = groupSubs.filter(s => s.problem_order).length;
+  const totalCards = groupSubs.reduce((sum, s) => sum + (parseInt(s.card_count) || s.cards?.length || 0), 0);
+
+  return (
+    <div className="mb-4">
+      {/* Group header */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl ${config.light} border ${config.border} hover:shadow-sm transition-all`}
+      >
+        <div className="flex items-center gap-3">
+          <div className={`w-3 h-3 rounded-full flex-shrink-0 ${config.color}`} />
+          <div className="text-left">
+            <h3 className={`font-bold text-sm ${config.text}`}>
+              {level || 'Unassigned'}
+            </h3>
+            <p className="text-xs text-gray-500">
+              {groupSubs.length} submission{groupSubs.length !== 1 ? 's' : ''} · {totalCards} cards
+              {config.speed && ` · ~${config.speed}`}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          {activeCount > 0 && (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">
+              {activeCount} active
+            </span>
+          )}
+          {readyCount > 0 && (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">
+              {readyCount} ready
+            </span>
+          )}
+          {problemCount > 0 && (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+              {problemCount} problem
+            </span>
+          )}
+
+          {isOpen ? (
+            <ChevronDown className="w-4 h-4 text-gray-400" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-gray-400" />
+          )}
+        </div>
+      </button>
+
+      {/* Cards grid */}
+      {isOpen && (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 mt-3 pl-2">
+          {groupSubs.map(sub => (
+            <SubmissionCard
+              key={sub.id}
+              submission={sub}
+              onRefresh={onRefresh}
+              onDelete={onDelete}
+              selectable={selectable}
+              selected={selectedIds?.has(sub.id)}
+              onToggleSelect={onToggleSelect}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// MAIN PAGE
+// ============================================
 export default function Submissions() {
   const { company } = useAuth();
+  const navigate = useNavigate();
+  const toast = useToast();
+  const confirm = useConfirm();
   const [subs, setSubs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [refreshingAll, setRefreshingAll] = useState(false);
-  const [refreshProgress, setRefreshProgress] = useState({ total: 0, current: 0, updated: 0, errors: 0 });
-  const [sendingBulk, setSendingBulk] = useState(false);
-  const [showBulkTestEmailModal, setShowBulkTestEmailModal] = useState(false);
-  const [bulkTestEmail, setBulkTestEmail] = useState('');
-  const [sendingBulkTestEmail, setSendingBulkTestEmail] = useState(false);
-  const [normalizing, setNormalizing] = useState(false);
-  const [filter, setFilter] = useState('all'); // 'all', 'active', 'shipped', 'problems'
-  const [serviceLevelFilter, setServiceLevelFilter] = useState('all'); // 'all', or specific service level
+  const [filter, setFilter] = useState('active');
   const [search, setSearch] = useState('');
-  const [showHelp, setShowHelp] = useState(false);
   const [showCsvImport, setShowCsvImport] = useState(false);
   const [importing, setImporting] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [importProgress, setImportProgress] = useState({ phase: '', current: 0, total: 0, created: 0, updated: 0, refreshed: 0, errors: 0 });
+  const [sendingUpdate, setSendingUpdate] = useState(false);
+  const [updateResult, setUpdateResult] = useState(null);
+  const [refreshingAll, setRefreshingAll] = useState(false);
+  const [refreshProgress, setRefreshProgress] = useState(null); // { total, current, updated, errors, ... }
   const [pickupCode, setPickupCode] = useState('');
   const [pickupResult, setPickupResult] = useState(null);
   const [pickupLoading, setPickupLoading] = useState(false);
   const [pickupError, setPickupError] = useState('');
-  const [selectedSubmissions, setSelectedSubmissions] = useState([]);
-  const [sortBy, setSortBy] = useState('date'); // 'date', 'submission', 'order'
-  const [sortOrder, setSortOrder] = useState('desc'); // 'asc', 'desc'
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [showBulkCustomerModal, setShowBulkCustomerModal] = useState(false);
+  const [bulkCustomerSearch, setBulkCustomerSearch] = useState('');
+  const [allCustomers, setAllCustomers] = useState([]);
+  const [bulkAdding, setBulkAdding] = useState(false);
+
+  const toggleSelectMode = () => {
+    setSelectMode(v => !v);
+    setSelectedIds(new Set());
+  };
+
+  const handleToggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const openBulkCustomerModal = async () => {
+    try {
+      const res = await customersApi.list({ limit: 500 });
+      setAllCustomers(res.data.customers || []);
+    } catch (e) {
+      setAllCustomers([]);
+    }
+    setBulkCustomerSearch('');
+    setShowBulkCustomerModal(true);
+  };
+
+  const handleBulkAddCustomer = async (customerId) => {
+    setBulkAdding(true);
+    try {
+      const res = await submissions.bulkAddCustomer(customerId, [...selectedIds]);
+      toast.success(res.data.message || 'Customer added to submissions');
+      setShowBulkCustomerModal(false);
+      setSelectMode(false);
+      setSelectedIds(new Set());
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Failed to add customer');
+    } finally {
+      setBulkAdding(false);
+    }
+  };
 
   const loadSubmissions = async () => {
     try {
-      // Always load ALL submissions, no backend filtering
       const res = await submissions.list({});
       setSubs(res.data.submissions || []);
     } catch (error) {
@@ -458,20 +464,53 @@ export default function Submissions() {
     }
   };
 
-  const handleRefreshAll = async () => {
+  useEffect(() => { loadSubmissions(); }, []);
+
+  const handleDelete = (id) => {
+    setSubs(subs.filter(s => s.id !== id));
+  };
+
+  // ============================================
+  // WEEKLY UPDATE
+  // ============================================
+  const handleSendWeeklyUpdate = async () => {
     if (!company?.hasPsaKey) {
-      alert('PSA API key not configured. Please add your PSA API key in Company Settings to refresh submissions.');
+      toast.error('PSA API key not configured. Add it in Company Settings.');
       return;
     }
 
-    const activeCount = subs.filter(s => s.progress_percent < 100 && !s.shipped).length;
-    const hasCompleted = subs.some(s => s.progress_percent >= 100 || s.shipped);
+    if (!await confirm({ title: 'Send Weekly Update', message: 'Refresh all active submissions from PSA and email you a report with all changes, buyback offers, and status updates?', confirmLabel: 'Send Update', variant: 'info' })) return;
 
-    const message = hasCompleted
-      ? `This will refresh ${activeCount} active submission${activeCount !== 1 ? 's' : ''} + the most recent completed submission.\n\n✅ Completed submissions are automatically skipped to save API calls.\n\n⏱️ This takes 8-12 seconds per submission to avoid rate limits.\n\n⚠️ PSA limits you to 100 API calls per day.\n\nContinue?`
-      : `This will refresh all ${activeCount} active submission${activeCount !== 1 ? 's' : ''} from PSA.\n\n⏱️ This takes 8-12 seconds per submission to avoid rate limits.\n\n⚠️ PSA limits you to 100 API calls per day.\n\nContinue?`;
+    setSendingUpdate(true);
+    setUpdateResult(null);
+    try {
+      const res = await psa.sendWeeklyUpdate();
+      setUpdateResult({ success: true, ...res.data });
+      await loadSubmissions();
+    } catch (error) {
+      const errData = error.response?.data;
+      if (error.response?.status === 429) {
+        setUpdateResult({
+          success: false,
+          message: `Already sent this week. Next available in ${errData.daysRemaining} day${errData.daysRemaining !== 1 ? 's' : ''}.`
+        });
+      } else {
+        setUpdateResult({
+          success: false,
+          message: errData?.error || 'Failed to send update'
+        });
+      }
+    } finally {
+      setSendingUpdate(false);
+    }
+  };
 
-    if (!confirm(message)) {
+  // ============================================
+  // REFRESH ALL FROM PSA (SSE streaming)
+  // ============================================
+  const handleRefreshAll = async () => {
+    if (!company?.hasPsaKey) {
+      toast.error('PSA API key not configured. Add it in Company Settings.');
       return;
     }
 
@@ -481,40 +520,33 @@ export default function Submissions() {
     try {
       const token = localStorage.getItem('slabdash_token');
       const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-      const eventSource = new EventSource(`${API_URL}/psa/refresh-all`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
 
-      // Note: EventSource doesn't support custom headers, so we'll use fetch with streaming
       const response = await fetch(`${API_URL}/psa/refresh-all`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(errData.error || `HTTP ${response.status}`);
       }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
+      let buffer = '';
 
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n\n');
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6));
-
               if (data.type === 'start') {
                 setRefreshProgress({ total: data.total, current: 0, updated: 0, errors: 0 });
               } else if (data.type === 'progress') {
@@ -522,180 +554,62 @@ export default function Submissions() {
                   total: data.total,
                   current: data.current,
                   updated: data.updated,
-                  errors: data.errors
+                  errors: data.errors,
+                  submissionNumber: data.submissionNumber,
+                  hadChanges: data.hadChanges,
+                  stepChanged: data.stepChanged,
+                  progressDelta: data.progressDelta,
+                  status: data.status,
+                  errorType: data.errorType,
+                  errorMessage: data.errorMessage,
+                });
+              } else if (data.type === 'rate_limited') {
+                setRefreshProgress(prev => ({ ...prev, done: true }));
+                setUpdateResult({
+                  success: false,
+                  message: data.message || 'PSA rate limit reached — try again later'
                 });
               } else if (data.type === 'complete') {
-                setRefreshProgress({
-                  total: data.total,
-                  current: data.total,
-                  updated: data.updated,
-                  errors: data.errors
+                setRefreshProgress(prev => ({ ...prev, ...data, done: true }));
+                setUpdateResult({
+                  success: true,
+                  message: data.message,
+                  updatedCount: data.updated,
+                  changesCount: data.changedCount
                 });
                 await loadSubmissions();
-
-                let message = `✓ Refresh Complete!\n\nUpdated: ${data.updated}`;
-                if (data.changedCount !== undefined) {
-                  message += `\nChanged: ${data.changedCount}\nUnchanged: ${data.noChangeCount}`;
-                }
-                message += `\nFailed: ${data.errors}`;
-                if (data.changeLogAvailable) {
-                  message += '\n\n📊 Download CSV Report button available above to see detailed changes.';
-                }
-                if (data.errors > 0) {
-                  message += '\n\nℹ️ Some submissions failed due to PSA rate limiting.\nYou can try refreshing individual submissions later.';
-                }
-                alert(message);
               } else if (data.type === 'error') {
-                throw new Error(data.details || 'Failed to refresh submissions');
+                setUpdateResult({
+                  success: false,
+                  message: data.error || 'Refresh failed'
+                });
               }
-            } catch (parseError) {
-              console.error('Failed to parse SSE data:', parseError);
-            }
+            } catch {}
           }
         }
       }
     } catch (error) {
-      console.error('Refresh all failed:', error);
-      const errorMsg = error.message || 'Failed to refresh submissions';
-      alert(`Refresh failed: ${errorMsg}\n\nPlease check your PSA API key in Company Settings.`);
+      setUpdateResult({
+        success: false,
+        message: error.message || 'Failed to refresh from PSA'
+      });
     } finally {
       setRefreshingAll(false);
+      setTimeout(() => setRefreshProgress(null), 5000);
     }
   };
 
-  const handleDownloadChangeReport = async () => {
-    try {
-      const token = localStorage.getItem('slabdash_token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
-      // First get the latest log ID
-      const logResponse = await fetch(`${API_URL}/psa/refresh-log/latest`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!logResponse.ok) {
-        throw new Error('Failed to fetch refresh log');
-      }
-
-      const logData = await logResponse.json();
-
-      if (!logData.hasLog) {
-        alert('No refresh logs available. Please run a refresh first.');
-        return;
-      }
-
-      // Download the CSV
-      const csvResponse = await fetch(`${API_URL}/psa/refresh-log/${logData.log.id}/csv`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!csvResponse.ok) {
-        throw new Error('Failed to download CSV');
-      }
-
-      // Create download link
-      const blob = await csvResponse.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `psa-refresh-report-${new Date().toISOString().split('T')[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('Failed to download change report:', error);
-      alert('Failed to download change report. Please try again.');
-    }
-  };
-
-  const handleNormalizeServiceLevels = async () => {
-    if (!confirm('This will normalize all service level names by removing numbers and extra text.\n\nExample: "Value Plus 25" → "Value Plus", "Express 10" → "Express"\n\nContinue?')) {
-      return;
-    }
-
-    setNormalizing(true);
-    try {
-      const token = localStorage.getItem('slabdash_token');
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
-
-      const response = await fetch(`${API_URL}/psa/normalize-service-levels`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      alert(`✓ Service Levels Normalized!\n\nTotal: ${result.total}\nUpdated: ${result.updated}\n\nRefreshing submissions...`);
-
-      // Reload submissions to show normalized names
-      await loadSubmissions();
-    } catch (error) {
-      console.error('Normalize service levels failed:', error);
-      alert(`Normalization failed: ${error.message}`);
-    } finally {
-      setNormalizing(false);
-    }
-  };
-
-  const handleBulkEmail = async () => {
-    if (!confirm('Send status update emails to ALL customers with active submissions?')) {
-      return;
-    }
-
-    setSendingBulk(true);
-    try {
-      const response = await emailTemplates.sendBulkStatusUpdate();
-      const emailsSent = response.data.emails_sent || 0;
-      const emailsFailed = response.data.emails_failed || 0;
-      alert(`Bulk email complete!\n\nSent: ${emailsSent}\nFailed: ${emailsFailed}`);
-    } catch (error) {
-      console.error('Bulk email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send bulk emails');
-    } finally {
-      setSendingBulk(false);
-    }
-  };
-
-  const handleSendBulkTestEmail = async () => {
-    if (!bulkTestEmail || !bulkTestEmail.includes('@')) {
-      alert('Please enter a valid email address');
-      return;
-    }
-
-    setSendingBulkTestEmail(true);
-    try {
-      await emailTemplates.sendTestSubmissionUpdate(bulkTestEmail, null);
-      alert(`Test bulk status update email sent to ${bulkTestEmail}!\n\nCheck your inbox to preview the email with sample data.`);
-      setShowBulkTestEmailModal(false);
-      setBulkTestEmail('');
-    } catch (error) {
-      console.error('Send bulk test email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send test email');
-    } finally {
-      setSendingBulkTestEmail(false);
-    }
-  };
-
+  // ============================================
+  // PICKUP CODE
+  // ============================================
   const handlePickupCodeVerify = async (e) => {
     e.preventDefault();
     setPickupError('');
     setPickupLoading(true);
-
     try {
       const response = await submissions.verifyPickupCode({ pickup_code: pickupCode });
       setPickupResult(response.data);
-      setPickupCode(''); // Clear for next entry
+      setPickupCode('');
     } catch (error) {
       setPickupError(error.response?.data?.error || 'Invalid pickup code');
       setPickupResult(null);
@@ -704,6 +618,9 @@ export default function Submissions() {
     }
   };
 
+  // ============================================
+  // CSV IMPORT
+  // ============================================
   const handleCsvImport = async (file) => {
     setImporting(true);
     setImportProgress({ phase: '', current: 0, total: 0, created: 0, updated: 0, refreshed: 0, errors: 0 });
@@ -712,29 +629,22 @@ export default function Submissions() {
       const csvData = await file.text();
 
       if (!autoRefresh) {
-        // Quick import without refresh
         const response = await psaImport.importCsv(csvData);
         const { created, updated, skipped } = response.data;
-        alert(`PSA CSV Import Complete!\n\nCreated: ${created}\nUpdated: ${updated}\nSkipped: ${skipped}`);
+        toast.success(`Import complete: ${created} created, ${updated} updated, ${skipped} skipped`);
         await loadSubmissions();
         setShowCsvImport(false);
       } else {
-        // Import with auto-refresh from PSA API
         const token = localStorage.getItem('slabdash_token');
         const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
         const response = await fetch(`${API_URL}/psa-import/import-and-refresh`, {
           method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          },
+          headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ csvData })
         });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
@@ -744,973 +654,513 @@ export default function Submissions() {
           if (done) break;
 
           const chunk = decoder.decode(value);
-          const lines = chunk.split('\n\n');
-
-          for (const line of lines) {
+          for (const line of chunk.split('\n\n')) {
             if (line.startsWith('data: ')) {
               try {
                 const data = JSON.parse(line.slice(6));
-
-                if (data.type === 'start') {
-                  setImportProgress(prev => ({ ...prev, phase: data.phase, total: data.total }));
-                } else if (data.type === 'progress') {
-                  setImportProgress(prev => ({
-                    ...prev,
-                    phase: data.phase,
-                    current: data.current,
-                    total: data.total || prev.total,
-                    created: data.created || prev.created,
-                    updated: data.updated || prev.updated,
-                    refreshed: data.refreshed || prev.refreshed,
-                    errors: data.errors || prev.errors
-                  }));
-                } else if (data.type === 'import_complete') {
-                  setImportProgress(prev => ({
-                    ...prev,
-                    created: data.created,
-                    updated: data.updated
-                  }));
+                if (data.type === 'progress') {
+                  setImportProgress(prev => ({ ...prev, ...data }));
                 } else if (data.type === 'complete') {
                   await loadSubmissions();
-
-                  let message = `✓ Import & Refresh Complete!\n\n`;
-                  message += `Imported: ${data.created} created, ${data.updated} updated\n`;
-                  message += `Refreshed: ${data.refreshed} updated from PSA API\n`;
-                  if (data.refreshErrors > 0) {
-                    message += `Failed: ${data.refreshErrors} (due to rate limiting)\n\n`;
-                    message += `ℹ️ Some submissions failed to refresh.\nYou can try refreshing them individually later.`;
-                  }
-                  alert(message);
+                  toast.success(`Import & refresh complete: ${data.created} created, ${data.refreshed} refreshed${data.refreshErrors ? `, ${data.refreshErrors} errors` : ''}`);
                   setShowCsvImport(false);
-                } else if (data.type === 'error') {
-                  throw new Error(data.details || 'Import and refresh failed');
                 }
-              } catch (parseError) {
-                console.error('Failed to parse SSE data:', parseError);
-              }
+              } catch {}
             }
           }
         }
       }
-
     } catch (error) {
-      console.error('CSV import failed:', error);
-      alert(error.message || 'Failed to import PSA CSV');
+      toast.error(error.message || 'Failed to import CSV');
     } finally {
       setImporting(false);
-      setImportProgress({ phase: '', current: 0, total: 0, created: 0, updated: 0, refreshed: 0, errors: 0 });
     }
   };
 
-  const handleDelete = (id) => {
-    setSubs(subs.filter((s) => s.id !== id));
-  };
+  // ============================================
+  // FILTERING
+  // ============================================
+  const filteredSubs = subs.filter(s => {
+    if (filter === 'active' && (s.shipped || s.progress_percent >= 100)) return false;
+    if (filter === 'completed' && !(s.shipped || s.progress_percent >= 100)) return false;
+    if (filter === 'problems' && !s.problem_order) return false;
+    if (filter === 'slow' && (s.shipped || s.problem_order || !s.estimated?.isOverdue)) return false;
 
-  const handleBulkDelete = async () => {
-    if (selectedSubmissions.length === 0) return;
-
-    const confirmed = confirm(
-      `Delete ${selectedSubmissions.length} submission(s)? This cannot be undone.\n\nThis will permanently delete all cards and data associated with these submissions.`
-    );
-
-    if (!confirmed) return;
-
-    try {
-      // Delete each selected submission
-      await Promise.all(
-        selectedSubmissions.map(id => submissions.delete(id))
+    if (search) {
+      const q = search.toLowerCase();
+      return (
+        s.psa_submission_number?.toLowerCase().includes(q) ||
+        s.psa_order_number?.toLowerCase().includes(q) ||
+        s.internal_id?.toLowerCase().includes(q) ||
+        s.customer_name?.toLowerCase().includes(q) ||
+        s.customer_email?.toLowerCase().includes(q) ||
+        s.linked_customers?.some(c => c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q)) ||
+        s.cards?.some(c =>
+          c.player_name?.toLowerCase().includes(q) ||
+          c.description?.toLowerCase().includes(q) ||
+          c.psa_cert_number?.toLowerCase().includes(q)
+        )
       );
-
-      // Remove from local state
-      setSubs(subs.filter(s => !selectedSubmissions.includes(s.id)));
-      setSelectedSubmissions([]);
-      alert(`Successfully deleted ${selectedSubmissions.length} submission(s)`);
-    } catch (error) {
-      console.error('Bulk delete failed:', error);
-      alert('Failed to delete some submissions. Please try again.');
     }
-  };
-
-  const toggleSelectSubmission = (id) => {
-    setSelectedSubmissions(prev =>
-      prev.includes(id)
-        ? prev.filter(sid => sid !== id)
-        : [...prev, id]
-    );
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedSubmissions.length === filteredSubs.length) {
-      setSelectedSubmissions([]);
-    } else {
-      setSelectedSubmissions(filteredSubs.map(s => s.id));
-    }
-  };
-
-  useEffect(() => {
-    loadSubmissions();
-  }, [filter]);
-
-  // Sort submissions
-  const sortedSubs = [...subs].sort((a, b) => {
-    let compareValue = 0;
-
-    if (sortBy === 'submission') {
-      const subA = a.psa_submission_number || '';
-      const subB = b.psa_submission_number || '';
-      compareValue = subA.localeCompare(subB);
-    } else if (sortBy === 'order') {
-      const orderA = a.psa_order_number || '';
-      const orderB = b.psa_order_number || '';
-      compareValue = orderA.localeCompare(orderB);
-    } else { // date
-      const dateA = new Date(a.date_sent || a.created_at || 0);
-      const dateB = new Date(b.date_sent || b.created_at || 0);
-      compareValue = dateB - dateA;
-    }
-
-    return sortOrder === 'asc' ? compareValue : -compareValue;
+    return true;
   });
 
-  // Enhanced filter by search - includes order #, sub #, customer names, and card data
-  const filteredSubs = sortedSubs.filter((s) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      // Submission identifiers
-      s.psa_submission_number?.toLowerCase().includes(q) ||
-      s.psa_order_number?.toLowerCase().includes(q) ||
-      s.internal_id?.toLowerCase().includes(q) ||
-      // Direct customer
-      s.customer_name?.toLowerCase().includes(q) ||
-      s.customer_email?.toLowerCase().includes(q) ||
-      // Linked customers (consignment)
-      s.linked_customers?.some(customer =>
-        customer.name?.toLowerCase().includes(q) ||
-        customer.email?.toLowerCase().includes(q)
-      ) ||
-      // Cards data (player names, descriptions, years, brands)
-      s.cards?.some(card =>
-        card.player_name?.toLowerCase().includes(q) ||
-        card.description?.toLowerCase().includes(q) ||
-        card.card_name?.toLowerCase().includes(q) ||
-        card.year?.toString().includes(q) ||
-        card.brand?.toLowerCase().includes(q) ||
-        card.psa_cert_number?.toLowerCase().includes(q)
-      )
-    );
-  });
+  // Group by service level
+  const serviceOrder = ['Walk-Through', 'Walk-Thru', 'Super Express', 'Express', 'Regular', 'Standard', 'Value Max', 'Value Plus', 'Plus', 'Value', 'Value Bulk', 'Bulk', 'Specialty', 'Reholder'];
 
-  // Filter by completion status and problems
-  let displaySubs = filteredSubs;
-
-  if (filter === 'active') {
-    displaySubs = displaySubs.filter(s => s.progress_percent < 100 && !s.shipped);
-  } else if (filter === 'completed') {
-    displaySubs = displaySubs.filter(s => s.progress_percent >= 100 || s.shipped);
-  } else if (filter === 'problems') {
-    displaySubs = displaySubs.filter(s => s.problem_order);
+  const groupedSubs = {};
+  for (const sub of filteredSubs) {
+    const level = sub.service_level || 'Unassigned';
+    if (!groupedSubs[level]) groupedSubs[level] = [];
+    groupedSubs[level].push(sub);
   }
 
-  // Filter by service level
-  if (serviceLevelFilter !== 'all') {
-    displaySubs = displaySubs.filter(s => s.service_level === serviceLevelFilter);
-  }
-
-  // Total submission count
-  const totalCount = subs.length;
-
-  // Get unique service levels for tabs, ordered by volume (Bulk → Plus → Regular → Express → Specialty)
-  const serviceOrder = ['Bulk', 'Value Bulk', 'Plus', 'Value Plus', 'Regular', 'Standard', 'Express', 'Super Express', 'Walk-Through', 'Walk-Thru', 'Specialty', 'Reholder'];
-  const uniqueLevels = [...new Set(subs.map(s => s.service_level).filter(Boolean))];
-  const orderedLevels = uniqueLevels.sort((a, b) => {
-    const indexA = serviceOrder.findIndex(s => a?.toLowerCase().includes(s.toLowerCase()));
-    const indexB = serviceOrder.findIndex(s => b?.toLowerCase().includes(s.toLowerCase()));
-    if (indexA === -1 && indexB === -1) return a?.localeCompare(b) || 0;
-    if (indexA === -1) return 1;
-    if (indexB === -1) return -1;
-    return indexA - indexB;
+  const sortedGroups = Object.keys(groupedSubs).sort((a, b) => {
+    const ia = serviceOrder.indexOf(a);
+    const ib = serviceOrder.indexOf(b);
+    if (ia === -1 && ib === -1) return a.localeCompare(b);
+    if (ia === -1) return 1;
+    if (ib === -1) return -1;
+    return ia - ib;
   });
-  const serviceLevels = ['all', ...orderedLevels];
 
-  // Service level colors
-  const getServiceColor = (level) => {
-    const levelLower = level?.toLowerCase() || '';
-    if (levelLower.includes('bulk')) return { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-300', activeBg: 'bg-purple-300', activeText: 'text-gray-900' };
-    if (levelLower.includes('plus')) return { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-300', activeBg: 'bg-blue-300', activeText: 'text-gray-900' };
-    if (levelLower.includes('regular') || levelLower.includes('standard')) return { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-300', activeBg: 'bg-green-300', activeText: 'text-gray-900' };
-    if (levelLower.includes('express')) return { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-300', activeBg: 'bg-orange-300', activeText: 'text-gray-900' };
-    if (levelLower.includes('specialty') || levelLower.includes('reholder')) return { bg: 'bg-pink-100', text: 'text-pink-700', border: 'border-pink-300', activeBg: 'bg-pink-300', activeText: 'text-gray-900' };
-    if (levelLower.includes('walk')) return { bg: 'bg-red-100', text: 'text-red-700', border: 'border-red-300', activeBg: 'bg-red-300', activeText: 'text-gray-900' };
-    return { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300', activeBg: 'bg-gray-300', activeText: 'text-gray-900' };
-  };
+  // Stats
+  const activeCount = subs.filter(s => !s.shipped && s.progress_percent < 100).length;
+  const completedCount = subs.filter(s => s.shipped || s.progress_percent >= 100).length;
+  const problemCount = subs.filter(s => s.problem_order).length;
+  const staleCount = subs.filter(s => !s.shipped && !s.problem_order && s.estimated?.isOverdue).length;
+  const totalCards = subs.reduce((sum, s) => sum + (parseInt(s.card_count) || s.cards?.length || 0), 0);
+  const totalCustomers = new Set(subs.flatMap(s => (s.linked_customers || []).map(c => c.id))).size;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+    <div className="space-y-4 max-w-7xl mx-auto">
+      {/* HEADER */}
+      <div className="relative overflow-hidden rounded-3xl" style={{ background: 'var(--hdr-gradient)', boxShadow: 'var(--hdr-shadow)', border: 'var(--hdr-border)' }}>
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
 
-        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div>
-              <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">SUBMISSIONS</h1>
-              <p className="text-white/90 text-lg font-semibold">Track and manage PSA orders</p>
+        <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 px-6 sm:px-8 py-7">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: 'var(--hdr-eyebrow)' }}>Tracking</p>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight mb-1" style={{ color: 'var(--hdr-title)' }}>Submissions</h1>
+            <div className="flex items-center gap-4 text-sm" style={{ color: 'var(--hdr-sub)' }}>
+              <span>{subs.length} total</span>
+              <span>{totalCards} cards</span>
+              <span>{totalCustomers} customers</span>
             </div>
-            <button
-              onClick={() => setShowHelp(!showHelp)}
-              className="p-2 rounded-lg hover:bg-white/20 text-white backdrop-blur-sm transition-all"
-              title="Show help"
-            >
-              <HelpCircle className="w-5 h-5" />
-            </button>
+            {/* Smart auto-refresh indicator */}
+            {company?.hasPsaKey && activeCount > 0 && (
+              <div className="flex items-center gap-1.5 mt-1.5 text-xs" style={{ color: 'var(--hdr-eyebrow)' }}>
+                <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                <span>Auto-refresh active — {activeCount} submissions monitored</span>
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {company?.hasPsaKey && (
+              <>
+                <button
+                  onClick={handleRefreshAll}
+                  disabled={refreshingAll || sendingUpdate}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 disabled:opacity-50" style={{ background: 'var(--hdr-btn-primary-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-primary-color)' }}
+                >
+                  {refreshingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                  {refreshingAll ? `${refreshProgress?.current || 0}/${refreshProgress?.total || 0}` : 'Refresh All'}
+                </button>
+
+                <button
+                  onClick={handleSendWeeklyUpdate}
+                  disabled={sendingUpdate || refreshingAll}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl font-semibold transition-all disabled:opacity-50" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
+                >
+                  {sendingUpdate ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  <span className="hidden sm:inline">{sendingUpdate ? 'Sending...' : 'Weekly Report'}</span>
+                </button>
+              </>
+            )}
+
             <button
               onClick={() => setShowCsvImport(true)}
-              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+              className="flex items-center gap-2 px-3 py-2.5 rounded-xl font-semibold transition-all" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
             >
               <Upload className="w-4 h-4" />
-              <span className="hidden sm:inline">Import CSV</span>
+              <span className="hidden sm:inline">Import</span>
             </button>
-            <button
-              onClick={() => setShowBulkTestEmailModal(true)}
-              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
-            >
-              <Eye className="w-4 h-4" />
-              <span className="hidden sm:inline">Preview</span>
-            </button>
-            <button
-              onClick={handleBulkEmail}
-              disabled={sendingBulk}
-              className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg disabled:opacity-50"
-            >
-              <Mail className={`w-4 h-4 ${sendingBulk ? 'animate-pulse' : ''}`} />
-              <span className="hidden sm:inline">{sendingBulk ? 'Sending...' : 'Email All'}</span>
-            </button>
-            {selectedSubmissions.length > 0 && (
-              <button
-                onClick={handleBulkDelete}
-                className="bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-red-400 shadow-lg"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Delete ({selectedSubmissions.length})</span>
-              </button>
-            )}
-          {company?.hasPsaKey && (
-            <>
-              <button
-                onClick={handleNormalizeServiceLevels}
-                disabled={normalizing}
-                className="btn btn-secondary gap-2"
-                title="Clean up service level names (remove numbers like 'Value Plus 25' → 'Value Plus')"
-              >
-                <svg className={`w-4 h-4 ${normalizing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                </svg>
-                <span className="hidden sm:inline">{normalizing ? 'Normalizing...' : 'Clean Names'}</span>
-              </button>
-              <button
-                onClick={handleRefreshAll}
-                disabled={refreshingAll}
-                className="btn btn-secondary gap-2"
-              >
-                <RefreshCw className={`w-4 h-4 ${refreshingAll ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">{refreshingAll ? 'Refreshing...' : 'Refresh All'}</span>
-              </button>
-              <button
-                onClick={handleDownloadChangeReport}
-                className="btn btn-secondary gap-2"
-                title="Download CSV report of the most recent refresh showing what changed"
-              >
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">CSV Report</span>
-              </button>
-            </>
-          )}
-          <Link to="/submissions/new" className="btn btn-primary gap-2">
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">New Submission</span>
-          </Link>
+
+            <ExportButton endpoint="/submissions/export.csv" label="" />
+
+            <Link to="/submissions/new" className="flex items-center gap-2 px-3 py-2.5 rounded-xl font-semibold transition-all" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}>
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">New</span>
+            </Link>
+          </div>
         </div>
-      </div>
-      </div>
 
-      {/* Refresh Progress Bar */}
-      {refreshingAll && (
-        <div className="card bg-gradient-to-br from-brand-50 to-white border-brand-200">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <RefreshCw className="w-5 h-5 text-brand-600 animate-spin" />
-                <h3 className="font-semibold text-gray-900">Refreshing Submissions from PSA</h3>
-              </div>
-              <span className="text-sm text-gray-600">
-                {refreshProgress.current} / {refreshProgress.total}
-              </span>
-            </div>
-
-            {/* Progress Bar */}
-            <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden mb-3">
-              <div
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-brand-500 to-brand-600 transition-all duration-500 ease-out"
-                style={{
-                  width: `${refreshProgress.total > 0 ? (refreshProgress.current / refreshProgress.total) * 100 : 0}%`
-                }}
-              />
-            </div>
-
-            {/* Stats */}
-            <div className="flex items-center gap-6 text-sm">
+        {/* Refresh progress bar */}
+        {refreshingAll && refreshProgress && (
+          <div className="mt-4 rounded-xl p-3" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}>
+            <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-green-500" />
-                <span className="text-gray-600">Updated: <strong className="text-green-600">{refreshProgress.updated}</strong></span>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="text-sm font-bold">Refreshing from PSA...</span>
               </div>
-              {refreshProgress.errors > 0 && (
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-red-500" />
-                  <span className="text-gray-600">Errors: <strong className="text-red-600">{refreshProgress.errors}</strong></span>
-                </div>
-              )}
-              <div className="flex-1" />
-              <span className="text-gray-500">
-                {Math.round((refreshProgress.current / refreshProgress.total) * 100) || 0}%
+              <span className="text-sm font-mono">
+                {refreshProgress.current}/{refreshProgress.total}
+                {refreshProgress.updated > 0 && <span className="text-emerald-600 ml-2">+{refreshProgress.updated}</span>}
+                {refreshProgress.errors > 0 && <span className="text-red-500 ml-1">{refreshProgress.errors} err</span>}
               </span>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Help Section */}
-      {showHelp && (
-        <div className="card bg-blue-50 border-blue-200">
-          <div className="p-4">
-            <div className="flex items-start gap-3">
-              <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h3 className="font-semibold text-blue-900 mb-2">How to Use Submissions</h3>
-                <ul className="text-sm text-blue-800 space-y-1.5 list-disc list-inside">
-                  <li><strong>Search:</strong> Find submissions by PSA order #, submission #, customer name, or even specific card names (when CSV data is loaded)</li>
-                  <li><strong>Filter:</strong> View all submissions, only active ones, shipped orders, or those with problems</li>
-                  <li><strong>Refresh:</strong> Click "Refresh All" to update all submission statuses from PSA (requires PSA API key)</li>
-                  <li><strong>Track Progress:</strong> View real-time progress bars showing where each submission is in the PSA process</li>
-                  <li><strong>View Details:</strong> Click any submission row to see full details, cards, and customer information</li>
-                </ul>
-              </div>
-              <button
-                onClick={() => setShowHelp(false)}
-                className="text-blue-600 hover:text-blue-800"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Completion Status Tabs */}
-      <div className="card">
-        <div className="border-b border-brand-200">
-          <div className="flex overflow-x-auto bg-brand-50 scrollbar-hide">
-            <button
-              onClick={() => setFilter('all')}
-              className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
-                filter === 'all'
-                  ? 'bg-brand-400 text-gray-900 border-b-4 border-brand-700 shadow-md'
-                  : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
-              }`}
-            >
-              All Submissions
-              <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                filter === 'all'
-                  ? 'bg-brand-800 text-brand-50'
-                  : 'bg-gray-200 text-gray-700'
-              }`}>
-                {subs.length}
-              </span>
-            </button>
-            <button
-              onClick={() => setFilter('active')}
-              className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
-                filter === 'active'
-                  ? 'bg-blue-400 text-gray-900 border-b-4 border-blue-700'
-                  : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
-              }`}
-            >
-              Active (At PSA)
-              <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                filter === 'active'
-                  ? 'bg-blue-800 text-blue-50'
-                  : 'bg-gray-200 text-gray-700'
-              }`}>
-                {subs.filter(s => s.progress_percent < 100 && !s.shipped).length}
-              </span>
-            </button>
-            <button
-              onClick={() => setFilter('completed')}
-              className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
-                filter === 'completed'
-                  ? 'bg-green-400 text-gray-900 border-b-4 border-green-700'
-                  : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
-              }`}
-            >
-              Completed
-              <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                filter === 'completed'
-                  ? 'bg-green-800 text-green-50'
-                  : 'bg-gray-200 text-gray-700'
-              }`}>
-                {subs.filter(s => s.progress_percent >= 100 || s.shipped).length}
-              </span>
-            </button>
-            <button
-              onClick={() => setFilter('problems')}
-              className={`px-6 py-3 whitespace-nowrap transition-all slabdash-label ${
-                filter === 'problems'
-                  ? 'bg-red-400 text-gray-900 border-b-4 border-red-700'
-                  : 'bg-brand-100 text-gray-700 hover:bg-brand-200'
-              }`}
-            >
-              Problems
-              <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                filter === 'problems'
-                  ? 'bg-red-800 text-red-50'
-                  : 'bg-gray-200 text-gray-700'
-              }`}>
-                {subs.filter(s => s.problem_order).length}
-              </span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Service Level Tabs */}
-      {serviceLevels.length > 1 && (
-        <div className="card">
-          <div className="border-b border-gray-200">
-            <div className="flex overflow-x-auto bg-gray-50">
-              {serviceLevels.map((level) => {
-                // Count for this service level
-                const levelSubs = sortedSubs.filter(s => level === 'all' || s.service_level === level);
-                const count = levelSubs.length;
-                const displayName = level === 'all' ? 'All Services' : level;
-                const colors = level === 'all' ? null : getServiceColor(level);
-
-                return (
-                  <button
-                    key={level}
-                    onClick={() => setServiceLevelFilter(level)}
-                    className={`px-6 py-3 text-sm font-medium whitespace-nowrap transition-all ${
-                      serviceLevelFilter === level
-                        ? (colors ? `${colors.activeBg} ${colors.activeText}` : 'bg-brand-400 text-gray-900 shadow-md')
-                        : (colors ? `${colors.bg} ${colors.text} hover:${colors.border}` : 'bg-brand-100 text-gray-600 hover:bg-brand-200')
-                    }`}
-                  >
-                    {displayName}
-                    <span className={`ml-2 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                      serviceLevelFilter === level
-                        ? 'bg-gray-800 text-gray-100'
-                        : 'bg-gray-800 bg-opacity-10'
-                    }`}>
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Filters and Pickup Code */}
-      <div className="card p-4">
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* Left side - Search and filters */}
-          <div className="flex-1 flex flex-col sm:flex-row gap-4">
-            {/* Search */}
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by order #, customer name, player name, card description..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="input pl-10"
+            <div className="h-2 rounded-full overflow-hidden" style={{ background: 'var(--hdr-circle-1)' }}>
+              <div
+                className="h-full rounded-full transition-all duration-300"
+                style={{ width: `${refreshProgress.total > 0 ? (refreshProgress.current / refreshProgress.total) * 100 : 0}%`, background: 'var(--hdr-btn-primary-bg)' }}
               />
             </div>
-
-            {/* Status filter */}
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-400" />
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="input w-auto"
-              >
-                <option value="all">All Statuses</option>
-                <option value="problems">Problems Only</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Right side - Pickup Code Verification */}
-          <div className="lg:border-l lg:border-gray-200 lg:pl-4">
-            <form onSubmit={handlePickupCodeVerify} className="flex flex-col sm:flex-row gap-2">
-              <div className="relative flex-1 sm:w-64">
-                <PackageCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={pickupCode}
-                  onChange={(e) => {
-                    setPickupCode(e.target.value.toUpperCase());
-                    setPickupError('');
-                    setPickupResult(null);
-                  }}
-                  placeholder="Pickup Code (ABC-123)"
-                  className="input pl-10 font-mono"
-                  maxLength={7}
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={pickupLoading || !pickupCode}
-                className="btn btn-primary whitespace-nowrap"
-              >
-                {pickupLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Verifying...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    Verify Pickup
-                  </>
+            {refreshProgress.submissionNumber && (
+              <p className="text-xs mt-1" style={{ color: 'var(--hdr-eyebrow)' }}>
+                #{refreshProgress.submissionNumber}
+                {refreshProgress.status === 'error' && (
+                  <span className="text-red-500 ml-1">
+                    {refreshProgress.errorType === 'not_found' ? 'not found' :
+                     refreshProgress.errorType === 'auth_error' ? 'auth error' :
+                     'error'}
+                  </span>
                 )}
-              </button>
-            </form>
-          </div>
-        </div>
-
-        {/* Pickup Code Error */}
-        {pickupError && (
-          <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-red-800 font-medium">{pickupError}</p>
-          </div>
-        )}
-
-        {/* Pickup Code Success */}
-        {pickupResult && (
-          <div className={`mt-3 p-4 border-2 rounded-lg ${
-            pickupResult.already_picked_up
-              ? 'bg-yellow-50 border-yellow-300'
-              : 'bg-green-50 border-green-300'
-          }`}>
-            <div className="flex items-start gap-3">
-              <CheckCircle2 className={`w-6 h-6 flex-shrink-0 ${
-                pickupResult.already_picked_up ? 'text-yellow-600' : 'text-green-600'
-              }`} />
-              <div className="flex-1 min-w-0">
-                <p className={`font-bold text-sm ${
-                  pickupResult.already_picked_up ? 'text-yellow-900' : 'text-green-900'
-                }`}>
-                  {pickupResult.already_picked_up ? 'Already Picked Up' : 'Pickup Confirmed!'}
-                </p>
-                <p className={`text-sm mt-1 ${
-                  pickupResult.already_picked_up ? 'text-yellow-700' : 'text-green-700'
-                }`}>
-                  {pickupResult.message}
-                </p>
-                <div className="mt-2 text-xs text-gray-600 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <User className="w-3 h-3" />
-                    <span>{pickupResult.customer.name} ({pickupResult.customer.email})</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Package className="w-3 h-3" />
-                    <span>Submission: {pickupResult.submission.number}</span>
-                  </div>
-                  {pickupResult.picked_up_at && (
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-3 h-3" />
-                      <span>{new Date(pickupResult.picked_up_at).toLocaleString()}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <button
-                onClick={() => setPickupResult(null)}
-                className="p-1 hover:bg-white hover:bg-opacity-50 rounded transition-colors"
-              >
-                <X className="w-4 h-4 text-gray-500" />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-
-      {/* Table */}
-      <div className="card">
-        {loading ? (
-          <div className="flex items-center justify-center h-64">
-            <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
-          </div>
-        ) : displaySubs.length === 0 ? (
-          <div className="p-12 text-center">
-            <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {search ? 'No matching submissions' : 'No submissions yet'}
-            </h3>
-            <p className="text-gray-500 mb-4">
-              {search
-                ? 'Try adjusting your search or filters'
-                : 'Create your first submission to start tracking'}
-            </p>
-            {!search && (
-              <Link to="/submissions/new" className="btn btn-primary">
-                New Submission
-              </Link>
+                {refreshProgress.hadChanges && (
+                  <span className="text-emerald-600 ml-1">
+                    {refreshProgress.stepChanged ? 'step changed' :
+                     refreshProgress.progressDelta ? `+${refreshProgress.progressDelta}%` :
+                     'updated'}
+                  </span>
+                )}
+                {!refreshProgress.hadChanges && refreshProgress.status === 'success' && (
+                  <span className="ml-1" style={{ color: 'var(--hdr-eyebrow)', opacity: 0.6 }}>no changes</span>
+                )}
+              </p>
             )}
           </div>
-        ) : (
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th className="w-10">
-                    <input
-                      type="checkbox"
-                      checked={selectedSubmissions.length === filteredSubs.length && filteredSubs.length > 0}
-                      onChange={toggleSelectAll}
-                      className="w-4 h-4 text-brand-600 rounded border-gray-300 focus:ring-brand-500"
-                    />
-                  </th>
-                  <th>
-                    <button
-                      onClick={() => {
-                        if (sortBy === 'submission') {
-                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                        } else {
-                          setSortBy('submission');
-                          setSortOrder('asc');
-                        }
-                      }}
-                      className="flex items-center gap-1 hover:text-brand-600"
-                    >
-                      Submission #
-                      {sortBy === 'submission' && (
-                        <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </button>
-                  </th>
-                  <th>
-                    <button
-                      onClick={() => {
-                        if (sortBy === 'order') {
-                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                        } else {
-                          setSortBy('order');
-                          setSortOrder('asc');
-                        }
-                      }}
-                      className="flex items-center gap-1 hover:text-brand-600"
-                    >
-                      Order #
-                      {sortBy === 'order' && (
-                        <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </button>
-                  </th>
-                  <th>Customer</th>
-                  <th>Service</th>
-                  <th>Progress</th>
-                  <th>Status</th>
-                  <th>Cards</th>
-                  <th>
-                    <button
-                      onClick={() => {
-                        if (sortBy === 'date') {
-                          setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-                        } else {
-                          setSortBy('date');
-                          setSortOrder('desc');
-                        }
-                      }}
-                      className="flex items-center gap-1 hover:text-brand-600"
-                    >
-                      Date Arrived
-                      {sortBy === 'date' && (
-                        <span className="text-xs">{sortOrder === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </button>
-                  </th>
-                  <th className="w-10"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {displaySubs.map((sub) => (
-                  <SubmissionRow
-                    key={sub.id}
-                    submission={sub}
-                    onRefresh={loadSubmissions}
-                    onDelete={handleDelete}
-                    isSelected={selectedSubmissions.includes(sub.id)}
-                    onToggleSelect={toggleSelectSubmission}
-                  />
-                ))}
-              </tbody>
-            </table>
+        )}
+
+        {/* Update result toast */}
+        {updateResult && (
+          <div className="mt-4 rounded-xl p-3 flex items-center gap-3"
+            style={updateResult.success
+              ? { background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }
+              : { background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)', color: 'inherit' }
+            }
+          >
+            {updateResult.success ? <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-500" /> : <AlertCircle className="w-5 h-5 flex-shrink-0 text-red-500" />}
+            <div className="flex-1 text-sm">
+              {updateResult.success ? (
+                <>
+                  <span className="font-bold">Refresh complete!</span>
+                  {' '}{updateResult.updatedCount} refreshed, {updateResult.changesCount} with changes
+                  {updateResult.emailSentTo && <> · Emailed to {updateResult.emailSentTo}</>}
+                </>
+              ) : (
+                <span>{updateResult.message}</span>
+              )}
+            </div>
+            <button onClick={() => setUpdateResult(null)} style={{ color: 'var(--hdr-eyebrow)' }}>
+              <X className="w-4 h-4" />
+            </button>
           </div>
         )}
       </div>
 
-      {/* Summary footer */}
-      {displaySubs.length > 0 && (
-        <p className="text-sm text-gray-500 text-center">
-          Showing {displaySubs.length} submission{displaySubs.length !== 1 ? 's' : ''}
+      {/* FILTER TABS + SEARCH */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="flex bg-gray-100 rounded-xl p-1 gap-1">
+          {[
+            { key: 'all', label: 'All', count: subs.length },
+            { key: 'active', label: 'Active', count: activeCount },
+            { key: 'completed', label: 'Done', count: completedCount },
+            { key: 'problems', label: 'Problems', count: problemCount },
+            ...(staleCount > 0 ? [{ key: 'slow', label: 'Overdue', count: staleCount }] : []),
+          ].map(tab => (
+            <button
+              key={tab.key}
+              onClick={() => setFilter(tab.key)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                filter === tab.key
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {tab.label}
+              {tab.count > 0 && (
+                <span className={`ml-1.5 text-xs ${filter === tab.key ? 'text-brand-600' : 'text-gray-400'}`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by order #, customer, player name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 focus:border-brand-500 outline-none"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        <button
+          onClick={toggleSelectMode}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all border ${
+            selectMode
+              ? 'bg-brand-50 text-brand-600 border-brand-200'
+              : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+          }`}
+          title="Select multiple submissions to bulk-add a customer"
+        >
+          <UserPlus className="w-4 h-4" />
+          <span className="hidden sm:inline">{selectMode ? 'Cancel' : 'Select'}</span>
+        </button>
+
+        <form onSubmit={handlePickupCodeVerify} className="flex gap-2">
+          <div className="relative">
+            <PackageCheck className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              value={pickupCode}
+              onChange={(e) => { setPickupCode(e.target.value.toUpperCase()); setPickupError(''); setPickupResult(null); }}
+              placeholder="Pickup Code"
+              className="w-32 pl-10 pr-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-brand-500 outline-none"
+              maxLength={7}
+            />
+          </div>
+          <button type="submit" disabled={pickupLoading || !pickupCode} className="px-3 py-2 bg-brand-600 text-white rounded-xl text-sm font-semibold hover:bg-brand-700 disabled:opacity-50">
+            {pickupLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+          </button>
+        </form>
+      </div>
+
+      {/* Pickup result */}
+      {(pickupResult || pickupError) && (
+        <div className={`rounded-xl p-3 flex items-center gap-3 ${pickupError ? 'bg-red-50 border border-red-200' : pickupResult?.already_picked_up ? 'bg-yellow-50 border border-yellow-200' : 'bg-green-50 border border-green-200'}`}>
+          {pickupError ? (
+            <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
+          ) : (
+            <CheckCircle2 className={`w-5 h-5 flex-shrink-0 ${pickupResult?.already_picked_up ? 'text-yellow-600' : 'text-green-600'}`} />
+          )}
+          <div className="flex-1 text-sm">
+            {pickupError || pickupResult?.message}
+            {pickupResult?.customer && <span className="ml-2 text-gray-500">({pickupResult.customer.name})</span>}
+          </div>
+          <button onClick={() => { setPickupResult(null); setPickupError(''); }} className="text-gray-400 hover:text-gray-600">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* CONTENT */}
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
+        </div>
+      ) : filteredSubs.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center">
+          <Package className="w-12 h-12 text-brand-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {search ? 'No matching submissions' : filter !== 'all' ? 'No submissions in this view' : 'No submissions yet'}
+          </h3>
+          <p className="text-gray-500 mb-4">
+            {search ? 'Try different search terms' : 'Create your first submission to start tracking'}
+          </p>
+          {!search && filter === 'all' && (
+            <Link to="/submissions/new" className="inline-flex items-center gap-2 bg-brand-600 text-white px-4 py-2 rounded-xl font-semibold hover:bg-brand-700">
+              <Plus className="w-4 h-4" /> New Submission
+            </Link>
+          )}
+        </div>
+      ) : (
+        <div>
+          {sortedGroups.map(level => (
+            <ServiceLevelGroup
+              key={level}
+              level={level}
+              submissions={groupedSubs[level]}
+              onRefresh={loadSubmissions}
+              onDelete={handleDelete}
+              defaultOpen={groupedSubs[level].some(s => !s.shipped && s.progress_percent < 100)}
+              selectable={selectMode}
+              selectedIds={selectedIds}
+              onToggleSelect={handleToggleSelect}
+            />
+          ))}
+        </div>
+      )}
+
+      {filteredSubs.length > 0 && (
+        <p className="text-xs text-gray-500 text-center pb-4">
+          {filteredSubs.length} submission{filteredSubs.length !== 1 ? 's' : ''} across {sortedGroups.length} service level{sortedGroups.length !== 1 ? 's' : ''}
         </p>
       )}
 
-      {/* PSA CSV Import Modal */}
+      {/* CSV IMPORT MODAL */}
       {showCsvImport && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-brand-50 rounded-xl shadow-xl max-w-2xl w-full">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                    <Upload className="w-5 h-5 text-brand-600" />
-                    Import PSA Bulk Export CSV
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    Upload your PSA bulk export CSV to create or update multiple submissions
-                  </p>
-                </div>
-                <button
-                  onClick={() => setShowCsvImport(false)}
-                  disabled={importing}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6">
-              <div className="space-y-4">
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1 text-sm text-blue-800">
-                      <p className="font-medium mb-2">How to get your PSA CSV:</p>
-                      <ol className="list-decimal list-inside space-y-1 ml-2">
-                        <li>Log in to your PSA account</li>
-                        <li>Navigate to your submissions dashboard</li>
-                        <li>Click the export/download button to get the bulk CSV</li>
-                        <li>Upload the CSV file here to import all submissions</li>
-                      </ol>
-                      <p className="mt-2">
-                        <strong>Expected columns:</strong> Order #, Submission #, Status, Items, Service, Track Package, Arrived, Completed
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Auto-refresh toggle */}
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <label className="flex items-start gap-3 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={autoRefresh}
-                      onChange={(e) => setAutoRefresh(e.target.checked)}
-                      disabled={importing}
-                      className="mt-1 w-5 h-5 text-brand-600 rounded border-gray-300 focus:ring-brand-500 disabled:opacity-50"
-                    />
-                    <div className="flex-1">
-                      <p className="font-medium text-yellow-900">Auto-refresh from PSA API (Optional - Slow)</p>
-                      <p className="text-sm text-yellow-700 mt-1">
-                        Automatically fetch progress from PSA API after import. Takes 7-10 seconds per submission.
-                        PSA has strict rate limits - many will fail. <strong>Recommended: Import CSV first, then use "Refresh All" button instead.</strong>
-                      </p>
-                    </div>
-                  </label>
-                </div>
-
-                {/* Import progress */}
-                {importing && importProgress.phase && (
-                  <div className="bg-gradient-to-br from-brand-50 to-white border border-brand-200 rounded-lg p-4">
-                    <div className="flex items-center gap-3 mb-3">
-                      <Loader2 className="w-5 h-5 text-brand-600 animate-spin" />
-                      <h4 className="font-semibold text-gray-900">
-                        {importProgress.phase === 'import' ? 'Importing CSV Data...' : 'Refreshing from PSA API...'}
-                      </h4>
-                    </div>
-                    <div className="relative h-2 bg-gray-200 rounded-full overflow-hidden mb-2">
-                      <div
-                        className="absolute inset-y-0 left-0 bg-gradient-to-r from-brand-500 to-brand-600 transition-all duration-500"
-                        style={{
-                          width: `${importProgress.total > 0 ? (importProgress.current / importProgress.total) * 100 : 0}%`
-                        }}
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-gray-600">
-                        {importProgress.current} / {importProgress.total}
-                      </span>
-                      {importProgress.phase === 'import' && (
-                        <span className="text-gray-600">
-                          Created: {importProgress.created}, Updated: {importProgress.updated}
-                        </span>
-                      )}
-                      {importProgress.phase === 'refresh' && (
-                        <span className="text-gray-600">
-                          Refreshed: {importProgress.refreshed}, Errors: {importProgress.errors}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-brand-400 transition-colors">
-                  <Upload className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-700 font-medium mb-2">Choose PSA CSV file</p>
-                  <p className="text-sm text-gray-500 mb-4">
-                    {autoRefresh ? 'Will auto-refresh each submission from PSA API' : 'Quick import without API refresh'}
-                  </p>
-                  <input
-                    type="file"
-                    accept=".csv"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        handleCsvImport(file);
-                      }
-                    }}
-                    disabled={importing}
-                    className="hidden"
-                    id="csv-upload"
-                  />
-                  <label
-                    htmlFor="csv-upload"
-                    className={`btn btn-primary inline-flex items-center gap-2 cursor-pointer ${
-                      importing ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                  >
-                    {importing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Importing...
-                      </>
-                    ) : (
-                      <>
-                        <Upload className="w-4 h-4" />
-                        Select CSV File
-                      </>
-                    )}
-                  </label>
-                </div>
-
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="flex items-start gap-3">
-                    <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1 text-sm text-blue-800">
-                      <p className="font-medium mb-2">Recommended workflow:</p>
-                      <ol className="list-decimal list-inside space-y-1 ml-2">
-                        <li><strong>Import CSV</strong> (leave auto-refresh unchecked for speed)</li>
-                        <li><strong>Click "Refresh All"</strong> button after import completes</li>
-                        <li>Submissions will auto-categorize into correct tabs based on progress</li>
-                      </ol>
-                      <p className="mt-2 text-xs">
-                        Updates existing submissions by PSA Submission Number - no duplicates created.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => setShowCsvImport(false)}
-                disabled={importing}
-                className="btn btn-secondary w-full disabled:opacity-50"
-              >
-                Cancel
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full">
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <Upload className="w-5 h-5 text-brand-600" />
+                Import PSA CSV
+              </h3>
+              <button onClick={() => setShowCsvImport(false)} disabled={importing} className="p-1.5 hover:bg-gray-100 rounded-lg disabled:opacity-50">
+                <X className="w-5 h-5 text-gray-400" />
               </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-sm text-blue-800">
+                <p className="font-medium mb-1">How to get your PSA CSV:</p>
+                <ol className="list-decimal list-inside space-y-0.5 text-blue-700">
+                  <li>Log in to PSA and go to submissions dashboard</li>
+                  <li>Export/download the bulk CSV</li>
+                  <li>Upload the file below</li>
+                </ol>
+              </div>
+
+              <label className="flex items-start gap-3 cursor-pointer bg-amber-50 border border-amber-100 rounded-xl p-3">
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                  disabled={importing}
+                  className="mt-0.5 w-4 h-4 text-brand-600 rounded"
+                />
+                <div>
+                  <p className="font-medium text-amber-900 text-sm">Auto-refresh from PSA API</p>
+                  <p className="text-xs text-amber-700 mt-0.5">
+                    Slow (~10s per submission). Better to import first, then use "Send Weekly Update".
+                  </p>
+                </div>
+              </label>
+
+              {importing && importProgress.phase && (
+                <div className="bg-brand-50 border border-brand-100 rounded-xl p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Loader2 className="w-4 h-4 text-brand-600 animate-spin" />
+                    <span className="text-sm font-medium text-gray-900">
+                      {importProgress.phase === 'import' ? 'Importing...' : 'Refreshing from PSA...'}
+                    </span>
+                    <span className="text-xs text-gray-500 ml-auto">
+                      {importProgress.current}/{importProgress.total}
+                    </span>
+                  </div>
+                  <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-brand-500 rounded-full transition-all"
+                      style={{ width: `${importProgress.total > 0 ? (importProgress.current / importProgress.total) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-brand-300 transition-colors">
+                <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                <input
+                  type="file"
+                  accept=".csv"
+                  onChange={(e) => { if (e.target.files?.[0]) handleCsvImport(e.target.files[0]); }}
+                  disabled={importing}
+                  className="hidden"
+                  id="csv-upload"
+                />
+                <label htmlFor="csv-upload" className={`inline-flex items-center gap-2 bg-brand-600 text-white px-4 py-2 rounded-xl font-semibold cursor-pointer hover:bg-brand-700 ${importing ? 'opacity-50 pointer-events-none' : ''}`}>
+                  {importing ? <><Loader2 className="w-4 h-4 animate-spin" /> Importing...</> : <><Upload className="w-4 h-4" /> Select CSV</>}
+                </label>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Bulk Test Email Modal */}
-      {showBulkTestEmailModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <Mail className="w-6 h-6 text-blue-600" />
-                Preview Bulk Status Update Email
+      {/* FLOATING SELECTION BAR */}
+      {selectMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 bg-gray-900 text-white px-5 py-3 rounded-2xl shadow-2xl">
+          <span className="text-sm font-semibold">{selectedIds.size} selected</span>
+          <button
+            onClick={openBulkCustomerModal}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-brand-500 hover:bg-brand-600 rounded-xl text-sm font-semibold transition-colors"
+          >
+            <UserPlus className="w-4 h-4" />
+            Add Customer
+          </button>
+          <button
+            onClick={() => { setSelectMode(false); setSelectedIds(new Set()); }}
+            className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* BULK ADD CUSTOMER MODAL */}
+      {showBulkCustomerModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-brand-600" />
+                Add Customer to {selectedIds.size} Submission{selectedIds.size !== 1 ? 's' : ''}
               </h3>
-              <button
-                onClick={() => {
-                  setShowBulkTestEmailModal(false);
-                  setBulkTestEmail('');
-                }}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-6 h-6" />
+              <button onClick={() => setShowBulkCustomerModal(false)} className="p-1.5 hover:bg-gray-100 rounded-lg">
+                <X className="w-5 h-5 text-gray-400" />
               </button>
             </div>
-
-            <p className="text-gray-600 mb-4">
-              Send a test email to preview how bulk status update emails will look. This will use sample submission data.
-            </p>
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Test Email Address
-              </label>
-              <input
-                type="email"
-                value={bulkTestEmail}
-                onChange={(e) => setBulkTestEmail(e.target.value)}
-                placeholder="your@email.com"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-                autoFocus
-              />
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleSendBulkTestEmail}
-                disabled={sendingBulkTestEmail || !bulkTestEmail}
-                className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {sendingBulkTestEmail ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Sending...
-                  </>
-                ) : (
-                  <>
-                    <Mail className="w-4 h-4" />
-                    Send Test Email
-                  </>
+            <div className="p-5 space-y-3">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search customers..."
+                  value={bulkCustomerSearch}
+                  onChange={(e) => setBulkCustomerSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-500 outline-none"
+                  autoFocus
+                />
+              </div>
+              <div className="max-h-72 overflow-y-auto space-y-1">
+                {allCustomers
+                  .filter(c => {
+                    const q = bulkCustomerSearch.toLowerCase();
+                    return !q || c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q);
+                  })
+                  .map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => handleBulkAddCustomer(c.id)}
+                      disabled={bulkAdding}
+                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-brand-50 transition-colors text-left disabled:opacity-50"
+                    >
+                      <div className="w-8 h-8 rounded-full bg-brand-100 flex items-center justify-center flex-shrink-0">
+                        <User className="w-4 h-4 text-brand-600" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-900 truncate">{c.name}</p>
+                        {c.email && <p className="text-xs text-gray-500 truncate">{c.email}</p>}
+                      </div>
+                      {bulkAdding && <Loader2 className="w-4 h-4 animate-spin ml-auto text-brand-500 flex-shrink-0" />}
+                    </button>
+                  ))}
+                {allCustomers.filter(c => {
+                  const q = bulkCustomerSearch.toLowerCase();
+                  return !q || c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q);
+                }).length === 0 && (
+                  <p className="text-sm text-gray-500 text-center py-4">No customers found</p>
                 )}
-              </button>
-              <button
-                onClick={() => {
-                  setShowBulkTestEmailModal(false);
-                  setBulkTestEmail('');
-                }}
-                className="px-6 py-3 border border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
+              </div>
             </div>
           </div>
         </div>

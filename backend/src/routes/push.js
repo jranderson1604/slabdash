@@ -66,8 +66,7 @@ router.post('/subscribe', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Subscribe error:', error);
         res.status(500).json({
-            error: 'Failed to save push subscription',
-            details: error.message
+            error: 'Failed to save push subscription'
         });
     }
 });
@@ -99,8 +98,7 @@ router.post('/unsubscribe', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Unsubscribe error:', error);
         res.status(500).json({
-            error: 'Failed to remove push subscription',
-            details: error.message
+            error: 'Failed to remove push subscription'
         });
     }
 });
@@ -132,8 +130,7 @@ router.get('/status', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Status check error:', error);
         res.status(500).json({
-            error: 'Failed to check subscription status',
-            details: error.message
+            error: 'Failed to check subscription status'
         });
     }
 });
@@ -207,8 +204,7 @@ router.post('/test', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Test push error:', error);
         res.status(500).json({
-            error: 'Failed to send test notification',
-            details: error.message
+            error: 'Failed to send test notification'
         });
     }
 });
@@ -304,6 +300,119 @@ async function sendPushToCompany(companyId, payload) {
     }
 }
 
+/**
+ * Send push notification to a portal customer
+ */
+async function sendPushToCustomer(customerId, payload) {
+    try {
+        const result = await db.query(
+            `SELECT endpoint, p256dh_key, auth_key
+             FROM push_subscriptions
+             WHERE customer_id = $1`,
+            [customerId]
+        );
+
+        if (result.rows.length === 0) return { sent: 0, failed: 0 };
+
+        let sentCount = 0;
+        let failedCount = 0;
+
+        for (const sub of result.rows) {
+            try {
+                await webpush.sendNotification({
+                    endpoint: sub.endpoint,
+                    keys: { p256dh: sub.p256dh_key, auth: sub.auth_key }
+                }, JSON.stringify(payload));
+                sentCount++;
+
+                await db.query(
+                    `UPDATE push_subscriptions SET last_used_at = CURRENT_TIMESTAMP WHERE endpoint = $1`,
+                    [sub.endpoint]
+                );
+            } catch (error) {
+                failedCount++;
+                if (error.statusCode === 410 || error.statusCode === 404) {
+                    await db.query(`DELETE FROM push_subscriptions WHERE endpoint = $1`, [sub.endpoint]);
+                }
+            }
+        }
+
+        return { sent: sentCount, failed: failedCount };
+    } catch (error) {
+        console.error('sendPushToCustomer error:', error);
+        return { sent: 0, failed: 0, error: error.message };
+    }
+}
+
+/**
+ * Send push notification about a submission status change to all linked customers
+ */
+async function notifyCustomersOfStatusChange(submissionId, companyId, eventType, details) {
+    try {
+        // Find all customers linked to this submission
+        const customers = await db.query(
+            `SELECT DISTINCT c.id, c.name FROM customers c
+             LEFT JOIN submission_customers sc ON sc.customer_id = c.id
+             LEFT JOIN submissions s ON s.customer_id = c.id
+             WHERE (sc.submission_id = $1 OR s.id = $1)`,
+            [submissionId]
+        );
+
+        if (customers.rows.length === 0) return;
+
+        // Get submission number for the notification
+        const sub = await db.query(
+            `SELECT psa_submission_number, internal_id FROM submissions WHERE id = $1`,
+            [submissionId]
+        );
+        const subNum = sub.rows[0]?.psa_submission_number || sub.rows[0]?.internal_id || 'your order';
+
+        // Build notification payload per event type
+        let title, body;
+        switch (eventType) {
+            case 'step_change':
+                title = `Order #${subNum} Updated`;
+                body = `Moved to ${details.to || 'next step'}`;
+                break;
+            case 'grades_ready':
+                title = `Grades Ready! #${subNum}`;
+                body = 'Your cards have been graded. Check your portal for results!';
+                break;
+            case 'shipped':
+                title = `Order Shipped! #${subNum}`;
+                body = 'Your cards are on their way back!';
+                break;
+            case 'problem_flagged':
+                title = `Attention Needed #${subNum}`;
+                body = 'PSA flagged an issue with your order.';
+                break;
+            case 'problem_resolved':
+                title = `Issue Resolved #${subNum}`;
+                body = 'The issue with your order has been resolved.';
+                break;
+            default:
+                return;
+        }
+
+        const payload = {
+            title,
+            body,
+            icon: '/images/logo-icon.png',
+            badge: '/images/logo-icon.png',
+            data: { url: '/portal', submissionId },
+        };
+
+        for (const customer of customers.rows) {
+            await sendPushToCustomer(customer.id, payload);
+        }
+    } catch (error) {
+        // Silent fail — don't disrupt the main flow
+        console.error('Customer push notification error:', error.message);
+    }
+}
+
 module.exports = router;
 module.exports.sendPushToUser = sendPushToUser;
 module.exports.sendPushToCompany = sendPushToCompany;
+module.exports.sendPushToCustomer = sendPushToCustomer;
+module.exports.notifyCustomersOfStatusChange = notifyCustomersOfStatusChange;

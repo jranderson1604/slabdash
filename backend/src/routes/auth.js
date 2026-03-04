@@ -2,24 +2,81 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 
-// User login
-router.post('/login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
+// Rate limiter for login: 5 attempts per 15 minutes per IP
+const loginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many login attempts. Please try again in 15 minutes.' }
+});
 
-        if (!email || !password) {
+// Rate limiter for registration: 3 per hour per IP
+const registerLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 3,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many registration attempts. Please try again later.' }
+});
+
+// Input validation helpers
+const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const isValidPassword = (password) => {
+    if (!password || password.length < 8) return 'Password must be at least 8 characters';
+    if (password.length > 128) return 'Password is too long';
+    if (!/[a-zA-Z]/.test(password)) return 'Password must contain at least one letter';
+    if (!/[0-9]/.test(password)) return 'Password must contain at least one number';
+    return null;
+};
+
+// Helper: get email service (lazy to avoid circular deps)
+let _emailService;
+const email = () => {
+    if (!_emailService) _emailService = require('../services/emailService');
+    return _emailService;
+};
+
+// Helper: get active invite code from system_config
+const getInviteCode = async () => {
+    try {
+        const res = await db.query(
+            "SELECT value FROM system_config WHERE key = 'registration_invite_code'",
+        );
+        return res.rows[0]?.value || null;
+    } catch {
+        return null;
+    }
+};
+
+// User login
+router.post('/login', loginLimiter, async (req, res) => {
+    try {
+        const { email: emailInput, password } = req.body;
+
+        if (!emailInput || !password) {
             return res.status(400).json({ error: 'Email and password required' });
         }
 
+        if (!isValidEmail(emailInput)) {
+            return res.status(400).json({ error: 'Invalid email format' });
+        }
+
         const result = await db.query(
-            `SELECT u.*, c.name as company_name, c.slug as company_slug, c.psa_api_key IS NOT NULL as has_psa_key,
-             c.primary_color, c.background_color, c.sidebar_color
+            `SELECT u.id, u.company_id, u.email, u.name, u.role, u.password_hash,
+             u.email_verified, u.approved, u.failed_login_attempts, u.locked_until,
+             c.name as company_name, c.slug as company_slug, c.shop_code as company_shop_code,
+             c.psa_api_key IS NOT NULL as has_psa_key,
+             c.primary_color, c.background_color, c.sidebar_color,
+             c.plan, c.trial_ends_at
              FROM users u JOIN companies c ON u.company_id = c.id
              WHERE u.email = $1 AND u.is_active = true`,
-            [email.toLowerCase()]
+            [emailInput.toLowerCase()]
         );
 
         if (result.rows.length === 0) {
@@ -27,16 +84,62 @@ router.post('/login', async (req, res) => {
         }
 
         const user = result.rows[0];
+
+        // Check account lockout
+        if (user.locked_until && new Date(user.locked_until) > new Date()) {
+            const minutesLeft = Math.ceil((new Date(user.locked_until) - Date.now()) / 60000);
+            return res.status(429).json({ error: `Account locked due to too many failed attempts. Try again in ${minutesLeft} minute(s).` });
+        }
+
         const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
         if (!passwordMatch) {
+            const attempts = (user.failed_login_attempts || 0) + 1;
+            const lockUntil = attempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
+            await db.query(
+                'UPDATE users SET failed_login_attempts = $1, locked_until = $2 WHERE id = $3',
+                [attempts, lockUntil, user.id]
+            );
             return res.status(401).json({ error: 'Invalid email or password' });
+        }
+
+        // Reset lockout on successful login
+        if (user.failed_login_attempts > 0 || user.locked_until) {
+            await db.query(
+                'UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1',
+                [user.id]
+            );
+        }
+
+        // Block unverified accounts
+        if (user.email_verified === false) {
+            return res.status(403).json({
+                error: 'Please verify your email before logging in.',
+                email_unverified: true,
+                email: user.email
+            });
+        }
+
+        // Block accounts awaiting manual approval
+        if (user.approved === null || user.approved === undefined) {
+            return res.status(403).json({
+                error: 'Your account is pending approval. You\'ll receive an email when approved.',
+                awaiting_approval: true
+            });
+        }
+
+        // Block rejected accounts
+        if (user.approved === false) {
+            return res.status(403).json({
+                error: 'Your account application was not approved. Contact us if you think this is a mistake.',
+                rejected: true
+            });
         }
 
         const token = jwt.sign(
             { userId: user.id, companyId: user.company_id, role: user.role },
             process.env.JWT_SECRET,
-            { expiresIn: '7d' }
+            { expiresIn: '7d', algorithm: 'HS256' }
         );
 
         res.json({
@@ -51,10 +154,13 @@ router.post('/login', async (req, res) => {
                 id: user.company_id,
                 name: user.company_name,
                 slug: user.company_slug,
+                shop_code: user.company_shop_code,
                 hasPsaKey: user.has_psa_key,
                 primary_color: user.primary_color || '#8842f0',
                 background_color: user.background_color || '#f5f5f5',
-                sidebar_color: user.sidebar_color || '#ffffff'
+                sidebar_color: user.sidebar_color || '#ffffff',
+                plan: user.plan || 'free',
+                trial_ends_at: user.trial_ends_at
             }
         });
     } catch (error) {
@@ -64,64 +170,176 @@ router.post('/login', async (req, res) => {
 });
 
 // User registration
-router.post('/register', async (req, res) => {
+router.post('/register', registerLimiter, async (req, res) => {
     try {
-        const { email, password, name, companyName } = req.body;
+        const { email: emailInput, password, name, companyName, inviteCode } = req.body;
 
-        if (!email || !password || !name || !companyName) {
+        if (!emailInput || !password || !name || !companyName) {
             return res.status(400).json({ error: 'All fields required' });
         }
 
+        if (!isValidEmail(emailInput)) {
+            return res.status(400).json({ error: 'Invalid email format' });
+        }
+
+        const passwordError = isValidPassword(password);
+        if (passwordError) {
+            return res.status(400).json({ error: passwordError });
+        }
+
+        if (name.length > 255 || companyName.length > 255) {
+            return res.status(400).json({ error: 'Name or company name is too long' });
+        }
+
+        // Invite code check
+        const requiredCode = await getInviteCode();
+        if (requiredCode) {
+            if (!inviteCode || inviteCode.trim().toLowerCase() !== requiredCode.trim().toLowerCase()) {
+                return res.status(403).json({ error: 'Invalid invite code. Contact SlabDash to get access.' });
+            }
+        }
+
         // Check if user already exists
-        const userCheck = await db.query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+        const userCheck = await db.query('SELECT id FROM users WHERE email = $1', [emailInput.toLowerCase()]);
         if (userCheck.rows.length > 0) {
             return res.status(400).json({ error: 'Email already registered' });
         }
 
-        // Create company
-        const companySlug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        // Create company (14-day trial starts now)
+        const companySlug = companyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 100);
         const companyResult = await db.query(
-            'INSERT INTO companies (name, slug, email) VALUES ($1, $2, $3) RETURNING id, name, slug',
-            [companyName, companySlug, email.toLowerCase()]
+            `INSERT INTO companies (name, slug, email, plan, trial_ends_at)
+             VALUES ($1, $2, $3, 'free', NOW() + INTERVAL '14 days')
+             RETURNING id, name, slug, plan, trial_ends_at`,
+            [companyName.slice(0, 255), companySlug, emailInput.toLowerCase()]
         );
         const company = companyResult.rows[0];
 
-        // Hash password
-        const passwordHash = await bcrypt.hash(password, 10);
+        // Hash password with cost factor 12
+        const passwordHash = await bcrypt.hash(password, 12);
 
-        // Create user
+        // Generate email verification token (expires in 24 hours)
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        // Create user — not yet verified
         const userResult = await db.query(
-            `INSERT INTO users (company_id, email, password_hash, name, role)
-             VALUES ($1, $2, $3, $4, 'admin') RETURNING id, email, name, role`,
-            [company.id, email.toLowerCase(), passwordHash, name]
+            `INSERT INTO users (company_id, email, password_hash, name, role, email_verified, email_verification_token, email_verification_expires)
+             VALUES ($1, $2, $3, $4, 'admin', FALSE, $5, $6) RETURNING id, email, name, role`,
+            [company.id, emailInput.toLowerCase(), passwordHash, name.slice(0, 255), verificationToken, verificationExpires]
         );
         const user = userResult.rows[0];
 
-        // Generate token
-        const token = jwt.sign(
-            { userId: user.id, companyId: company.id, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: '7d' }
-        );
+        // Send verification email to the registrant
+        try {
+            await email().sendAdminVerificationEmail(emailInput.toLowerCase(), name, verificationToken);
+        } catch (emailErr) {
+            console.error('[Auth] Verification email failed:', emailErr.message);
+        }
+
+        // Notify the SlabDash owner of a new registration
+        try {
+            await email().sendOwnerNewRegistrationEmail(emailInput.toLowerCase(), name, companyName.slice(0, 255));
+        } catch (emailErr) {
+            console.error('[Auth] Owner notification email failed:', emailErr.message);
+        }
 
         res.json({
-            token,
-            user: {
-                id: user.id,
-                email: user.email,
-                name: user.name,
-                role: user.role
-            },
-            company: {
-                id: company.id,
-                name: company.name,
-                slug: company.slug,
-                hasPsaKey: false
-            }
+            pending: true,
+            message: "Account created! Check your email to verify your address."
         });
     } catch (error) {
         console.error('Registration error:', error);
         res.status(500).json({ error: 'Registration failed' });
+    }
+});
+
+// Verify account email
+router.get('/verify-account/:token', async (req, res) => {
+    try {
+        const { token } = req.params;
+
+        const result = await db.query(
+            `SELECT u.id, u.email, u.email_verified, u.email_verification_expires, u.approved
+             FROM users u WHERE u.email_verification_token = $1`,
+            [token]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Invalid or expired verification link.' });
+        }
+
+        const user = result.rows[0];
+
+        if (user.email_verified) {
+            const alreadyApproved = user.approved === true;
+            return res.json({
+                success: true,
+                already: true,
+                pending_approval: !alreadyApproved,
+                message: alreadyApproved
+                    ? 'Email already verified. You can log in.'
+                    : 'Email already verified. Your account is pending approval.'
+            });
+        }
+
+        if (user.email_verification_expires && new Date(user.email_verification_expires) < new Date()) {
+            return res.status(410).json({ error: 'Verification link has expired. Please request a new one.' });
+        }
+
+        await db.query(
+            `UPDATE users SET email_verified = TRUE, email_verification_token = NULL, email_verification_expires = NULL WHERE id = $1`,
+            [user.id]
+        );
+
+        res.json({
+            success: true,
+            pending_approval: true,
+            message: "Email verified! Your account is now pending approval. You'll receive an email once approved."
+        });
+    } catch (error) {
+        console.error('Verify account error:', error);
+        res.status(500).json({ error: 'Verification failed' });
+    }
+});
+
+// Resend verification email
+router.post('/resend-verification', async (req, res) => {
+    try {
+        const { email: emailInput } = req.body;
+        if (!emailInput || !isValidEmail(emailInput)) {
+            return res.status(400).json({ error: 'Valid email required' });
+        }
+
+        const result = await db.query(
+            'SELECT id, name, email_verified FROM users WHERE email = $1 AND is_active = true',
+            [emailInput.toLowerCase()]
+        );
+
+        // Always return success to prevent email enumeration
+        if (result.rows.length === 0 || result.rows[0].email_verified) {
+            return res.json({ success: true, message: 'If that email is registered and unverified, a new link has been sent.' });
+        }
+
+        const user = result.rows[0];
+        const newToken = crypto.randomBytes(32).toString('hex');
+        const newExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        await db.query(
+            'UPDATE users SET email_verification_token = $1, email_verification_expires = $2 WHERE id = $3',
+            [newToken, newExpires, user.id]
+        );
+
+        try {
+            await email().sendAdminVerificationEmail(emailInput.toLowerCase(), user.name, newToken);
+        } catch (emailErr) {
+            console.error('[Auth] Resend verification email failed:', emailErr.message);
+        }
+
+        res.json({ success: true, message: 'If that email is registered and unverified, a new link has been sent.' });
+    } catch (error) {
+        console.error('Resend verification error:', error);
+        res.status(500).json({ error: 'Failed to resend verification email' });
     }
 });
 
@@ -138,129 +356,165 @@ router.get('/me', authenticate, (req, res) => {
             id: req.user.company_id,
             name: req.user.company_name,
             slug: req.user.company_slug,
+            shop_code: req.user.company_shop_code,
             hasPsaKey: !!req.user.psa_api_key,
             primary_color: req.user.primary_color || '#8842f0',
             background_color: req.user.background_color || '#f5f5f5',
-            sidebar_color: req.user.sidebar_color || '#ffffff'
-        },
-        // Debug info
-        debug: {
-            userRole: req.user.role,
-            isOwner: req.user.role === 'owner',
-            userObject: req.user
+            sidebar_color: req.user.sidebar_color || '#ffffff',
+            plan: req.user.plan || 'free',
+            trial_ends_at: req.user.trial_ends_at
         }
     });
 });
 
-// ONE-TIME ENDPOINT: Set your own account to 'owner' role
-// Visit: https://yoursite.com/api/auth/set-owner?email=your@email.com&secret=YOUR_SECRET
-// Then DELETE this endpoint for security!
-router.get('/set-owner', async (req, res) => {
+// Change password (authenticated)
+router.post('/change-password', authenticate, async (req, res) => {
     try {
-        const { email, secret } = req.query;
+        const { currentPassword, newPassword } = req.body;
 
-        // Security: Require a secret key from environment
-        const OWNER_SECRET = process.env.OWNER_SETUP_SECRET || 'change-me-in-production';
-
-        if (!email || !secret) {
-            return res.status(400).json({ error: 'Missing email or secret parameter' });
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: 'Current and new password required' });
         }
 
-        if (secret !== OWNER_SECRET) {
-            return res.status(403).json({ error: 'Invalid secret key' });
+        const passwordError = isValidPassword(newPassword);
+        if (passwordError) {
+            return res.status(400).json({ error: passwordError });
         }
 
-        // Set the user's role to 'owner'
         const result = await db.query(
-            'UPDATE users SET role = $1 WHERE email = $2 RETURNING id, name, email, role',
-            ['owner', email.toLowerCase()]
+            'SELECT password_hash FROM users WHERE id = $1',
+            [req.user.id]
         );
-
         if (result.rows.length === 0) {
-            return res.status(404).json({ error: `No user found with email: ${email}` });
+            return res.status(404).json({ error: 'User not found' });
         }
 
-        const user = result.rows[0];
+        const match = await bcrypt.compare(currentPassword, result.rows[0].password_hash);
+        if (!match) {
+            return res.status(400).json({ error: 'Current password is incorrect' });
+        }
 
-        res.json({
-            success: true,
-            message: `✅ Successfully set ${user.name} (${user.email}) to OWNER role!`,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role
-            },
-            next_steps: [
-                '1. Log out of SlabDash',
-                '2. Log back in with your account',
-                '3. You will see "Platform Control" at the top of your sidebar',
-                '4. DELETE this /set-owner endpoint from auth.js for security!'
-            ]
-        });
+        const newHash = await bcrypt.hash(newPassword, 12);
+        await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [newHash, req.user.id]);
+
+        console.log(`[Auth] Password changed for user ID ${req.user.id}`);
+        res.json({ success: true });
     } catch (error) {
-        console.error('Set owner error:', error);
-        res.status(500).json({ error: 'Failed to set owner role' });
+        console.error('Change password error:', error);
+        res.status(500).json({ error: 'Failed to change password' });
     }
 });
 
-// Debug endpoint - check if latest code is deployed
+// Logout — invalidates the current token by recording logout time
+router.post('/logout', authenticate, async (req, res) => {
+    try {
+        await db.query('UPDATE users SET last_logout_at = NOW() WHERE id = $1', [req.user.id]);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({ error: 'Logout failed' });
+    }
+});
+
+// Forgot password (admin users)
+const forgotPasswordLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests. Please try again later.' }
+});
+
+router.post('/forgot-password', forgotPasswordLimiter, async (req, res) => {
+    // Always return the same message to prevent email enumeration
+    const successMsg = 'If that email is registered, you will receive a password reset link.';
+    try {
+        const { email: emailInput } = req.body;
+        if (!emailInput || !isValidEmail(emailInput)) {
+            return res.json({ message: successMsg });
+        }
+
+        const result = await db.query(
+            'SELECT id, name, email FROM users WHERE email = $1 AND is_active = true AND approved = true',
+            [emailInput.toLowerCase()]
+        );
+
+        if (result.rows.length === 0) return res.json({ message: successMsg });
+
+        const user = result.rows[0];
+        const rawToken = crypto.randomBytes(32).toString('hex');
+        const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+        const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+        await db.query(
+            'UPDATE users SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3',
+            [tokenHash, expires, user.id]
+        );
+
+        try {
+            await email().sendAdminPasswordResetEmail(user.email, user.name, rawToken);
+        } catch (emailErr) {
+            console.error('[Auth] Admin password reset email failed:', emailErr.message);
+        }
+
+        res.json({ message: successMsg });
+    } catch (error) {
+        console.error('Admin forgot password error:', error);
+        res.json({ message: successMsg });
+    }
+});
+
+// Reset password with token (admin users)
+router.post('/reset-password', forgotPasswordLimiter, async (req, res) => {
+    try {
+        const { token, password: newPassword } = req.body;
+        if (!token || !newPassword) {
+            return res.status(400).json({ error: 'Token and new password are required' });
+        }
+
+        const passwordError = isValidPassword(newPassword);
+        if (passwordError) return res.status(400).json({ error: passwordError });
+
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        const result = await db.query(
+            `SELECT id FROM users WHERE password_reset_token = $1 AND password_reset_expires > NOW() AND is_active = true`,
+            [tokenHash]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(400).json({ error: 'Invalid or expired reset link. Request a new one.' });
+        }
+
+        const newHash = await bcrypt.hash(newPassword, 12);
+        await db.query(
+            `UPDATE users SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL,
+             failed_login_attempts = 0, locked_until = NULL WHERE id = $2`,
+            [newHash, result.rows[0].id]
+        );
+
+        res.json({ success: true, message: 'Password reset successfully. You can now log in.' });
+    } catch (error) {
+        console.error('Admin reset password error:', error);
+        res.status(500).json({ error: 'Failed to reset password' });
+    }
+});
+
+// Heartbeat — keeps user "online" for the owner dashboard live count
+router.post('/heartbeat', authenticate, async (req, res) => {
+    try {
+        await db.query('UPDATE users SET last_seen_at = NOW() WHERE id = $1', [req.user.id]);
+        res.json({ ok: true });
+    } catch {
+        res.json({ ok: true }); // best-effort, don't break clients
+    }
+});
+
+// Version check (no secrets exposed)
 router.get('/version', (req, res) => {
     res.json({
-        version: '2.1.0-owner-fix',
-        jwtIncludesRole: true,
-        jwtSecretExists: !!process.env.JWT_SECRET,
-        jwtSecretFirst10: process.env.JWT_SECRET?.substring(0, 10),
+        version: '2.2.0',
         timestamp: new Date().toISOString()
     });
-});
-
-// Test login that shows JWT info
-router.post('/test-login', async (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const result = await db.query(
-            `SELECT u.*, c.name as company_name FROM users u JOIN companies c ON u.company_id = c.id WHERE u.email = $1`,
-            [email.toLowerCase()]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(401).json({ error: 'User not found' });
-        }
-
-        const user = result.rows[0];
-        const passwordMatch = await bcrypt.compare(password, user.password_hash);
-
-        if (!passwordMatch) {
-            return res.status(401).json({ error: 'Wrong password' });
-        }
-
-        const token = jwt.sign(
-            { userId: user.id, companyId: user.company_id, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: '7d' }
-        );
-
-        // Verify the token we just created
-        try {
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            res.json({
-                success: true,
-                tokenWorks: true,
-                decoded: decoded,
-                userRole: user.role,
-                jwtSecretFirst10: process.env.JWT_SECRET?.substring(0, 10)
-            });
-        } catch (verifyError) {
-            res.json({
-                success: false,
-                tokenWorks: false,
-                error: verifyError.message
-            });
-        }
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
 });
 
 module.exports = router;

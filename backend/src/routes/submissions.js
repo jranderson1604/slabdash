@@ -2,17 +2,19 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 const { authenticate, requireRole } = require("../middleware/auth");
-const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa, tryGetOrderDetails, getCertificate, scrapePsaCertImages } = require("../services/psaService");
+const { getSubmissionProgress, parseProgressData, updateSubmissionFromPsa, getCertificate, getCertWithImages, parseCertData, estimateSubmissionProgress, getHistoricalDurations, getRefreshPriority } = require("../services/psaService");
 const { normalizeServiceLevel } = require("../utils/serviceLevel");
 
 // List submissions
 router.get("/", authenticate, async (req, res) => {
   try {
-    const { limit = 10000, offset = 0, customer_id, status } = req.query;
+    const { customer_id, status } = req.query;
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 500, 1), 1000);
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
 
     let query = `
       SELECT s.*, c.name as customer_name, c.email as customer_email,
-             (SELECT COUNT(*) FROM cards WHERE submission_id = s.id) as card_count
+             (SELECT COUNT(*)::int FROM cards WHERE submission_id = s.id) as card_count
       FROM submissions s
       LEFT JOIN customers c ON s.customer_id = c.id
       WHERE s.company_id = $1
@@ -39,47 +41,82 @@ router.get("/", authenticate, async (req, res) => {
     params.push(limit, offset);
 
     const result = await db.query(query, params);
+    const submissionIds = result.rows.map(s => s.id);
 
-    // Get linked customers and cards for each submission
-    const submissionsWithCustomers = await Promise.all(
-      result.rows.map(async (submission) => {
-        const linkedCustomersResult = await db.query(
-          `SELECT c.id, c.name, c.email, c.phone
-           FROM submission_customers sc
-           JOIN customers c ON sc.customer_id = c.id
-           WHERE sc.submission_id = $1
-           ORDER BY c.name`,
-          [submission.id]
-        );
+    if (submissionIds.length === 0) {
+      return res.json({ submissions: [], total: 0, limit: parseInt(limit), offset: parseInt(offset) });
+    }
 
-        // If no linked customers via junction table, check if there's a direct customer_id
-        let linkedCustomers = linkedCustomersResult.rows;
-        if (linkedCustomers.length === 0 && submission.customer_id) {
-          const directCustomerResult = await db.query(
-            `SELECT id, name, email, phone FROM customers WHERE id = $1`,
-            [submission.customer_id]
-          );
-          if (directCustomerResult.rows.length > 0) {
-            linkedCustomers = directCustomerResult.rows;
-          }
-        }
+    // Batch load all related data in 3 parallel queries instead of N+1
+    const [historicalDurations, linkedCustomersResult, cardsResult] = await Promise.all([
+      getHistoricalDurations(req.user.company_id),
+      db.query(
+        `SELECT sc.submission_id, c.id, c.name, c.email, c.phone
+         FROM submission_customers sc
+         JOIN customers c ON sc.customer_id = c.id
+         WHERE sc.submission_id = ANY($1::uuid[])
+         ORDER BY c.name`,
+        [submissionIds]
+      ),
+      db.query(
+        `SELECT id, submission_id, player_name, description, year, card_set as brand, grade, psa_cert_number
+         FROM cards
+         WHERE submission_id = ANY($1::uuid[])
+         ORDER BY id`,
+        [submissionIds]
+      ),
+    ]);
 
-        // Load cards for search functionality (player names, descriptions, etc.)
-        const cardsResult = await db.query(
-          `SELECT id, player_name, description, year, card_set as brand, grade, psa_cert_number
-           FROM cards
-           WHERE submission_id = $1
-           ORDER BY id`,
-          [submission.id]
-        );
+    // Index linked customers by submission_id
+    const customersBySubmission = {};
+    for (const row of linkedCustomersResult.rows) {
+      if (!customersBySubmission[row.submission_id]) customersBySubmission[row.submission_id] = [];
+      customersBySubmission[row.submission_id].push({ id: row.id, name: row.name, email: row.email, phone: row.phone });
+    }
 
-        return {
-          ...submission,
-          linked_customers: linkedCustomers,
-          cards: cardsResult.rows
-        };
-      })
-    );
+    // For submissions with no junction-table customers, collect their direct customer_ids
+    const directCustomerIds = [];
+    for (const sub of result.rows) {
+      if (!customersBySubmission[sub.id] && sub.customer_id) {
+        directCustomerIds.push(sub.customer_id);
+      }
+    }
+
+    // Batch load direct customers if any
+    const directCustomerMap = {};
+    if (directCustomerIds.length > 0) {
+      const directResult = await db.query(
+        `SELECT id, name, email, phone FROM customers WHERE id = ANY($1::uuid[])`,
+        [directCustomerIds]
+      );
+      for (const c of directResult.rows) {
+        directCustomerMap[c.id] = [{ id: c.id, name: c.name, email: c.email, phone: c.phone }];
+      }
+    }
+
+    // Index cards by submission_id
+    const cardsBySubmission = {};
+    for (const card of cardsResult.rows) {
+      if (!cardsBySubmission[card.submission_id]) cardsBySubmission[card.submission_id] = [];
+      cardsBySubmission[card.submission_id].push(card);
+    }
+
+    // Assemble final results
+    const submissionsWithCustomers = result.rows.map(submission => {
+      const linkedCustomers = customersBySubmission[submission.id]
+        || (submission.customer_id && directCustomerMap[submission.customer_id])
+        || [];
+      const estimate = estimateSubmissionProgress(submission, historicalDurations);
+      const priority = getRefreshPriority(submission);
+
+      return {
+        ...submission,
+        linked_customers: linkedCustomers,
+        cards: cardsBySubmission[submission.id] || [],
+        estimated: estimate,
+        refreshPriority: priority,
+      };
+    });
 
     const countResult = await db.query(
       `SELECT COUNT(*) FROM submissions WHERE company_id = $1`,
@@ -135,11 +172,18 @@ router.get("/:id", authenticate, async (req, res) => {
       [req.params.id]
     );
 
+    const submission = result.rows[0];
+    const historicalDurations = await getHistoricalDurations(req.user.company_id);
+    const estimate = estimateSubmissionProgress(submission, historicalDurations);
+    const priority = getRefreshPriority(submission);
+
     res.json({
-      ...result.rows[0],
+      ...submission,
       cards: cardsResult.rows,
       linked_customers: linkedCustomersResult.rows,
-      steps: stepsResult.rows
+      steps: stepsResult.rows,
+      estimated: estimate,
+      refreshPriority: priority,
     });
   } catch (error) {
     console.error("Get submission error:", error);
@@ -220,33 +264,12 @@ router.post("/", authenticate, async (req, res) => {
 
           if (result.success) {
             parsedPsaData = parseProgressData(result.data);
-            console.log("PSA order data fetched and parsed:", {
+            console.log("PSA order data fetched:", {
               orderNumber: parsedPsaData.orderNumber,
               currentStep: parsedPsaData.currentStep,
               progressPercent: parsedPsaData.progressPercent,
               gradesReady: parsedPsaData.gradesReady
             });
-
-            // EXPERIMENTAL: Try to find an endpoint that returns card data
-            if (parsedPsaData.orderNumber) {
-              console.log('\n🔍 EXPLORING PSA API FOR CARD DATA...\n');
-              try {
-                const explorationResults = await tryGetOrderDetails(
-                  psaApiKey,
-                  parsedPsaData.orderNumber,
-                  psa_submission_number
-                );
-
-                if (explorationResults.successful) {
-                  console.log('\n✅ SUCCESS! Found working endpoint:', explorationResults.successful.endpoint);
-                  console.log('Response data structure:', Object.keys(explorationResults.successful.data));
-                } else {
-                  console.log('\n❌ No working endpoint found for card data');
-                }
-              } catch (exploreError) {
-                console.error('Endpoint exploration error:', exploreError.message);
-              }
-            }
           } else {
             console.log("PSA API returned no data:", result.error);
           }
@@ -302,6 +325,16 @@ router.post("/", authenticate, async (req, res) => {
 
     const submission = result.rows[0];
 
+    // Send confirmation email to linked customers (fire and forget)
+    try {
+      const { sendSubmissionConfirmationEmail } = require('../services/emailService');
+      sendSubmissionConfirmationEmail(submission.id).catch(err =>
+        console.error('Confirmation email failed:', err.message)
+      );
+    } catch (emailError) {
+      console.error('Failed to queue confirmation email:', emailError.message);
+    }
+
     res.status(201).json({
       ...submission,
       psa_data_imported: !!parsedPsaData
@@ -310,9 +343,7 @@ router.post("/", authenticate, async (req, res) => {
     console.error("Create submission error:", error);
     console.error("Error stack:", error.stack);
     res.status(500).json({
-      error: "Failed to create submission",
-      details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      error: "Failed to create submission"
     });
   }
 });
@@ -359,8 +390,9 @@ router.put("/:id", authenticate, async (req, res) => {
 
     const updatedSubmission = result.rows[0];
 
-    // If grades_ready is being set to true and no pickup code exists, generate one
-    if (req.body.grades_ready === true && !updatedSubmission.pickup_code) {
+    // If grades_ready is being set to true, generate pickup codes for linked customers
+    // that don't have one yet (submission_customers is the source of truth for pickup codes)
+    if (req.body.grades_ready === true) {
       const generatePickupCode = () => {
         const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
         const numbers = '0123456789';
@@ -375,28 +407,35 @@ router.put("/:id", authenticate, async (req, res) => {
         return code;
       };
 
-      let pickupCode;
-      let attempts = 0;
-      let isUnique = false;
-
-      while (!isUnique && attempts < 10) {
-        pickupCode = generatePickupCode();
-        const existing = await db.query(
-          'SELECT id FROM submissions WHERE pickup_code = $1',
-          [pickupCode]
+      try {
+        // Get linked customers that don't have a pickup code yet
+        const linkedCustomers = await db.query(
+          `SELECT customer_id FROM submission_customers
+           WHERE submission_id = $1 AND (pickup_code IS NULL OR pickup_code = '')`,
+          [req.params.id]
         );
-        if (existing.rows.length === 0) {
-          isUnique = true;
+
+        for (const row of linkedCustomers.rows) {
+          const pickupCode = generatePickupCode();
+          await db.query(
+            `UPDATE submission_customers SET pickup_code = $1
+             WHERE submission_id = $2 AND customer_id = $3`,
+            [pickupCode, req.params.id, row.customer_id]
+          );
         }
-        attempts++;
-      }
 
-      if (isUnique) {
-        await db.query(
-          'UPDATE submissions SET pickup_code = $1 WHERE id = $2',
-          [pickupCode, req.params.id]
-        );
-        updatedSubmission.pickup_code = pickupCode;
+        // Read back for response (first customer's code as representative)
+        if (linkedCustomers.rows.length > 0) {
+          const codeResult = await db.query(
+            `SELECT pickup_code FROM submission_customers WHERE submission_id = $1 AND pickup_code IS NOT NULL LIMIT 1`,
+            [req.params.id]
+          );
+          if (codeResult.rows.length > 0) {
+            updatedSubmission.pickup_code = codeResult.rows[0].pickup_code;
+          }
+        }
+      } catch (pickupError) {
+        console.error('Failed to generate pickup codes for customers:', pickupError.message);
       }
     }
 
@@ -513,24 +552,72 @@ router.post("/:id/refresh", authenticate, async (req, res) => {
     // Fetch and update submission from PSA
     const result = await getSubmissionProgress(psaApiKey, submission.psa_submission_number);
 
+    if (result.rateLimited) {
+      return res.status(429).json({
+        error: result.error,
+        errorType: result.errorType || 'rate_limit',
+        dailyLimitReached: result.dailyLimitReached || false,
+      });
+    }
+
     if (!result.success) {
-      return res.status(500).json({ error: result.error || "Failed to fetch data from PSA API" });
+      return res.status(result.status >= 400 ? result.status : 500).json({
+        error: result.error || "Failed to fetch data from PSA API",
+        errorType: result.errorType || 'unknown',
+      });
     }
 
     // Update submission with latest PSA data
-    const parsed = await updateSubmissionFromPsa(submission.id, result.data);
+    const { parsed, changes } = await updateSubmissionFromPsa(submission.id, result.data);
+
+    // Fetch updated submission with all related data
+    const updatedResult = await db.query(
+      `SELECT s.*, c.name as customer_name, c.email as customer_email
+       FROM submissions s
+       LEFT JOIN customers c ON s.customer_id = c.id
+       WHERE s.id = $1`,
+      [submission.id]
+    );
+
+    const [stepsResult, historicalDurations] = await Promise.all([
+      db.query(
+        `SELECT * FROM submission_steps WHERE submission_id = $1 ORDER BY step_index`,
+        [submission.id]
+      ),
+      getHistoricalDurations(req.user.company_id),
+    ]);
+
+    const updatedSubmission = updatedResult.rows[0];
+    const estimated = estimateSubmissionProgress(updatedSubmission, historicalDurations);
+    const priority = getRefreshPriority(updatedSubmission);
 
     res.json({
       message: "Submission refreshed from PSA",
-      currentStep: parsed.currentStep,
-      progressPercent: parsed.progressPercent,
-      gradesReady: parsed.gradesReady
+      submission: {
+        ...updatedSubmission,
+        steps: stepsResult.rows,
+        estimated,
+        refreshPriority: priority,
+      },
+      changes: {
+        hadChanges: changes.hadChanges,
+        stepChanged: changes.stepChanged,
+        previousStep: changes.previousStep,
+        newStep: changes.newStep,
+        progressChanged: changes.progressChanged,
+        previousProgress: changes.previousProgress,
+        newProgress: changes.newProgress,
+        progressDelta: changes.progressDelta || 0,
+        gradesReady: parsed.gradesReady,
+        shipped: parsed.shipped,
+        problemOrder: parsed.problemOrder,
+        milestonesSet: changes.milestonesSet,
+      }
     });
   } catch (error) {
     console.error("Refresh submission error:", error);
     res.status(500).json({
-      error: "Failed to refresh submission",
-      details: error.message
+      error: "Failed to refresh submission"
     });
   }
 });
@@ -548,6 +635,15 @@ router.post("/:id/customers", authenticate, async (req, res) => {
 
     if (submissionCheck.rows.length === 0) {
       return res.status(404).json({ error: "Submission not found" });
+    }
+
+    // Verify customer belongs to the same company
+    const customerCheck = await db.query(
+      "SELECT id FROM customers WHERE id = $1 AND company_id = $2",
+      [customer_id, req.user.company_id]
+    );
+    if (customerCheck.rows.length === 0) {
+      return res.status(404).json({ error: "Customer not found" });
     }
 
     // Add customer link
@@ -668,6 +764,13 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
 
     console.log('Column indices:', { certIndex, typeIndex, descIndex, gradeIndex, imagesIndex });
 
+    // Get company's PSA API key for cert enrichment
+    const companyKeyResult = await db.query(
+      "SELECT psa_api_key FROM companies WHERE id = $1",
+      [req.user.company_id]
+    );
+    const companyPsaApiKey = companyKeyResult.rows[0]?.psa_api_key;
+
     let imported = 0;
     let skipped = 0;
     const errors = [];
@@ -740,62 +843,38 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
         const cardId = cardResult.rows[0].id;
         console.log(`Row ${i + 1}: Card created with ID ${cardId}`);
 
-        // Try to scrape images from PSA website
-        try {
-          console.log(`Row ${i + 1}: Scraping images from PSA website for cert ${certNumber}`);
-          const scrapeResult = await scrapePsaCertImages(certNumber);
+        // Fetch cert data + images from PSA API using company's key
+        if (companyPsaApiKey) {
+          try {
+            const certResult = await getCertWithImages(companyPsaApiKey, certNumber);
+            if (certResult.success && certResult.data) {
+              const cert = certResult.data;
+              const parsed = parseCertData(cert);
+              const updates = { psa_cert_data: JSON.stringify(cert) };
 
-          if (scrapeResult.success && scrapeResult.images.length > 0) {
-            await db.query(
-              'UPDATE cards SET card_images = $1 WHERE id = $2',
-              [scrapeResult.images, cardId]
-            );
-            console.log(`Row ${i + 1}: Updated with ${scrapeResult.images.length} image(s) from PSA website`);
-          } else {
-            console.log(`Row ${i + 1}: No images found on PSA website`);
+              if (parsed.playerName) updates.player_name = parsed.playerName;
+              if (cert.images && cert.images.length > 0) updates.card_images = cert.images;
 
-            // Fallback: Try PSA API if we have an API key
-            if (req.user.psa_api_key) {
-              console.log(`Row ${i + 1}: Trying PSA API as fallback`);
-              const certResult = await getCertificate(req.user.psa_api_key, certNumber);
-
-              if (certResult.success && certResult.data) {
-                const cert = certResult.data;
-                const images = [];
-
-                // Extract images from PSA cert data (various possible field names)
-                if (cert.FrontImageURL) images.push(cert.FrontImageURL);
-                if (cert.BackImageURL) images.push(cert.BackImageURL);
-                if (cert.FrontImage) images.push(cert.FrontImage);
-                if (cert.BackImage) images.push(cert.BackImage);
-                if (cert.ImageURL) images.push(cert.ImageURL);
-                if (cert.ImageUrl) images.push(cert.ImageUrl);
-                if (cert.Image) images.push(cert.Image);
-                if (cert.Images && Array.isArray(cert.Images)) {
-                  images.push(...cert.Images);
-                }
-
-                // Update card with images and cert data if found
-                if (images.length > 0) {
-                  await db.query(
-                    'UPDATE cards SET card_images = $1, psa_cert_data = $2 WHERE id = $3',
-                    [images, JSON.stringify(cert), cardId]
-                  );
-                  console.log(`Row ${i + 1}: Updated with ${images.length} image(s) from PSA API`);
-                } else {
-                  // Store cert data even if no images found
-                  await db.query(
-                    'UPDATE cards SET psa_cert_data = $1 WHERE id = $2',
-                    [JSON.stringify(cert), cardId]
-                  );
-                  console.log(`Row ${i + 1}: No images in API response, stored cert data`);
-                }
+              const setClauses = [];
+              const vals = [];
+              let pi = 1;
+              for (const [key, value] of Object.entries(updates)) {
+                setClauses.push(`${key} = $${pi++}`);
+                vals.push(value);
               }
+              vals.push(cardId);
+
+              await db.query(
+                `UPDATE cards SET ${setClauses.join(', ')} WHERE id = $${pi}`,
+                vals
+              );
+              console.log(`Row ${i + 1}: Enriched from PSA API (grade: ${parsed.grade}, images: ${cert.images?.length || 0})`);
             }
+            // Rate limit between cert lookups
+            await new Promise(r => setTimeout(r, 300));
+          } catch (certError) {
+            console.log(`Row ${i + 1}: PSA API cert lookup failed -`, certError.message);
           }
-        } catch (scrapeError) {
-          console.log(`Row ${i + 1}: Image scraping failed -`, scrapeError.message);
-          // Continue anyway, card is already created
         }
 
         imported++;
@@ -822,9 +901,69 @@ router.post("/:id/import-csv", authenticate, async (req, res) => {
   } catch (error) {
     console.error("CSV import error:", error);
     res.status(500).json({
-      error: "Failed to import CSV",
-      details: error.message
+      error: "Failed to import CSV"
     });
+  }
+});
+
+// Bulk add one customer to multiple submissions
+router.post("/bulk-add-customer", authenticate, async (req, res) => {
+  try {
+    const { customerId, submissionIds } = req.body;
+
+    if (!customerId) {
+      return res.status(400).json({ error: 'Customer ID required' });
+    }
+    if (!Array.isArray(submissionIds) || submissionIds.length === 0) {
+      return res.status(400).json({ error: 'Submission IDs required' });
+    }
+
+    // Verify customer belongs to this company
+    const customerCheck = await db.query(
+      'SELECT id FROM customers WHERE id = $1 AND company_id = $2',
+      [customerId, req.user.company_id]
+    );
+    if (customerCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    let added = 0;
+    let skipped = 0;
+
+    for (const submissionId of submissionIds) {
+      try {
+        const submissionCheck = await db.query(
+          'SELECT id FROM submissions WHERE id = $1 AND company_id = $2',
+          [submissionId, req.user.company_id]
+        );
+        if (submissionCheck.rows.length === 0) { skipped++; continue; }
+
+        const existing = await db.query(
+          'SELECT id FROM submission_customers WHERE submission_id = $1 AND customer_id = $2',
+          [submissionId, customerId]
+        );
+        if (existing.rows.length > 0) { skipped++; continue; }
+
+        await db.query(
+          'INSERT INTO submission_customers (submission_id, customer_id) VALUES ($1, $2)',
+          [submissionId, customerId]
+        );
+        added++;
+      } catch (err) {
+        console.error(`Failed to link submission ${submissionId}:`, err);
+        skipped++;
+      }
+    }
+
+    res.json({
+      success: true,
+      added,
+      skipped,
+      message: `Added to ${added} submission${added !== 1 ? 's' : ''}${skipped > 0 ? `, skipped ${skipped} already linked` : ''}`
+    });
+  } catch (error) {
+    console.error('Bulk add customer error:', error);
+    res.status(500).json({ error: 'Failed to add customer to submissions' });
   }
 });
 
@@ -880,7 +1019,7 @@ router.post("/verify-pickup-code", authenticate, requireRole("owner", "admin"), 
       );
     } catch (error) {
       // Columns don't exist yet - use simpler query
-      console.log('Note: picked_up columns not found. Using fallback query.');
+      console.warn('Note: picked_up columns not found. Using fallback query.');
       hasPickupColumns = false;
 
       result = await db.query(
@@ -933,7 +1072,7 @@ router.post("/verify-pickup-code", authenticate, requireRole("owner", "admin"), 
           [record.submission_id, record.customer_id]
         );
       } catch (error) {
-        console.log('Note: picked_up columns not found during update. Run migration to enable pickup tracking.');
+        console.warn('Note: picked_up columns not found during update. Run migration to enable pickup tracking.');
       }
     }
 
@@ -956,5 +1095,62 @@ router.post("/verify-pickup-code", authenticate, requireRole("owner", "admin"), 
   }
 });
 
+
+// Export submissions as CSV
+router.get("/export.csv", authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT
+         s.psa_submission_number, s.internal_id, s.service_level,
+         s.card_count, s.progress_percent, s.current_step,
+         s.grades_ready, s.shipped, s.picked_up, s.problem_order,
+         s.date_sent, s.estimated_return_date,
+         s.base_cost, s.upcharge_amount, s.total_cost, s.invoice_sent,
+         s.admin_notes, s.created_at
+       FROM submissions s
+       WHERE s.company_id = $1
+       ORDER BY s.created_at DESC`,
+      [req.user.company_id]
+    );
+
+    const headers = [
+      'PSA Number','Internal ID','Service Level','Card Count','Progress %',
+      'Current Step','Grades Ready','Shipped','Picked Up','Problem Order',
+      'Date Sent','Est. Return','Base Cost','Upcharge','Total Cost','Invoice Sent',
+      'Notes','Created At'
+    ];
+
+    const escape = (v) => {
+      if (v == null) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const rows = result.rows.map(r => [
+      r.psa_submission_number, r.internal_id, r.service_level,
+      r.card_count, r.progress_percent, r.current_step,
+      r.grades_ready ? 'Yes' : 'No',
+      r.shipped ? 'Yes' : 'No',
+      r.picked_up ? 'Yes' : 'No',
+      r.problem_order ? 'Yes' : 'No',
+      r.date_sent ? new Date(r.date_sent).toISOString().split('T')[0] : '',
+      r.estimated_return_date ? new Date(r.estimated_return_date).toISOString().split('T')[0] : '',
+      r.base_cost, r.upcharge_amount, r.total_cost,
+      r.invoice_sent ? 'Yes' : 'No',
+      r.admin_notes,
+      new Date(r.created_at).toISOString().split('T')[0]
+    ].map(escape).join(','));
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const date = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="submissions-${date}.csv"`);
+    res.send(csv);
+  } catch (err) {
+    console.error('Submissions CSV export error:', err.message);
+    res.status(500).json({ error: 'Failed to export' });
+  }
+});
 
 module.exports = router;

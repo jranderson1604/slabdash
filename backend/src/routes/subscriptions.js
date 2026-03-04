@@ -3,22 +3,27 @@ const router = express.Router();
 const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 const stripeService = require('../services/stripe');
+const { getLimits } = require('../config/tierLimits');
+const { sendEmail } = require('../services/emailService');
 
-// Stripe Price IDs (you'll need to create these in Stripe Dashboard)
+// Stripe Price IDs (set STRIPE_PRICE_SHOP and STRIPE_PRICE_ENTERPRISE in env)
 const PRICE_IDS = {
-  starter: process.env.STRIPE_PRICE_STARTER || 'price_starter',
-  pro: process.env.STRIPE_PRICE_PRO || 'price_pro',
-  enterprise: process.env.STRIPE_PRICE_ENTERPRISE || 'price_enterprise'
+  shop: process.env.STRIPE_PRICE_SHOP || null,
+  enterprise: process.env.STRIPE_PRICE_ENTERPRISE || null
 };
 
 // Create checkout session for subscription
 router.post('/create-checkout', authenticate, async (req, res) => {
   try {
     const { company_id, user } = req.user;
-    const { plan } = req.body; // 'starter', 'pro', or 'enterprise'
+    const { plan } = req.body; // 'shop' or 'enterprise'
 
-    if (!['starter', 'pro', 'enterprise'].includes(plan)) {
+    if (!['shop', 'enterprise'].includes(plan)) {
       return res.status(400).json({ error: 'Invalid plan' });
+    }
+
+    if (!PRICE_IDS[plan]) {
+      return res.status(503).json({ error: 'Subscription billing is not configured on this server' });
     }
 
     // Get company details
@@ -121,7 +126,8 @@ router.get('/status', authenticate, async (req, res) => {
       plan_expires_at: company.plan_expires_at,
       has_stripe_customer: !!company.stripe_customer_id,
       has_active_subscription: !!company.stripe_subscription_id,
-      subscription: subscriptionDetails
+      subscription: subscriptionDetails,
+      limits: getLimits(company.plan)
     });
   } catch (error) {
     console.error('Get subscription status error:', error);
@@ -149,11 +155,52 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  // Idempotency check — skip already-processed events
+  try {
+    const existing = await db.query('SELECT id FROM stripe_events WHERE event_id = $1', [event.id]);
+    if (existing.rows.length > 0) {
+      return res.sendStatus(200);
+    }
+    await db.query('INSERT INTO stripe_events (event_id, event_type) VALUES ($1, $2)', [event.id, event.type]);
+  } catch (idempotencyErr) {
+    console.warn('Stripe idempotency check failed (table may not exist yet):', idempotencyErr.message);
+  }
+
   // Handle the event
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
+
+        // Handle SAM token purchases (one-time payments)
+        if (session.metadata.type === 'sam_tokens') {
+          const customerId = session.metadata.customer_id;
+          const tokenCount = parseInt(session.metadata.token_count, 10);
+          const bundle = session.metadata.bundle;
+          const companyId = session.metadata.company_id;
+
+          // Credit tokens to customer
+          await db.query(
+            `UPDATE customers SET sam_token_balance = COALESCE(sam_token_balance, 0) + $1 WHERE id = $2`,
+            [tokenCount, customerId]
+          );
+
+          // Log the purchase
+          try {
+            await db.query(
+              `INSERT INTO sam_token_purchases (customer_id, company_id, bundle, token_count, amount_cents, stripe_session_id)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [customerId, companyId, bundle, tokenCount, session.amount_total, session.id]
+            );
+          } catch (logErr) {
+            console.warn('Token purchase log failed (table may not exist):', logErr.message);
+          }
+
+          console.log(`✅ SAM tokens credited: ${tokenCount} tokens to customer ${customerId} (bundle: ${bundle})`);
+          break;
+        }
+
+        // Handle subscription checkouts
         const companyId = session.metadata.company_id;
         const plan = session.metadata.plan;
 
@@ -209,11 +256,84 @@ router.post('/webhook', express.raw({ type: 'application/json' }), async (req, r
         break;
       }
 
+      case 'invoice.paid': {
+        // Clear any active grace period when payment succeeds
+        const paidInvoice = event.data.object;
+        await db.query(
+          `UPDATE companies SET payment_failed_at = NULL, updated_at = NOW() WHERE stripe_customer_id = $1`,
+          [paidInvoice.customer]
+        );
+        break;
+      }
+
       case 'invoice.payment_failed': {
         const invoice = event.data.object;
 
-        // TODO: Send email notification to customer about failed payment
-        console.warn(`⚠️  Payment failed for customer ${invoice.customer}`);
+        console.warn(`⚠️  Payment failed for Stripe customer ${invoice.customer}`);
+
+        // Record first failure time for grace period tracking
+        await db.query(
+          `UPDATE companies
+           SET payment_failed_at = COALESCE(payment_failed_at, NOW()), updated_at = NOW()
+           WHERE stripe_customer_id = $1`,
+          [invoice.customer]
+        );
+
+        try {
+          const companyResult = await db.query(
+            `SELECT c.id, c.name, c.email, c.payment_failed_at, u.email as owner_email
+             FROM companies c
+             LEFT JOIN users u ON u.company_id = c.id AND u.role = 'admin'
+             WHERE c.stripe_customer_id = $1
+             LIMIT 1`,
+            [invoice.customer]
+          );
+
+          if (companyResult.rows.length > 0) {
+            const company = companyResult.rows[0];
+
+            // Downgrade to free after 3-day grace period
+            const failedAt = company.payment_failed_at ? new Date(company.payment_failed_at) : new Date();
+            const gracePeriodMs = 3 * 24 * 60 * 60 * 1000;
+            if (Date.now() - failedAt.getTime() > gracePeriodMs) {
+              await db.query(
+                `UPDATE companies SET plan = 'free', stripe_subscription_id = NULL, payment_failed_at = NULL, updated_at = NOW() WHERE id = $1`,
+                [company.id]
+              );
+              console.warn(`⬇️  Company ${company.id} downgraded to free after grace period expired`);
+            }
+
+            const recipientEmail = company.owner_email || company.email;
+
+            if (recipientEmail) {
+              await sendEmail({
+                to: recipientEmail,
+                subject: 'Action Required: Your SlabDash payment failed',
+                html: `
+                  <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                    <h2 style="color: #ef4444;">Payment Failed</h2>
+                    <p>Hi ${company.name},</p>
+                    <p>We were unable to process your SlabDash subscription payment.</p>
+                    <p>To keep your account active, please update your payment method:</p>
+                    <p style="text-align: center; margin: 30px 0;">
+                      <a href="${process.env.FRONTEND_URL || 'https://app.slabdash.com'}/settings/billing"
+                         style="background: #FF8170; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                        Update Payment Method
+                      </a>
+                    </p>
+                    <p style="color: #6b7280; font-size: 14px;">
+                      If you believe this is an error, please contact us at support@slabdash.com.
+                    </p>
+                    <p>— The SlabDash Team</p>
+                  </div>
+                `,
+              });
+              console.log(`📧 Payment failure email sent to ${recipientEmail} for company ${company.name}`);
+            }
+          }
+        } catch (emailErr) {
+          console.error('Failed to send payment failure email:', emailErr.message);
+        }
         break;
       }
 

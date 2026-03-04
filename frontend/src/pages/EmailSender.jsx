@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
+import DOMPurify from 'dompurify';
+import { useToast } from '../context/ToastContext';
 import { customers, submissions, emailTemplates } from '../api/client';
 import {
-  Mail,
   Send,
   Users,
   Package,
@@ -16,6 +17,7 @@ import {
 } from 'lucide-react';
 
 export default function EmailSender() {
+  const toast = useToast();
   const [sendMode, setSendMode] = useState('customer'); // 'customer', 'submission', 'bulk'
   const [customerList, setCustomerList] = useState([]);
   const [submissionList, setSubmissionList] = useState([]);
@@ -96,17 +98,17 @@ export default function EmailSender() {
 
   const handleSendEmail = async () => {
     if (!emailSubject || !emailBody) {
-      alert('Please enter both subject and body');
+      toast.error('Please enter both subject and body');
       return;
     }
 
     if (sendMode === 'customer' && !selectedCustomer) {
-      alert('Please select a customer');
+      toast.error('Please select a customer');
       return;
     }
 
     if (sendMode === 'submission' && !selectedSubmission) {
-      alert('Please select a submission');
+      toast.error('Please select a submission');
       return;
     }
 
@@ -172,18 +174,13 @@ export default function EmailSender() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
-
-        <div className="relative">
-          <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg flex items-center gap-3">
-            <Mail className="w-10 h-10" />
-            SEND EMAILS
-          </h1>
-          <p className="text-white/90 text-lg font-semibold">
-            Send custom emails to customers, submissions, or everyone
-          </p>
+      <div className="relative overflow-hidden rounded-3xl" style={{ background: 'var(--hdr-gradient)', boxShadow: 'var(--hdr-shadow)', border: 'var(--hdr-border)' }}>
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
+        <div className="relative px-6 sm:px-8 py-7">
+          <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: 'var(--hdr-eyebrow)' }}>Communications</p>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight" style={{ color: 'var(--hdr-title)' }}>Send Emails</h1>
+          <p className="text-sm font-medium mt-1" style={{ color: 'var(--hdr-sub)' }}>Send custom emails to customers, submissions, or everyone</p>
         </div>
       </div>
 
@@ -439,7 +436,7 @@ export default function EmailSender() {
                 <p className="text-sm text-gray-600 mb-1">Body:</p>
                 <div className="bg-white border border-gray-200 rounded-lg p-4 max-h-96 overflow-y-auto">
                   {preview.body ? (
-                    <div dangerouslySetInnerHTML={{ __html: preview.body }} />
+                    <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(preview.body) }} />
                   ) : (
                     <p className="text-gray-400 italic">Your email body will appear here</p>
                   )}
@@ -476,7 +473,7 @@ export default function EmailSender() {
                 <p className="font-semibold text-gray-900 text-lg">{preview.subject}</p>
               </div>
               <div className="border border-gray-200 rounded-lg p-6 bg-gray-50">
-                <div dangerouslySetInnerHTML={{ __html: preview.body }} />
+                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(preview.body) }} />
               </div>
             </div>
             <div className="p-4 border-t border-gray-200 flex justify-between">
