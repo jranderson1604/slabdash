@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
 const path = require('path');
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling
@@ -7,6 +7,11 @@ if (require('electron-squirrel-startup')) {
 }
 
 let mainWindow;
+
+// IPC Handlers
+ipcMain.handle('app-version', () => {
+  return app.getVersion();
+});
 
 function createWindow() {
   // Create the browser window
