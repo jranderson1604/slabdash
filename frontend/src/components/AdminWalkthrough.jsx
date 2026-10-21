@@ -16,6 +16,9 @@ import {
   Eye,
   Info,
   PlayCircle,
+  LayoutDashboard,
+  CreditCard,
+  Settings,
 } from 'lucide-react';
 
 /**

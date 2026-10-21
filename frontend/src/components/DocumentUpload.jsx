@@ -1,8 +1,10 @@
 import { useState, useRef } from 'react';
 import { Camera, Upload, File, X, CheckCircle2, Loader2 } from 'lucide-react';
 import apiClient from '../api/client';
+import { useToast } from '../context/ToastContext';
 
 export default function DocumentUpload({ submissionId, customerId, onUploadComplete }) {
+  const toast = useToast();
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState(null);
   const [file, setFile] = useState(null);
@@ -57,10 +59,10 @@ export default function DocumentUpload({ submissionId, customerId, onUploadCompl
         onUploadComplete();
       }
 
-      alert('Document uploaded successfully!');
+      toast.success('Document uploaded successfully!');
     } catch (err) {
       console.error('Upload failed:', err);
-      alert('Failed to upload document: ' + (err.response?.data?.error || err.message));
+      toast.error('Failed to upload document: ' + (err.response?.data?.error || err.message));
     } finally {
       setUploading(false);
     }

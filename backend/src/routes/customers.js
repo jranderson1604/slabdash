@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { v4: uuidv4 } = require('uuid');
+const { getLimits } = require('../config/tierLimits');
 
 // Helper function to validate email addresses
 const isValidEmail = (email) => {
@@ -15,7 +16,9 @@ const isValidEmail = (email) => {
 // List customers
 router.get('/', authenticate, async (req, res) => {
     try {
-        const { search, limit = 100000, offset = 0 } = req.query;
+        const { search } = req.query;
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 500, 1), 1000);
+        const offset = Math.max(parseInt(req.query.offset) || 0, 0);
 
         // Count query
         let countQuery = `SELECT COUNT(*) FROM customers WHERE company_id = $1`;
@@ -29,21 +32,39 @@ router.get('/', authenticate, async (req, res) => {
         const countResult = await db.query(countQuery, countParams);
         const total = parseInt(countResult.rows[0].count);
 
-        // Data query
-        let query = `SELECT * FROM customers WHERE company_id = $1`;
+        // Data query with accurate submission and card counts
+        let query = `
+            SELECT c.*,
+                COALESCE(sub_counts.submission_count, 0) AS total_submissions,
+                COALESCE(sub_counts.card_count, 0) AS total_cards
+            FROM customers c
+            LEFT JOIN LATERAL (
+                SELECT
+                    COUNT(DISTINCT sc.submission_id) AS submission_count,
+                    COALESCE(SUM(card_counts.cnt), 0) AS card_count
+                FROM submission_customers sc
+                LEFT JOIN (
+                    SELECT submission_id, COUNT(*) AS cnt
+                    FROM cards
+                    GROUP BY submission_id
+                ) card_counts ON card_counts.submission_id = sc.submission_id
+                WHERE sc.customer_id = c.id
+            ) sub_counts ON true
+            WHERE c.company_id = $1`;
         const params = [req.companyId];
 
         if (search) {
-            query += ` AND (name ILIKE $2 OR email ILIKE $2)`;
+            query += ` AND (c.name ILIKE $2 OR c.email ILIKE $2)`;
             params.push(`%${search}%`);
         }
 
-        query += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+        query += ` ORDER BY c.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
         params.push(parseInt(limit), parseInt(offset));
 
         const result = await db.query(query, params);
         res.json({ customers: result.rows, total });
     } catch (error) {
+        console.error('List customers error:', error);
         res.status(500).json({ error: 'Failed to list customers' });
     }
 });
@@ -58,7 +79,7 @@ router.get('/:id', authenticate, async (req, res) => {
 
         // Get all submissions for this customer via submission_customers join table
         const submissionsQuery = `
-            SELECT s.*, COUNT(c.id) as card_count
+            SELECT s.*, COUNT(c.id)::int as card_count
             FROM submissions s
             INNER JOIN submission_customers sc ON s.id = sc.submission_id
             LEFT JOIN cards c ON s.id = c.submission_id
@@ -88,14 +109,34 @@ router.post('/', authenticate, async (req, res) => {
     try {
         const { email, name, phone, address_line1, city, state, postal_code, notes } = req.body;
         if (!email || !name) return res.status(400).json({ error: 'Email and name required' });
-        
-        const existing = await db.query('SELECT id FROM customers WHERE company_id = $1 AND email = $2', [req.companyId, email.toLowerCase()]);
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return res.status(400).json({ error: 'Invalid email format' });
+        if (name.length > 255) return res.status(400).json({ error: 'Name too long (max 255 characters)' });
+        if (phone && phone.length > 50) return res.status(400).json({ error: 'Phone too long' });
+        if (notes && notes.length > 5000) return res.status(400).json({ error: 'Notes too long (max 5000 characters)' });
+
+        // Enforce customer count limit
+        const limits = getLimits(req.user.plan);
+        if (limits.customers !== Infinity) {
+            const countResult = await db.query('SELECT COUNT(*) FROM customers WHERE company_id = $1', [req.companyId]);
+            const customerCount = parseInt(countResult.rows[0].count, 10);
+            if (customerCount >= limits.customers) {
+                return res.status(403).json({
+                    error: 'Customer limit reached for your plan',
+                    limit: limits.customers,
+                    current: customerCount,
+                    upgrade: true
+                });
+            }
+        }
+
+        const trimmedEmail = email.trim().toLowerCase();
+        const existing = await db.query('SELECT id FROM customers WHERE company_id = $1 AND LOWER(TRIM(email)) = $2', [req.companyId, trimmedEmail]);
         if (existing.rows.length > 0) return res.status(400).json({ error: 'Customer already exists' });
-        
+
         const result = await db.query(
-            `INSERT INTO customers (company_id, email, name, phone, address_line1, city, state, postal_code, notes)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-            [req.companyId, email.toLowerCase(), name, phone, address_line1, city, state, postal_code, notes]
+            `INSERT INTO customers (company_id, email, name, phone, address_line1, city, state, postal_code, notes, portal_access_enabled)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true) RETURNING *`,
+            [req.companyId, trimmedEmail, name, phone, address_line1, city, state, postal_code, notes]
         );
         res.status(201).json(result.rows[0]);
     } catch (error) {
@@ -164,6 +205,21 @@ router.post('/import-csv', authenticate, async (req, res) => {
     try {
         const { csvData } = req.body;
 
+        // Enforce customer count limit before import
+        const limits = getLimits(req.user.plan);
+        if (limits.customers !== Infinity) {
+            const countResult = await db.query('SELECT COUNT(*) FROM customers WHERE company_id = $1', [req.companyId]);
+            const customerCount = parseInt(countResult.rows[0].count, 10);
+            if (customerCount >= limits.customers) {
+                return res.status(403).json({
+                    error: 'Customer limit reached for your plan',
+                    limit: limits.customers,
+                    current: customerCount,
+                    upgrade: true
+                });
+            }
+        }
+
         // Helper function to parse CSV line with quoted fields
         const parseCSVLine = (line) => {
             const result = [];
@@ -196,7 +252,6 @@ router.post('/import-csv', authenticate, async (req, res) => {
         const lines = csvData.trim().split('\n');
         const headers = parseCSVLine(lines[0]).map(h => h.toLowerCase());
 
-        console.log('CSV Import - Headers found:', headers);
 
         // Find column indices (flexible for different CSV formats)
         const emailIndex = headers.findIndex(h => h.includes('email'));
@@ -241,10 +296,15 @@ router.post('/import-csv', authenticate, async (req, res) => {
             const state = stateIndex >= 0 ? cols[stateIndex]?.trim() : null;
             const zip = zipIndex >= 0 ? cols[zipIndex]?.trim() : null;
 
-            // Skip if no email or name
+            // Skip if no email or name or invalid email
             if (!email || !name) {
                 skipped++;
                 errors.push(`Row ${i + 1}: Missing email or name`);
+                continue;
+            }
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                skipped++;
+                errors.push(`Row ${i + 1}: Invalid email format (${email})`);
                 continue;
             }
 
@@ -268,17 +328,13 @@ router.post('/import-csv', authenticate, async (req, res) => {
                 );
 
                 imported++;
-                console.log(`Row ${i + 1}: Imported customer ${email}`);
             } catch (error) {
                 errors.push(`Row ${i + 1}: ${error.message}`);
                 console.error(`Row ${i + 1}: Error -`, error.message);
             }
         }
 
-        console.log(`\n=== IMPORT SUMMARY ===`);
-        console.log('Imported:', imported);
-        console.log('Skipped:', skipped);
-        console.log('Total rows:', lines.length - 1);
+        console.log(`[Customers] CSV import complete: ${imported} imported, ${skipped} skipped of ${lines.length - 1} rows`);
 
         res.json({
             success: true,
@@ -290,8 +346,7 @@ router.post('/import-csv', authenticate, async (req, res) => {
     } catch (error) {
         console.error('Customer CSV import error:', error);
         res.status(500).json({
-            error: 'Failed to import CSV',
-            details: error.message
+            error: 'Failed to import CSV'
         });
     }
 });
@@ -387,12 +442,12 @@ router.post('/:id/send-introduction-email', authenticate, async (req, res) => {
             );
         }
 
-        const portalUrl = `${process.env.FRONTEND_URL || 'https://slabdash-8n99.vercel.app'}/portal?token=${token}`;
+        const portalUrl = `${process.env.FRONTEND_URL || 'https://slabdash.app'}/portal?token=${token}`;
 
         // Get customer's submissions
         const submissionsResult = await db.query(
             `SELECT s.id, s.psa_submission_number, s.internal_id, s.service_level, s.current_step,
-                    s.progress_percent, s.grades_ready, COUNT(c.id) as card_count
+                    s.progress_percent, s.grades_ready, COUNT(c.id)::int as card_count
              FROM submissions s
              LEFT JOIN cards c ON s.id = c.submission_id
              WHERE s.id IN (
@@ -493,7 +548,7 @@ router.post('/send-test-introduction-email', authenticate, async (req, res) => {
             </div>
         `;
 
-        const samplePortalUrl = `${process.env.FRONTEND_URL || 'https://slabdash-8n99.vercel.app'}/portal?token=sample-token-preview`;
+        const samplePortalUrl = `${process.env.FRONTEND_URL || 'https://slabdash.app'}/portal?token=sample-token-preview`;
 
         // Send email using email service
         const { sendIntroductionEmail } = require('../services/emailService');
@@ -557,8 +612,7 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
 
         const customers = customersResult.rows;
 
-        console.log(`📊 Found ${customers.length} customers with submissions`);
-        console.log('Customer emails:', customers.map(c => c.email).join(', '));
+        console.log(`[Customers] Sending bulk intro emails to ${customers.length} customers`);
 
         if (customers.length === 0) {
             return res.json({
@@ -592,7 +646,7 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
                         skipped: true,
                         reason: 'Invalid email address'
                     });
-                    console.log(`⚠ Skipping invalid email for ${customer.name}: ${customer.email}`);
+                    console.warn(`[Customers] Skipping customer ID ${customer.id}: invalid email address`);
                     continue;
                 }
 
@@ -608,12 +662,12 @@ router.post('/send-bulk-introduction-emails', authenticate, async (req, res) => 
                     );
                 }
 
-                const portalUrl = `${process.env.FRONTEND_URL || 'https://slabdash-8n99.vercel.app'}/portal?token=${token}`;
+                const portalUrl = `${process.env.FRONTEND_URL || 'https://slabdash.app'}/portal?token=${token}`;
 
                 // Get customer's submissions
                 const submissionsResult = await db.query(
                     `SELECT s.id, s.psa_submission_number, s.internal_id, s.service_level, s.current_step,
-                            s.progress_percent, s.grades_ready, COUNT(c.id) as card_count
+                            s.progress_percent, s.grades_ready, COUNT(c.id)::int as card_count
                      FROM submissions s
                      LEFT JOIN cards c ON s.id = c.submission_id
                      WHERE s.id IN (
@@ -762,6 +816,47 @@ router.post('/bulk-add-to-submission', authenticate, async (req, res) => {
         console.error('Bulk add to submission error:', error);
         res.status(500).json({ error: 'Failed to add customers to submission' });
     }
+});
+
+// Export customers as CSV
+router.get("/export.csv", authenticate, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT
+         c.name, c.email, c.phone, c.notes,
+         COUNT(DISTINCT ca.id)::int AS card_count,
+         COUNT(DISTINCT ca.id) FILTER (WHERE ca.grade IS NOT NULL) AS graded_count,
+         c.created_at
+       FROM customers c
+       LEFT JOIN cards ca ON ca.customer_owner_id = c.id AND ca.company_id = $1
+       WHERE c.company_id = $1
+       GROUP BY c.id
+       ORDER BY c.name ASC`,
+      [req.user.company_id]
+    );
+
+    const headers = ['Name','Email','Phone','Cards','Graded','Notes','Joined'];
+    const escape = (v) => {
+      if (v == null) return '';
+      const s = String(v);
+      return s.includes(',') || s.includes('"') || s.includes('\n')
+        ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = result.rows.map(r => [
+      r.name, r.email, r.phone,
+      r.card_count, r.graded_count, r.notes,
+      new Date(r.created_at).toISOString().split('T')[0]
+    ].map(escape).join(','));
+
+    const csv = [headers.join(','), ...rows].join('\n');
+    const date = new Date().toISOString().split('T')[0];
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="customers-${date}.csv"`);
+    res.send(csv);
+  } catch (err) {
+    console.error('Customers CSV export error:', err.message);
+    res.status(500).json({ error: 'Failed to export' });
+  }
 });
 
 module.exports = router;

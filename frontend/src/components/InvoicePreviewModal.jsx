@@ -3,9 +3,11 @@ import { createPortal } from 'react-dom';
 import { X, Send, Edit2, DollarSign, Loader2, Eye, ChevronDown, AlertCircle, Zap } from 'lucide-react';
 import { invoices } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 
 export default function InvoicePreviewModal({ submission, onClose, onSent }) {
   const { company } = useAuth();
+  const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [preview, setPreview] = useState(null);
@@ -42,11 +44,7 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
 
   const handleSend = async () => {
     if (!preview?.customers || preview.customers.length === 0) {
-      alert('No customers found. Please add customers to this submission first.');
-      return;
-    }
-
-    if (!confirm(`Send invoices to ${preview.customers.length} customer(s)?\n\nThis will email invoices and mark the submission as invoiced.`)) {
+      toast.error('No customers found. Please add customers to this submission first.');
       return;
     }
 
@@ -58,13 +56,7 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
       });
       const { emails_sent, emails_failed, invoice_number } = response.data;
 
-      // Show success message
-      alert(
-        `✅ Invoices Sent!\n\n` +
-        `Invoice #${invoice_number}\n` +
-        `Sent: ${emails_sent}\n` +
-        `Failed: ${emails_failed}`
-      );
+      toast.success(`Invoices sent! Invoice #${invoice_number} — ${emails_sent} sent, ${emails_failed} failed`);
 
       // Close modal first
       onClose();
@@ -75,7 +67,7 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
       }
     } catch (error) {
       console.error('Failed to send invoices:', error);
-      alert(error.response?.data?.error || 'Failed to send invoices');
+      toast.error(error.response?.data?.error || 'Failed to send invoices');
       setSending(false);
     }
   };
@@ -83,9 +75,14 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
   // Show loading state
   if (loading) {
     return createPortal(
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
         <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
-          <div className="p-8 flex items-center justify-center">
+          <div className="flex justify-end p-3 pb-0">
+            <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="p-8 pt-4 flex items-center justify-center">
             <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
             <span className="ml-3 text-gray-600">Loading invoice preview...</span>
           </div>
@@ -231,7 +228,7 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
                     .sort(([a], [b]) => a.localeCompare(b))
                     .map(([level, price]) => (
                       <option key={level} value={level}>
-                        {level} - ${parseFloat(price).toFixed(2)}
+                        {level} - ${(parseFloat(price) || 0).toFixed(2)}
                       </option>
                     ))}
                 </select>
@@ -381,7 +378,7 @@ export default function InvoicePreviewModal({ submission, onClose, onSent }) {
           {/* Warning */}
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <p className="text-sm text-yellow-800">
-              ⚠️ <strong>Before sending:</strong> Review all costs and customer emails. Once sent, invoices cannot be unsent.
+              <strong>Before sending:</strong> Review all costs and customer emails. Once sent, invoices cannot be unsent.
             </p>
           </div>
         </div>

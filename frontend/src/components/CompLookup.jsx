@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { TrendingUp, RefreshCw, DollarSign, Calendar, ExternalLink, AlertCircle, CheckCircle } from 'lucide-react';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 /**
  * CompLookup Component
@@ -24,7 +24,7 @@ export default function CompLookup({ cardId, token, initialCard, onUpdate, readO
 
   const loadCompData = async () => {
     try {
-      const authToken = token || localStorage.getItem('token');
+      const authToken = token || localStorage.getItem('slabdash_token');
       const url = token
         ? `${API_URL}/cards/${cardId}/comps?token=${token}`
         : `${API_URL}/cards/${cardId}/comps`;
@@ -50,7 +50,7 @@ export default function CompLookup({ cardId, token, initialCard, onUpdate, readO
     setError(null);
 
     try {
-      const authToken = token || localStorage.getItem('token');
+      const authToken = token || localStorage.getItem('slabdash_token');
       const url = token
         ? `${API_URL}/cards/${cardId}/lookup-price?token=${token}&force=${force}`
         : `${API_URL}/cards/${cardId}/lookup-price?force=${force}`;
@@ -140,7 +140,7 @@ export default function CompLookup({ cardId, token, initialCard, onUpdate, readO
         <div className="bg-white rounded-lg p-4 mb-4 border border-green-200">
           <div className="text-sm text-green-700 mb-1">Estimated Market Value</div>
           <div className="text-3xl font-bold text-green-900">
-            ${parseFloat(card.price_estimate).toFixed(2)}
+            ${(parseFloat(card.price_estimate) || 0).toFixed(2)}
           </div>
           {hasComps && latestComp.totalListings && (
             <div className="text-sm text-green-600 mt-1">

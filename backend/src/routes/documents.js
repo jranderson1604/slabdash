@@ -197,15 +197,24 @@ router.get("/:id/file", authenticate, async (req, res) => {
       return res.status(404).json({ error: "Document not found" });
     }
 
-    const { file_path, file_name, mime_type } = result.rows[0];
+    const { file_path: storedPath, file_name, mime_type } = result.rows[0];
 
-    if (!fs.existsSync(file_path)) {
+    // Prevent path traversal: resolve and verify the file is within the uploads directory
+    const uploadsDir = path.resolve(__dirname, "../../uploads");
+    const resolvedPath = path.resolve(storedPath);
+    if (!resolvedPath.startsWith(uploadsDir)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    if (!fs.existsSync(resolvedPath)) {
       return res.status(404).json({ error: "File not found on disk" });
     }
 
+    // Sanitize filename for Content-Disposition header
+    const safeName = file_name.replace(/[^\w\s.\-()]/g, '_');
     res.setHeader("Content-Type", mime_type);
-    res.setHeader("Content-Disposition", `inline; filename="${file_name}"`);
-    res.sendFile(file_path);
+    res.setHeader("Content-Disposition", `inline; filename="${safeName}"`);
+    res.sendFile(resolvedPath);
   } catch (err) {
     console.error("Download document error:", err);
     res.status(500).json({ error: "Failed to download document" });

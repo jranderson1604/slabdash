@@ -65,8 +65,7 @@ async function sendInvoiceEmail(customer, submission, lineItems, subtotal, taxAm
                 <!-- Header with SlabDash Branding -->
                 <div style="background: linear-gradient(135deg, #FF8170 0%, #F07057 100%); padding: 40px 30px; text-align: center; position: relative;">
                     <div style="background: white; display: inline-block; padding: 16px 32px; border-radius: 16px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
-                        <img src="${process.env.LOGO_URL || 'https://i.imgur.com/placeholder.png'}" alt="SlabDash Logo" style="height: 45px; display: block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';" />
-                        <span style="font-family: 'Inter', Arial, sans-serif; font-size: 24px; font-weight: 800; color: #FF8170; letter-spacing: -0.5px; display: none;">SLABDASH</span>
+                        ${process.env.LOGO_URL ? `<img src="${process.env.LOGO_URL}" alt="SlabDash Logo" style="height: 45px; display: block;" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline';" /><span style="font-family: 'Inter', Arial, sans-serif; font-size: 24px; font-weight: 800; color: #FF8170; letter-spacing: -0.5px; display: none;">SLABDASH</span>` : `<span style="font-family: 'Inter', Arial, sans-serif; font-size: 24px; font-weight: 800; color: #FF8170; letter-spacing: -0.5px;">SLABDASH</span>`}
                     </div>
                     <h1 style="color: white; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">Invoice</h1>
                     <p style="color: rgba(255,255,255,0.95); margin: 8px 0 0 0; font-size: 16px; font-weight: 500;">${companyName}</p>
@@ -257,7 +256,7 @@ router.get('/preview/:submissionId', authenticate, requireRole('owner', 'admin')
 
     } catch (error) {
         console.error('Invoice preview error:', error);
-        res.status(500).json({ error: 'Failed to generate preview', details: error.message });
+        res.status(500).json({ error: 'Failed to generate preview' });
     }
 });
 
@@ -283,7 +282,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
         } catch (error) {
             // Fallback if tax_percentage column doesn't exist yet
             if (error.code === '42703') {
-                console.log('Note: tax_percentage column not found. Run migration to add it.');
+                console.warn('Note: tax_percentage column not found. Run migration to add it.');
                 submissionResult = await db.query(
                     `SELECT s.*, comp.name as company_name, 0 as tax_percentage
                      FROM submissions s
@@ -344,7 +343,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
                 );
             } catch (error) {
                 // Columns don't exist yet - run migration first
-                console.log('Note: psa_service_cost/additional_fees columns not found. Run migration to add them.');
+                console.warn('Note: psa_service_cost/additional_fees columns not found. Run migration to add them.');
             }
         }
 
@@ -361,7 +360,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
                 );
             } catch (error) {
                 // Column doesn't exist yet - run migration first
-                console.log('Note: invoice_number column not found. Invoice will be generated but not saved. Run migration to add it.');
+                console.warn('Note: invoice_number column not found. Invoice will be generated but not saved. Run migration to add it.');
             }
         }
 
@@ -387,7 +386,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
                 };
             }
         } catch (error) {
-            console.log('Note: mailgun columns not found in companies table. Using environment variables.');
+            console.warn('Note: mailgun columns not found in companies table. Using environment variables.');
         }
 
         // Fall back to environment variables if not set in database
@@ -427,7 +426,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
         try {
             taxPercentage = parseFloat(submission.tax_percentage) || 0;
         } catch (error) {
-            console.log('Note: tax_percentage column not found. Run migration to add it.');
+            console.warn('Note: tax_percentage column not found. Run migration to add it.');
         }
 
         const taxAmount = subtotal * (taxPercentage / 100);
@@ -444,12 +443,12 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
         const errors = [];
 
         for (const customer of customersWithEmails) {
-            // Generate unique pickup code for this customer if submission is ready
-            let customerPickupCode = null;
-            if (submission.grades_ready) {
+            // Generate pickup code for this customer if submission is ready and they don't have one
+            let customerPickupCode = customer.pickup_code || null;
+            if (submission.grades_ready && !customerPickupCode) {
                 customerPickupCode = generatePickupCode();
 
-                // Save pickup code to submission_customers table
+                // Save pickup code to submission_customers table (single source of truth)
                 try {
                     await db.query(
                         `UPDATE submission_customers
@@ -458,8 +457,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
                         [customerPickupCode, submissionId, customer.customer_id]
                     );
                 } catch (error) {
-                    // Column doesn't exist yet - pickup code will still be used in emails but not saved
-                    console.log('Note: pickup_code column not found in submission_customers. Run migration to add it.');
+                    console.warn('Note: pickup_code column not found in submission_customers. Run migration to add it.');
                 }
             }
 
@@ -514,7 +512,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
                     );
                 } catch (error) {
                     // Columns don't exist yet - invoice was still sent successfully
-                    console.log('Note: invoice_sent/customer_cost columns not found in submission_customers. Run migration to add them.');
+                    console.warn('Note: invoice_sent/customer_cost columns not found in submission_customers. Run migration to add them.');
                 }
             } else {
                 emailsFailed++;
@@ -532,7 +530,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
             );
         } catch (error) {
             // Columns don't exist yet - invoices were still sent successfully
-            console.log('Note: invoice_sent/invoice_sent_at columns not found in submissions. Run migration to add them.');
+            console.warn('Note: invoice_sent/invoice_sent_at columns not found in submissions. Run migration to add them.');
         }
 
         res.json({
@@ -546,7 +544,7 @@ router.post('/generate/:submissionId', authenticate, requireRole('owner', 'admin
 
     } catch (error) {
         console.error('Generate invoices error:', error);
-        res.status(500).json({ error: 'Failed to generate invoices', details: error.message });
+        res.status(500).json({ error: 'Failed to generate invoices' });
     }
 });
 

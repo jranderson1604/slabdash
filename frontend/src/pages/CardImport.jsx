@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 import { cardImport, submissions } from '../api/client';
 import {
   Upload,
@@ -13,6 +14,7 @@ import {
 
 export default function CardImport() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [submissionList, setSubmissionList] = useState([]);
   const [selectedSubmission, setSelectedSubmission] = useState('');
   const [file, setFile] = useState(null);
@@ -45,7 +47,7 @@ export default function CardImport() {
       link.remove();
     } catch (error) {
       console.error('Failed to download template:', error);
-      alert('Failed to download template');
+      toast.error('Failed to download template');
     }
   };
 
@@ -55,19 +57,19 @@ export default function CardImport() {
       setFile(selectedFile);
       setResult(null);
     } else {
-      alert('Please select a CSV file');
+      toast.error('Please select a CSV file');
       e.target.value = '';
     }
   };
 
   const handleUpload = async () => {
     if (!selectedSubmission) {
-      alert('Please select a submission');
+      toast.error('Please select a submission');
       return;
     }
 
     if (!file) {
-      alert('Please select a CSV file');
+      toast.error('Please select a CSV file');
       return;
     }
 
@@ -85,7 +87,7 @@ export default function CardImport() {
       if (fileInputRef.current) fileInputRef.current.value = '';
     } catch (error) {
       console.error('Upload failed:', error);
-      alert(error.response?.data?.error || 'Failed to upload CSV');
+      toast.error(error.response?.data?.error || 'Failed to upload CSV');
     } finally {
       setUploading(false);
     }

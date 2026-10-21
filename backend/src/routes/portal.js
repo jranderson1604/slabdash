@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+const rateLimit = require('express-rate-limit');
 const db = require('../db');
 const { authenticateCustomer } = require('../middleware/auth');
 const stripeService = require('../services/stripe');
@@ -8,9 +11,593 @@ const cardScannerService = require('../services/cardScannerService');
 const multer = require('multer');
 const cloudinary = require('../config/cloudinary');
 const upload = multer({ storage: multer.memoryStorage() });
+const { fetchJustTCGComps, fetchEbayComps, fetchGradedPricing } = require('../services/priceCompService');
+
+// ============================================
+// SECURITY: Strict rate limiter for auth endpoints
+// 5 attempts per 15 minutes per IP
+// ============================================
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please try again in 15 minutes.' },
+  keyGenerator: (req) => {
+    // Rate limit by IP + email combo to prevent distributed attacks
+    const email = (req.body?.email || '').toLowerCase();
+    return `${req.ip}:${email}`;
+  }
+});
+
+// Password validation: min 8 chars, at least 1 letter, at least 1 number
+const validatePassword = (password) => {
+  if (!password || password.length < 8) return 'Password must be at least 8 characters';
+  if (!/[a-zA-Z]/.test(password)) return 'Password must contain at least one letter';
+  if (!/[0-9]/.test(password)) return 'Password must contain at least one number';
+  return null;
+};
+
+// Account lockout: 5 failed attempts = 30 minute lock
+const LOCKOUT_THRESHOLD = 5;
+const LOCKOUT_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+
+const checkAccountLock = (customer) => {
+  if (customer.locked_until && new Date(customer.locked_until) > new Date()) {
+    const minutesLeft = Math.ceil((new Date(customer.locked_until) - new Date()) / 60000);
+    return `Account locked. Try again in ${minutesLeft} minutes.`;
+  }
+  return null;
+};
+
+// ============================================
+// CUSTOMER AUTH ENDPOINTS
+// ============================================
+
+// Look up shop by 4-digit code (returns minimal public info only)
+router.get('/auth/shop-lookup/:code', async (req, res) => {
+  try {
+    const code = req.params.code.trim();
+    if (!code || code.length > 50) {
+      return res.status(400).json({ error: 'Invalid shop code' });
+    }
+    // Support both shop_code (4-digit) and slug for backwards compatibility
+    const result = await db.query(
+      `SELECT name, slug, shop_code, primary_color, logo_url FROM companies
+       WHERE shop_code = $1 OR slug = $1`,
+      [code.toLowerCase()]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Shop not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to look up shop' });
+  }
+});
+
+// Helper: find company by shop_code or slug
+const findCompany = async (code) => {
+  const result = await db.query(
+    `SELECT id, name, slug, shop_code, primary_color, logo_url, sam_enabled
+     FROM companies WHERE shop_code = $1 OR slug = $1`,
+    [code.toLowerCase()]
+  );
+  return result.rows[0] || null;
+};
+
+// Helper: build company response object
+const companyResponse = (company) => ({
+  name: company.name, slug: company.slug, shop_code: company.shop_code,
+  primaryColor: company.primary_color, logo_url: company.logo_url,
+  sam_enabled: company.sam_enabled
+});
+
+// Customer registration — creates account or absorbs existing record
+router.post('/auth/register', authLimiter, async (req, res) => {
+  try {
+    const { shopCode, name, email, password } = req.body;
+
+    if (!shopCode || !name?.trim() || !email?.trim() || !password) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ error: passwordError });
+    }
+
+    const company = await findCompany(shopCode);
+    if (!company) {
+      return res.status(404).json({ error: 'Invalid shop code' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedName = name.trim();
+
+    // Check if email already exists for this company (case-insensitive, whitespace-trimmed)
+    const existing = await db.query(
+      `SELECT id, name, email, password_hash FROM customers
+       WHERE company_id = $1 AND LOWER(TRIM(email)) = $2`,
+      [company.id, trimmedEmail]
+    );
+
+    let customer;
+    let isAbsorbed = false;
+    if (existing.rows.length > 0) {
+      // Account absorption: email exists in system (added by shop), new registration takes it over
+      const existingCustomer = existing.rows[0];
+      if (existingCustomer.password_hash) {
+        return res.status(409).json({ error: 'Account already registered. Please sign in.' });
+      }
+      // Absorb: set their password, normalize email, update name, enable portal
+      await db.query(
+        `UPDATE customers SET name = $1, email = $2, password_hash = $3, portal_access_enabled = true,
+         failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW(), updated_at = NOW()
+         WHERE id = $4`,
+        [trimmedName, trimmedEmail, passwordHash, existingCustomer.id]
+      );
+      customer = { id: existingCustomer.id, name: trimmedName, email: trimmedEmail };
+      isAbsorbed = true;
+      console.log(`[Portal] Customer absorbed: ID ${existingCustomer.id} (company: ${company.id})`);
+    } else {
+      // Brand new customer — insert into customers table
+      const portalToken = crypto.randomBytes(32).toString('hex');
+      try {
+        const result = await db.query(
+          `INSERT INTO customers (company_id, name, email, password_hash, portal_access_enabled,
+           portal_access_token, last_login_at, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, true, $5, NOW(), NOW(), NOW())
+           RETURNING id`,
+          [company.id, trimmedName, trimmedEmail, passwordHash, portalToken]
+        );
+        customer = { id: result.rows[0].id, name: trimmedName, email: trimmedEmail };
+        console.log(`[Portal] New customer created: ID ${customer.id} (company: ${company.id})`);
+      } catch (insertErr) {
+        // Handle unique constraint violation (race condition or case mismatch)
+        if (insertErr.code === '23505') {
+          console.log(`[Portal] Unique constraint hit on insert, trying absorption...`);
+          const retry = await db.query(
+            `SELECT id, name, password_hash FROM customers
+             WHERE company_id = $1 AND LOWER(TRIM(email)) = $2`,
+            [company.id, trimmedEmail]
+          );
+          if (retry.rows.length > 0 && !retry.rows[0].password_hash) {
+            await db.query(
+              `UPDATE customers SET name = $1, email = $2, password_hash = $3, portal_access_enabled = true,
+               failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW(), updated_at = NOW()
+               WHERE id = $4`,
+              [trimmedName, trimmedEmail, passwordHash, retry.rows[0].id]
+            );
+            customer = { id: retry.rows[0].id, name: trimmedName, email: trimmedEmail };
+            isAbsorbed = true;
+          } else {
+            return res.status(409).json({ error: 'Account already registered. Please sign in.' });
+          }
+        } else {
+          throw insertErr;
+        }
+      }
+    }
+
+    // Link new customer to any submissions that reference their email
+    // (so they can see submissions they're part of)
+    if (!isAbsorbed) {
+      try {
+        // Find submissions for this company where the customer email matches but isn't linked yet
+        const unlinkedSubs = await db.query(
+          `SELECT s.id FROM submissions s
+           JOIN customers c ON s.customer_id = c.id
+           WHERE s.company_id = $1
+           AND NOT EXISTS (SELECT 1 FROM submission_customers sc WHERE sc.submission_id = s.id AND sc.customer_id = $2)
+           AND EXISTS (
+             SELECT 1 FROM cards WHERE submission_id = s.id
+             AND LOWER(TRIM(COALESCE(customer_email, ''))) = $3
+           )
+           LIMIT 50`,
+          [company.id, customer.id, trimmedEmail]
+        );
+        // Auto-link found submissions
+        for (const sub of unlinkedSubs.rows) {
+          await db.query(
+            `INSERT INTO submission_customers (submission_id, customer_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+            [sub.id, customer.id]
+          ).catch(e => console.warn('[Portal] submission_customers insert skipped:', e.message));
+        }
+        if (unlinkedSubs.rows.length > 0) {
+          console.log(`[Portal] Auto-linked ${unlinkedSubs.rows.length} submissions for new customer ID ${customer.id}`);
+        }
+      } catch (linkErr) {
+        console.log('Auto-link submissions skipped:', linkErr.message);
+      }
+    }
+
+    // Issue long-lived JWT (30 days — stays logged in on home screen)
+    const token = jwt.sign(
+      { customerId: customer.id, type: 'customer' },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      token,
+      customer: { ...customer, hasPin: false },
+      company: companyResponse(company)
+    });
+  } catch (error) {
+    console.error('Customer registration error:', error);
+    res.status(500).json({ error: 'Registration failed. Please try again.' });
+  }
+});
+
+// Customer login with email + password + shop code
+router.post('/auth/login', authLimiter, async (req, res) => {
+  try {
+    const { shopCode, email, password } = req.body;
+
+    if (!shopCode || !email || !password) {
+      return res.status(400).json({ error: 'Shop code, email, and password are required' });
+    }
+
+    const company = await findCompany(shopCode);
+    if (!company) {
+      await bcrypt.compare(password, '$2a$12$invalidhashtowastetimenothinghere1234567890');
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Find customer by email + company (case-insensitive, whitespace-trimmed)
+    const customerResult = await db.query(
+      `SELECT id, name, email, password_hash, pin_hash, portal_access_enabled,
+              failed_login_attempts, locked_until
+       FROM customers
+       WHERE company_id = $1 AND LOWER(TRIM(email)) = $2`,
+      [company.id, email.trim().toLowerCase()]
+    );
+
+    if (customerResult.rows.length === 0) {
+      await bcrypt.compare(password, '$2a$12$invalidhashtowastetimenothinghere1234567890');
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const customer = customerResult.rows[0];
+
+    if (!customer.portal_access_enabled) {
+      return res.status(403).json({ error: 'Portal access is disabled. Contact your shop.' });
+    }
+
+    const lockMessage = checkAccountLock(customer);
+    if (lockMessage) {
+      return res.status(423).json({ error: lockMessage });
+    }
+
+    if (!customer.password_hash) {
+      return res.status(401).json({
+        error: 'No password set. Please create an account first.',
+        code: 'NO_PASSWORD'
+      });
+    }
+
+    const passwordMatch = await bcrypt.compare(password, customer.password_hash);
+
+    if (!passwordMatch) {
+      const newAttempts = (customer.failed_login_attempts || 0) + 1;
+
+      if (newAttempts >= LOCKOUT_THRESHOLD) {
+        await db.query(
+          `UPDATE customers SET failed_login_attempts = $1, locked_until = $2 WHERE id = $3`,
+          [newAttempts, new Date(Date.now() + LOCKOUT_DURATION_MS), customer.id]
+        );
+        console.log(`Account locked: customer ${customer.id} after ${newAttempts} failed attempts`);
+      } else {
+        await db.query(
+          `UPDATE customers SET failed_login_attempts = $1 WHERE id = $2`,
+          [newAttempts, customer.id]
+        );
+      }
+
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    // Success
+    await db.query(
+      `UPDATE customers SET failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW() WHERE id = $1`,
+      [customer.id]
+    );
+
+    // Long-lived JWT (30 days for home screen app)
+    const token = jwt.sign(
+      { customerId: customer.id, type: 'customer' },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.json({
+      token,
+      customer: { id: customer.id, name: customer.name, email: customer.email, hasPin: !!customer.pin_hash },
+      company: companyResponse(company)
+    });
+  } catch (error) {
+    console.error('Customer login error:', error);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// Set up or change 4-digit PIN (requires JWT auth)
+router.post('/auth/pin/setup', authenticateCustomer, async (req, res) => {
+  try {
+    const { pin } = req.body;
+
+    if (!pin || !/^\d{4}$/.test(pin)) {
+      return res.status(400).json({ error: 'PIN must be exactly 4 digits' });
+    }
+
+    const pinHash = await bcrypt.hash(pin, 10);
+
+    await db.query(
+      `UPDATE customers SET pin_hash = $1 WHERE id = $2`,
+      [pinHash, req.customer.id]
+    );
+
+    res.json({ message: 'PIN set successfully' });
+  } catch (error) {
+    console.error('PIN setup error:', error);
+    res.status(500).json({ error: 'Failed to set PIN' });
+  }
+});
+
+// Verify PIN for quick re-auth (extends session)
+router.post('/auth/pin/verify', authenticateCustomer, async (req, res) => {
+  try {
+    const { pin } = req.body;
+
+    if (!pin || !/^\d{4}$/.test(pin)) {
+      return res.status(400).json({ error: 'PIN must be exactly 4 digits' });
+    }
+
+    const customerResult = await db.query(
+      `SELECT pin_hash, failed_login_attempts, locked_until FROM customers WHERE id = $1`,
+      [req.customer.id]
+    );
+    const customer = customerResult.rows[0];
+
+    if (!customer.pin_hash) {
+      return res.status(400).json({ error: 'No PIN set' });
+    }
+
+    const lockMessage = checkAccountLock(customer);
+    if (lockMessage) {
+      return res.status(423).json({ error: lockMessage });
+    }
+
+    const match = await bcrypt.compare(pin, customer.pin_hash);
+    if (!match) {
+      const newAttempts = (customer.failed_login_attempts || 0) + 1;
+
+      if (newAttempts >= LOCKOUT_THRESHOLD) {
+        await db.query(
+          `UPDATE customers SET failed_login_attempts = $1, locked_until = $2 WHERE id = $3`,
+          [newAttempts, new Date(Date.now() + LOCKOUT_DURATION_MS), req.customer.id]
+        );
+      } else {
+        await db.query(
+          `UPDATE customers SET failed_login_attempts = $1 WHERE id = $2`,
+          [newAttempts, req.customer.id]
+        );
+      }
+      return res.status(401).json({ error: 'Incorrect PIN' });
+    }
+
+    // Reset failed attempts, refresh session
+    await db.query(
+      `UPDATE customers SET failed_login_attempts = 0, locked_until = NULL, last_login_at = NOW() WHERE id = $1`,
+      [req.customer.id]
+    );
+
+    // Issue fresh long-lived token
+    const token = jwt.sign(
+      { customerId: req.customer.id, type: 'customer' },
+      process.env.JWT_SECRET,
+      { expiresIn: '30d' }
+    );
+
+    res.json({ token, verified: true });
+  } catch (error) {
+    console.error('PIN verify error:', error);
+    res.status(500).json({ error: 'PIN verification failed' });
+  }
+});
+
+// Forgot password — sends a reset link
+router.post('/auth/forgot-password', authLimiter, async (req, res) => {
+  try {
+    const { shopCode, email } = req.body;
+
+    const successMessage = 'If your email is registered, you will receive a password reset link.';
+
+    if (!shopCode || !email) {
+      return res.json({ message: successMessage });
+    }
+
+    const company = await findCompany(shopCode);
+    if (!company) {
+      return res.json({ message: successMessage });
+    }
+
+    const customerResult = await db.query(
+      `SELECT id, email, name FROM customers WHERE company_id = $1 AND LOWER(email) = $2 AND portal_access_enabled = true`,
+      [company.id, email.toLowerCase()]
+    );
+
+    if (customerResult.rows.length === 0) {
+      return res.json({ message: successMessage });
+    }
+
+    const customer = customerResult.rows[0];
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000);
+
+    await db.query(
+      `UPDATE customers SET password_reset_token = $1, password_reset_expires = $2 WHERE id = $3`,
+      [resetTokenHash, resetExpires, customer.id]
+    );
+
+    try {
+      const { sendPasswordResetEmail } = require('../services/emailService');
+      await sendPasswordResetEmail(customer.id, resetToken);
+    } catch (emailError) {
+      console.error('Failed to send password reset email:', emailError.message);
+    }
+
+    res.json({ message: successMessage });
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.json({ message: 'If your email is registered, you will receive a password reset link.' });
+  }
+});
+
+// Reset password with token
+router.post('/auth/reset-password', authLimiter, async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({ error: 'Token and new password are required' });
+    }
+
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ error: passwordError });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const customerResult = await db.query(
+      `SELECT id FROM customers
+       WHERE password_reset_token = $1 AND password_reset_expires > NOW()`,
+      [tokenHash]
+    );
+
+    if (customerResult.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid or expired reset link. Request a new one.' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    await db.query(
+      `UPDATE customers
+       SET password_hash = $1, password_reset_token = NULL, password_reset_expires = NULL,
+           failed_login_attempts = 0, locked_until = NULL
+       WHERE id = $2`,
+      [passwordHash, customerResult.rows[0].id]
+    );
+
+    res.json({ message: 'Password reset successfully. You can now log in.' });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({ error: 'Failed to reset password' });
+  }
+});
+
+// Update customer profile (requires JWT auth)
+router.patch('/profile', authenticateCustomer, async (req, res) => {
+  try {
+    const { name, email, phone, currentPassword, newPassword } = req.body;
+    const updates = {};
+
+    if (name && name.trim()) {
+      updates.name = name.trim();
+    }
+
+    if (phone !== undefined) {
+      updates.phone = phone.trim() || null;
+    }
+
+    if (email && email.trim() && email.toLowerCase() !== req.customer.email.toLowerCase()) {
+      const existing = await db.query(
+        `SELECT id FROM customers WHERE company_id = $1 AND LOWER(email) = $2 AND id != $3`,
+        [req.customer.company_id, email.toLowerCase(), req.customer.id]
+      );
+      if (existing.rows.length > 0) {
+        return res.status(409).json({ error: 'Email already in use by another customer' });
+      }
+      updates.email = email.trim().toLowerCase();
+    }
+
+    if (newPassword) {
+      if (!currentPassword) {
+        return res.status(400).json({ error: 'Current password is required to change password' });
+      }
+
+      const customerResult = await db.query(
+        `SELECT password_hash FROM customers WHERE id = $1`, [req.customer.id]
+      );
+      const passwordMatch = await bcrypt.compare(currentPassword, customerResult.rows[0].password_hash || '');
+      if (!passwordMatch) {
+        return res.status(401).json({ error: 'Current password is incorrect' });
+      }
+
+      const passwordError = validatePassword(newPassword);
+      if (passwordError) {
+        return res.status(400).json({ error: passwordError });
+      }
+
+      updates.password_hash = await bcrypt.hash(newPassword, 12);
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ error: 'No changes provided' });
+    }
+
+    updates.updated_at = new Date();
+
+    const setClauses = Object.entries(updates).map(([k, v], i) => `${k} = $${i + 1}`);
+    const values = Object.values(updates);
+    values.push(req.customer.id);
+
+    await db.query(
+      `UPDATE customers SET ${setClauses.join(', ')} WHERE id = $${values.length}`,
+      values
+    );
+
+    res.json({
+      message: 'Profile updated',
+      customer: {
+        name: updates.name || req.customer.name,
+        email: updates.email || req.customer.email,
+        phone: updates.phone !== undefined ? updates.phone : req.customer.phone
+      }
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// Multer config for SAM card scanning (10MB, images only)
+const scanUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed'), false);
+    }
+    cb(null, true);
+  }
+});
+
+// Rate limiter for unauthenticated portal endpoints
+const portalAccessLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 30,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests. Please try again later.' }
+});
 
 // Quick access endpoint for portal links (GET with token query param)
-router.get('/access', async (req, res) => {
+router.get('/access', portalAccessLimiter, async (req, res) => {
     try {
         const token = req.query.token;
 
@@ -20,7 +607,8 @@ router.get('/access', async (req, res) => {
 
         // Find customer by portal access token
         const customerResult = await db.query(
-            `SELECT c.*, co.name as company_name, co.slug as company_slug, co.primary_color, co.logo_url, co.sam_enabled
+            `SELECT c.*, co.name as company_name, co.slug as company_slug, co.shop_code as company_shop_code,
+             co.primary_color, co.logo_url, co.sam_enabled
              FROM customers c JOIN companies co ON c.company_id = co.id
              WHERE c.portal_access_token = $1 AND c.portal_access_enabled = true`,
             [token]
@@ -37,8 +625,8 @@ router.get('/access', async (req, res) => {
             `SELECT
                 s.id, s.internal_id, s.psa_submission_number, s.service_level,
                 s.current_step, s.progress_percent, s.grades_ready, s.shipped,
-                s.problem_order, s.date_sent, s.return_tracking, s.admin_notes, s.prep_notes,
-                (SELECT COUNT(*) FROM cards WHERE submission_id = s.id) as card_count,
+                s.problem_order, s.date_sent, s.return_tracking,
+                (SELECT COUNT(*)::int FROM cards WHERE submission_id = s.id) as card_count,
                 (SELECT json_agg(json_build_object(
                     'id', c.id,
                     'description', c.description,
@@ -47,10 +635,7 @@ router.get('/access', async (req, res) => {
                     'year', c.year,
                     'grade', c.grade,
                     'psa_cert_number', c.psa_cert_number,
-                    'before_photos', c.before_photos,
-                    'admin_notes', c.admin_notes,
-                    'prep_notes', c.prep_notes,
-                    'price_estimate', c.price_estimate
+                    'before_photos', c.before_photos
                 )) FROM cards c WHERE c.submission_id = s.id) as cards
              FROM submissions s
              WHERE s.customer_id = $1 OR s.id IN (
@@ -80,11 +665,13 @@ router.get('/access', async (req, res) => {
             customer: {
                 id: customer.id,
                 name: customer.name,
-                email: customer.email
+                email: customer.email,
+                email_opt_in: customer.email_opt_in !== false // default true
             },
             company: {
                 name: customer.company_name,
                 slug: customer.company_slug,
+                shop_code: customer.company_shop_code,
                 primaryColor: customer.primary_color,
                 logo_url: customer.logo_url,
                 sam_enabled: customer.sam_enabled || false
@@ -101,6 +688,58 @@ router.get('/access', async (req, res) => {
     }
 });
 
+// Toggle email notification preference (token-based portal access)
+router.patch('/email-preference', portalAccessLimiter, async (req, res) => {
+    try {
+        const token = req.query.token;
+        const { email_opt_in } = req.body;
+
+        if (!token) {
+            return res.status(400).json({ error: 'Token required' });
+        }
+
+        if (typeof email_opt_in !== 'boolean') {
+            return res.status(400).json({ error: 'email_opt_in must be a boolean' });
+        }
+
+        // Verify portal access
+        const customerResult = await db.query(
+            'SELECT id FROM customers WHERE portal_access_token = $1 AND portal_access_enabled = true',
+            [token]
+        );
+
+        if (customerResult.rows.length === 0) {
+            return res.status(401).json({ error: 'Invalid or expired portal link' });
+        }
+
+        const customerId = customerResult.rows[0].id;
+
+        // Try to update — column may not exist yet if migration hasn't run
+        try {
+            await db.query(
+                'UPDATE customers SET email_opt_in = $1 WHERE id = $2',
+                [email_opt_in, customerId]
+            );
+        } catch (dbErr) {
+            if (dbErr.code === '42703') {
+                // Column doesn't exist yet — add it on the fly
+                await db.query('ALTER TABLE customers ADD COLUMN IF NOT EXISTS email_opt_in BOOLEAN DEFAULT TRUE');
+                await db.query(
+                    'UPDATE customers SET email_opt_in = $1 WHERE id = $2',
+                    [email_opt_in, customerId]
+                );
+            } else {
+                throw dbErr;
+            }
+        }
+
+        res.json({ success: true, email_opt_in });
+    } catch (error) {
+        console.error('Email preference update error:', error);
+        res.status(500).json({ error: 'Failed to update email preference' });
+    }
+});
+
 // Customer login via magic link
 router.post('/login', async (req, res) => {
     try {
@@ -108,23 +747,24 @@ router.post('/login', async (req, res) => {
         
         if (token) {
             const result = await db.query(
-                `SELECT c.*, co.name as company_name, co.slug as company_slug, co.primary_color, co.logo_url
+                `SELECT c.*, co.name as company_name, co.slug as company_slug, co.shop_code as company_shop_code,
+                 co.primary_color, co.logo_url, co.sam_enabled
                  FROM customers c JOIN companies co ON c.company_id = co.id
                  WHERE c.portal_access_token = $1 AND c.portal_token_expires > NOW() AND c.portal_access_enabled = true`,
                 [token]
             );
-            
+
             if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid or expired token' });
-            
+
             const customer = result.rows[0];
             await db.query('UPDATE customers SET portal_access_token = NULL WHERE id = $1', [customer.id]);
-            
+
             const jwtToken = jwt.sign({ customerId: customer.id, type: 'customer' }, process.env.JWT_SECRET, { expiresIn: '30d' });
-            
+
             res.json({
                 token: jwtToken,
                 customer: { id: customer.id, name: customer.name, email: customer.email },
-                company: { name: customer.company_name, slug: customer.company_slug, primaryColor: customer.primary_color }
+                company: companyResponse({ ...customer, name: customer.company_name, slug: customer.company_slug, shop_code: customer.company_shop_code })
             });
         } else {
             res.json({ message: 'If your email is registered, you will receive a login link.' });
@@ -135,58 +775,230 @@ router.post('/login', async (req, res) => {
 });
 
 // Get customer info
-router.get('/me', authenticateCustomer, (req, res) => {
+router.get('/me', authenticateCustomer, async (req, res) => {
+    const result = await db.query(
+      `SELECT c.pin_hash, co.name as company_name, co.slug, co.shop_code, co.primary_color, co.logo_url, co.sam_enabled
+       FROM customers c JOIN companies co ON c.company_id = co.id WHERE c.id = $1`,
+      [req.customer.id]
+    );
+    const data = result.rows[0] || {};
     res.json({
-        customer: { id: req.customer.id, name: req.customer.name, email: req.customer.email },
-        company: { name: req.customer.company_name, primaryColor: req.customer.primary_color }
+        customer: { id: req.customer.id, name: req.customer.name, email: req.customer.email, hasPin: !!data.pin_hash },
+        company: { name: data.company_name, slug: data.slug, shop_code: data.shop_code, primaryColor: data.primary_color, logo_url: data.logo_url, sam_enabled: data.sam_enabled }
     });
 });
 
-// Get customer's submissions
+// Get customer's submissions (includes submission_customers links + pickup data + estimated progress)
 router.get('/submissions', authenticateCustomer, async (req, res) => {
     try {
+        const { estimateSubmissionProgress, getHistoricalDurations } = require('../services/psaService');
+
         const result = await db.query(
-            `SELECT id, internal_id, psa_submission_number, current_step, progress_percent, grades_ready, shipped, problem_order,
-                    (SELECT COUNT(*) FROM cards WHERE submission_id = submissions.id) as card_count
-             FROM submissions WHERE customer_id = $1 ORDER BY created_at DESC`,
+            `SELECT s.id, s.internal_id, s.psa_submission_number, s.service_level,
+                    s.current_step, s.progress_percent, s.grades_ready, s.shipped, s.problem_order,
+                    s.date_sent, s.return_tracking, s.admin_notes, s.prep_notes,
+                    s.last_refreshed_at, s.last_api_update, s.created_at,
+                    s.company_id,
+                    COALESCE(sc.pickup_code, s.pickup_code) as pickup_code,
+                    COALESCE(sc.picked_up, s.picked_up, false) as picked_up,
+                    COALESCE(sc.picked_up_at, s.picked_up_at) as picked_up_at,
+                    s.invoice_sent,
+                    s.invoice_number,
+                    s.invoice_sent_at,
+                    sc.customer_cost,
+                    sc.invoice_sent as customer_invoice_sent,
+                    (SELECT COUNT(*)::int FROM cards WHERE submission_id = s.id) as card_count
+             FROM submissions s
+             LEFT JOIN submission_customers sc ON s.id = sc.submission_id AND sc.customer_id = $1
+             WHERE s.customer_id = $1 OR sc.customer_id IS NOT NULL
+             ORDER BY s.created_at DESC`,
             [req.customer.id]
         );
-        res.json(result.rows);
+
+        // Load historical durations for the company (cached, 1hr TTL)
+        const companyId = result.rows[0]?.company_id || req.customer.company_id;
+        const historicalDurations = companyId ? await getHistoricalDurations(companyId) : {};
+
+        // Enrich with estimated progress using real historical data
+        const enriched = result.rows.map(sub => ({
+            ...sub,
+            estimated: estimateSubmissionProgress(sub, historicalDurations),
+        }));
+
+        res.json(enriched);
     } catch (error) {
         res.status(500).json({ error: 'Failed to get submissions' });
     }
 });
 
-// Get single submission
+// Lightweight polling endpoint — returns only status changes since a given timestamp
+// Customers poll this every 2 minutes; it's fast because it only returns changed data
+router.get('/submissions/poll', authenticateCustomer, async (req, res) => {
+    try {
+        const { estimateSubmissionProgress, getHistoricalDurations } = require('../services/psaService');
+        const since = req.query.since; // ISO timestamp
+
+        let query = `
+            SELECT s.id, s.current_step, s.progress_percent, s.grades_ready, s.shipped,
+                   s.problem_order, s.last_refreshed_at, s.last_api_update, s.service_level,
+                   s.return_tracking, s.created_at, s.company_id,
+                   COALESCE(sc.picked_up, s.picked_up, false) as picked_up
+            FROM submissions s
+            LEFT JOIN submission_customers sc ON s.id = sc.submission_id AND sc.customer_id = $1
+            WHERE (s.customer_id = $1 OR sc.customer_id IS NOT NULL)`;
+        const params = [req.customer.id];
+
+        if (since) {
+            query += ` AND s.last_api_update > $2`;
+            params.push(since);
+        }
+
+        query += ` ORDER BY s.last_api_update DESC`;
+
+        const result = await db.query(query, params);
+
+        const companyId = result.rows[0]?.company_id || req.customer.company_id;
+        const historicalDurations = companyId ? await getHistoricalDurations(companyId) : {};
+
+        const enriched = result.rows.map(sub => ({
+            ...sub,
+            estimated: estimateSubmissionProgress(sub, historicalDurations),
+        }));
+
+        res.json({
+            submissions: enriched,
+            serverTime: new Date().toISOString(),
+            hasChanges: enriched.length > 0,
+        });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to poll submissions' });
+    }
+});
+
+// Get single submission (includes submission_customers access + estimated progress)
 router.get('/submissions/:id', authenticateCustomer, async (req, res) => {
     try {
+        const { estimateSubmissionProgress, getHistoricalDurations } = require('../services/psaService');
+
         const result = await db.query(
-            'SELECT * FROM submissions WHERE id = $1 AND customer_id = $2',
+            `SELECT s.* FROM submissions s
+             WHERE s.id = $1 AND (s.customer_id = $2 OR s.id IN (
+                 SELECT submission_id FROM submission_customers WHERE customer_id = $2
+             ))`,
             [req.params.id, req.customer.id]
         );
         if (result.rows.length === 0) return res.status(404).json({ error: 'Submission not found' });
-        
+
         const cards = await db.query('SELECT * FROM cards WHERE submission_id = $1', [req.params.id]);
         const steps = await db.query('SELECT * FROM submission_steps WHERE submission_id = $1 ORDER BY step_index', [req.params.id]);
-        
-        res.json({ ...result.rows[0], cards: cards.rows, steps: steps.rows });
+
+        // Fetch activity history (step transitions)
+        let activity = [];
+        try {
+            const activityResult = await db.query(
+                `SELECT event_type, from_step, to_step, from_progress, to_progress, details, created_at
+                 FROM submission_status_history
+                 WHERE submission_id = $1
+                 ORDER BY created_at DESC
+                 LIMIT 50`,
+                [req.params.id]
+            );
+            activity = activityResult.rows;
+        } catch (e) { /* table may not exist yet */ }
+
+        const submission = result.rows[0];
+        const historicalDurations = await getHistoricalDurations(submission.company_id);
+        res.json({
+            ...submission,
+            cards: cards.rows,
+            steps: steps.rows,
+            activity,
+            estimated: estimateSubmissionProgress(submission, historicalDurations),
+        });
     } catch (error) {
         res.status(500).json({ error: 'Failed to get submission' });
     }
 });
 
-// Get customer stats
+// ============================================
+// CUSTOMER PUSH NOTIFICATIONS
+// ============================================
+
+// Subscribe to push notifications (portal customers)
+router.post('/push/subscribe', authenticateCustomer, async (req, res) => {
+    try {
+        const { subscription } = req.body;
+        if (!subscription?.endpoint || !subscription?.keys) {
+            return res.status(400).json({ error: 'Invalid subscription data' });
+        }
+
+        await db.query(
+            `INSERT INTO push_subscriptions (customer_id, company_id, endpoint, p256dh_key, auth_key, user_agent)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (endpoint)
+             DO UPDATE SET
+                customer_id = $1,
+                company_id = $2,
+                p256dh_key = $4,
+                auth_key = $5,
+                user_agent = $6,
+                last_used_at = CURRENT_TIMESTAMP`,
+            [req.customer.id, req.customer.company_id, subscription.endpoint,
+             subscription.keys.p256dh, subscription.keys.auth, req.headers['user-agent'] || 'Unknown']
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to subscribe' });
+    }
+});
+
+// Unsubscribe from push notifications
+router.post('/push/unsubscribe', authenticateCustomer, async (req, res) => {
+    try {
+        const { endpoint } = req.body;
+        if (!endpoint) return res.status(400).json({ error: 'Endpoint required' });
+
+        await db.query(
+            `DELETE FROM push_subscriptions WHERE endpoint = $1 AND customer_id = $2`,
+            [endpoint, req.customer.id]
+        );
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: 'Failed to unsubscribe' });
+    }
+});
+
+// Get push subscription status
+router.get('/push/status', authenticateCustomer, async (req, res) => {
+    try {
+        const result = await db.query(
+            `SELECT COUNT(*) as count FROM push_subscriptions WHERE customer_id = $1`,
+            [req.customer.id]
+        );
+        res.json({ subscribed: parseInt(result.rows[0].count) > 0 });
+    } catch (error) {
+        res.json({ subscribed: false });
+    }
+});
+
+// Get VAPID public key (needed by the frontend to subscribe)
+router.get('/push/vapid-key', (req, res) => {
+    res.json({ key: process.env.VAPID_PUBLIC_KEY || '' });
+});
+
+// Get customer stats (includes submission_customers links)
 router.get('/stats', authenticateCustomer, async (req, res) => {
     try {
         const stats = await db.query(`
             SELECT
-                (SELECT COUNT(*) FROM submissions WHERE customer_id = $1) as total_submissions,
-                (SELECT COUNT(*) FROM submissions WHERE customer_id = $1 AND shipped = false) as active_submissions,
-                (SELECT COUNT(*) FROM cards WHERE customer_id = $1) as total_cards,
-                (SELECT COUNT(*) FROM cards WHERE customer_id = $1 AND grade IS NOT NULL) as graded_cards,
+                (SELECT COUNT(*) FROM submissions WHERE customer_id = $1 OR id IN (SELECT submission_id FROM submission_customers WHERE customer_id = $1)) as total_submissions,
+                (SELECT COUNT(*) FROM submissions WHERE (customer_id = $1 OR id IN (SELECT submission_id FROM submission_customers WHERE customer_id = $1)) AND shipped = false) as active_submissions,
+                (SELECT COUNT(*) FROM cards WHERE customer_owner_id = $1 OR submission_id IN (SELECT id FROM submissions WHERE customer_id = $1)) as total_cards,
+                (SELECT COUNT(*) FROM cards WHERE (customer_owner_id = $1 OR submission_id IN (SELECT id FROM submissions WHERE customer_id = $1)) AND grade IS NOT NULL) as graded_cards,
                 (SELECT COUNT(*) FROM buyback_offers WHERE customer_id = $1 AND status = 'pending') as pending_offers,
                 (SELECT COUNT(*) FROM buyback_offers WHERE customer_id = $1 AND status = 'accepted') as accepted_offers,
-                (SELECT COALESCE(SUM(offer_price), 0) FROM buyback_offers WHERE customer_id = $1 AND status = 'paid') as total_earnings
+                (SELECT COALESCE(SUM(offer_amount), 0) FROM buyback_offers WHERE customer_id = $1 AND status = 'paid') as total_earnings
         `, [req.customer.id]);
         res.json(stats.rows[0]);
     } catch (error) {
@@ -299,7 +1111,7 @@ router.get('/pickups', authenticateCustomer, async (req, res) => {
                 sc.delivery_method,
                 sc.shipping_address,
                 sc.customer_cost,
-                (SELECT COUNT(*) FROM cards WHERE submission_id = s.id AND customer_owner_id = $1) as my_card_count
+                (SELECT COUNT(*)::int FROM cards WHERE submission_id = s.id AND customer_owner_id = $1) as my_card_count
              FROM submissions s
              LEFT JOIN submission_customers sc ON s.id = sc.submission_id AND sc.customer_id = $1
              WHERE (s.customer_id = $1 OR sc.customer_id = $1)
@@ -326,7 +1138,7 @@ router.get('/invoices', authenticateCustomer, async (req, res) => {
                 s.total_cost as submission_total,
                 sc.customer_cost,
                 sc.invoice_sent,
-                (SELECT COUNT(*) FROM cards WHERE submission_id = s.id AND customer_owner_id = $1) as card_count
+                (SELECT COUNT(*)::int FROM cards WHERE submission_id = s.id AND customer_owner_id = $1) as card_count
              FROM submissions s
              LEFT JOIN submission_customers sc ON s.id = sc.submission_id AND sc.customer_id = $1
              WHERE (s.customer_id = $1 OR sc.customer_id = $1)
@@ -485,7 +1297,7 @@ router.post('/buyback-offers/:id/respond', async (req, res) => {
 
         // Verify offer belongs to customer
         const offerCheck = await db.query(
-            'SELECT id, status, offer_price FROM buyback_offers WHERE id = $1 AND customer_id = $2',
+            'SELECT id, status, offer_amount FROM buyback_offers WHERE id = $1 AND customer_id = $2',
             [req.params.id, customer.id]
         );
 
@@ -722,38 +1534,398 @@ router.get('/cards/:cardId', async (req, res) => {
     }
 });
 
-// SAM Chat endpoint for customer portal (token-based)
+// Helper: resolve customer from token or JWT for SAM endpoints
+const resolveSAMCustomer = async (req) => {
+    const token = req.query.token;
+    const authHeader = req.headers.authorization;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        // JWT auth
+        const jwtToken = authHeader.split(' ')[1];
+        const decoded = jwt.verify(jwtToken, process.env.JWT_SECRET);
+        if (decoded.type !== 'customer') throw new Error('Invalid token type');
+
+        const result = await db.query(
+            `SELECT c.id, c.name, c.email, c.company_id, co.sam_enabled
+             FROM customers c JOIN companies co ON c.company_id = co.id
+             WHERE c.id = $1 AND c.portal_access_enabled = true`,
+            [decoded.customerId]
+        );
+        if (result.rows.length === 0) throw new Error('Customer not found');
+        return result.rows[0];
+    }
+
+    if (token) {
+        // Portal token auth
+        const result = await db.query(
+            `SELECT c.id, c.name, c.email, c.company_id, co.sam_enabled
+             FROM customers c JOIN companies co ON c.company_id = co.id
+             WHERE c.portal_access_token = $1 AND c.portal_access_enabled = true
+             AND (c.portal_token_expires IS NULL OR c.portal_token_expires > NOW())`,
+            [token]
+        );
+        if (result.rows.length === 0) throw new Error('Invalid or expired token');
+        return result.rows[0];
+    }
+
+    throw new Error('Authentication required');
+};
+
+// SAM Token System: 15 free messages/day, then costs 1 token per message
+const SAM_FREE_DAILY_LIMIT = 15;
+
+const checkSAMTokens = async (customerId, companyId, type = 'message') => {
+    // Get or create today's usage record
+    const today = new Date().toISOString().split('T')[0];
+    let usage = await db.query(
+        `SELECT * FROM sam_usage WHERE customer_id = $1 AND usage_date = $2`,
+        [customerId, today]
+    );
+
+    if (usage.rows.length === 0) {
+        await db.query(
+            `INSERT INTO sam_usage (customer_id, company_id, usage_date, message_count, scan_count, tokens_used)
+             VALUES ($1, $2, $3, 0, 0, 0) ON CONFLICT (customer_id, usage_date) DO NOTHING`,
+            [customerId, companyId, today]
+        );
+        usage = await db.query(
+            `SELECT * FROM sam_usage WHERE customer_id = $1 AND usage_date = $2`,
+            [customerId, today]
+        );
+    }
+
+    const record = usage.rows[0];
+    const totalMessages = (record.message_count || 0) + (record.scan_count || 0);
+    const isFree = totalMessages < SAM_FREE_DAILY_LIMIT;
+
+    if (isFree) {
+        // Free message — increment count
+        if (type === 'scan') {
+            await db.query(
+                `UPDATE sam_usage SET scan_count = scan_count + 1, updated_at = NOW() WHERE id = $1`,
+                [record.id]
+            );
+        } else {
+            await db.query(
+                `UPDATE sam_usage SET message_count = message_count + 1, updated_at = NOW() WHERE id = $1`,
+                [record.id]
+            );
+        }
+        return {
+            allowed: true,
+            free: true,
+            remaining_free: SAM_FREE_DAILY_LIMIT - totalMessages - 1,
+            daily_used: totalMessages + 1,
+            daily_limit: SAM_FREE_DAILY_LIMIT,
+            token_balance: 0 // will be overwritten below
+        };
+    }
+
+    // Check token balance
+    const balanceResult = await db.query(
+        `SELECT sam_token_balance FROM customers WHERE id = $1`,
+        [customerId]
+    );
+    const tokenBalance = balanceResult.rows[0]?.sam_token_balance || 0;
+
+    if (tokenBalance <= 0) {
+        return {
+            allowed: false,
+            free: false,
+            remaining_free: 0,
+            daily_used: totalMessages,
+            daily_limit: SAM_FREE_DAILY_LIMIT,
+            token_balance: 0,
+            error: 'out_of_tokens'
+        };
+    }
+
+    // Deduct 1 token
+    await db.query(
+        `UPDATE customers SET sam_token_balance = sam_token_balance - 1 WHERE id = $1 AND sam_token_balance > 0`,
+        [customerId]
+    );
+    if (type === 'scan') {
+        await db.query(
+            `UPDATE sam_usage SET scan_count = scan_count + 1, tokens_used = tokens_used + 1, updated_at = NOW() WHERE id = $1`,
+            [record.id]
+        );
+    } else {
+        await db.query(
+            `UPDATE sam_usage SET message_count = message_count + 1, tokens_used = tokens_used + 1, updated_at = NOW() WHERE id = $1`,
+            [record.id]
+        );
+    }
+
+    return {
+        allowed: true,
+        free: false,
+        remaining_free: 0,
+        daily_used: totalMessages + 1,
+        daily_limit: SAM_FREE_DAILY_LIMIT,
+        token_balance: tokenBalance - 1
+    };
+};
+
+// Customer-focused SAM knowledge — full PSA expertise written for collectors
+const PORTAL_SAM_KNOWLEDGE = `You are SAM (Submission Assistant Manager), a PSA card grading expert and AI assistant for SlabDash.
+You're helping a CUSTOMER (a collector) through their card shop's customer portal.
+
+PERSONALITY:
+- Friendly, knowledgeable, honest, never condescending
+- Give specific numbers and real examples
+- Be REALISTIC — don't hype cards or promise grades you can't guarantee
+- Keep responses concise (3-5 paragraphs max)
+- You can look up live card prices and analyze card photos
+
+═══════════════════════════════════════
+PSA GRADING SCALE
+═══════════════════════════════════════
+• PSA 10 (GEM MINT) — Perfect. 55/45 centering or better, razor-sharp corners, no defects
+• PSA 9 (MINT) — Near perfect. 60/40 centering, 1 corner can have slight wear
+• PSA 8 (NM-MT) — Very nice. 65/35 centering, minor corner/edge wear on 2-3 corners
+• PSA 7 (NM) — Noticeable flaws. 70/30 centering, visible wear
+• PSA 6 (EX-MT) — Moderate wear, 75/25 centering
+• PSA 5-1 — Increasing damage, creases, stains
+
+WHAT GRADERS CHECK (in order of importance):
+1. Centering — Most critical for 10s. Even 1mm off can drop PSA 10 to PSA 9.
+2. Corners — Use magnifying glass. ANY white showing = PSA 8 ceiling.
+3. Edges — All 4 sides for chipping or whitening
+4. Surface — Check under angled light for scratches, print defects, wax stains. Back of card checked too.
+
+PSA 10 GEM RATE REALITY (2025 data):
+• Only ~34% of sports cards get PSA 10 (down from 40% in 2024)
+• PSA quietly tightened centering standards in early 2024 — 55/45 now required
+• TCG/Pokémon: ~50% gem rate (higher than sports)
+• Set realistic expectations — only 1 in 3 sports cards gems
+
+═══════════════════════════════════════
+SHOULD I GRADE THIS CARD?
+═══════════════════════════════════════
+ROI FORMULA: Graded value ÷ Grading fee = ROI multiple
+• 20x+ = Great | 10-20x = Good | 5-10x = Marginal | Under 5x = Don't grade
+
+REAL TOTAL COST TO GRADE (per card including shipping when batching):
+• Value Bulk: ~$25-27/card | Regular: ~$80/card | Express: ~$160/card
+
+EXAMPLE — WORTH IT:
+• Raw: $50 | PSA 9: $150 | PSA 10: $400 | Cost: ~$27 → PSA 9 profit: $73 ✅
+
+EXAMPLE — NOT WORTH IT:
+• Raw: $5 | PSA 10: $40 | Cost: ~$27 → profit: $8 ❌ (not worth the risk)
+
+HONEST REALITY: A PSA 6 or 7 often sells for LESS than raw. Only grade PSA 8+ candidates.
+
+═══════════════════════════════════════
+PSA SERVICE LEVELS & REAL TURNAROUND
+═══════════════════════════════════════
+PSA's posted estimates start AFTER "Order Prep" — not from when you ship.
+Add ~15 business days receiving queue + 7-14 days round-trip shipping to EVERYTHING.
+
+REAL total wait from when YOU ship:
+• Value Bulk ($24.99, "65 biz days") → 4-6 MONTHS total
+• Value ($32.99, "65 biz days") → 3-5 months total
+• Value Plus ($49.99, "45 biz days") → 2-4 months total
+• Regular ($79.99, "25 biz days") → 2-3 months total
+• Express (~$160, "10-20 biz days") → 3-6 weeks total (most reliable)
+• Super Express (~$300+, "5 biz days") → 2-3 weeks total
+• Walk-Through (~$600+, "1-2 biz days") → ~1 week total
+
+Express and above are the only tiers where PSA's times are close to reality.
+
+═══════════════════════════════════════
+PSA PROCESSING STEPS
+═══════════════════════════════════════
+1. Arrived — PSA received your package
+2. Order Prep — Scanned, entered into system. Turnaround clock starts here.
+3. Research & ID — Cards cross-referenced with PSA database. Autographs verified.
+4. Grading — At least 2 professional graders evaluate each card (Surface, Edges, Corners, Centering). If graders disagree, a 3rd breaks the tie. High-value cards get more scrutiny.
+5. Assembly — Labels printed, cards sonically sealed in slabs
+6. Grades Ready — YOUR GRADES ARE NOW VISIBLE! You can see results and choose: ship home, store in PSA Vault, or list on auction.
+7. QA Checks — Holders inspected, labels verified, spot-checks for declared value accuracy.
+8. Shipped — Cards sent back to shop with tracking
+
+═══════════════════════════════════════
+PRE-GRADING TIPS
+═══════════════════════════════════════
+1. Centering — Measure with ruler. 55/45 or better for PSA 10 shot. 1mm off = PSA 9 max.
+2. Corners — Jeweler's loupe on all 4. ANY white = PSA 8 ceiling.
+3. Edges — All 4 sides for chipping or whitening
+4. Surface — Tilt under bright angled light. Scratches are invisible straight-on!
+5. Back of card — Graders check both sides equally
+
+GRADING INCONSISTENCY IS REAL:
+• PSA grading has ~+/- 1 grade variability — same card, different day, potentially different result
+• High-value cards get more scrutiny; bulk cards get less
+• A 1-grade variance is normal and expected
+
+PSA UPCHARGE WARNING:
+• If your card grades above your declared value tier, PSA charges extra AFTER grading
+• This creates an "Accounting Hold" that delays your order
+• Always declare at the potential PSA 10 value — cheaper than an upcharge
+
+═══════════════════════════════════════
+LIVE PRICING & CARD SCANNING
+═══════════════════════════════════════
+PRICE LOOKUPS: Ask "how much is [card] worth?" and I'll pull real sold data:
+• Raw (ungraded) eBay prices | PSA 8, 9, and 10 sold comps | Recent sale prices
+This tells you exactly if grading makes financial sense for YOUR specific card.
+
+CARD SCANNING: Upload a card photo and I'll:
+• Identify the exact card (name, set, year, parallel, serial number)
+• Assess condition and estimate PSA grade
+• Pull live market prices for that exact variant
+• Give an honest grading recommendation
+
+When I have LIVE DATA: I cite specific numbers. "PSA 10s averaging $247 (12 sold)" — not guesses.`;
+
+// Get SAM usage stats for a customer
+router.get('/sam/usage', authenticateCustomer, async (req, res) => {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const usage = await db.query(
+            `SELECT message_count, scan_count, tokens_used FROM sam_usage
+             WHERE customer_id = $1 AND usage_date = $2`,
+            [req.customer.id, today]
+        );
+        const record = usage.rows[0] || { message_count: 0, scan_count: 0, tokens_used: 0 };
+        const totalUsed = (record.message_count || 0) + (record.scan_count || 0);
+
+        res.json({
+            daily_used: totalUsed,
+            daily_limit: SAM_FREE_DAILY_LIMIT,
+            remaining_free: Math.max(0, SAM_FREE_DAILY_LIMIT - totalUsed),
+            token_balance: req.customer.sam_token_balance || 0,
+            tokens_used_today: record.tokens_used || 0
+        });
+    } catch (error) {
+        console.error('SAM usage check error:', error);
+        res.json({
+            daily_used: 0,
+            daily_limit: SAM_FREE_DAILY_LIMIT,
+            remaining_free: SAM_FREE_DAILY_LIMIT,
+            token_balance: 0,
+            tokens_used_today: 0
+        });
+    }
+});
+
+// Admin: Add tokens to a customer
+router.post('/sam/add-tokens', async (req, res) => {
+    try {
+        // This endpoint uses admin auth (check for Bearer token from admin)
+        const authHeader = req.headers.authorization;
+        if (!authHeader?.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'Auth required' });
+        }
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (decoded.type === 'customer' || (decoded.role && decoded.role !== 'owner' && decoded.role !== 'admin')) {
+            return res.status(403).json({ error: 'Admin access required' });
+        }
+
+        const { customer_id, tokens } = req.body;
+        if (!customer_id || !tokens || tokens < 1) {
+            return res.status(400).json({ error: 'customer_id and tokens (positive integer) required' });
+        }
+
+        const result = await db.query(
+            `UPDATE customers SET sam_token_balance = COALESCE(sam_token_balance, 0) + $1
+             WHERE id = $2 RETURNING sam_token_balance`,
+            [Math.floor(tokens), customer_id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Customer not found' });
+        }
+
+        res.json({ success: true, new_balance: result.rows[0].sam_token_balance });
+    } catch (error) {
+        console.error('Add tokens error:', error);
+        res.status(500).json({ error: 'Failed to add tokens' });
+    }
+});
+
+// SAM Token Bundles — pricing and purchase
+const SAM_TOKEN_BUNDLES = {
+    starter: { id: 'starter', name: 'Starter', tokens: 50, price_cents: 499, price_display: '$4.99', per_token: '~10¢' },
+    popular: { id: 'popular', name: 'Popular', tokens: 150, price_cents: 999, price_display: '$9.99', per_token: '~7¢', badge: 'Best Value' },
+    pro: { id: 'pro', name: 'Pro', tokens: 500, price_cents: 2499, price_display: '$24.99', per_token: '~5¢', badge: 'Most Tokens' },
+};
+
+// Get available token bundles
+router.get('/sam/bundles', (req, res) => {
+    res.json({
+        bundles: Object.values(SAM_TOKEN_BUNDLES),
+        free_daily: SAM_FREE_DAILY_LIMIT,
+    });
+});
+
+// Purchase SAM tokens via Stripe Checkout
+router.post('/sam/buy-tokens', authenticateCustomer, async (req, res) => {
+    try {
+        const { bundle } = req.body;
+        const bundleInfo = SAM_TOKEN_BUNDLES[bundle];
+
+        if (!bundleInfo) {
+            return res.status(400).json({ error: 'Invalid bundle. Choose: starter, popular, or pro' });
+        }
+
+        if (!stripeService.isConfigured()) {
+            // Mock mode — just credit tokens directly for development
+            await db.query(
+                `UPDATE customers SET sam_token_balance = COALESCE(sam_token_balance, 0) + $1 WHERE id = $2`,
+                [bundleInfo.tokens, req.customer.id]
+            );
+            return res.json({
+                success: true,
+                mock: true,
+                tokens_added: bundleInfo.tokens,
+                message: `Added ${bundleInfo.tokens} tokens (dev mode — Stripe not configured)`
+            });
+        }
+
+        // Determine success/cancel URLs
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const session = await stripeService.createTokenCheckoutSession({
+            customer_id: req.customer.id,
+            company_id: req.customer.company_id,
+            customer_email: req.customer.email,
+            token_count: bundleInfo.tokens,
+            price_cents: bundleInfo.price_cents,
+            bundle: bundleInfo.id,
+            success_url: `${frontendUrl}/portal?tokens=success&bundle=${bundleInfo.id}`,
+            cancel_url: `${frontendUrl}/portal?tokens=cancelled`,
+        });
+
+        res.json({
+            url: session.url,
+            session_id: session.id,
+            bundle: bundleInfo,
+        });
+    } catch (error) {
+        console.error('Token purchase error:', error);
+        res.status(500).json({ error: 'Failed to create checkout session' });
+    }
+});
+
+// SAM Chat endpoint for customer portal (token or JWT) — streams via SSE
 router.post('/sam/chat', async (req, res) => {
     try {
-        const token = req.query.token;
         const { message, history } = req.body;
-
-        if (!token) {
-            return res.status(401).json({ error: 'Token is required' });
-        }
 
         if (!message) {
             return res.status(400).json({ error: 'Message is required' });
         }
 
-        // Verify portal token and check SAM access
-        const customerResult = await db.query(
-            `SELECT c.id, c.name, c.email, c.company_id, co.sam_enabled
-             FROM customers c
-             JOIN companies co ON c.company_id = co.id
-             WHERE c.portal_access_token = $1
-             AND c.portal_access_enabled = true
-             AND (c.portal_token_expires IS NULL OR c.portal_token_expires > NOW())`,
-            [token]
-        );
-
-        if (customerResult.rows.length === 0) {
-            return res.status(401).json({ error: 'Invalid or expired token' });
+        let customer;
+        try {
+            customer = await resolveSAMCustomer(req);
+        } catch (authErr) {
+            return res.status(401).json({ error: authErr.message });
         }
 
-        const customer = customerResult.rows[0];
-
-        // Check if company has SAM enabled
         if (!customer.sam_enabled) {
             return res.status(403).json({
                 error: 'SAM Assistant is not available',
@@ -761,130 +1933,375 @@ router.post('/sam/chat', async (req, res) => {
             });
         }
 
-        // Import SAM service (same as admin SAM)
-        const { Anthropic } = require('@anthropic-ai/sdk');
-        const anthropic = new Anthropic({
-            apiKey: process.env.ANTHROPIC_API_KEY
-        });
-
-        // SAM knowledge base (same as admin, but customer-focused)
-        const SAM_KNOWLEDGE = `
-You are SAM (Submission Assistant Manager), the ULTIMATE PSA card grading expert and AI assistant for SlabDash.
-
-You're currently helping a CUSTOMER through their card shop's customer portal. Focus on:
-- Explaining PSA grading standards in simple terms
-- Helping them understand their card values
-- Explaining service level options
-- Calculating ROI (Return on Investment) for grading
-- Answering questions about the grading process
-- Being friendly, enthusiastic, and educational
-
-IMPORTANT: You're talking to an END CUSTOMER, not the card shop staff. Keep explanations simple and encouraging.
-
-PSA GRADING SCALE (1-10):
-• PSA 10 (GEM MINT) - Perfect card. Sharp corners, 50/50 centering, no print defects
-• PSA 9 (MINT) - Near perfect. Minor centering issues allowed (60/40), sharp corners
-• PSA 8 (NM-MT) - Slight wear on corners, 65/35 centering max
-• PSA 7 (NM) - Minor corner/edge wear, 70/30 centering, slight surface wear
-• PSA 6 (EX-MT) - Visible wear, 75/25 centering, minor creasing possible
-• PSA 5 and below - Increasing levels of wear, centering issues, creases, stains
-
-THE 4 GRADING PILLARS:
-1. CENTERING - How balanced the image is on the card
-   - PSA 10: 50/50 front, 55/45 back
-   - PSA 9: 60/40 front, 65/35 back
-   - PSA 8: 65/35 front, 70/30 back
-
-2. CORNERS - Sharpness of card corners
-   - PSA 10: Razor sharp, no wear
-   - PSA 9: Minor rounding on 1-2 corners
-   - PSA 8: Slight wear visible
-
-3. EDGES - Condition of card edges
-   - PSA 10: Perfectly smooth, no chipping
-   - PSA 9: Minor roughness barely visible
-   - PSA 8: Slight fraying or wear
-
-4. SURFACE - Card surface quality
-   - PSA 10: No print defects, scratches, or stains
-   - PSA 9: Minor print line or surface issue
-   - PSA 8: Slight surface wear acceptable
-
-PSA SERVICE LEVELS:
-1. BULK ($16-25/card) - 65 business days, for cards under $499 value
-2. VALUE ($25-40/card) - 40 business days, cards under $2,499
-3. REGULAR ($50-75/card) - 20 business days, cards under $9,999
-4. EXPRESS ($150+/card) - 5-10 business days, cards under $49,999
-5. WALK-THROUGH ($600+/card) - 1-2 business days, any value
-
-SERVICE LEVEL SELECTION FORMULA:
-Graded card value ÷ Grading fee = ROI multiple
-• 20x or higher = Great ROI, use Bulk
-• 10-20x = Good ROI, use Value/Regular
-• 5-10x = Okay ROI, consider if sentimental value
-• Below 5x = Poor ROI, probably not worth grading
-
-EXAMPLE ROI CALCULATION:
-Card: 2018 Luka Doncic Prizm PSA 10 = $800
-- Bulk service ($20): $800 ÷ $20 = 40x ROI ✅ EXCELLENT
-- Regular service ($60): $800 ÷ $60 = 13.3x ROI ✅ GOOD
-- Express service ($150): $800 ÷ $150 = 5.3x ROI ⚠️ Marginal
-
-KEY TIPS FOR CUSTOMERS:
-• Modern cards (2010+): Very hard to get PSA 10, even fresh from pack
-• Vintage cards (pre-1980): More forgiving grading, PSA 8 is excellent
-• Centering is often the killer - use ruler or app to check before submitting
-• Never submit cards "just to see" - check comps first
-• Raw card value vs PSA 10 value should be 5x+ difference minimum
-• Population matters - if there are 10,000 PSA 10s, value is low
-
-Be encouraging, educational, and help customers make smart decisions about which cards to grade!
-`;
-
-        // Build conversation history
-        const messages = [
-            {
-                role: 'user',
-                content: `${SAM_KNOWLEDGE}\n\nCustomer name: ${customer.name}\n\nCustomer question: ${message}`
-            }
-        ];
-
-        // Add recent history for context
-        if (history && Array.isArray(history)) {
-            const recentHistory = history.slice(-5);
-            messages.unshift(...recentHistory.map(msg => ({
-                role: msg.role,
-                content: msg.content
-            })));
+        let tokenResult;
+        try {
+            tokenResult = await checkSAMTokens(customer.id, customer.company_id, 'message');
+        } catch (tokenErr) {
+            console.error('Token check error (allowing):', tokenErr.message);
+            tokenResult = { allowed: true, free: true, remaining_free: SAM_FREE_DAILY_LIMIT, daily_used: 0, daily_limit: SAM_FREE_DAILY_LIMIT, token_balance: 0 };
         }
 
-        // Call Claude API
-        const response = await anthropic.messages.create({
-            model: 'claude-3-5-sonnet-20241022',
-            max_tokens: 1024,
-            messages: messages
-        });
+        if (!tokenResult.allowed) {
+            return res.status(429).json({
+                error: 'out_of_tokens',
+                message: `You've used all ${SAM_FREE_DAILY_LIMIT} free messages today. Add tokens to keep chatting!`,
+                usage: tokenResult
+            });
+        }
 
-        const assistantMessage = response.content[0].text;
-
-        res.json({
-            message: assistantMessage,
-            model: 'claude-3-5-sonnet'
-        });
-    } catch (error) {
-        console.error('Customer portal SAM chat error:', error);
-
-        // Check if Anthropic API key is missing
-        if (error.message?.includes('API key')) {
-            return res.status(500).json({
+        const samApiKey = process.env.ANTHROPIC_API_KEY;
+        if (!samApiKey) {
+            return res.status(503).json({
                 error: 'SAM is not configured yet',
                 message: 'The AI assistant is being set up. Please try again later!'
             });
         }
 
+        // Fetch live pricing data before streaming starts (if relevant)
+        let pricingContext = null;
+        const pricingKeywords = ['price', 'value', 'worth', 'cost', 'comp', 'market', 'how much', 'what is', "what's", 'selling for', 'going for'];
+        if (pricingKeywords.some(kw => message.toLowerCase().includes(kw))) {
+            try {
+                let cardQuery = message;
+                const removePatterns = [
+                    /how much is/i, /what is/i, /what's/i, /what are/i,
+                    /worth\??/i, /value of/i, /price of/i, /price for/i,
+                    /comp for/i, /comps for/i, /market value/i, /selling for/i, /going for/i,
+                    /can you (look up|check|find|get)/i, /look up/i,
+                    /pokemon|pokémon|magic|mtg|yu-gi-oh|yugioh|lorcana|digimon|one piece/gi,
+                    /psa\s*\d+/gi, /a\s+/i, /the\s+/i, /\?/g
+                ];
+                for (const pattern of removePatterns) cardQuery = cardQuery.replace(pattern, ' ');
+                cardQuery = cardQuery.replace(/\s+/g, ' ').trim();
+
+                if (cardQuery.length >= 2) {
+                    const lower = message.toLowerCase();
+                    let game = '';
+                    if (lower.includes('pokemon') || lower.includes('pokémon')) game = 'pokemon';
+                    else if (lower.includes('magic') || lower.includes('mtg')) game = 'mtg';
+                    else if (lower.includes('yu-gi-oh') || lower.includes('yugioh')) game = 'yugioh';
+                    else if (lower.includes('lorcana')) game = 'disney-lorcana';
+                    else if (lower.includes('one piece')) game = 'one-piece-card-game';
+                    else if (lower.includes('digimon')) game = 'digimon-card-game';
+
+                    const gradedPricing = await fetchGradedPricing({ name: cardQuery, game, sport: '' });
+                    const hasSomeData = gradedPricing.raw?.available || gradedPricing.psa8?.available || gradedPricing.psa9?.available || gradedPricing.psa10?.available;
+
+                    if (hasSomeData) {
+                        const lines = ['LIVE PRICING DATA (include these numbers in your response):'];
+                        if (gradedPricing.raw?.available && gradedPricing.raw.count > 0) {
+                            lines.push(`RAW (ungraded): Avg $${gradedPricing.raw.avg.toFixed(2)} (${gradedPricing.raw.count} listings)`);
+                        }
+                        for (const [key, label] of [['psa8', 'PSA 8'], ['psa9', 'PSA 9'], ['psa10', 'PSA 10']]) {
+                            const tier = gradedPricing[key];
+                            if (tier?.available && tier.count > 0) {
+                                lines.push(`${label}: Avg $${tier.avg.toFixed(2)} (${tier.count} sold)`);
+                            } else {
+                                lines.push(`${label}: No sold data found`);
+                            }
+                        }
+                        lines.push('\nPresent the raw value, then show PSA 8, 9, and 10 values so the customer sees the grading upside.');
+                        pricingContext = lines.join('\n');
+                        console.log(`💰 Portal chat: Got graded pricing for "${cardQuery}"`);
+                    }
+                }
+            } catch (pricingError) {
+                console.error('Portal pricing lookup error:', pricingError.message);
+            }
+        }
+
+        // Set up SSE streaming
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+        res.flushHeaders();
+
+        let closed = false;
+        req.on('close', () => { closed = true; });
+
+        const Anthropic = require('@anthropic-ai/sdk');
+        const anthropic = new Anthropic({ apiKey: samApiKey });
+
+        const conversationHistory = (history || [])
+            .filter(msg => msg.role && msg.content)
+            .slice(-10)
+            .map(msg => ({
+                role: msg.role === 'assistant' ? 'assistant' : 'user',
+                content: msg.content
+            }));
+
+        const enrichedMessage = pricingContext
+            ? `${message}\n\n[SYSTEM: ${pricingContext}]`
+            : message;
+
+        try {
+            console.log(`🤖 Streaming portal SAM via claude-sonnet-4-6...`);
+            const stream = await anthropic.messages.create({
+                model: 'claude-sonnet-4-6',
+                max_tokens: 2048,
+                temperature: 0.8,
+                system: PORTAL_SAM_KNOWLEDGE + `\n\nCustomer name: ${customer.name}`,
+                messages: [...conversationHistory, { role: 'user', content: enrichedMessage }],
+                stream: true
+            });
+
+            for await (const event of stream) {
+                if (closed) break;
+                if (event.type === 'content_block_delta' && event.delta?.type === 'text_delta') {
+                    res.write(`data: ${JSON.stringify({ type: 'delta', text: event.delta.text })}\n\n`);
+                }
+            }
+
+            if (!closed) {
+                console.log('✅ Portal SAM stream complete');
+                res.write(`data: ${JSON.stringify({ type: 'done', ai_powered: true, usage: tokenResult })}\n\n`);
+            }
+        } catch (streamError) {
+            console.error('❌ Portal SAM stream error:', streamError.message);
+            if (!closed) {
+                res.write(`data: ${JSON.stringify({ type: 'error', message: 'Oops! SAM is having trouble right now. Please try again in a moment!' })}\n\n`);
+                res.write(`data: ${JSON.stringify({ type: 'done', ai_powered: false, usage: tokenResult })}\n\n`);
+            }
+        }
+
+        res.end();
+    } catch (error) {
+        console.error('Customer portal SAM chat error:', error);
+        if (!res.headersSent) {
+            res.status(500).json({
+                error: 'Failed to get response from SAM',
+                message: 'Oops! SAM is having trouble right now. Please try again in a moment!'
+            });
+        }
+    }
+});
+
+// SAM Card Scan endpoint for customer portal (token or JWT)
+router.post('/sam/scan', scanUpload.single('image'), async (req, res) => {
+    try {
+        let customer;
+        try {
+            customer = await resolveSAMCustomer(req);
+        } catch (authErr) {
+            return res.status(401).json({ error: authErr.message });
+        }
+
+        if (!customer.sam_enabled) {
+            return res.status(403).json({
+                error: 'SAM Assistant is not available',
+                message: 'Your shop has not enabled the SAM AI assistant feature.'
+            });
+        }
+
+        // Check SAM token usage for scans
+        let tokenResult;
+        try {
+            tokenResult = await checkSAMTokens(customer.id, customer.company_id, 'scan');
+        } catch (tokenErr) {
+            console.error('Token check error (allowing):', tokenErr.message);
+            tokenResult = { allowed: true, free: true, remaining_free: SAM_FREE_DAILY_LIMIT, daily_used: 0, daily_limit: SAM_FREE_DAILY_LIMIT, token_balance: 0 };
+        }
+
+        if (!tokenResult.allowed) {
+            return res.status(429).json({
+                error: 'out_of_tokens',
+                message: `You've used all ${SAM_FREE_DAILY_LIMIT} free messages today. Add tokens to keep scanning!`,
+                usage: tokenResult
+            });
+        }
+
+        const apiKey = process.env.ANTHROPIC_API_KEY;
+        if (!apiKey) {
+            return res.status(503).json({
+                error: 'Card scanning requires Anthropic API key',
+                message: 'Card scanning is temporarily unavailable. Please try again later!'
+            });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ error: 'No image file uploaded' });
+        }
+
+        const imageFile = req.file;
+        const imageBase64 = imageFile.buffer.toString('base64');
+        const mediaType = imageFile.mimetype || 'image/jpeg';
+
+        const Anthropic = require('@anthropic-ai/sdk');
+        const anthropic = new Anthropic({ apiKey });
+
+        // Analyze card with Claude vision
+        const response = await anthropic.messages.create({
+            model: 'claude-sonnet-4-6',
+            max_tokens: 2048,
+            messages: [
+                {
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'image',
+                            source: {
+                                type: 'base64',
+                                media_type: mediaType,
+                                data: imageBase64
+                            }
+                        },
+                        {
+                            type: 'text',
+                            text: `You are SAM, a card identification expert. Your job is to ACCURATELY identify this card so we can pull the EXACT market price — the wrong parallel or missing card number means wrong pricing.
+
+STEP 1 — IDENTIFY THE CARD (critical — read EVERYTHING on the card):
+• **Card Name** — the exact player/character name printed on the card
+• **Year** — printed year or copyright year
+• **Brand/Product** — the product line (e.g., "Prizm", "Topps Chrome", "Crown Zenith", "Evolving Skies")
+• **Set** — the specific set within the product if different from brand
+• **Card Number** — the FULL number printed on the card (e.g., "239", "037/159", "SV049"). Include the complete number with any denominator.
+• **Parallel/Variant** — THIS IS CRITICAL for pricing. Identify the exact parallel:
+  - Sports: Base, Silver Prizm, Gold Prizm /10, Red White & Blue, Mojo, Cracked Ice, Color Blast, Refractor, Gold Refractor, Xfractor, Pink, Green, Orange /299, Red /199, Blue /75, etc.
+  - Pokemon: Regular, Reverse Holo, Full Art, Alt Art, Illustration Rare, Special Art Rare, Gold, Rainbow, etc.
+  - Look at the card surface (rainbow shimmer = prizm/refractor, solid color border = color parallel, numbered = short print)
+  - If the card is numbered (e.g., /25, /99, /199), ALWAYS include this — it's a key price differentiator
+• **Serial Number** — if the card is numbered (e.g., "12/25", "056/199"), note the serial
+• **Game** — Pokemon, Magic: The Gathering, Yu-Gi-Oh, etc.
+• **Sport** — Baseball, Basketball, Football, Hockey, etc.
+• **Attributes** — RC (rookie card), 1st edition, autograph, memorabilia/patch, etc.
+• **Rarity** — look at rarity symbols
+
+Read text EXACTLY as printed. If a card is a Silver Prizm, say "Silver Prizm" not just "Prizm". If it's a base card, say "Base". The parallel determines 90% of the card's value.
+
+STEP 2 — HONEST ASSESSMENT (2-3 lines max):
+• Quick centering + any visible flaws
+• Estimated PSA grade (single number)
+• Be REALISTIC: if the card is worth less than $10-15 raw, grading costs $20+. Say that directly.
+
+FORMAT:
+**Card:** [Name] — [Year] [Brand] [Set] #[Number]
+[Game/Sport] | **[Parallel/Variant]** | [Attributes] | [Rarity]
+[Serial: X/Y if numbered]
+
+**Condition:** [1-2 sentences. PSA grade estimate. Honest grading recommendation.]
+
+AT THE VERY END, output this hidden JSON on its own line (will be stripped from display):
+<!--CARD_ID:{"name":"Card Name","set":"Set Name","number":"239","year":"2024","game":"","sport":"basketball","parallel":"Silver Prizm","serial":"/199","rarity":"","attributes":"RC"}-->
+IMPORTANT RULES for CARD_ID:
+- "parallel": The EXACT variant/parallel name. Use "Base" for base cards. Examples: "Silver Prizm", "Gold Prizm", "Cracked Ice", "Refractor", "Holo", "Full Art", "Alt Art", "Illustration Rare", "Reverse Holo", "Mojo", "Red White Blue"
+- "serial": If numbered, include as "/25" or "/199". Leave "" if not numbered.
+- "number": The card number WITHOUT leading zeros (e.g., "239" not "0239"). Include denominator if on card (e.g., "037/159").
+- "name": Player/character name only (e.g., "Stephon Castle" not "Stephon Castle RC")
+- "set": The product name (e.g., "Prizm", "Topps Chrome", "Crown Zenith")
+- "game": pokemon, mtg, yugioh, disney-lorcana, one-piece-card-game, digimon-card-game, flesh-and-blood-tcg, dragon-ball-super-fusion-world, or "" for sports.
+- "sport": baseball, basketball, football, hockey, soccer, or "" for TCG.
+- "attributes": Comma-separated. RC, 1st edition, autograph, patch, memorabilia, etc.
+Only include fields you can actually read from the card.`
+                        }
+                    ]
+                }
+            ]
+        });
+
+        const rawAnalysis = response.content?.[0]?.text;
+        if (!rawAnalysis) {
+            return res.status(502).json({
+                error: 'Card scanning received an empty response from AI',
+                message: 'Having trouble analyzing that image. Please try again with a clearer photo!'
+            });
+        }
+        console.log('📝 Portal scan response length:', rawAnalysis.length);
+
+        // Extract the hidden card ID JSON
+        let cardInfo = null;
+        let analysis = rawAnalysis;
+
+        const cardIdPatterns = [
+            /<!--CARD_ID:(.*?)-->/s,
+            /<!--CARD_ID:\s*(.*?)\s*-->/s,
+            /\[CARD_ID:(.*?)\]/s,
+        ];
+
+        for (const pattern of cardIdPatterns) {
+            const match = rawAnalysis.match(pattern);
+            if (match) {
+                try {
+                    let jsonStr = match[1] || match[0];
+                    jsonStr = jsonStr.replace(/```json\s*/, '').replace(/\s*```/, '').trim();
+                    cardInfo = JSON.parse(jsonStr);
+                    analysis = rawAnalysis.replace(match[0], '').trim();
+                    console.log('✅ Portal scan CARD_ID:', JSON.stringify(cardInfo));
+                    break;
+                } catch (e) {
+                    console.log('⚠️ Portal scan: Failed to parse CARD_ID:', e.message);
+                }
+            }
+        }
+
+        // Fallback: extract card info from text
+        if (!cardInfo) {
+            console.log('⚠️ Portal scan: No CARD_ID tag — extracting from text...');
+            cardInfo = {};
+            const lowerAnalysis = analysis.toLowerCase();
+            if (lowerAnalysis.includes('pokémon') || lowerAnalysis.includes('pokemon')) cardInfo.game = 'pokemon';
+            else if (lowerAnalysis.includes('magic') || lowerAnalysis.includes('mtg')) cardInfo.game = 'mtg';
+            else if (lowerAnalysis.includes('yu-gi-oh') || lowerAnalysis.includes('yugioh')) cardInfo.game = 'yugioh';
+            else if (lowerAnalysis.includes('lorcana')) cardInfo.game = 'disney-lorcana';
+
+            const numMatch = analysis.match(/#(\d+(?:\/\d+)?)/);
+            if (numMatch) cardInfo.number = numMatch[1];
+
+            const yearMatch = analysis.match(/\b(19\d{2}|20[0-2]\d)\b/);
+            if (yearMatch) cardInfo.year = yearMatch[1];
+
+            if (!cardInfo.game && !cardInfo.name) cardInfo = null;
+        }
+
+        // Extract grade and condition
+        const gradable = analysis.toLowerCase().includes('worth grading') && !analysis.toLowerCase().includes('not worth grading');
+        let estimatedGrade = null;
+        const gradeMatch = analysis.match(/PSA\s*(\d+)/i);
+        if (gradeMatch) estimatedGrade = `PSA ${gradeMatch[1]}`;
+
+        let condition = 'Unknown';
+        if (analysis.toLowerCase().includes('gem mint') || analysis.toLowerCase().includes('psa 10')) {
+            condition = 'Gem Mint (PSA 10 candidate)';
+        } else if (analysis.toLowerCase().includes('psa 9')) {
+            condition = 'Mint (PSA 9 likely)';
+        } else if (analysis.toLowerCase().includes('psa 8')) {
+            condition = 'Near Mint (PSA 8 likely)';
+        } else if (analysis.toLowerCase().includes('psa 7')) {
+            condition = 'Near Mint (PSA 7 likely)';
+        }
+
+        // Fetch graded pricing breakdown (Raw, PSA 8, PSA 9, PSA 10)
+        let pricing = null;
+        if (cardInfo && (cardInfo.name || cardInfo.set || cardInfo.game)) {
+            console.log(`📊 Portal scan: Fetching graded pricing for:`, JSON.stringify(cardInfo));
+            try {
+                const gradedPricing = await fetchGradedPricing(cardInfo);
+                pricing = {
+                    ...gradedPricing,
+                    priceEstimate: gradedPricing.rawEstimate,
+                };
+                console.log(`💰 Portal scan graded pricing complete: ${pricing.totalListings} total listings`);
+            } catch (compError) {
+                console.error('❌ Portal scan comp error:', compError.message);
+                pricing = { error: compError.message, totalListings: 0, priceEstimate: null };
+            }
+        }
+
+        res.json({
+            message: analysis,
+            analysis: analysis,
+            gradable: gradable,
+            estimatedGrade: estimatedGrade,
+            condition: condition,
+            cardInfo: cardInfo,
+            pricing: pricing,
+            timestamp: new Date().toISOString()
+        });
+
+    } catch (error) {
+        console.error('Portal SAM scan error:', error);
         res.status(500).json({
-            error: 'Failed to get response from SAM',
-            message: 'Oops! SAM is having trouble right now. Please try again in a moment!'
+            error: 'Failed to analyze card image',
+            message: 'Having trouble analyzing that image. Make sure it\'s a clear photo of the card and try again!',
         });
     }
 });

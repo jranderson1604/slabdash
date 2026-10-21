@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { cards } from '../api/client';
 import CompLookup from '../components/CompLookup';
 import {
@@ -17,6 +19,8 @@ import {
 export default function CardDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
+  const confirm = useConfirm();
   const [card, setCard] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -80,7 +84,7 @@ export default function CardDetail() {
 
   const uploadImages = async (files) => {
     if (files.length > 5) {
-      alert('Maximum 5 images at a time');
+      toast.error('Maximum 5 images at a time');
       return;
     }
 
@@ -93,21 +97,21 @@ export default function CardDetail() {
       setCard(res.data.card);
     } catch (error) {
       console.error('Upload failed:', error);
-      alert('Failed to upload images');
+      toast.error('Failed to upload images');
     } finally {
       setUploading(false);
     }
   };
 
   const handleDeleteImage = async (imageIndex) => {
-    if (!confirm('Delete this image?')) return;
+    if (!await confirm({ title: 'Delete Image', message: 'Remove this image from the card?', variant: 'danger' })) return;
 
     try {
       const res = await cards.deleteImage(id, imageIndex);
       setCard(res.data.card);
     } catch (error) {
       console.error('Failed to delete image:', error);
-      alert('Failed to delete image');
+      toast.error('Failed to delete image');
     }
   };
 
@@ -118,19 +122,19 @@ export default function CardDetail() {
       setEditing(false);
     } catch (error) {
       console.error('Failed to update card:', error);
-      alert('Failed to update card');
+      toast.error('Failed to update card');
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Delete this card? This cannot be undone.')) return;
+    if (!await confirm({ title: 'Delete Card', message: 'Delete this card? This cannot be undone.', variant: 'danger' })) return;
 
     try {
       await cards.delete(id);
       navigate('/cards');
     } catch (error) {
       console.error('Failed to delete card:', error);
-      alert('Failed to delete card');
+      toast.error('Failed to delete card');
     }
   };
 
@@ -158,49 +162,74 @@ export default function CardDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link to="/cards" className="text-gray-400 hover:text-gray-600">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{card.description}</h1>
-            <p className="text-gray-500 text-sm mt-1">
-              {card.year} {card.brand} {card.player_name}
-            </p>
-          </div>
-        </div>
-        <div className="flex gap-2">
-          {editing ? (
-            <>
-              <button onClick={() => setEditing(false)} className="btn btn-secondary">
-                Cancel
-              </button>
-              <button onClick={handleSave} className="btn btn-primary">
-                <Save className="w-4 h-4" />
-                Save Changes
-              </button>
-            </>
-          ) : (
-            <>
-              {card.grade && card.customer_id && (
-                <button
-                  onClick={() => navigate(`/buyback/new?card_id=${card.id}`)}
-                  className="btn btn-primary bg-green-600 hover:bg-green-700"
-                >
-                  <DollarSign className="w-4 h-4" />
-                  Create Buyback Offer
-                </button>
+      <div className="relative overflow-hidden rounded-3xl" style={{ background: 'var(--hdr-gradient)', boxShadow: 'var(--hdr-shadow)', border: 'var(--hdr-border)' }}>
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
+        <div className="relative px-6 sm:px-8 py-7">
+          <div className="flex items-center gap-4">
+            <Link
+              to="/cards"
+              className="p-2 rounded-xl transition-all hover:bg-white/20 flex-shrink-0"
+              style={{ background: 'var(--hdr-back-bg)', border: 'var(--hdr-back-border)' }}
+              aria-label="Back to Cards"
+            >
+              <ArrowLeft className="w-5 h-5" style={{ color: 'var(--hdr-btn-color)' }} />
+            </Link>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: 'var(--hdr-eyebrow)' }}>Library</p>
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight" style={{ color: 'var(--hdr-title)' }}>{card.description}</h1>
+              <p className="text-sm font-medium mt-1" style={{ color: 'var(--hdr-sub)' }}>{card.year} {card.brand} {card.player_name}</p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {editing ? (
+                <>
+                  <button
+                    onClick={() => setEditing(false)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
+                    style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                    style={{ background: 'var(--hdr-btn-primary-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-primary-color)' }}
+                  >
+                    <Save className="w-4 h-4" />
+                    Save Changes
+                  </button>
+                </>
+              ) : (
+                <>
+                  {card.grade && (
+                    <button
+                      onClick={() => navigate(`/buyback/new?card_id=${card.id}`)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
+                      style={{ background: 'rgba(16,185,129,0.85)', border: 'var(--hdr-btn-border)', color: 'white' }}
+                    >
+                      <DollarSign className="w-4 h-4" />
+                      Create Buyback Offer
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setEditing(true)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
+                    style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
+                  >
+                    Edit Details
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
+                    style={{ background: 'rgba(220,38,38,0.85)', border: 'var(--hdr-btn-border)', color: 'white' }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                </>
               )}
-              <button onClick={() => setEditing(true)} className="btn btn-secondary">
-                Edit Details
-              </button>
-              <button onClick={handleDelete} className="btn btn-secondary text-red-600 hover:bg-red-50">
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </button>
-            </>
-          )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -414,7 +443,7 @@ export default function CardDetail() {
 
           {images.length === 0 && !uploading && (
             <div className="mt-6 text-center py-8">
-              <ImageIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <ImageIcon className="w-12 h-12 text-brand-300 mx-auto mb-3" />
               <p className="text-gray-500 text-sm">No images uploaded yet</p>
             </div>
           )}

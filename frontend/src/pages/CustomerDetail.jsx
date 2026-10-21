@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { customers, submissions } from '../api/client';
 import PageHeader from '../components/PageHeader';
 import StatusBadge from '../components/StatusBadge';
@@ -27,11 +30,13 @@ import {
   Plus,
   Eye,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
 export default function CustomerDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const toast = useToast();
+  const confirm = useConfirm();
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -97,19 +102,20 @@ export default function CustomerDetail() {
       setShowSubmissionDropdown(false);
     } catch (error) {
       console.error('Failed to assign customer to submission:', error);
-      alert('Failed to assign customer to submission');
+      toast.error('Failed to assign customer to submission');
     } finally {
       setAssigningSubmission(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Delete ${customer.name}? This cannot be undone.`)) return;
+    if (!await confirm({ title: `Delete ${customer.name}`, message: 'This cannot be undone.', variant: 'danger' })) return;
     try {
       await customers.delete(id);
       navigate('/customers');
     } catch (error) {
       console.error('Delete failed:', error);
+      toast.error(error.response?.data?.error || 'Failed to delete customer');
     }
   };
 
@@ -121,6 +127,7 @@ export default function CustomerDetail() {
       setEditing(false);
     } catch (error) {
       console.error('Update failed:', error);
+      toast.error(error.response?.data?.error || 'Failed to save changes');
     } finally {
       setSaving(false);
     }
@@ -133,7 +140,7 @@ export default function CustomerDetail() {
       setPortalLink(res.data.portalUrl);
     } catch (error) {
       console.error('Generate portal link failed:', error);
-      alert('Failed to generate portal link');
+      toast.error('Failed to generate portal link');
     } finally {
       setGeneratingLink(false);
     }
@@ -152,16 +159,16 @@ export default function CustomerDetail() {
   };
 
   const handleSendIntroductionEmail = async () => {
-    if (!confirm(`Send introduction email to ${customer.name}?\n\nThis will send a welcome email with portal access and submission details.`)) return;
+    if (!await confirm({ title: `Email ${customer.name}`, message: 'Send a welcome email with portal access and submission details?', confirmLabel: 'Send Email', variant: 'info' })) return;
 
     setSendingIntroEmail(true);
     try {
       const res = await customers.sendIntroductionEmail(id);
-      alert(`Introduction email sent successfully!\n\nPortal URL: ${res.data.portalUrl}`);
+      toast.success('Introduction email sent successfully!');
       setPortalLink(res.data.portalUrl);
     } catch (error) {
       console.error('Send introduction email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send introduction email');
+      toast.error(error.response?.data?.error || 'Failed to send introduction email');
     } finally {
       setSendingIntroEmail(false);
     }
@@ -169,19 +176,19 @@ export default function CustomerDetail() {
 
   const handleSendTestEmail = async () => {
     if (!testEmail || !testEmail.includes('@')) {
-      alert('Please enter a valid email address');
+      toast.error('Please enter a valid email address');
       return;
     }
 
     setSendingTestEmail(true);
     try {
       await customers.sendTestIntroductionEmail(testEmail);
-      alert(`Test introduction email sent to ${testEmail}!\n\nCheck your inbox to preview the email.`);
+      toast.success(`Test introduction email sent to ${testEmail}`);
       setShowTestEmailModal(false);
       setTestEmail('');
     } catch (error) {
       console.error('Send test email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send test email');
+      toast.error(error.response?.data?.error || 'Failed to send test email');
     } finally {
       setSendingTestEmail(false);
     }
@@ -192,50 +199,66 @@ export default function CustomerDetail() {
   }
 
   if (!customer) {
-    return <div className="text-center py-12"><User className="w-12 h-12 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900">Customer not found</h3><Link to="/customers" className="text-brand-600 hover:underline mt-2 inline-block">Back to customers</Link></div>;
+    return <div className="text-center py-12"><User className="w-12 h-12 text-brand-300 mx-auto mb-4" /><h3 className="text-lg font-medium text-gray-900">Customer not found</h3><Link to="/customers" className="text-brand-600 hover:underline mt-2 inline-block">Back to customers</Link></div>;
   }
 
   return (
     <div className="space-y-6">
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-6 shadow-xl">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+      <div className="relative overflow-hidden rounded-3xl" style={{ background: 'var(--hdr-gradient)', boxShadow: 'var(--hdr-shadow)', border: 'var(--hdr-border)' }}>
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
 
-        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 sm:px-8 py-7">
           <div className="flex items-center gap-4">
-            <Link to="/customers" className="p-2 hover:bg-white/20 backdrop-blur-sm rounded-lg transition-all">
-              <ArrowLeft className="w-5 h-5 text-white" />
+            <Link to="/customers"
+              className="p-2 rounded-xl transition-all hover:bg-white/20 flex-shrink-0"
+              style={{ background: 'var(--hdr-back-bg)', border: 'var(--hdr-back-border)' }}
+            >
+              <ArrowLeft className="w-5 h-5" style={{ color: 'var(--hdr-btn-color)' }} />
             </Link>
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 bg-white/30 rounded-full flex items-center justify-center backdrop-blur-sm border-2 border-white/50">
-                <span className="text-lg font-bold text-white">{customer.name.charAt(0).toUpperCase()}</span>
+              <div className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: 'var(--hdr-circle-1)', border: '2px solid var(--hdr-circle-1)' }}
+              >
+                <span className="text-lg font-bold" style={{ color: 'var(--hdr-btn-primary-bg)' }}>{customer.name.charAt(0).toUpperCase()}</span>
               </div>
               <div>
-                <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-lg">{customer.name}</h1>
-                <p className="text-white/90 text-lg font-semibold mt-1">{customer.email}</p>
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: 'var(--hdr-title)' }}>{customer.name}</h1>
+                <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--hdr-sub)' }}>{customer.email}</p>
               </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
             {!editing ? (
               <>
-                <button onClick={() => setEditing(true)} className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg">
+                <button onClick={() => setEditing(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
+                  style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
+                >
                   <Edit2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Edit</span>
                 </button>
-                <button onClick={handleDelete} className="bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-red-400 shadow-lg">
+                <button onClick={handleDelete}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-red-600"
+                  style={{ background: 'rgba(239,68,68,0.85)', border: 'var(--hdr-btn-border)', color: 'white' }}
+                >
                   <Trash2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Delete</span>
                 </button>
               </>
             ) : (
               <>
-                <button onClick={() => setEditing(false)} className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg">
+                <button onClick={() => setEditing(false)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20"
+                  style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
+                >
                   <X className="w-4 h-4" />
                   <span className="hidden sm:inline">Cancel</span>
                 </button>
-                <button onClick={handleSave} disabled={saving} className="bg-white text-brand-600 px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105">
+                <button onClick={handleSave} disabled={saving}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-60"
+                  style={{ background: 'rgba(255,255,255,0.9)', color: '#E8543D' }}
+                >
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                   <span className="hidden sm:inline">Save</span>
                 </button>
@@ -271,7 +294,7 @@ export default function CustomerDetail() {
           <div className="card">
             <div className="p-6 border-b border-gray-200">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Add Customer to Submission
+                Assign to Submission
               </h2>
 
               {/* Searchable submission input */}
@@ -291,41 +314,56 @@ export default function CustomerDetail() {
                 />
 
                 {/* Dropdown results */}
-                {showSubmissionDropdown && submissionSearchQuery && (
-                  <div className="absolute z-10 w-full mt-1 bg-brand-50 border border-brand-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {showSubmissionDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-72 overflow-y-auto">
+                    {submissionSearchQuery === '' && (
+                      <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100">
+                        Recent submissions
+                      </div>
+                    )}
                     {submissionList
-                      .filter(sub =>
-                        !customer.recent_submissions?.some(rs => rs.id === sub.id) &&
-                        (sub.psa_submission_number?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
-                         sub.psa_order_number?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
-                         sub.internal_id?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
-                         sub.service_level?.toLowerCase().includes(submissionSearchQuery.toLowerCase()))
-                      )
+                      .filter(sub => {
+                        if (customer.recent_submissions?.some(rs => rs.id === sub.id)) return false;
+                        if (!submissionSearchQuery) return true;
+                        const q = submissionSearchQuery.toLowerCase();
+                        return (sub.psa_submission_number?.toLowerCase().includes(q) ||
+                         sub.psa_order_number?.toLowerCase().includes(q) ||
+                         sub.internal_id?.toLowerCase().includes(q) ||
+                         sub.service_level?.toLowerCase().includes(q));
+                      })
                       .slice(0, 10)
                       .map((sub) => (
                         <button
                           key={sub.id}
                           onClick={() => handleAssignToSubmission(sub.id)}
                           disabled={assigningSubmission}
-                          className="w-full text-left px-4 py-3 hover:bg-brand-50 transition-colors border-b border-gray-100 last:border-b-0 disabled:opacity-50"
+                          className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 disabled:opacity-50"
                         >
-                          <p className="font-medium text-gray-900">
-                            {sub.psa_submission_number || sub.internal_id || 'No ID'}
-                          </p>
-                          <p className="text-sm text-gray-500">
-                            {sub.service_level || 'Unknown service'} • {sub.card_count || 0} cards
+                          <div className="flex items-center justify-between">
+                            <p className="font-bold text-gray-900 text-base">
+                              PSA #{sub.psa_submission_number || sub.internal_id || '—'}
+                            </p>
+                            <span className="text-xs font-medium px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
+                              {sub.current_step || 'New'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500 mt-0.5">
+                            {sub.service_level || 'Unknown service'} · {sub.card_count || 0} cards
+                            {sub.progress_percent > 0 ? ` · ${sub.progress_percent}%` : ''}
                           </p>
                         </button>
                       ))}
-                    {submissionList.filter(sub =>
-                      !customer.recent_submissions?.some(rs => rs.id === sub.id) &&
-                      (sub.psa_submission_number?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
-                       sub.psa_order_number?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
-                       sub.internal_id?.toLowerCase().includes(submissionSearchQuery.toLowerCase()) ||
-                       sub.service_level?.toLowerCase().includes(submissionSearchQuery.toLowerCase()))
-                    ).length === 0 && (
+                    {submissionList.filter(sub => {
+                      if (customer.recent_submissions?.some(rs => rs.id === sub.id)) return false;
+                      if (!submissionSearchQuery) return true;
+                      const q = submissionSearchQuery.toLowerCase();
+                      return (sub.psa_submission_number?.toLowerCase().includes(q) ||
+                       sub.psa_order_number?.toLowerCase().includes(q) ||
+                       sub.internal_id?.toLowerCase().includes(q) ||
+                       sub.service_level?.toLowerCase().includes(q));
+                    }).length === 0 && (
                       <div className="px-4 py-3 text-gray-500 text-sm">
-                        No submissions found matching "{submissionSearchQuery}"
+                        No submissions found {submissionSearchQuery ? `matching "${submissionSearchQuery}"` : ''}
                       </div>
                     )}
                   </div>
@@ -333,7 +371,7 @@ export default function CustomerDetail() {
               </div>
 
               <p className="text-xs text-gray-500 mt-2">
-                💡 Search for a submission and click to link this customer to it
+                Search for a submission and click to link this customer to it
               </p>
             </div>
           </div>
@@ -375,7 +413,7 @@ export default function CustomerDetail() {
                 ))}
               </div>
             ) : (
-              <div className="p-8 text-center"><Package className="w-10 h-10 text-gray-300 mx-auto mb-3" /><p className="text-gray-500">No submissions yet</p><Link to="/submissions/new" className="btn btn-primary mt-3">Create First Submission</Link></div>
+              <div className="p-8 text-center"><Package className="w-10 h-10 text-brand-300 mx-auto mb-3" /><p className="text-gray-500">No submissions yet</p><Link to="/submissions/new" className="btn btn-primary mt-3">New Submission</Link></div>
             )}
           </div>
 
@@ -389,7 +427,7 @@ export default function CustomerDetail() {
             </div>
             <div className="p-6">
               <div className="text-center py-8">
-                <DollarSign className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <DollarSign className="w-10 h-10 text-brand-300 mx-auto mb-3" />
                 <p className="text-gray-500 mb-3">No buyback transactions yet</p>
                 <p className="text-xs text-gray-400">Buyback offers and transactions will appear here</p>
               </div>
@@ -428,6 +466,17 @@ export default function CustomerDetail() {
                   {customer.recent_submissions?.filter(s => !s.shipped).length || 0} in progress
                 </dd>
               </div>
+              {customer.last_login_at && (
+                <div className="pt-3 border-t border-gray-100">
+                  <dt className="text-gray-500 flex items-center gap-2 text-xs mb-1">
+                    <Eye className="w-4 h-4" />
+                    Last Portal Visit
+                  </dt>
+                  <dd className="text-sm font-medium text-gray-900" title={format(new Date(customer.last_login_at), 'MMM d, yyyy h:mm a')}>
+                    {formatDistanceToNow(new Date(customer.last_login_at), { addSuffix: true })}
+                  </dd>
+                </div>
+              )}
             </dl>
           </div>
 
@@ -480,6 +529,15 @@ export default function CustomerDetail() {
                       <Mail className="w-4 h-4" />
                       Email
                     </button>
+                  </div>
+                  {/* QR code — customer can scan with phone */}
+                  <div className="flex flex-col items-center gap-2 pt-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Customer QR Code</p>
+                    <div className="p-3 rounded-xl inline-block"
+                      style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.07)', boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
+                      <QRCodeSVG value={portalLink} size={128} level="H" />
+                    </div>
+                    <p className="text-xs text-gray-400 text-center">Show or print this for the customer to scan</p>
                   </div>
                 </div>
               )}

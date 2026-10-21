@@ -1,6 +1,36 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, Sparkles, TrendingUp, Calculator, HelpCircle, Lightbulb, ThumbsUp, Brain, Camera, Upload } from 'lucide-react';
+import { Send, Loader2, Sparkles, TrendingUp, TrendingDown, Calculator, HelpCircle, Lightbulb, ThumbsUp, Brain, Camera, Upload, X, DollarSign, BarChart3, ArrowUpRight, ArrowDownRight, Minus, Tag, Layers, ImagePlus, Paperclip, Zap, Lock, Coins } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
+
+// Read a Server-Sent Events stream from a fetch response
+async function readSSE(response, { onDelta, onDone, onError }) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const json = line.slice(6).trim();
+        if (!json) continue;
+        try {
+          const event = JSON.parse(json);
+          if (event.type === 'delta' && event.text) onDelta(event.text);
+          else if (event.type === 'done') onDone(event);
+          else if (event.type === 'error') onError?.(new Error(event.message || 'Stream error'));
+        } catch {}
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
 
 // Animation trigger keywords - maps keywords to animation types
 const ANIMATION_TRIGGERS = {
@@ -28,7 +58,208 @@ const ANIMATION_DURATIONS = {
   typing: -1,           // Continuous while loading
 };
 
-export default function SAMChatInterface({ isCustomerPortal = false, token = null }) {
+// Pricing trend arrow component
+function TrendIndicator({ value }) {
+  if (!value || value === 0) return null;
+  const isUp = value > 0;
+  return (
+    <span className={`inline-flex items-center gap-0.5 text-xs font-bold ${isUp ? 'text-emerald-400' : 'text-red-400'}`}>
+      {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+      {isUp ? '+' : ''}{typeof value === 'number' ? `$${value.toFixed(2)}` : value}
+    </span>
+  );
+}
+
+// Grade tier pricing column
+function GradeTierColumn({ tier, label, highlight = false }) {
+  if (!tier || !tier.available || !tier.avg) {
+    return (
+      <div className={`flex-1 text-center p-2.5 rounded-xl ${highlight ? 'ring-1 ring-[#FF8170]/20' : ''}`}
+        style={{ background: highlight ? 'rgba(255, 129, 112, 0.06)' : 'rgba(255,255,255,0.03)' }}>
+        <p className="text-[9px] text-[#E8DCC0]/40 uppercase font-bold mb-1">{label}</p>
+        <p className="text-sm font-bold text-[#E8DCC0]/25">—</p>
+        <p className="text-[8px] text-[#E8DCC0]/20 mt-0.5">No data</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex-1 text-center p-2.5 rounded-xl ${highlight ? 'ring-1 ring-[#FF8170]/30' : ''}`}
+      style={{ background: highlight ? 'rgba(255, 129, 112, 0.08)' : 'rgba(255,255,255,0.03)' }}>
+      <p className={`text-[9px] uppercase font-bold mb-1 ${highlight ? 'text-[#FF8170]' : 'text-[#E8DCC0]/40'}`}>{label}</p>
+      <p className={`text-lg font-black leading-none ${highlight ? 'text-white' : 'text-[#E8DCC0]/90'}`}>
+        ${tier.avg.toFixed(0)}<span className="text-xs font-bold opacity-60">.{(tier.avg % 1).toFixed(2).slice(2)}</span>
+      </p>
+      {tier.count > 0 && (
+        <p className="text-[8px] text-[#E8DCC0]/30 mt-1">{tier.count} sale{tier.count !== 1 ? 's' : ''}</p>
+      )}
+      {tier.min != null && tier.max != null && tier.min !== tier.max && (
+        <p className="text-[8px] text-[#E8DCC0]/20 mt-0.5">${tier.min.toFixed(0)}–${tier.max.toFixed(0)}</p>
+      )}
+    </div>
+  );
+}
+
+// Recent sales list for a tier
+function RecentSalesList({ tier }) {
+  if (!tier?.recent || tier.recent.length === 0) return null;
+
+  return (
+    <div className="space-y-1">
+      {tier.recent.slice(0, 3).map((sale, i) => (
+        <div key={i} className="flex items-center justify-between">
+          <span className="text-[10px] text-[#E8DCC0]/40 font-medium truncate flex-1 mr-2">
+            {sale.title ? sale.title.substring(0, 40) : sale.condition || 'Sale'}
+            {sale.title && sale.title.length > 40 ? '...' : ''}
+          </span>
+          <span className="text-xs font-bold text-white">${(sale.price || 0).toFixed(2)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// Beautiful scan results + graded pricing card
+function ScanResultsCard({ scanResults }) {
+  if (!scanResults || typeof scanResults !== 'object') return null;
+  const { cardInfo, pricing, estimatedGrade } = scanResults;
+
+  const hasGradedData = pricing?.psa8?.available || pricing?.psa9?.available || pricing?.psa10?.available;
+  const hasRawData = pricing?.raw?.available && pricing.raw.count > 0;
+  const hasAnyPricing = hasRawData || hasGradedData;
+
+  // Determine which sources contributed
+  const allSources = new Set();
+  for (const tier of [pricing?.raw, pricing?.psa8, pricing?.psa9, pricing?.psa10]) {
+    if (tier?.sources) tier.sources.forEach(s => allSources.add(s));
+  }
+  const sourceLabel = [...allSources].map(s => s === 'justtcg' ? 'JustTCG' : s === 'ebay' ? 'eBay' : s).join(' + ');
+
+  return (
+    <div className="mt-4 space-y-2.5">
+      {/* PRICING CARD */}
+      <div className="rounded-2xl overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, rgba(44, 36, 22, 0.95), rgba(61, 48, 32, 0.95))',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.08)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+        }}>
+
+        {/* Card identity header */}
+        <div className="px-4 pt-4 pb-2 flex items-center gap-3">
+          {estimatedGrade && (
+            <div className="flex-shrink-0 w-12 h-12 rounded-xl flex flex-col items-center justify-center"
+              style={{
+                background: 'linear-gradient(135deg, #FF8170, #E8543D)',
+                boxShadow: '0 4px 16px rgba(255, 107, 89, 0.35)',
+                border: '1px solid rgba(255, 185, 160, 0.25)',
+              }}>
+              <span className="text-[8px] font-bold text-white/70 uppercase">PSA</span>
+              <span className="text-lg font-black text-white leading-none">
+                {estimatedGrade.replace(/PSA\s*/i, '')}
+              </span>
+            </div>
+          )}
+          <div className="flex-1 min-w-0">
+            {cardInfo?.name && (
+              <p className="font-bold text-sm text-white leading-tight truncate">{cardInfo.name}</p>
+            )}
+            <div className="flex flex-wrap items-center gap-1 mt-0.5">
+              {cardInfo?.set && (
+                <span className="text-[10px] text-[#E8DCC0]/50">{cardInfo.set}</span>
+              )}
+              {cardInfo?.number && (
+                <span className="text-[10px] text-[#E8DCC0]/35">#{cardInfo.number}</span>
+              )}
+              {cardInfo?.year && (
+                <span className="text-[10px] text-[#E8DCC0]/35">{cardInfo.year}</span>
+              )}
+            </div>
+            {/* Parallel / variant badge */}
+            {cardInfo?.parallel && cardInfo.parallel.toLowerCase() !== 'base' && (
+              <div className="mt-1">
+                <span className="inline-block text-[9px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: 'rgba(255, 129, 112, 0.15)', color: '#FF8170', border: '1px solid rgba(255, 129, 112, 0.2)' }}>
+                  {cardInfo.parallel}{cardInfo.serial ? ` ${cardInfo.serial}` : ''}
+                </span>
+                {cardInfo?.attributes && cardInfo.attributes.includes('RC') && (
+                  <span className="inline-block text-[9px] font-bold px-2 py-0.5 rounded-full ml-1"
+                    style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                    RC
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RAW VALUE — big and clear */}
+        {hasRawData ? (
+          <div className="px-4 pb-2">
+            <p className="text-[9px] text-[#E8DCC0]/40 uppercase font-bold mb-0.5">Raw Value</p>
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black text-white leading-none">
+                ${pricing.raw.avg.toFixed(2)}
+              </span>
+            </div>
+            <p className="text-[10px] text-[#E8DCC0]/30 mt-0.5">
+              avg from {pricing.raw.count} listing{pricing.raw.count !== 1 ? 's' : ''}
+              {pricing.raw.min != null && pricing.raw.max != null && pricing.raw.min !== pricing.raw.max
+                ? ` (${`$${pricing.raw.min.toFixed(2)}–$${pricing.raw.max.toFixed(2)}`})`
+                : ''}
+            </p>
+          </div>
+        ) : (
+          <div className="px-4 pb-2">
+            <p className="text-sm text-[#E8DCC0]/50">
+              {!cardInfo ? 'Could not identify card. Try a clearer photo.' : 'No raw pricing data found.'}
+            </p>
+          </div>
+        )}
+
+        {/* GRADED PRICING — PSA 8, 9, 10 columns */}
+        {hasAnyPricing && (
+          <div className="mx-4 mb-3">
+            <p className="text-[9px] text-[#E8DCC0]/30 uppercase font-bold mb-2">If Graded</p>
+            <div className="flex gap-1.5">
+              <GradeTierColumn tier={pricing?.psa8} label="PSA 8" />
+              <GradeTierColumn tier={pricing?.psa9} label="PSA 9" />
+              <GradeTierColumn tier={pricing?.psa10} label="PSA 10" highlight />
+            </div>
+          </div>
+        )}
+
+        {/* RECENT SALES — show for the most relevant tier */}
+        {(() => {
+          // Show recent sales for the grade tier with the most data
+          const bestTier = [pricing?.psa10, pricing?.psa9, pricing?.psa8].find(t => t?.recent?.length > 0);
+          if (!bestTier) return null;
+          return (
+            <div className="mx-4 mb-3 rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.04)' }}>
+              <p className="text-[9px] text-[#E8DCC0]/30 uppercase font-bold mb-1.5">
+                Recent {bestTier.grade} Sales
+              </p>
+              <RecentSalesList tier={bestTier} />
+            </div>
+          );
+        })()}
+
+        {/* Source attribution */}
+        {sourceLabel && (
+          <div className="px-4 pb-3">
+            <p className="text-[9px] text-[#E8DCC0]/25">
+              via {sourceLabel} &middot; {pricing?.totalListings || 0} total listings
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function SAMChatInterface({ isCustomerPortal = false, token = null, jwtToken = null }) {
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+  const navigate = useNavigate();
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
@@ -45,9 +276,15 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
   const [idleAnimationIndex, setIdleAnimationIndex] = useState(1);
   const [uploadedImage, setUploadedImage] = useState(null);
   const [scanning, setScanning] = useState(false);
+  const [pendingImage, setPendingImage] = useState(null); // { file, preview }
+  const [samUsage, setSamUsage] = useState(null); // { daily_used, daily_limit, remaining_free, token_balance }
+  const [tokenLocked, setTokenLocked] = useState(false);
+  const [tokenBundles, setTokenBundles] = useState(null);
+  const [buyingBundle, setBuyingBundle] = useState(null); // currently purchasing bundle id
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const chatFileInputRef = useRef(null);
   const animationTimeoutRef = useRef(null);
   const idleIntervalRef = useRef(null);
 
@@ -75,6 +312,95 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Fetch SAM usage for customer portal
+  useEffect(() => {
+    if (isCustomerPortal && jwtToken) {
+      fetch(`${API_URL}/portal/sam/usage`, {
+        headers: { Authorization: `Bearer ${jwtToken}` }
+      })
+        .then(res => res.ok ? res.json() : null)
+        .then(data => { if (data) setSamUsage(data); })
+        .catch(() => {});
+    }
+  }, [isCustomerPortal, jwtToken]);
+
+  // Fetch token bundles for purchase UI
+  useEffect(() => {
+    if (isCustomerPortal) {
+      fetch(`${API_URL}/portal/sam/bundles`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => { if (data) setTokenBundles(data.bundles); })
+        .catch(() => {});
+    }
+  }, [isCustomerPortal]);
+
+  // Check URL params for successful token purchase
+  useEffect(() => {
+    if (isCustomerPortal) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tokens') === 'success') {
+        // Refresh usage data after purchase
+        if (jwtToken) {
+          fetch(`${API_URL}/portal/sam/usage`, {
+            headers: { Authorization: `Bearer ${jwtToken}` }
+          })
+            .then(res => res.ok ? res.json() : null)
+            .then(data => {
+              if (data) {
+                setSamUsage(data);
+                setTokenLocked(false);
+              }
+            })
+            .catch(() => {});
+        }
+        // Clean up URL
+        const url = new URL(window.location);
+        url.searchParams.delete('tokens');
+        url.searchParams.delete('bundle');
+        window.history.replaceState({}, '', url);
+      }
+    }
+  }, [isCustomerPortal, jwtToken]);
+
+  // Handle token bundle purchase
+  const handleBuyTokens = async (bundleId) => {
+    if (!jwtToken || buyingBundle) return;
+    setBuyingBundle(bundleId);
+    try {
+      const res = await fetch(`${API_URL}/portal/sam/buy-tokens`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+        body: JSON.stringify({ bundle: bundleId }),
+      });
+      const data = await res.json();
+
+      if (data.mock) {
+        // Dev mode — tokens credited directly, refresh usage
+        const usageRes = await fetch(`${API_URL}/portal/sam/usage`, {
+          headers: { Authorization: `Bearer ${jwtToken}` }
+        });
+        const usageData = await usageRes.json();
+        setSamUsage(usageData);
+        setTokenLocked(false);
+        const successMsg = {
+          role: 'assistant',
+          content: `Added ${data.tokens_added} tokens! You're all set to keep chatting.`,
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, successMsg]);
+      } else if (data.url) {
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || 'Unknown error');
+      }
+    } catch (error) {
+      console.error('Token purchase error:', error);
+    } finally {
+      setBuyingBundle(null);
+    }
+  };
 
   // Detect animation trigger from text
   const detectAnimationTrigger = (text) => {
@@ -135,14 +461,11 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
     };
   }, []);
 
-  const handleImageUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // Core scan function — sends an image file to SAM for analysis
+  const scanImage = async (file, messageText) => {
     setScanning(true);
     playAnimation('thinking');
 
-    // Create preview
     const reader = new FileReader();
     reader.onload = async (event) => {
       const imageUrl = event.target.result;
@@ -151,28 +474,44 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
       // Add user message with image
       const userMessage = {
         role: 'user',
-        content: '📸 [Uploaded card image for analysis]',
+        content: messageText || '📸 Scan this card',
         timestamp: new Date(),
         image: imageUrl
       };
       setMessages(prev => [...prev, userMessage]);
 
       try {
-        // Send image to SAM for analysis
         const formData = new FormData();
         formData.append('image', file);
 
-        const endpoint = isCustomerPortal
-          ? `/portal/sam/scan?token=${token}`
-          : '/sam/scan';
-
-        const response = await api.post(endpoint, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
-        });
+        let response;
+        if (isCustomerPortal && jwtToken) {
+          // Use fetch with JWT Bearer auth for customer portal
+          const res = await fetch(`${API_URL}/portal/sam/scan`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${jwtToken}` },
+            body: formData,
+          });
+          let scanData;
+          try {
+            scanData = await res.json();
+          } catch {
+            throw new Error('Server returned an invalid response');
+          }
+          if (!res.ok) throw new Error(scanData.error || 'Scan failed');
+          response = { data: scanData };
+        } else {
+          const endpoint = isCustomerPortal
+            ? `/portal/sam/scan?token=${token}`
+            : '/sam/scan';
+          response = await api.post(endpoint, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        }
 
         const analysisMessage = {
           role: 'assistant',
-          content: response.data.message || response.data.analysis,
+          content: response.data.message || response.data.analysis || 'Card scan complete.',
           timestamp: new Date(),
           scanResults: response.data
         };
@@ -192,6 +531,7 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
       } finally {
         setScanning(false);
         setUploadedImage(null);
+        setPendingImage(null);
         startIdleCycle();
       }
     };
@@ -199,71 +539,179 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
     reader.readAsDataURL(file);
   };
 
+  // Handle file input from scan button (header)
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = ''; // Reset so same file can be re-selected
+    await scanImage(file);
+  };
+
+  // Handle file input from chat attachment button
+  const handleChatImageAttach = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setPendingImage({ file, preview: event.target.result });
+    };
+    reader.readAsDataURL(file);
+    inputRef.current?.focus();
+  };
+
+  // Handle paste events (Ctrl+V image)
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            setPendingImage({ file, preview: event.target.result });
+          };
+          reader.readAsDataURL(file);
+        }
+        return;
+      }
+    }
+  };
+
+  // Handle drop events (drag and drop image)
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer?.files?.[0];
+    if (file && file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setPendingImage({ file, preview: event.target.result });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSend = async () => {
+    if (isCustomerPortal && tokenLocked) return;
+
+    if (pendingImage) {
+      const text = input.trim() || '📸 Scan this card';
+      setInput('');
+      await scanImage(pendingImage.file, text);
+      return;
+    }
+
     if (!input.trim() || isLoading) return;
 
-    const userMessage = {
-      role: 'user',
-      content: input.trim(),
-      timestamp: new Date()
-    };
-
-    // Detect animation trigger from user input
+    const userMessage = { role: 'user', content: input.trim(), timestamp: new Date() };
     const triggerAnimation = detectAnimationTrigger(input);
-    if (triggerAnimation) {
-      playAnimation(triggerAnimation);
-    }
+    if (triggerAnimation) playAnimation(triggerAnimation);
 
     setMessages(prev => [...prev, userMessage]);
     const messageText = input.trim();
     setInput('');
     setIsLoading(true);
-
-    // Show typing animation while loading
     playAnimation('typing');
 
     try {
-      const endpoint = isCustomerPortal
-        ? `/portal/sam/chat?token=${token}`
-        : '/sam/chat';
+      let fetchRes;
 
-      const response = await api.post(endpoint, {
-        message: messageText,
-        history: messages.slice(-10)
-      });
-
-      // Log AI mode for debugging
-      console.log('═══════════════════════════════════');
-      console.log(`🤖 SAM Response Mode: ${response.data.mode || 'Unknown'}`);
-      console.log(`🔑 AI Powered: ${response.data.ai_powered ? 'YES' : 'NO'}`);
-      console.log(`📝 Response: ${response.data.message.substring(0, 150)}...`);
-      console.log('═══════════════════════════════════');
-
-      const assistantMessage = {
-        role: 'assistant',
-        content: response.data.message,
-        timestamp: new Date()
-      };
-
-      // Detect animation from assistant response
-      const responseAnimation = detectAnimationTrigger(response.data.message);
-      if (responseAnimation) {
-        playAnimation(responseAnimation);
+      if (isCustomerPortal && jwtToken) {
+        fetchRes = await fetch(`${API_URL}/portal/sam/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+          body: JSON.stringify({ message: messageText, history: messages.slice(-10) }),
+        });
       } else {
-        startIdleCycle();
+        const endpoint = isCustomerPortal ? `/portal/sam/chat?token=${token}` : '/sam/chat';
+        const adminToken = localStorage.getItem('slabdash_token');
+        fetchRes = await fetch(`${API_URL}${endpoint}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(adminToken && !isCustomerPortal ? { Authorization: `Bearer ${adminToken}` } : {})
+          },
+          body: JSON.stringify({ message: messageText, history: messages.slice(-10) }),
+        });
       }
 
-      setMessages(prev => [...prev, assistantMessage]);
+      // Non-200 responses are JSON errors (token limit, auth, etc.)
+      if (!fetchRes.ok) {
+        const data = await fetchRes.json().catch(() => ({}));
+        if (fetchRes.status === 429 && data.error === 'out_of_tokens') {
+          setTokenLocked(true);
+          if (data.usage) setSamUsage(prev => ({ ...prev, ...data.usage }));
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: `You've used all ${data.usage?.daily_limit || 15} free messages for today! Grab a token pack below to keep chatting, or your free messages will reset at midnight.`,
+            timestamp: new Date()
+          }]);
+          playAnimation('confused');
+          return;
+        }
+        throw new Error(data.message || data.error || 'Failed to get response');
+      }
+
+      // 200 → SSE stream
+      setIsLoading(false);
+      const placeholder = { role: 'assistant', content: '', timestamp: new Date(), streaming: true };
+      setMessages(prev => [...prev, placeholder]);
+
+      let streamedContent = '';
+
+      await readSSE(fetchRes, {
+        onDelta: (text) => {
+          streamedContent += text;
+          setMessages(prev => {
+            const msgs = [...prev];
+            const last = msgs[msgs.length - 1];
+            if (last?.streaming) msgs[msgs.length - 1] = { ...last, content: last.content + text };
+            return msgs;
+          });
+        },
+        onDone: (event) => {
+          if (event.usage) {
+            setSamUsage(prev => ({ ...prev, ...event.usage }));
+            if (event.usage.remaining_free <= 0 && event.usage.token_balance <= 0) setTokenLocked(true);
+          }
+          setMessages(prev => {
+            const msgs = [...prev];
+            const last = msgs[msgs.length - 1];
+            if (last?.streaming) msgs[msgs.length - 1] = { ...last, streaming: false };
+            return msgs;
+          });
+          const anim = detectAnimationTrigger(streamedContent);
+          if (anim) playAnimation(anim);
+          else startIdleCycle();
+        },
+        onError: () => {
+          setMessages(prev => {
+            const msgs = [...prev];
+            const last = msgs[msgs.length - 1];
+            if (last?.streaming) msgs[msgs.length - 1] = { ...last, content: last.content || '😅 Oops! SAM hit a snag. Please try again.', streaming: false };
+            return msgs;
+          });
+          startIdleCycle();
+        }
+      });
+
     } catch (error) {
       console.error('SAM chat error:', error);
       playAnimation('confused');
-
-      const errorMessage = {
-        role: 'assistant',
-        content: '😅 Oops! I\'m having trouble connecting right now. Please try again in a moment!',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages(prev => {
+        const msgs = [...prev];
+        // Remove streaming placeholder if present
+        if (msgs[msgs.length - 1]?.streaming) msgs.pop();
+        return [...msgs, {
+          role: 'assistant',
+          content: '😅 Oops! I\'m having trouble connecting right now. Please try again in a moment!',
+          timestamp: new Date()
+        }];
+      });
     } finally {
       setIsLoading(false);
     }
@@ -295,16 +743,18 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-[#2C2416] via-[#3D3020] to-[#2C2416]">
-      {/* Modern Header - ChatGPT Style */}
-      <div className="bg-gradient-to-r from-[#2C2416]/95 via-[#3D3020]/95 to-[#2C2416]/95 backdrop-blur-xl border-b border-[#FF8170]/20 px-4 lg:px-6 py-4 shadow-2xl">
+      {/* SAM Header */}
+      <div className="stark-scanline bg-gradient-to-r from-[#2C2416]/95 via-[#3D3020]/95 to-[#2C2416]/95 backdrop-blur-xl border-b border-[#FF8170]/20 px-4 lg:px-6 py-4 shadow-2xl relative overflow-hidden">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
-            {/* Small SAM Avatar with coral glow */}
+            {/* SAM Avatar */}
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-[#FF8170] to-[#FF9580] rounded-2xl blur-lg opacity-75 animate-pulse"></div>
-              <div className="relative w-12 h-12 bg-gradient-to-br from-[#FF8170] to-[#FF6B5A] rounded-2xl flex items-center justify-center shadow-2xl border border-[#FFF8F0]/20">
-                <span className="text-2xl font-black text-[#FFF8F0] drop-shadow-lg">S</span>
-              </div>
+              <img
+                src="/images/SAM_V2.png"
+                alt="SAM"
+                className="relative w-12 h-12 rounded-2xl object-cover shadow-2xl border border-[#FFF8F0]/20"
+              />
             </div>
             <div>
               <h1 className="text-2xl font-black bg-gradient-to-r from-[#FF8170] via-[#FF9580] to-[#FFB8A8] bg-clip-text text-transparent drop-shadow-lg">
@@ -314,15 +764,43 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
             </div>
           </div>
 
-          {/* Upload Button - Desktop */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isLoading || scanning}
-            className="hidden lg:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] hover:from-[#FF9580] hover:to-[#FF8170] text-[#2C2416] rounded-2xl font-bold transition-all shadow-2xl hover:shadow-[#FF8170]/50 border border-[#FFF8F0]/20 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Camera className="w-5 h-5" />
-            <span>Scan Card</span>
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Token usage indicator - customer portal only */}
+            {isCustomerPortal && samUsage && (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl border border-[#FFF8F0]/10"
+                style={{ background: 'rgba(255,255,255,0.05)' }}>
+                <Zap className="w-3.5 h-3.5" style={{ color: samUsage.remaining_free > 0 ? '#10B981' : '#F59E0B' }} />
+                <span className="text-xs font-bold" style={{ color: samUsage.remaining_free > 0 ? '#10B981' : '#F59E0B' }}>
+                  {samUsage.remaining_free > 0
+                    ? `${samUsage.remaining_free} free`
+                    : samUsage.token_balance > 0
+                      ? `${samUsage.token_balance} tokens`
+                      : 'No tokens'}
+                </span>
+              </div>
+            )}
+
+            {/* Upload Button - Desktop */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isLoading || scanning || tokenLocked}
+              className="hidden lg:flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] hover:from-[#FF9580] hover:to-[#FF8170] text-[#2C2416] rounded-2xl font-bold transition-all shadow-2xl hover:shadow-[#FF8170]/50 border border-[#FFF8F0]/20 backdrop-blur-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Camera className="w-5 h-5" />
+              <span>Scan Card</span>
+            </button>
+
+            {/* Close Button */}
+            {!isCustomerPortal && (
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center justify-center w-10 h-10 rounded-xl text-[#E8DCC0] hover:text-[#FFF8F0] hover:bg-[#FFF8F0]/10 transition-all"
+                title="Close SAM"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            )}
+          </div>
           <input
             ref={fileInputRef}
             type="file"
@@ -346,9 +824,11 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
               {msg.role === 'assistant' && (
                 <div className="relative flex-shrink-0">
                   <div className="absolute inset-0 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] rounded-xl blur opacity-50"></div>
-                  <div className="relative w-10 h-10 bg-gradient-to-br from-[#FF8170] to-[#FF6B5A] rounded-xl flex items-center justify-center shadow-lg border border-[#FFF8F0]/20">
-                    <span className="text-[#FFF8F0] text-sm font-black">S</span>
-                  </div>
+                  <img
+                    src="/images/SAM_V2.png"
+                    alt="SAM"
+                    className="relative w-10 h-10 rounded-xl object-cover shadow-lg border border-[#FFF8F0]/20"
+                  />
                 </div>
               )}
               {msg.role === 'user' && (
@@ -372,29 +852,12 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
                     className="w-full max-w-sm rounded-2xl mb-4 border-2 border-[#FF8170]/30 shadow-xl"
                   />
                 )}
-                <p className="text-base leading-relaxed whitespace-pre-wrap font-medium">{msg.content}</p>
+                <p className="text-base leading-relaxed whitespace-pre-wrap font-medium">
+                  {msg.content}
+                  {msg.streaming && <span className="inline-block w-0.5 h-4 bg-[#2C2416] ml-0.5 align-middle animate-pulse" />}
+                </p>
                 {msg.scanResults && (
-                  <div className="mt-4 pt-4 border-t border-[#2C2416]/10 space-y-2 text-sm">
-                    {msg.scanResults.gradable !== undefined && (
-                      <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full font-bold ${
-                        msg.scanResults.gradable
-                          ? 'bg-green-600/20 text-green-800 border border-green-600/30'
-                          : 'bg-red-600/20 text-red-800 border border-red-600/30'
-                      }`}>
-                        {msg.scanResults.gradable ? '✅ Worth Grading!' : '❌ Not Recommended'}
-                      </div>
-                    )}
-                    {msg.scanResults.estimatedGrade && (
-                      <p className="text-[#FF8170] font-semibold">
-                        Estimated Grade: <span className="text-[#2C2416]">{msg.scanResults.estimatedGrade}</span>
-                      </p>
-                    )}
-                    {msg.scanResults.condition && (
-                      <p className="text-[#8B7355] font-semibold">
-                        Condition: <span className="text-[#2C2416]">{msg.scanResults.condition}</span>
-                      </p>
-                    )}
-                  </div>
+                  <ScanResultsCard scanResults={msg.scanResults} />
                 )}
                 <p className="text-xs mt-3 opacity-50 font-medium">
                   {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -403,7 +866,7 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
             </div>
           ))}
 
-          {(isLoading || scanning) && (
+          {(isLoading || scanning) && !messages.some(m => m.streaming) && (
             <div className="flex gap-4">
               <div className="relative flex-shrink-0">
                 <div className="absolute inset-0 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] rounded-xl blur opacity-50 animate-pulse"></div>
@@ -447,19 +910,136 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
         </div>
       )}
 
+      {/* Token Paywall + Purchase UI - shown when locked */}
+      {isCustomerPortal && tokenLocked && (
+        <div className="border-t border-[#FF8170]/20 bg-gradient-to-r from-[#2C2416] via-[#3D3020] to-[#2C2416]">
+          <div className="max-w-5xl mx-auto px-4 lg:px-6 py-5">
+            <div className="text-center mb-4">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl mb-2"
+                style={{ background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.05))', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                <Coins className="w-6 h-6 text-amber-400" />
+              </div>
+              <h3 className="text-base font-black text-[#FFF8F0]">Need More SAM Time?</h3>
+              <p className="text-xs text-[#E8DCC0]/50 mt-1">
+                {samUsage?.daily_limit || 15} free messages daily — grab tokens to keep chatting
+              </p>
+            </div>
+
+            {/* Bundle cards */}
+            {tokenBundles && tokenBundles.length > 0 && (
+              <div className="flex gap-2 justify-center mb-3">
+                {tokenBundles.map((bundle) => (
+                  <button
+                    key={bundle.id}
+                    onClick={() => handleBuyTokens(bundle.id)}
+                    disabled={buyingBundle != null}
+                    className="relative flex-1 max-w-[140px] rounded-2xl p-3 transition-all hover:scale-[1.03] active:scale-[0.98] disabled:opacity-60"
+                    style={{
+                      background: bundle.badge
+                        ? 'linear-gradient(135deg, rgba(255, 129, 112, 0.12), rgba(255, 129, 112, 0.04))'
+                        : 'rgba(255, 255, 255, 0.04)',
+                      border: bundle.badge
+                        ? '1px solid rgba(255, 129, 112, 0.25)'
+                        : '1px solid rgba(255, 255, 255, 0.08)',
+                    }}
+                  >
+                    {bundle.badge && (
+                      <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] font-black uppercase px-2 py-0.5 rounded-full"
+                        style={{ background: 'linear-gradient(135deg, #FF8170, #FF6B5A)', color: '#FFF8F0' }}>
+                        {bundle.badge}
+                      </span>
+                    )}
+                    <div className="text-center">
+                      <p className="text-2xl font-black text-[#FFF8F0] leading-none">{bundle.tokens}</p>
+                      <p className="text-[10px] text-[#E8DCC0]/40 font-bold uppercase mt-0.5">tokens</p>
+                      <div className="mt-2 py-1.5 rounded-xl font-black text-sm"
+                        style={{
+                          background: bundle.badge
+                            ? 'linear-gradient(135deg, #FF8170, #FF6B5A)'
+                            : 'rgba(255, 255, 255, 0.08)',
+                          color: bundle.badge ? '#FFF8F0' : '#E8DCC0',
+                        }}>
+                        {buyingBundle === bundle.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                        ) : (
+                          bundle.price_display
+                        )}
+                      </div>
+                      <p className="text-[9px] text-[#E8DCC0]/30 mt-1">{bundle.per_token}/msg</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <p className="text-center text-[10px] text-[#E8DCC0]/25">
+              Free messages reset daily at midnight
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Input Area - Modern Glass Design */}
-      <div className="border-t border-[#FF8170]/20 bg-[#2C2416]/95 backdrop-blur-xl shadow-2xl sticky bottom-0">
+      <div className={`border-t border-[#FF8170]/20 bg-[#2C2416]/95 backdrop-blur-xl shadow-2xl sticky bottom-0 ${tokenLocked && isCustomerPortal ? 'opacity-40 pointer-events-none' : ''}`}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleDrop}
+      >
         <div className="max-w-5xl mx-auto px-4 lg:px-6 py-4 lg:py-6">
+          {/* Usage bar - customer portal */}
+          {isCustomerPortal && samUsage && !tokenLocked && (
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                <div className="h-full rounded-full transition-all duration-500" style={{
+                  width: `${Math.max(0, (samUsage.remaining_free / samUsage.daily_limit) * 100)}%`,
+                  background: samUsage.remaining_free > 5 ? 'linear-gradient(90deg, #10B981, #059669)' : samUsage.remaining_free > 2 ? 'linear-gradient(90deg, #F59E0B, #D97706)' : 'linear-gradient(90deg, #EF4444, #DC2626)',
+                }} />
+              </div>
+              <span className="text-[10px] font-bold shrink-0" style={{ color: samUsage.remaining_free > 5 ? '#10B981' : samUsage.remaining_free > 2 ? '#F59E0B' : '#EF4444' }}>
+                {samUsage.remaining_free}/{samUsage.daily_limit} free
+                {samUsage.token_balance > 0 && ` + ${samUsage.token_balance} tokens`}
+              </span>
+            </div>
+          )}
+          {/* Pending image preview */}
+          {pendingImage && (
+            <div className="mb-3 flex items-center gap-3 px-2">
+              <div className="relative group">
+                <img
+                  src={pendingImage.preview}
+                  alt="Attached card"
+                  className="w-16 h-16 rounded-xl object-cover border-2 border-[#FF8170]/40 shadow-lg"
+                />
+                <button
+                  onClick={() => setPendingImage(null)}
+                  className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+              <p className="text-xs text-[#E8DCC0]/50 font-medium">
+                Card image attached — hit send to scan
+              </p>
+            </div>
+          )}
+
           <div className="flex gap-3 items-end">
-            {/* Upload Button - Mobile */}
+            {/* Attach Image Button */}
             <button
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => chatFileInputRef.current?.click()}
               disabled={isLoading || scanning}
-              className="lg:hidden flex-shrink-0 p-4 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] hover:from-[#FF9580] hover:to-[#FF8170] text-[#FFF8F0] rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-2xl hover:shadow-[#FF8170]/50 border border-[#FFF8F0]/20"
-              aria-label="Upload card image"
+              className="flex-shrink-0 p-4 bg-gradient-to-br from-[#3D3020] to-[#2C2416] hover:from-[#FF8170] hover:to-[#FF6B5A] text-[#8B7355] hover:text-[#FFF8F0] rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg border border-[#FFF8F0]/10 hover:border-[#FF8170]/30"
+              aria-label="Attach card image"
             >
-              <Camera className="w-6 h-6" />
+              <ImagePlus className="w-6 h-6" />
             </button>
+            <input
+              ref={chatFileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handleChatImageAttach}
+              className="hidden"
+            />
 
             <div className="flex-1 relative">
               <textarea
@@ -472,7 +1052,8 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
                     handleSend();
                   }
                 }}
-                placeholder="Ask SAM anything about PSA grading..."
+                onPaste={handlePaste}
+                placeholder={pendingImage ? "Add a note (optional) then hit send..." : "Ask SAM anything about PSA grading..."}
                 className="w-full px-6 py-4 bg-gradient-to-br from-[#3D3020] to-[#2C2416] border-2 border-[#FFF8F0]/10 focus:border-[#FF8170]/50 rounded-3xl focus:ring-4 focus:ring-[#FF8170]/20 text-[#FFF8F0] placeholder-[#8B7355] font-medium resize-none touch-manipulation shadow-2xl backdrop-blur-xl transition-all"
                 disabled={isLoading || scanning}
                 rows={1}
@@ -490,11 +1071,11 @@ export default function SAMChatInterface({ isCustomerPortal = false, token = nul
 
             <button
               onClick={handleSend}
-              disabled={!input.trim() || isLoading || scanning}
+              disabled={(!input.trim() && !pendingImage) || isLoading || scanning || (isCustomerPortal && tokenLocked)}
               className="flex-shrink-0 p-4 bg-gradient-to-r from-[#FF8170] to-[#FF6B5A] hover:from-[#FF9580] hover:to-[#FF8170] text-[#FFF8F0] rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-2xl hover:shadow-[#FF8170]/50 border border-[#FFF8F0]/20 hover:scale-105"
               aria-label="Send message"
             >
-              <Send className="w-6 h-6" />
+              {isCustomerPortal && tokenLocked ? <Lock className="w-6 h-6" /> : <Send className="w-6 h-6" />}
             </button>
           </div>
         </div>

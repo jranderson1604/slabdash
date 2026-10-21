@@ -194,7 +194,6 @@ router.post('/import-psa-csv', authenticate, requireRole('owner', 'admin'), asyn
         console.error('PSA CSV import error:', error);
         res.status(500).json({
             error: 'Failed to import PSA CSV',
-            details: error.message
         });
     }
 });
@@ -437,7 +436,7 @@ router.post('/import-and-refresh', authenticate, requireRole('owner', 'admin'), 
 
     } catch (error) {
         console.error('PSA CSV import and refresh error:', error);
-        res.write(`data: ${JSON.stringify({ type: 'error', details: error.message })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'error' })}\n\n`);
         res.end();
     }
 });

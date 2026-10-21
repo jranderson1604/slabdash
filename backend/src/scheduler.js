@@ -1,10 +1,11 @@
 /**
  * Scheduler - Cron jobs for automated tasks
- * Runs scheduled PSA refreshes and other background jobs
+ * Smart priority-based PSA refresh runs every 2 hours to stay well under PSA rate limits
  */
 
 const cron = require('node-cron');
 const scheduledRefreshService = require('./services/scheduledRefreshService');
+const { isRateLimited } = require('./services/psaService');
 
 /**
  * Initialize all cron jobs
@@ -12,26 +13,34 @@ const scheduledRefreshService = require('./services/scheduledRefreshService');
 function initializeScheduler() {
   console.log('Initializing scheduler...');
 
-  // Run scheduled PSA refreshes every hour
-  // This checks if any company's refresh should run based on their schedule
-  cron.schedule('0 * * * *', async () => {
-    console.log('[Cron] Running hourly scheduled refresh check');
+  // Smart PSA refresh every 2 hours
+  // Only refreshes submissions whose priority interval has elapsed
+  // (e.g., Express orders every 4h, Bulk every 8-12h)
+  // Runs at minute 15 to avoid top-of-hour traffic
+  cron.schedule('15 */2 * * *', async () => {
+    const rl = isRateLimited();
+    if (rl.limited) {
+      console.log(`[Cron] Skipped — PSA rate limited for ${rl.retryAfterMin} more minutes`);
+      return;
+    }
+    console.log('[Cron] Running smart refresh check');
     try {
-      await scheduledRefreshService.runScheduledRefreshes();
+      await scheduledRefreshService.runSmartRefresh();
     } catch (error) {
-      console.error('[Cron] Scheduled refresh error:', error);
+      console.error('[Cron] Smart refresh error:', error.message);
     }
   });
 
-  console.log('✓ Scheduled refresh job registered (runs hourly)');
+  // Daily grades digest — runs every hour, sends email when it's the company's configured hour
+  cron.schedule('0 * * * *', async () => {
+    try {
+      await scheduledRefreshService.sendDailyDigests();
+    } catch (error) {
+      console.error('[Cron] Daily digest error:', error.message);
+    }
+  });
 
-  // You can add more cron jobs here as needed
-  // Examples:
-  // - Daily database cleanup
-  // - Weekly report generation
-  // - Monthly billing tasks
-
-  console.log('Scheduler initialized successfully');
+  console.log('Scheduler initialized (smart refresh every 2 hours, daily digest check every hour)');
 }
 
 module.exports = {

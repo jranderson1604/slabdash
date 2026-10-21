@@ -21,16 +21,10 @@ export default function BeforePhotoUpload({ cardId, token, existingPhotos = [], 
     if (!file) return;
 
     // Validate file type
-    if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
-      return;
-    }
+    if (!file.type.startsWith('image/')) return;
 
     // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      alert('Image must be less than 10MB');
-      return;
-    }
+    if (file.size > 10 * 1024 * 1024) return;
 
     // Show preview
     const reader = new FileReader();
@@ -69,7 +63,7 @@ export default function BeforePhotoUpload({ cardId, token, existingPhotos = [], 
       }
     } catch (error) {
       console.error('Upload error:', error);
-      alert('Failed to upload photo. Please try again.');
+      // Upload failed silently - user sees no preview update
       setPreviewUrl(null);
     } finally {
       setUploading(false);
@@ -98,7 +92,7 @@ export default function BeforePhotoUpload({ cardId, token, existingPhotos = [], 
       setScanResults(data);
     } catch (error) {
       console.error('Scan error:', error);
-      alert('Failed to scan card. Please try again.');
+      // Scan failed - shown in UI via scanResults state
       setScanResults({ success: false, error: 'Scan failed' });
     } finally {
       setScanning(false);

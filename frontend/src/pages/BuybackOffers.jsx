@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react';
-import { DollarSign, CheckCircle2, XCircle, Clock, TrendingUp, Search, Filter } from 'lucide-react';
-import apiClient from '../api/client';
+import { Link } from 'react-router-dom';
+import { DollarSign, CheckCircle2, XCircle, Clock, TrendingUp, Search, Plus, Trash2 } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
+import { buyback } from '../api/client';
 
 export default function BuybackOffers() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [offers, setOffers] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [paymentModal, setPaymentModal] = useState(null);
+  const [paymentMethod, setPaymentMethod] = useState('venmo');
+  const [paymentReference, setPaymentReference] = useState('');
 
   useEffect(() => {
     fetchOffers();
@@ -17,7 +25,7 @@ export default function BuybackOffers() {
   const fetchOffers = async () => {
     try {
       const params = filterStatus !== 'all' ? { status: filterStatus } : {};
-      const response = await apiClient.get('/api/buyback', { params });
+      const response = await buyback.list(params);
       setOffers(response.data);
     } catch (err) {
       console.error('Failed to fetch offers:', err);
@@ -28,24 +36,55 @@ export default function BuybackOffers() {
 
   const fetchStats = async () => {
     try {
-      const response = await apiClient.get('/api/buyback/stats/summary');
+      const response = await buyback.stats();
       setStats(response.data);
     } catch (err) {
       console.error('Failed to fetch stats:', err);
     }
   };
 
-  const updateOfferStatus = async (offerId, status, paymentMethod = null) => {
+  const cancelOffer = async (offerId) => {
+    if (!await confirm({ title: 'Cancel Offer', message: 'Cancel this buyback offer?', confirmLabel: 'Cancel Offer', variant: 'warning' })) return;
     try {
-      await apiClient.patch(`/api/buyback/${offerId}/status`, {
-        status,
-        payment_method: paymentMethod
-      });
+      await buyback.cancel(offerId);
+      toast.success('Offer cancelled');
       fetchOffers();
       fetchStats();
     } catch (err) {
-      console.error('Failed to update offer status:', err);
-      alert('Failed to update offer status');
+      console.error('Failed to cancel offer:', err);
+      toast.error(err.response?.data?.error || 'Failed to cancel offer');
+    }
+  };
+
+  const deleteOffer = async (offerId) => {
+    if (!await confirm({ title: 'Delete Offer', message: 'Permanently delete this offer? This cannot be undone.', variant: 'danger' })) return;
+    try {
+      await buyback.delete(offerId);
+      toast.success('Offer deleted');
+      fetchOffers();
+      fetchStats();
+    } catch (err) {
+      console.error('Failed to delete offer:', err);
+      toast.error(err.response?.data?.error || 'Failed to delete offer');
+    }
+  };
+
+  const markAsPaid = async () => {
+    if (!paymentModal) return;
+    try {
+      await buyback.markPaid(paymentModal, {
+        payment_method: paymentMethod,
+        payment_reference: paymentReference || undefined
+      });
+      toast.success('Offer marked as paid');
+      setPaymentModal(null);
+      setPaymentMethod('venmo');
+      setPaymentReference('');
+      fetchOffers();
+      fetchStats();
+    } catch (err) {
+      console.error('Failed to mark as paid:', err);
+      toast.error(err.response?.data?.error || 'Failed to mark as paid');
     }
   };
 
@@ -83,14 +122,23 @@ export default function BuybackOffers() {
 
   return (
     <div className="container py-8">
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl mb-8">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+      <div className="relative overflow-hidden rounded-3xl" style={{ background: 'var(--hdr-gradient)', boxShadow: 'var(--hdr-shadow)', border: 'var(--hdr-border)' }}>
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
 
-        <div className="relative">
-          <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">BUYBACK OFFERS</h1>
-          <p className="text-white/90 text-lg font-semibold">Manage purchase offers for customer cards</p>
+        <div className="relative flex items-center justify-between px-6 sm:px-8 py-7">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: 'var(--hdr-eyebrow)' }}>Purchasing</p>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight" style={{ color: 'var(--hdr-title)' }}>Buyback Offers</h1>
+            <p className="text-sm font-medium mt-1" style={{ color: 'var(--hdr-sub)' }}>Manage purchase offers for customer cards</p>
+          </div>
+          <Link to="/buyback/new"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-80"
+            style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
+          >
+            <Plus className="w-4 h-4" />
+            New Offer
+          </Link>
         </div>
       </div>
 
@@ -105,7 +153,7 @@ export default function BuybackOffers() {
               <div>
                 <p className="text-2xl font-bold text-gray-900">{stats.pending_offers}</p>
                 <p className="text-sm text-gray-500">Pending</p>
-                <p className="text-xs text-gray-400">${parseFloat(stats.pending_value).toFixed(2)}</p>
+                <p className="text-xs text-gray-600 font-medium">${(parseFloat(stats.pending_value) || 0).toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -118,7 +166,7 @@ export default function BuybackOffers() {
               <div>
                 <p className="text-2xl font-bold text-gray-900">{stats.accepted_offers}</p>
                 <p className="text-sm text-gray-500">Accepted</p>
-                <p className="text-xs text-gray-400">${parseFloat(stats.accepted_value).toFixed(2)}</p>
+                <p className="text-xs text-gray-600 font-medium">${(parseFloat(stats.accepted_value) || 0).toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -131,7 +179,7 @@ export default function BuybackOffers() {
               <div>
                 <p className="text-2xl font-bold text-gray-900">{stats.paid_offers}</p>
                 <p className="text-sm text-gray-500">Paid</p>
-                <p className="text-xs text-gray-400">${parseFloat(stats.paid_value).toFixed(2)}</p>
+                <p className="text-xs text-gray-600 font-medium">${(parseFloat(stats.paid_value) || 0).toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -239,17 +287,22 @@ export default function BuybackOffers() {
                       {offer.card_grade ? (
                         <span className="badge badge-blue">{offer.card_grade}</span>
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-gray-400">-</span>
                       )}
                     </td>
-                    <td className="text-sm text-gray-600">{offer.psa_cert_number || '—'}</td>
+                    <td className="text-sm text-gray-600">{offer.psa_cert_number || '-'}</td>
                     <td className="font-semibold text-green-600">
-                      ${parseFloat(offer.offer_price).toFixed(2)}
+                      ${(parseFloat(offer.offer_amount) || 0).toFixed(2)}
                     </td>
                     <td>
                       <span className={getStatusBadge(offer.status)}>
                         {offer.status.charAt(0).toUpperCase() + offer.status.slice(1)}
                       </span>
+                      {offer.customer_response && (
+                        <p className="text-xs text-gray-500 mt-1 max-w-[150px] truncate" title={offer.customer_response}>
+                          "{offer.customer_response}"
+                        </p>
+                      )}
                     </td>
                     <td className="text-sm text-gray-600">
                       {new Date(offer.created_at).toLocaleDateString()}
@@ -258,7 +311,7 @@ export default function BuybackOffers() {
                       <div className="flex gap-2">
                         {offer.status === 'pending' && (
                           <button
-                            onClick={() => updateOfferStatus(offer.id, 'cancelled')}
+                            onClick={() => cancelOffer(offer.id)}
                             className="text-red-600 hover:text-red-800 text-sm"
                           >
                             Cancel
@@ -266,13 +319,19 @@ export default function BuybackOffers() {
                         )}
                         {offer.status === 'accepted' && (
                           <button
-                            onClick={() => {
-                              const method = prompt('Payment method (stripe/paypal/cash/check):');
-                              if (method) updateOfferStatus(offer.id, 'paid', method);
-                            }}
+                            onClick={() => setPaymentModal(offer.id)}
                             className="text-green-600 hover:text-green-800 text-sm font-medium"
                           >
                             Mark Paid
+                          </button>
+                        )}
+                        {(offer.status === 'cancelled' || offer.status === 'rejected') && (
+                          <button
+                            onClick={() => deleteOffer(offer.id)}
+                            className="text-gray-400 hover:text-red-600 transition-colors"
+                            title="Delete offer"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         )}
                       </div>
@@ -289,12 +348,60 @@ export default function BuybackOffers() {
       <div className="card p-6 mt-6 bg-blue-50">
         <h3 className="text-lg font-semibold text-blue-900 mb-3">How to Create Buyback Offers</h3>
         <p className="text-sm text-blue-800 mb-2">
-          To create a buyback offer, go to the Cards page, find the card you want to purchase, and click "Make Offer".
+          Click "New Offer" above, or go to the Cards page, find the card you want to purchase, and click the green dollar icon.
         </p>
         <p className="text-sm text-blue-800">
           Customers will be notified via email and can accept or reject your offer through their portal.
         </p>
       </div>
+
+      {/* Payment Method Modal */}
+      {paymentModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setPaymentModal(null)}>
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Mark as Paid</h3>
+
+            <div className="space-y-4">
+              <div>
+                <label className="label">Payment Method</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="input w-full"
+                >
+                  <option value="venmo">Venmo</option>
+                  <option value="paypal">PayPal</option>
+                  <option value="zelle">Zelle</option>
+                  <option value="cash">Cash</option>
+                  <option value="check">Check</option>
+                  <option value="bank_transfer">Bank Transfer</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Reference / Note (optional)</label>
+                <input
+                  type="text"
+                  value={paymentReference}
+                  onChange={(e) => setPaymentReference(e.target.value)}
+                  className="input w-full"
+                  placeholder="e.g. Venmo @username, check #1234"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setPaymentModal(null)} className="btn btn-secondary flex-1">
+                Cancel
+              </button>
+              <button onClick={markAsPaid} className="btn btn-primary flex-1">
+                Confirm Payment
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

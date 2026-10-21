@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
 import { companies, emailTemplates } from '../api/client';
 import api from '../api/client';
 import { Mail, Send, CheckCircle, AlertCircle, Loader2, Save, Info, FileText, Users, Bell, BellOff, Eye, X, Settings as SettingsIcon } from 'lucide-react';
@@ -45,6 +46,7 @@ function EmailNav() {
 }
 
 export default function EmailSettings() {
+  const toast = useToast();
   const [settings, setSettings] = useState({
     email_notifications_enabled: false,
     use_custom_smtp: false,
@@ -55,7 +57,8 @@ export default function EmailSettings() {
     smtp_password: '',
     from_email: '',
     from_name: '',
-    company_logo_url: ''
+    company_logo_url: '',
+    contact_email: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -104,7 +107,8 @@ export default function EmailSettings() {
         smtp_password: '', // Don't show password
         from_email: res.data.from_email || '',
         from_name: res.data.from_name || '',
-        company_logo_url: res.data.company_logo_url || ''
+        company_logo_url: res.data.company_logo_url || '',
+        contact_email: res.data.contact_email || ''
       });
     } catch (error) {
       console.error('Failed to load settings:', error);
@@ -123,10 +127,10 @@ export default function EmailSettings() {
       }
 
       await companies.update(dataToSave);
-      alert('Email settings saved successfully!');
+      toast.success('Email settings saved successfully!');
     } catch (error) {
       console.error('Failed to save settings:', error);
-      alert('Failed to save settings');
+      toast.error('Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -134,7 +138,7 @@ export default function EmailSettings() {
 
   const handleTestEmail = async () => {
     if (!testEmail) {
-      alert('Please enter a test email address');
+      toast.error('Please enter a test email address');
       return;
     }
 
@@ -156,7 +160,7 @@ export default function EmailSettings() {
 
   const handleBulkStatusUpdate = async () => {
     if (!settings.email_notifications_enabled) {
-      alert('Please enable email notifications first');
+      toast.error('Please enable email notifications first');
       return;
     }
 
@@ -189,19 +193,19 @@ export default function EmailSettings() {
 
   const handleSendBulkTestEmail = async () => {
     if (!bulkTestEmail || !bulkTestEmail.includes('@')) {
-      alert('Please enter a valid email address');
+      toast.error('Please enter a valid email address');
       return;
     }
 
     setSendingBulkTestEmail(true);
     try {
       await emailTemplates.sendTestSubmissionUpdate(bulkTestEmail, null);
-      alert(`Test bulk status update email sent to ${bulkTestEmail}!\n\nCheck your inbox to preview the email with sample data.`);
+      toast.success(`Test bulk status update email sent to ${bulkTestEmail}`);
       setShowBulkTestEmailModal(false);
       setBulkTestEmail('');
     } catch (error) {
       console.error('Send bulk test email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send test email');
+      toast.error(error.response?.data?.error || 'Failed to send test email');
     } finally {
       setSendingBulkTestEmail(false);
     }
@@ -311,19 +315,22 @@ export default function EmailSettings() {
   return (
     <div className="space-y-6">
       <EmailNav />
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+      <div className="relative overflow-hidden rounded-3xl" style={{ background: 'var(--hdr-gradient)', boxShadow: 'var(--hdr-shadow)', border: 'var(--hdr-border)' }}>
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
 
-        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 sm:px-8 py-7">
           <div>
-            <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">EMAIL</h1>
-            <p className="text-white/90 text-lg font-semibold">Configure SMTP settings and automatic email notifications</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: 'var(--hdr-eyebrow)' }}>Notifications</p>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight" style={{ color: 'var(--hdr-title)' }}>Email</h1>
+            <p className="text-sm font-medium mt-1" style={{ color: 'var(--hdr-sub)' }}>Configure SMTP settings and automatic notifications</p>
           </div>
-          <Link to="/email-templates" className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg hover:shadow-xl hover:scale-105">
-            <FileText className="w-5 h-5" />
-            Manage Templates
+          <Link to="/email-templates"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 self-start sm:self-auto flex-shrink-0"
+            style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
+          >
+            <FileText className="w-4 h-4" />
+            Templates
           </Link>
         </div>
       </div>
@@ -389,10 +396,10 @@ export default function EmailSettings() {
             <div className="ml-3 flex-1">
               <div className="font-semibold text-gray-900">SlabDash Email (Recommended)</div>
               <p className="text-sm text-gray-600 mt-1">
-                ✅ Works immediately - no setup required<br />
-                ✅ Reliable delivery through SlabDash servers<br />
-                ✅ Perfect for getting started quickly<br />
-                📧 Emails sent from: notifications@slabdash.com
+                Works immediately — no setup required<br />
+                Reliable delivery through SlabDash servers<br />
+                Ideal for getting started quickly<br />
+                Emails sent from: slabdashllc@slabdash.app
               </p>
             </div>
           </label>
@@ -411,10 +418,10 @@ export default function EmailSettings() {
             <div className="ml-3 flex-1">
               <div className="font-semibold text-gray-900">Custom SMTP (Advanced)</div>
               <p className="text-sm text-gray-600 mt-1">
-                ✅ Professional branded emails from your domain<br />
-                ✅ Full control over email delivery<br />
-                ⚙️ Requires SMTP configuration (Gmail, SendGrid, etc.)<br />
-                📧 Emails sent from: your-email@yourdomain.com
+                Professional branded emails from your domain<br />
+                Full control over email delivery<br />
+                Requires SMTP configuration (Gmail, SendGrid, etc.)<br />
+                Emails sent from: your-email@yourdomain.com
               </p>
             </div>
           </label>
@@ -496,17 +503,8 @@ export default function EmailSettings() {
               <span className="text-sm text-gray-700">Use SSL/TLS (port 465)</span>
             </label>
           </div>
-        </div>
-      </div>
-      )}
-
-      {/* From Settings */}
-      <div className="card p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Email Branding</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {settings.use_custom_smtp && (
-          <div>
-            <label className="label">From Email *</label>
+          <div className="md:col-span-2">
+            <label className="label">Sending Address *</label>
             <input
               type="email"
               value={settings.from_email}
@@ -514,10 +512,41 @@ export default function EmailSettings() {
               placeholder="notifications@yourshop.com"
               className="input"
             />
-            <p className="text-xs text-gray-500 mt-1">Customers will see emails from this address</p>
+            <p className="text-xs text-gray-500 mt-1">Must match an address authenticated with your SMTP server</p>
           </div>
-          )}
-          <div className={settings.use_custom_smtp ? '' : 'md:col-span-2'}>
+        </div>
+      </div>
+      )}
+
+      {/* Email Branding */}
+      <div className="card p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Email Branding</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Contact email — always slabdashllc@slabdash.app */}
+          <div>
+            <label className="label">Contact Email</label>
+            <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
+              <Mail className="w-4 h-4 text-brand-500 flex-shrink-0" />
+              <span className="text-sm font-medium text-gray-800">slabdashllc@slabdash.app</span>
+              <span className="ml-auto text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">managed</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Always shown as the primary contact in customer emails</p>
+          </div>
+
+          {/* Business contact email — optional, also shown in email footer */}
+          <div>
+            <label className="label">Business Email (Optional)</label>
+            <input
+              type="email"
+              value={settings.contact_email}
+              onChange={(e) => setSettings({ ...settings, contact_email: e.target.value })}
+              placeholder="yourshop@example.com"
+              className="input"
+            />
+            <p className="text-xs text-gray-500 mt-1">If set, also shown in the email footer alongside the SlabDash address</p>
+          </div>
+
+          <div className="md:col-span-2">
             <label className="label">From Name {settings.use_custom_smtp ? '*' : '(Optional)'}</label>
             <input
               type="text"
@@ -528,7 +557,7 @@ export default function EmailSettings() {
             />
             <p className="text-xs text-gray-500 mt-1">
               {settings.use_custom_smtp
-                ? 'Display name in customer\'s inbox'
+                ? 'Display name shown in customer\'s inbox'
                 : 'Customize the sender name (defaults to "SlabDash Notifications")'}
             </p>
           </div>
@@ -628,7 +657,7 @@ export default function EmailSettings() {
         </div>
         {!settings.email_notifications_enabled && (
           <p className="text-xs text-amber-600 mt-2">
-            ⚠️ Email notifications must be enabled to use this feature
+            Email notifications must be enabled to use this feature
           </p>
         )}
         {bulkResult && (

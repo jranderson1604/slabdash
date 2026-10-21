@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import confetti from 'canvas-confetti';
 import { submissions, cards, customers, emailTemplates } from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import PickupCard from '../components/PickupCard';
 import InvoiceSection from '../components/InvoiceSection';
 import {
@@ -31,8 +34,16 @@ import {
   Zap,
   Mail,
   Eye,
+  Copy,
+  Sparkles,
 } from 'lucide-react';
 import { format } from 'date-fns';
+
+function fireGradeConfetti() {
+  confetti({ particleCount: 120, spread: 80, origin: { y: 0.5 }, colors: ['#FF8170', '#E8543D', '#FFD700', '#10B981', '#3B82F6'] });
+  setTimeout(() => confetti({ particleCount: 60, spread: 100, origin: { y: 0.4 }, angle: 60 }), 200);
+  setTimeout(() => confetti({ particleCount: 60, spread: 100, origin: { y: 0.4 }, angle: 120 }), 350);
+}
 
 function StepTimeline({ steps }) {
   if (!steps?.length) return null;
@@ -76,6 +87,8 @@ function CardRow({ card, onUpdate, onDelete }) {
   const [showImage, setShowImage] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const cardImages = card.card_images ? (Array.isArray(card.card_images) ? card.card_images : JSON.parse(card.card_images)) : [];
   const hasImages = cardImages.length > 0;
@@ -86,8 +99,10 @@ function CardRow({ card, onUpdate, onDelete }) {
     try {
       const res = await cards.lookupCert(card.id);
       onUpdate(res.data.card);
+      if (res.data.card?.grade === '10') fireGradeConfetti();
     } catch (error) {
       console.error('Lookup failed:', error);
+      toast.error(error.response?.data?.error || 'Lookup failed');
     } finally {
       setLookingUp(false);
     }
@@ -98,8 +113,10 @@ function CardRow({ card, onUpdate, onDelete }) {
       const res = await cards.update(card.id, { grade });
       onUpdate(res.data);
       setEditing(false);
+      if (grade === '10') fireGradeConfetti();
     } catch (error) {
       console.error('Update failed:', error);
+      toast.error(error.response?.data?.error || 'Failed to save grade');
     }
   };
 
@@ -117,7 +134,7 @@ function CardRow({ card, onUpdate, onDelete }) {
       onUpdate(res.data);
     } catch (error) {
       console.error('Upload failed:', error);
-      alert('Failed to upload images');
+      toast.error('Failed to upload images');
     } finally {
       setUploading(false);
     }
@@ -174,7 +191,7 @@ function CardRow({ card, onUpdate, onDelete }) {
             ) : (
               <label className="w-full h-full flex flex-col items-center justify-center cursor-pointer hover:bg-yellow-100">
                 <Upload className="w-5 h-5 text-yellow-600 mb-1" />
-                <span className="text-[10px] text-yellow-700 text-center px-1">Drop or click</span>
+                <span className="text-[10px] text-yellow-700 text-center px-1">Upload image</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -198,14 +215,14 @@ function CardRow({ card, onUpdate, onDelete }) {
             )}
           </div>
           <div className="flex-1">
-            <p className="font-medium text-gray-900">{card.description || card.player_name || 'Untitled'}</p>
+            <p className="font-medium text-gray-900">{card.description || card.player_name || '—'}</p>
             {card.player_name && (
               <p className="text-xs text-gray-500">
                 {card.year} {card.card_set || card.brand} {card.player_name}
               </p>
             )}
             {!hasImages && (
-              <p className="text-xs text-yellow-600 mt-1">⚠️ No image</p>
+              <p className="text-xs text-yellow-600 mt-1">No image</p>
             )}
           </div>
         </div>
@@ -311,6 +328,7 @@ function CardRow({ card, onUpdate, onDelete }) {
 function CustomerAssignmentSheet({ customer, submission, onClose, onUpdate }) {
   const [selectedCards, setSelectedCards] = useState(new Set());
   const [saving, setSaving] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     // Pre-select cards that are already assigned to this customer
@@ -353,7 +371,7 @@ function CustomerAssignmentSheet({ customer, submission, onClose, onUpdate }) {
       onClose();
     } catch (error) {
       console.error('Failed to update card assignments:', error);
-      alert('Failed to update card assignments');
+      toast.error('Failed to update card assignments');
     } finally {
       setSaving(false);
     }
@@ -386,8 +404,12 @@ function CustomerAssignmentSheet({ customer, submission, onClose, onUpdate }) {
         <div className="flex-1 overflow-y-auto p-6">
           <div className="space-y-3">
             {submission.cards.map((card) => {
-              const cardImages = card.card_images ?
-                (Array.isArray(card.card_images) ? card.card_images : JSON.parse(card.card_images)) : [];
+              let cardImages = [];
+              try {
+                cardImages = card.card_images
+                  ? (Array.isArray(card.card_images) ? card.card_images : JSON.parse(card.card_images))
+                  : [];
+              } catch { /* malformed JSON — skip */ }
               const hasImage = cardImages.length > 0;
               const isSelected = selectedCards.has(card.id);
 
@@ -453,7 +475,7 @@ function CustomerAssignmentSheet({ customer, submission, onClose, onUpdate }) {
 
           {submission.cards.length === 0 && (
             <div className="text-center py-12">
-              <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <Package className="w-12 h-12 text-brand-300 mx-auto mb-3" />
               <p className="text-gray-500">No cards in this submission yet</p>
             </div>
           )}
@@ -555,6 +577,8 @@ export default function SubmissionDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { company } = useAuth();
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const [submission, setSubmission] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -584,6 +608,8 @@ export default function SubmissionDetail() {
   const [bulkAssigning, setBulkAssigning] = useState(false);
   const [selectedSport, setSelectedSport] = useState('All');
   const [autoDetecting, setAutoDetecting] = useState(false);
+  const [fetchingAllPrices, setFetchingAllPrices] = useState(false);
+  const [fetchPricesProgress, setFetchPricesProgress] = useState(null);
 
   const loadSubmission = async () => {
     try {
@@ -615,7 +641,7 @@ export default function SubmissionDetail() {
 
   const handleRefresh = async () => {
     if (!company?.hasPsaKey) {
-      alert('PSA API key not configured. Please add your PSA API key in Company Settings to refresh submissions.');
+      toast.error('PSA API key not configured. Please add your PSA API key in Company Settings to refresh submissions.');
       return;
     }
 
@@ -624,49 +650,45 @@ export default function SubmissionDetail() {
       const response = await submissions.refresh(id);
       await loadSubmission();
 
-      // Show success message with updated info
+      // Show success message
       const message = response.data?.message || 'Submission refreshed successfully';
-      const details = response.data?.currentStep
-        ? `\n\nStatus: ${response.data.currentStep}\nProgress: ${response.data.progressPercent}%`
-        : '';
-      alert(message + details);
+      toast.success(message);
     } catch (error) {
       console.error('Refresh failed:', error);
       const errorMsg = error.response?.data?.error || error.message || 'Failed to refresh from PSA';
-      alert(`Refresh failed: ${errorMsg}\n\nPlease check:\n- PSA submission number is correct\n- PSA API key is valid\n- Order exists in PSA system`);
+      toast.error('Refresh failed: ' + errorMsg);
     } finally {
       setRefreshing(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!confirm('Delete this submission and all its cards? This cannot be undone.')) return;
+    if (!await confirm({ title: 'Delete Submission', message: 'Delete this submission and all its cards? This cannot be undone.', variant: 'danger' })) return;
     try {
       await submissions.delete(id);
       navigate('/submissions');
     } catch (error) {
       console.error('Delete failed:', error);
+      toast.error(error.response?.data?.error || 'Failed to delete submission');
     }
   };
 
   const handleSendUpdate = async () => {
     const customerCount = submission?.linked_customers?.length || 0;
     if (customerCount === 0) {
-      alert('No customers linked to this submission');
+      toast.error('No customers linked to this submission');
       return;
     }
 
-    if (!confirm(`Send status update email to ${customerCount} customer(s)?`)) {
-      return;
-    }
+    if (!await confirm({ title: 'Send Status Update', message: `Send a status update email to ${customerCount} customer${customerCount !== 1 ? 's' : ''}?`, confirmLabel: 'Send Email', variant: 'info' })) return;
 
     setSendingEmail(true);
     try {
       const response = await emailTemplates.sendSubmissionUpdate(id);
-      alert(response.data.message || `Email sent to ${response.data.emails_sent} customer(s)!`);
+      toast.success(response.data.message || `Email sent to ${response.data.emails_sent} customer(s)!`);
     } catch (error) {
       console.error('Send email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send status update');
+      toast.error(error.response?.data?.error || 'Failed to send status update');
     } finally {
       setSendingEmail(false);
     }
@@ -674,19 +696,19 @@ export default function SubmissionDetail() {
 
   const handleSendTestEmail = async () => {
     if (!testEmail || !testEmail.includes('@')) {
-      alert('Please enter a valid email address');
+      toast.error('Please enter a valid email address');
       return;
     }
 
     setSendingTestEmail(true);
     try {
       await emailTemplates.sendTestSubmissionUpdate(testEmail, id);
-      alert(`Test submission update email sent to ${testEmail}!\n\nCheck your inbox to preview the email.`);
+      toast.success(`Test submission update email sent to ${testEmail}! Check your inbox to preview.`);
       setShowTestEmailModal(false);
       setTestEmail('');
     } catch (error) {
       console.error('Send test email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send test email');
+      toast.error(error.response?.data?.error || 'Failed to send test email');
     } finally {
       setSendingTestEmail(false);
     }
@@ -721,7 +743,7 @@ export default function SubmissionDetail() {
       setEditForm({});
     } catch (error) {
       console.error('Save failed:', error);
-      alert('Failed to save changes');
+      toast.error('Failed to save changes');
     } finally {
       setSaving(false);
     }
@@ -747,7 +769,7 @@ export default function SubmissionDetail() {
   };
 
   const handleCardDelete = async (cardId) => {
-    if (!confirm('Delete this card?')) return;
+    if (!await confirm({ title: 'Delete Card', message: 'Remove this card from the submission?', variant: 'danger' })) return;
     try {
       await cards.delete(cardId);
       setSubmission((prev) => ({
@@ -756,6 +778,7 @@ export default function SubmissionDetail() {
       }));
     } catch (error) {
       console.error('Delete card failed:', error);
+      alert('Failed to delete card. Please try again.');
     }
   };
 
@@ -774,26 +797,26 @@ export default function SubmissionDetail() {
       await loadSubmission();
     } catch (error) {
       console.error('Add customer failed:', error);
-      alert('Failed to add customer to submission');
+      toast.error('Failed to add customer to submission');
     } finally {
       setAssigningCustomer(false);
     }
   };
 
   const handleRemoveLinkedCustomer = async (customerId) => {
-    if (!confirm('Remove this customer from the submission?')) return;
+    if (!await confirm({ title: 'Remove Customer', message: 'Remove this customer from the submission?', confirmLabel: 'Remove', variant: 'warning' })) return;
     try {
       await submissions.removeCustomer(id, customerId);
       await loadSubmission();
     } catch (error) {
       console.error('Remove customer failed:', error);
-      alert('Failed to remove customer');
+      toast.error('Failed to remove customer');
     }
   };
 
   const handleExportCustomersCSV = () => {
     if (!submission.linked_customers || submission.linked_customers.length === 0) {
-      alert('No customers to export');
+      toast.error('No customers to export');
       return;
     }
 
@@ -829,7 +852,7 @@ export default function SubmissionDetail() {
 
   const handleBulkAssign = async () => {
     if (!bulkAssignCSV.trim()) {
-      alert('Please paste CSV data');
+      toast.error('Please paste CSV data');
       return;
     }
 
@@ -840,14 +863,7 @@ export default function SubmissionDetail() {
 
       // Show summary
       const summary = response.data.summary;
-      alert(
-        `✅ Bulk Assignment Complete!\n\n` +
-        `Total: ${summary.total}\n` +
-        `Assigned: ${summary.assigned}\n` +
-        `Unmatched Customers: ${summary.unmatched}\n` +
-        `Cards Not Found: ${summary.notFound}\n` +
-        `Errors: ${summary.errors}`
-      );
+      toast.success(`Bulk assignment complete: ${summary.assigned} of ${summary.total} cards assigned`);
 
       // Reload submission to show updated assignments
       await loadSubmission();
@@ -858,38 +874,65 @@ export default function SubmissionDetail() {
       }
     } catch (error) {
       console.error('Bulk assign failed:', error);
-      alert('Failed to assign cards: ' + (error.response?.data?.error || error.message));
+      toast.error('Failed to assign cards: ' + (error.response?.data?.error || error.message));
     } finally {
       setBulkAssigning(false);
     }
   };
 
   const handleAutoDetectSports = async () => {
-    if (!confirm('Auto-detect sports for all cards? This will categorize cards based on brands, player names, and keywords.')) {
-      return;
-    }
+    if (!await confirm({ title: 'Auto-Detect Sports', message: 'Categorize all cards based on brands, player names, and keywords?', confirmLabel: 'Auto-Detect', variant: 'info' })) return;
 
     setAutoDetecting(true);
     try {
       const response = await cards.autoDetectSports(id);
       const summary = response.data.summary;
 
-      alert(
-        `✅ Sport Detection Complete!\n\n` +
-        `Total: ${summary.total}\n` +
-        `Detected: ${summary.detected}\n` +
-        `Skipped: ${summary.skipped} (already categorized)`
-      );
+      toast.success(`Sport detection complete: ${summary.detected} of ${summary.total} cards detected`);
 
       // Reload submission to show updated sports
       await loadSubmission();
     } catch (error) {
       console.error('Auto-detect failed:', error);
       const errorMsg = error.response?.data?.message || error.response?.data?.error || error.message;
-      alert('Failed to auto-detect sports: ' + errorMsg);
+      toast.error('Failed to auto-detect sports: ' + errorMsg);
     } finally {
       setAutoDetecting(false);
     }
+  };
+
+  const handleClone = () => {
+    navigate('/submissions/new', {
+      state: {
+        clone: {
+          service_level: submission.service_level,
+          customer_id: submission.linked_customers?.[0]?.id || null,
+          customer_name: submission.linked_customers?.[0]?.name || null,
+        }
+      }
+    });
+  };
+
+  const handleFetchAllPrices = async () => {
+    const cardsWithCert = (submission.cards || []).filter(c => c.psa_cert_number);
+    if (cardsWithCert.length === 0) {
+      toast.error('No cards with PSA cert numbers to look up');
+      return;
+    }
+    setFetchingAllPrices(true);
+    setFetchPricesProgress({ done: 0, total: cardsWithCert.length, updated: 0 });
+    for (let i = 0; i < cardsWithCert.length; i++) {
+      try {
+        await cards.lookupCert(cardsWithCert[i].id);
+        setFetchPricesProgress(p => ({ ...p, done: i + 1, updated: p.updated + 1 }));
+      } catch {
+        setFetchPricesProgress(p => ({ ...p, done: i + 1 }));
+      }
+    }
+    await loadSubmission();
+    setFetchingAllPrices(false);
+    setFetchPricesProgress(null);
+    toast.success(`Fetched grades/prices for ${cardsWithCert.length} cards`);
   };
 
   const handleImageUpload = async (e) => {
@@ -903,10 +946,10 @@ export default function SubmissionDetail() {
 
       await submissions.uploadImage(id, formData);
       await loadSubmission();
-      alert('Form image uploaded successfully!');
+      toast.success('Form image uploaded successfully!');
     } catch (error) {
       console.error('Upload failed:', error);
-      alert('Failed to upload image');
+      toast.error('Failed to upload image');
     } finally {
       setUploadingImage(false);
     }
@@ -924,20 +967,19 @@ export default function SubmissionDetail() {
       setCsvImportResult(res.data);
       await loadSubmission();
 
-      // Show success message
+      // Show result message
       const { imported, skipped, errors, total } = res.data;
-      let message = `Successfully imported ${imported} card(s)`;
-      if (skipped > 0) message += `, skipped ${skipped} duplicate(s)`;
-      if (errors && errors.length > 0) {
-        message += `\n\n${errors.length} error(s):\n${errors.join('\n')}`;
-      }
       if (imported === 0 && skipped === 0 && total === 0) {
-        message = 'No data rows found in CSV file. Check file format.';
+        toast.error('No data rows found in CSV file. Check file format.');
+      } else {
+        let message = `Successfully imported ${imported} card(s)`;
+        if (skipped > 0) message += `, skipped ${skipped} duplicate(s)`;
+        if (errors && errors.length > 0) message += `, ${errors.length} error(s)`;
+        toast.success(message);
       }
-      alert(message);
     } catch (error) {
       console.error('CSV import failed:', error);
-      alert(error.response?.data?.error || 'Failed to import CSV');
+      toast.error(error.response?.data?.error || 'Failed to import CSV');
     } finally {
       setImportingCSV(false);
       // Reset file input
@@ -956,7 +998,7 @@ export default function SubmissionDetail() {
   if (!submission) {
     return (
       <div className="text-center py-12">
-        <Package className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+        <Package className="w-12 h-12 text-brand-300 mx-auto mb-4" />
         <h3 className="text-lg font-medium text-gray-900">Submission not found</h3>
         <Link to="/submissions" className="text-brand-600 hover:underline mt-2 inline-block">
           Back to submissions
@@ -970,21 +1012,23 @@ export default function SubmissionDetail() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-6 shadow-xl">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+      <div className="relative overflow-hidden rounded-3xl" style={{ background: 'var(--hdr-gradient)', boxShadow: 'var(--hdr-shadow)', border: 'var(--hdr-border)' }}>
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
 
-        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 sm:px-8 py-7">
           <div className="flex items-center gap-4">
-            <Link to="/submissions" className="p-2 hover:bg-white/20 backdrop-blur-sm rounded-lg transition-all">
-              <ArrowLeft className="w-5 h-5 text-white" />
+            <Link to="/submissions"
+              className="p-2 rounded-xl transition-all hover:bg-white/20 flex-shrink-0"
+              style={{ background: 'var(--hdr-back-bg)', border: 'var(--hdr-back-border)' }}
+            >
+              <ArrowLeft className="w-5 h-5" style={{ color: 'var(--hdr-btn-color)' }} />
             </Link>
             <div className="flex-1">
               {editing ? (
                 <div className="space-y-2">
                   <div>
-                    <label className="text-xs text-white/80 font-bold uppercase">PSA Submission #</label>
+                    <label className="text-xs font-bold uppercase" style={{ color: 'var(--hdr-eyebrow)' }}>PSA Submission #</label>
                     <input
                       type="text"
                       value={editForm.psa_submission_number}
@@ -994,7 +1038,7 @@ export default function SubmissionDetail() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-white/80 font-bold uppercase">PSA Order #</label>
+                    <label className="text-xs font-bold uppercase" style={{ color: 'var(--hdr-eyebrow)' }}>PSA Order #</label>
                     <input
                       type="text"
                       value={editForm.psa_order_number}
@@ -1004,7 +1048,7 @@ export default function SubmissionDetail() {
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-white/80 font-bold uppercase">Internal ID</label>
+                    <label className="text-xs font-bold uppercase" style={{ color: 'var(--hdr-eyebrow)' }}>Internal ID</label>
                     <input
                       type="text"
                       value={editForm.internal_id}
@@ -1016,11 +1060,12 @@ export default function SubmissionDetail() {
                 </div>
               ) : (
                 <>
-                  <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-lg">
-                    {submission.psa_submission_number || submission.internal_id || 'SUBMISSION'}
+                  <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: 'var(--hdr-eyebrow)' }}>Submission</p>
+                  <h1 className="text-2xl sm:text-3xl font-black tracking-tight" style={{ color: 'var(--hdr-title)' }}>
+                    {submission.psa_submission_number || submission.internal_id || 'No ID'}
                   </h1>
                   {submission.psa_order_number && (
-                    <p className="text-white/90 text-lg font-semibold mt-1">Order #{submission.psa_order_number}</p>
+                    <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--hdr-sub)' }}>Order #{submission.psa_order_number}</p>
                   )}
                 </>
               )}
@@ -1032,7 +1077,7 @@ export default function SubmissionDetail() {
                 <button
                   onClick={handleSaveEdit}
                   disabled={saving}
-                  className="bg-white text-brand-600 px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-60" style={{ background: 'rgba(255,255,255,0.9)', color: '#E8543D' }}
                 >
                   {saving ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1044,7 +1089,7 @@ export default function SubmissionDetail() {
                 <button
                   onClick={handleCancelEdit}
                   disabled={saving}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                 >
                   <X className="w-4 h-4" />
                   <span className="hidden sm:inline">Cancel</span>
@@ -1054,14 +1099,14 @@ export default function SubmissionDetail() {
               <>
                 <button
                   onClick={handleEdit}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                 >
                   <Edit2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Edit</span>
                 </button>
                 <button
                   onClick={() => setShowTestEmailModal(true)}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                   title="Preview status update email"
                 >
                   <Eye className="w-4 h-4" />
@@ -1070,7 +1115,7 @@ export default function SubmissionDetail() {
                 <button
                   onClick={handleSendUpdate}
                   disabled={sendingEmail}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 disabled:opacity-50" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                 >
                   {sendingEmail ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
@@ -1083,13 +1128,17 @@ export default function SubmissionDetail() {
                   <button
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 disabled:opacity-50" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                   >
                     <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                     <span className="hidden sm:inline">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
                   </button>
                 )}
-                <button onClick={handleDelete} className="bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-red-400 shadow-lg">
+                <button onClick={handleClone} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }} title="Clone this submission">
+                  <Copy className="w-4 h-4" />
+                  <span className="hidden sm:inline">Clone</span>
+                </button>
+                <button onClick={handleDelete} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-80" style={{ background: 'rgba(220,38,38,0.85)', border: 'var(--hdr-btn-border)', color: 'white' }}>
                   <Trash2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Delete</span>
                 </button>
@@ -1238,6 +1287,24 @@ export default function SubmissionDetail() {
                       </>
                     )}
                   </button>
+                  <button
+                    onClick={handleFetchAllPrices}
+                    disabled={fetchingAllPrices || !submission.cards?.some(c => c.psa_cert_number)}
+                    className="btn btn-secondary gap-2 whitespace-nowrap"
+                    title="Fetch grades and prices for all cards with cert numbers"
+                  >
+                    {fetchingAllPrices ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        {fetchPricesProgress ? `${fetchPricesProgress.done}/${fetchPricesProgress.total}` : 'Fetching...'}
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        Fetch All
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
 
@@ -1360,7 +1427,7 @@ export default function SubmissionDetail() {
                   );
                 }).length === 0 && (
                   <div className="p-8 text-center">
-                    <Package className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                    <Package className="w-10 h-10 text-brand-300 mx-auto mb-3" />
                     <p className="text-gray-500">
                       {searchQuery
                         ? `No cards match "${searchQuery}"`
@@ -1374,7 +1441,7 @@ export default function SubmissionDetail() {
               </div>
             ) : (
               <div className="p-8 text-center">
-                <Package className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                <Package className="w-10 h-10 text-brand-300 mx-auto mb-3" />
                 <p className="text-gray-500">No cards added yet</p>
               </div>
             )}
@@ -1580,10 +1647,10 @@ export default function SubmissionDetail() {
             </div>
 
             {/* Add customer section */}
-            <div className="mb-4 p-5 bg-brand-50 rounded-lg border-2 border-brand-200">
+            <div className="mb-4 p-5 bg-gray-50 rounded-lg border border-gray-200">
               <div className="flex items-center justify-between mb-3">
                 <label className="block text-base font-semibold text-gray-900">
-                  Add Customer to This Submission
+                  Assign Customer
                 </label>
               </div>
 
@@ -1600,49 +1667,55 @@ export default function SubmissionDetail() {
                   }}
                   onFocus={() => setShowCustomerDropdown(true)}
                   disabled={assigningCustomer}
-                  className="input pl-10 w-full"
+                  className="input pl-10 w-full bg-white"
                 />
 
-                {/* Dropdown results */}
-                {showCustomerDropdown && customerSearchQuery && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {/* Dropdown results — shows on focus, no search required */}
+                {showCustomerDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl max-h-72 overflow-y-auto">
+                    {!customerSearchQuery && (
+                      <div className="px-4 py-2 text-xs font-semibold text-gray-400 uppercase tracking-wider bg-gray-50 border-b border-gray-100">
+                        All customers
+                      </div>
+                    )}
                     {customerList
-                      .filter(c =>
-                        !submission.linked_customers?.some(lc => lc.id === c.id) &&
-                        (c.name?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
-                         c.email?.toLowerCase().includes(customerSearchQuery.toLowerCase()))
-                      )
+                      .filter(c => {
+                        if (submission.linked_customers?.some(lc => lc.id === c.id)) return false;
+                        if (!customerSearchQuery) return true;
+                        const q = customerSearchQuery.toLowerCase();
+                        return c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q);
+                      })
                       .map((c) => (
                         <button
                           key={c.id}
                           onClick={() => {
                             setCustomerToAdd(c.id);
-                            setCustomerSearchQuery(c.name);
+                            setCustomerSearchQuery('');
                             setShowCustomerDropdown(false);
                             handleAddLinkedCustomer(c.id);
-                            setCustomerSearchQuery('');
                           }}
-                          className="w-full text-left px-4 py-3 hover:bg-brand-50 transition-colors border-b border-gray-100 last:border-b-0"
+                          className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0"
                         >
-                          <p className="font-medium text-gray-900">{c.name}</p>
+                          <p className="font-bold text-gray-900">{c.name}</p>
                           <p className="text-sm text-gray-500">{c.email}</p>
                         </button>
                       ))}
-                    {customerList.filter(c =>
-                      !submission.linked_customers?.some(lc => lc.id === c.id) &&
-                      (c.name?.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
-                       c.email?.toLowerCase().includes(customerSearchQuery.toLowerCase()))
-                    ).length === 0 && (
+                    {customerList.filter(c => {
+                      if (submission.linked_customers?.some(lc => lc.id === c.id)) return false;
+                      if (!customerSearchQuery) return true;
+                      const q = customerSearchQuery.toLowerCase();
+                      return c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q);
+                    }).length === 0 && (
                       <div className="px-4 py-3 text-gray-500 text-sm">
-                        No customers found matching "{customerSearchQuery}"
+                        {customerSearchQuery ? `No customers found matching "${customerSearchQuery}"` : 'No customers available'}
                       </div>
                     )}
                   </div>
                 )}
               </div>
 
-              <p className="text-xs text-brand-700 font-medium">
-                💡 Search for a customer by name or email and click to add them
+              <p className="text-xs text-gray-500 font-medium">
+                Click the search box to see all customers, or type to filter
               </p>
             </div>
 
@@ -1766,9 +1839,9 @@ export default function SubmissionDetail() {
                           </div>
                         </div>
                         <button
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.stopPropagation();
-                            if (confirm(`Remove ${customer.name} from this submission?`)) {
+                            if (await confirm({ title: `Remove ${customer.name}`, message: 'Remove this customer from the submission?', confirmLabel: 'Remove', variant: 'warning' })) {
                               handleRemoveLinkedCustomer(customer.id);
                               if (submission.linked_customers.length === 1) {
                                 setShowCustomerListModal(false);
@@ -1829,7 +1902,7 @@ export default function SubmissionDetail() {
 
             <div className="p-6 space-y-4">
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800 font-medium mb-2">📋 CSV Format Instructions:</p>
+                <p className="text-sm text-blue-800 font-medium mb-2">CSV Format Instructions:</p>
                 <p className="text-sm text-blue-700 mb-2">Paste your CSV data with two columns:</p>
                 <ul className="text-sm text-blue-700 list-disc ml-5 space-y-1">
                   <li><strong>Column 1:</strong> PSA Cert Number (e.g., 12345678)</li>
@@ -1858,7 +1931,7 @@ export default function SubmissionDetail() {
               {bulkAssignResult && (
                 <div className="space-y-3">
                   <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <p className="font-semibold text-green-900 mb-2">✅ Results Summary</p>
+                    <p className="font-semibold text-green-900 mb-2">Results Summary</p>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div><span className="text-gray-600">Total:</span> <strong>{bulkAssignResult.summary.total}</strong></div>
                       <div><span className="text-green-600">Assigned:</span> <strong>{bulkAssignResult.summary.assigned}</strong></div>
@@ -1869,7 +1942,7 @@ export default function SubmissionDetail() {
 
                   {bulkAssignResult.unmatched.length > 0 && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <p className="font-semibold text-yellow-900 mb-2">⚠️ Unmatched Customers</p>
+                      <p className="font-semibold text-yellow-900 mb-2">Unmatched Customers</p>
                       <div className="text-sm text-yellow-800 space-y-1 max-h-32 overflow-auto">
                         {bulkAssignResult.unmatched.map((item, idx) => (
                           <div key={idx}>Line {item.lineNumber}: {item.certNumber} → "{item.customerIdentifier}" (customer not found)</div>
@@ -1880,7 +1953,7 @@ export default function SubmissionDetail() {
 
                   {bulkAssignResult.notFound.length > 0 && (
                     <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                      <p className="font-semibold text-red-900 mb-2">❌ Cards Not Found</p>
+                      <p className="font-semibold text-red-900 mb-2">Cards Not Found</p>
                       <div className="text-sm text-red-800 space-y-1 max-h-32 overflow-auto">
                         {bulkAssignResult.notFound.map((item, idx) => (
                           <div key={idx}>Cert #{item.certNumber}: {item.reason}</div>

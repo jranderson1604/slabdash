@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { customers, submissions } from '../api/client';
+import ExportButton from '../components/ExportButton';
 import {
   Plus,
   Search,
@@ -16,16 +19,18 @@ import {
   X,
   CheckSquare,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 
 function CustomerRow({ customer, onDelete, onSendPortalLink, selected, onSelect }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [sendingLink, setSendingLink] = useState(false);
   const navigate = useNavigate();
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const handleDelete = async (e) => {
     e.stopPropagation();
-    if (!confirm(`Delete ${customer.name}? This cannot be undone.`)) return;
+    if (!await confirm({ title: `Delete ${customer.name}`, message: 'This cannot be undone.', variant: 'danger' })) return;
     setMenuOpen(false);
     try {
       await customers.delete(customer.id);
@@ -41,10 +46,10 @@ function CustomerRow({ customer, onDelete, onSendPortalLink, selected, onSelect 
     setMenuOpen(false);
     try {
       const res = await customers.sendPortalLink(customer.id);
-      alert(`Portal link generated!\n\n${res.data.portalUrl}`);
+      toast.success('Portal link generated!');
     } catch (error) {
       console.error('Send portal link failed:', error);
-      alert('Failed to generate portal link');
+      toast.error('Failed to generate portal link');
     } finally {
       setSendingLink(false);
     }
@@ -94,6 +99,15 @@ function CustomerRow({ customer, onDelete, onSendPortalLink, selected, onSelect 
         </span>
       </td>
       <td>
+        {customer.last_login_at ? (
+          <span className="text-gray-600 text-xs" title={format(new Date(customer.last_login_at), 'MMM d, yyyy h:mm a')}>
+            {formatDistanceToNow(new Date(customer.last_login_at), { addSuffix: true })}
+          </span>
+        ) : (
+          <span className="text-gray-400 text-xs">Never</span>
+        )}
+      </td>
+      <td>
         <span className="text-gray-500">
           {format(new Date(customer.created_at), 'MMM d, yyyy')}
         </span>
@@ -114,7 +128,7 @@ function CustomerRow({ customer, onDelete, onSendPortalLink, selected, onSelect 
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 z-20 mt-1 w-48 bg-brand-50 rounded-lg shadow-lg border border-gray-200 py-1 fade-in">
+              <div className="absolute right-0 z-20 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 fade-in">
                 <Link
                   to={`/customers/${customer.id}`}
                   className="flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
@@ -146,6 +160,8 @@ function CustomerRow({ customer, onDelete, onSendPortalLink, selected, onSelect 
 }
 
 export default function Customers() {
+  const toast = useToast();
+  const confirm = useConfirm();
   const [customerList, setCustomerList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -223,16 +239,16 @@ export default function Customers() {
 
   const handleBulkDelete = async () => {
     const count = selectedCustomers.size;
-    if (!confirm(`Delete ${count} customer(s)? This cannot be undone.`)) return;
+    if (!await confirm({ title: `Delete ${count} Customer${count !== 1 ? 's' : ''}`, message: 'This cannot be undone.', variant: 'danger' })) return;
 
     try {
       await customers.bulkDelete(Array.from(selectedCustomers));
       setCustomerList(customerList.filter(c => !selectedCustomers.has(c.id)));
       setSelectedCustomers(new Set());
-      alert(`Successfully deleted ${count} customer(s)`);
+      toast.success(`Successfully deleted ${count} customer(s)`);
     } catch (error) {
       console.error('Bulk delete failed:', error);
-      alert('Failed to delete customers');
+      toast.error('Failed to delete customers');
     }
   };
 
@@ -253,7 +269,7 @@ export default function Customers() {
 
   const handleBulkAddToSubmission = async () => {
     if (!selectedSubmission) {
-      alert('Please select a submission');
+      toast.error('Please select a submission');
       return;
     }
 
@@ -262,22 +278,22 @@ export default function Customers() {
         Array.from(selectedCustomers),
         selectedSubmission
       );
-      alert(res.data.message);
+      toast.success(res.data.message);
       setShowAddToSubmissionModal(false);
       setSelectedCustomers(new Set());
       setSelectedSubmission('');
     } catch (error) {
       console.error('Bulk add to submission failed:', error);
-      alert('Failed to add customers to submission');
+      toast.error('Failed to add customers to submission');
     }
   };
 
   const handleDeleteAll = async () => {
-    if (!confirm(`⚠️ WARNING: Delete ALL customers?\n\nThis will permanently delete EVERY customer in your database, regardless of how many there are. This cannot be undone.\n\nType YES in the next prompt to confirm.`)) return;
+    if (!await confirm({ title: 'Delete ALL Customers', message: 'This will permanently delete every customer in your database. This cannot be undone.', confirmLabel: 'Yes, Delete All', variant: 'danger' })) return;
 
     const confirmation = prompt('Type YES to confirm deletion of ALL customers:');
     if (confirmation !== 'YES') {
-      alert('Deletion cancelled');
+      toast.error('Deletion cancelled');
       return;
     }
 
@@ -285,15 +301,15 @@ export default function Customers() {
       const res = await customers.deleteAll();
       setCustomerList([]);
       setSelectedCustomers(new Set());
-      alert(`Successfully deleted all ${res.data.deletedCount} customers`);
+      toast.success(`Successfully deleted all ${res.data.deletedCount} customers`);
     } catch (error) {
       console.error('Delete all failed:', error);
-      alert('Failed to delete all customers');
+      toast.error('Failed to delete all customers');
     }
   };
 
   const handleSendBulkIntroEmails = async () => {
-    if (!confirm(`Send introduction emails to all customers with active submissions?\n\nThis will send a welcome email with portal access and submission details to each customer.`)) return;
+    if (!await confirm({ title: 'Send Intro Emails', message: 'Send a welcome email with portal access and submission details to all customers with active submissions?', confirmLabel: 'Send Emails', variant: 'info' })) return;
 
     // Show progress modal
     setShowEmailProgressModal(true);
@@ -317,17 +333,13 @@ export default function Customers() {
       // Keep modal open for 2 seconds to show final results
       setTimeout(() => {
         setShowEmailProgressModal(false);
-        let message = `Introduction email results:\n\n✓ Sent: ${sent}\n`;
-        if (skipped > 0) message += `⊘ Skipped (invalid emails): ${skipped}\n`;
-        if (failed > 0) message += `✗ Failed: ${failed}\n`;
-        message += `\nTotal customers: ${total}`;
-        alert(message);
+        toast.success(`Introduction emails sent: ${sent} of ${total}${skipped > 0 ? `, ${skipped} skipped` : ''}${failed > 0 ? `, ${failed} failed` : ''}`);
       }, 2000);
     } catch (error) {
       clearInterval(progressTimer);
       setShowEmailProgressModal(false);
       console.error('Send bulk intro emails failed:', error);
-      alert(error.response?.data?.error || 'Failed to send introduction emails');
+      toast.error(error.response?.data?.error || 'Failed to send introduction emails');
     } finally {
       setSendingIntroEmails(false);
     }
@@ -335,19 +347,19 @@ export default function Customers() {
 
   const handleSendTestEmail = async () => {
     if (!testEmail || !testEmail.includes('@')) {
-      alert('Please enter a valid email address');
+      toast.error('Please enter a valid email address');
       return;
     }
 
     setSendingTestEmail(true);
     try {
       await customers.sendTestIntroductionEmail(testEmail);
-      alert(`Test introduction email sent to ${testEmail}!\n\nCheck your inbox to preview the email.`);
+      toast.success(`Test introduction email sent to ${testEmail}`);
       setShowTestEmailModal(false);
       setTestEmail('');
     } catch (error) {
       console.error('Send test email failed:', error);
-      alert(error.response?.data?.error || 'Failed to send test email');
+      toast.error(error.response?.data?.error || 'Failed to send test email');
     } finally {
       setSendingTestEmail(false);
     }
@@ -366,15 +378,15 @@ export default function Customers() {
       let message = `Successfully imported ${imported} customer(s)`;
       if (skipped > 0) message += `, skipped ${skipped} duplicate(s)`;
       if (errors && errors.length > 0) {
-        message += `\n\n${errors.length} error(s):\n${errors.join('\n')}`;
+        message += ` with ${errors.length} error(s)`;
       }
-      alert(message);
+      toast.success(message);
 
       // Reload customers
       await loadCustomers();
     } catch (error) {
       console.error('CSV import failed:', error);
-      alert(error.response?.data?.error || 'Failed to import CSV');
+      toast.error(error.response?.data?.error || 'Failed to import CSV');
     } finally {
       setImportingCSV(false);
       e.target.value = '';
@@ -387,22 +399,24 @@ export default function Customers() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-brand-700 p-8 shadow-xl">
-        {/* Decorative circles */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+      <div className="relative overflow-hidden rounded-3xl" style={{ background: 'var(--hdr-gradient)', boxShadow: 'var(--hdr-shadow)', border: 'var(--hdr-border)' }}>
+        <div className="absolute -top-12 -right-12 w-56 h-56 rounded-full" style={{ background: 'var(--hdr-circle-1)' }} />
+        <div className="absolute -bottom-10 -left-8 w-40 h-40 rounded-full" style={{ background: 'var(--hdr-circle-2)' }} />
 
-        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 sm:px-8 py-7">
           <div>
-            <h1 className="text-4xl font-black text-white tracking-tight mb-2 drop-shadow-lg">CUSTOMERS</h1>
-            <p className="text-white/90 text-lg font-semibold">Manage your card shop customers</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.15em] mb-1" style={{ color: 'var(--hdr-eyebrow)' }}>Management</p>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight" style={{ color: 'var(--hdr-title)' }}>Customers</h1>
+            <p className="text-sm font-medium mt-1" style={{ color: 'var(--hdr-sub)' }}>
+              {customerList.length > 0 ? `${customerList.length} registered` : 'Manage your card shop customers'}
+            </p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             {customerList.length > 0 && (
               <>
                 <button
                   onClick={() => setShowTestEmailModal(true)}
-                  className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
                   title="Send a test email to preview the introduction email"
                 >
                   <Eye className="w-4 h-4" />
@@ -411,7 +425,7 @@ export default function Customers() {
                 <button
                   onClick={handleSendBulkIntroEmails}
                   disabled={sendingIntroEmails}
-                  className="bg-blue-500/90 hover:bg-blue-600 text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-blue-400 shadow-lg disabled:opacity-50"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-blue-600 disabled:opacity-50" style={{ background: 'rgba(59,130,246,0.85)', color: 'white' }}
                   title="Send introduction email to all customers in active submissions"
                 >
                   {sendingIntroEmails ? (
@@ -425,14 +439,14 @@ export default function Customers() {
                 </button>
                 <button
                   onClick={handleDeleteAll}
-                  className="bg-red-500/90 hover:bg-red-600 text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-red-400 shadow-lg"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-red-600" style={{ background: 'rgba(239,68,68,0.85)', color: 'white' }}
                 >
                   <Trash2 className="w-4 h-4" />
                   <span className="hidden sm:inline">Delete All</span>
                 </button>
               </>
             )}
-            <label className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 border-2 border-white/30 shadow-lg cursor-pointer">
+            <label className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:bg-white/20 cursor-pointer" style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}>
               <FileSpreadsheet className="w-4 h-4" />
               <span className="hidden sm:inline">{importingCSV ? 'Importing...' : 'Import CSV'}</span>
               <input
@@ -443,9 +457,13 @@ export default function Customers() {
                 className="hidden"
               />
             </label>
-            <Link to="/customers/new" className="bg-white text-brand-600 px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105">
+            <ExportButton endpoint="/customers/export.csv" label="" />
+            <Link to="/customers/new"
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-80"
+              style={{ background: 'var(--hdr-btn-bg)', border: 'var(--hdr-btn-border)', color: 'var(--hdr-btn-color)' }}
+            >
               <Plus className="w-4 h-4" />
-              <span className="hidden sm:inline">Add Customer</span>
+              <span className="hidden sm:inline">New Customer</span>
             </Link>
           </div>
         </div>
@@ -467,7 +485,7 @@ export default function Customers() {
                 className="btn btn-primary gap-2"
               >
                 <Package className="w-4 h-4" />
-                Add to Submission
+                Assign to Submission
               </button>
               <button
                 onClick={handleBulkDelete}
@@ -510,18 +528,16 @@ export default function Customers() {
           </div>
         ) : customerList.length === 0 ? (
           <div className="p-12 text-center">
-            <Users className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <Users className="w-12 h-12 text-brand-300 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">
-              {search ? 'No matching customers' : 'No customers yet'}
+              {search ? 'No matching customers' : 'No customers'}
             </h3>
             <p className="text-gray-500 mb-4">
-              {search
-                ? 'Try adjusting your search'
-                : 'Add your first customer to get started'}
+              {search ? 'Try adjusting your search' : 'Create a customer record to begin tracking submissions.'}
             </p>
             {!search && (
               <Link to="/customers/new" className="btn btn-primary">
-                Add Customer
+                New Customer
               </Link>
             )}
           </div>
@@ -543,6 +559,7 @@ export default function Customers() {
                   <th>Submissions</th>
                   <th>Cards</th>
                   <th>Portal</th>
+                  <th>Last Visit</th>
                   <th>Added</th>
                   <th className="w-10"></th>
                 </tr>
@@ -602,11 +619,11 @@ export default function Customers() {
       {/* Add to Submission Modal */}
       {showAddToSubmissionModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Package className="w-6 h-6 text-brand-600" />
-                Add Customers to Submission
+                Assign to Submission
               </h3>
               <button
                 onClick={() => setShowAddToSubmissionModal(false)}
@@ -636,43 +653,67 @@ export default function Customers() {
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                     <input
                       type="text"
-                      placeholder="Search by submission number..."
+                      placeholder="Search by PSA #, order #, or customer name..."
                       value={submissionSearch}
                       onChange={(e) => setSubmissionSearch(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white text-gray-900"
                     />
                   </div>
 
-                  {/* Submission dropdown */}
-                  <select
-                    value={selectedSubmission}
-                    onChange={(e) => setSelectedSubmission(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent mb-2"
-                  >
-                    <option value="">Choose a submission...</option>
+                  {/* Submission list — clickable cards instead of a dropdown */}
+                  <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white">
                     {submissionsList
                       .filter((sub) => {
                         if (!submissionSearch) return true;
-                        const searchLower = submissionSearch.toLowerCase();
-                        const psaNum = (sub.psa_submission_number || '').toLowerCase();
-                        const internalId = (sub.internal_id || '').toLowerCase();
-                        const customerName = (sub.customer_name || '').toLowerCase();
-                        return psaNum.includes(searchLower) ||
-                               internalId.includes(searchLower) ||
-                               customerName.includes(searchLower);
+                        const q = submissionSearch.toLowerCase();
+                        return (sub.psa_submission_number || '').toLowerCase().includes(q) ||
+                               (sub.internal_id || '').toLowerCase().includes(q) ||
+                               (sub.customer_name || '').toLowerCase().includes(q);
                       })
                       .map((sub) => (
-                        <option key={sub.id} value={sub.id}>
-                          {sub.psa_submission_number || sub.internal_id} - {sub.customer_name || 'No customer'}
-                        </option>
+                        <button
+                          key={sub.id}
+                          onClick={() => setSelectedSubmission(sub.id)}
+                          className={`w-full text-left px-4 py-3 border-b border-gray-100 last:border-b-0 transition-colors ${
+                            selectedSubmission === sub.id
+                              ? 'bg-blue-50 border-l-4 border-l-blue-500'
+                              : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <p className="font-bold text-gray-900">
+                              PSA #{sub.psa_submission_number || sub.internal_id || '—'}
+                            </p>
+                            {sub.current_step && (
+                              <span className="text-xs font-medium px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full">
+                                {sub.current_step}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-500 mt-0.5">
+                            {sub.service_level || 'Unknown service'} · {sub.card_count || 0} cards
+                            {sub.customer_name ? ` · ${sub.customer_name}` : ''}
+                          </p>
+                        </button>
                       ))}
-                  </select>
+                    {submissionsList.filter((sub) => {
+                      if (!submissionSearch) return true;
+                      const q = submissionSearch.toLowerCase();
+                      return (sub.psa_submission_number || '').toLowerCase().includes(q) ||
+                             (sub.internal_id || '').toLowerCase().includes(q) ||
+                             (sub.customer_name || '').toLowerCase().includes(q);
+                    }).length === 0 && (
+                      <div className="px-4 py-3 text-gray-500 text-sm text-center">
+                        No submissions found
+                      </div>
+                    )}
+                  </div>
 
-                  {/* Clear selection button */}
+                  {/* Selected indicator */}
                   {selectedSubmission && (
                     <button
                       onClick={() => setSelectedSubmission('')}
-                      className="text-sm text-gray-600 hover:text-gray-800 flex items-center gap-1"
+                      className="mt-2 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
                     >
                       <X className="w-3 h-3" />
                       Clear selection
@@ -689,7 +730,7 @@ export default function Customers() {
                 className="flex-1 bg-brand-600 text-white px-6 py-3 rounded-lg hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 <Package className="w-4 h-4" />
-                Add to Submission
+                Assign to Submission
               </button>
               <button
                 onClick={() => setShowAddToSubmissionModal(false)}
@@ -705,7 +746,7 @@ export default function Customers() {
       {/* Test Introduction Email Modal */}
       {showTestEmailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-brand-50 rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 <Mail className="w-6 h-6 text-blue-600" />
@@ -740,7 +781,7 @@ export default function Customers() {
                 autoFocus
               />
               <p className="text-xs text-gray-500 mt-2">
-                💡 The test email will show sample customer and submission data
+                The test email will use sample customer and submission data
               </p>
             </div>
 
@@ -779,7 +820,7 @@ export default function Customers() {
       {/* Email Progress Modal */}
       {showEmailProgressModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-brand-50 rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
             <div className="text-center">
               <div className="mb-4">
                 <Mail className="w-12 h-12 text-blue-600 mx-auto animate-pulse" />

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Upload, Camera, Loader2, CheckCircle, XCircle } from 'lucide-react';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+import api from '../api/client';
 
 export default function Scanner({ onCardsScanned }) {
   const [uploading, setUploading] = useState(false);
@@ -20,16 +19,11 @@ export default function Scanner({ onCardsScanned }) {
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await fetch(`${API_URL}/api/scanner/scan`, {
-        method: 'POST',
-        body: formData,
+      const response = await api.post('/scanner/scan', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Scan failed');
-      }
+      const data = response.data;
 
       setResult(data);
       
@@ -81,7 +75,7 @@ export default function Scanner({ onCardsScanned }) {
         onDragLeave={handleDragLeave}
         className={`
           relative border-2 border-dashed rounded-xl p-8 text-center transition-all
-          ${dragActive ? 'border-brand-500 bg-brand-500/10' : 'border-gray-700 hover:border-gray-600'}
+          ${dragActive ? 'border-brand-500 bg-brand-500/10' : 'border-gray-300 hover:border-brand-300'}
           ${uploading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
         `}
       >
@@ -131,7 +125,7 @@ export default function Scanner({ onCardsScanned }) {
               <p className="font-semibold text-green-500 mb-1">
                 Scan Complete!
               </p>
-              <p className="text-sm text-gray-300">
+              <p className="text-sm text-gray-600">
                 Found {result.cardCount} card{result.cardCount !== 1 ? 's' : ''} in the image
               </p>
               
@@ -140,18 +134,18 @@ export default function Scanner({ onCardsScanned }) {
                   {result.cards.map((card, idx) => (
                     <div
                       key={idx}
-                      className="bg-gray-800/50 rounded p-2 text-xs"
+                      className="bg-gray-100 rounded p-2 text-xs"
                     >
                       <span className="text-brand-500 font-semibold">
                         {card.player_name}
                       </span>
                       {card.year && (
-                        <span className="text-gray-400 ml-2">
+                        <span className="text-gray-600 ml-2">
                           {card.year}
                         </span>
                       )}
                       {card.card_set && (
-                        <span className="text-gray-400 ml-2">
+                        <span className="text-gray-600 ml-2">
                           {card.card_set}
                         </span>
                       )}
@@ -175,7 +169,7 @@ export default function Scanner({ onCardsScanned }) {
             <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
             <div>
               <p className="font-semibold text-red-500 mb-1">Scan Failed</p>
-              <p className="text-sm text-gray-300">{error}</p>
+              <p className="text-sm text-gray-600">{error}</p>
             </div>
           </div>
         </div>

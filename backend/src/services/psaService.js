@@ -1,274 +1,1067 @@
 const axios = require('axios');
-const cheerio = require('cheerio');
 const db = require('../db');
 
 const PSA_API_BASE = process.env.PSA_API_BASE || 'https://api.psacard.com/publicapi';
 
+// ============================================
+// GLOBAL RATE LIMIT & THROTTLE TRACKING
+// (Persisted to database — survives server restarts)
+// ============================================
+let _rateLimitedUntil = 0; // Unix timestamp (ms) when rate limit expires
+let _lastRequestAt = 0;    // Unix timestamp (ms) of last PSA API request
+const MIN_REQUEST_INTERVAL_MS = 1500; // 1.5s between single user-initiated requests
+const BATCH_INTERVAL_MS = 10000;      // 10s between requests during batch refreshes
+const MAX_COOLDOWN_MS = 15 * 60 * 1000; // Cap cooldown at 15 minutes max
+const DEFAULT_COOLDOWN_MS = 5 * 60 * 1000; // 5 min default cooldown on 429
+
+// Daily API call tracking — resets at midnight UTC
+let _dailyCallCount = 0;
+let _dailyCallDate = new Date().toISOString().split('T')[0];
+const DAILY_CALL_LIMIT = 500; // Conservative daily limit
+
+// Persistence: save/load rate limit state to survive server restarts
+let _stateLoaded = false;
+const _loadState = async () => {
+    if (_stateLoaded) return;
+    _stateLoaded = true;
+    try {
+        const result = await db.query(
+            `SELECT key, value FROM system_state WHERE key IN ('psa_rate_limited_until', 'psa_daily_usage')`
+        );
+        for (const row of result.rows) {
+            if (row.key === 'psa_rate_limited_until') {
+                const until = row.value?.until || 0;
+                if (until > Date.now()) {
+                    _rateLimitedUntil = until;
+                    console.log(`[PSA] Restored rate limit from DB — limited until ${new Date(until).toLocaleTimeString()}`);
+                }
+            }
+            if (row.key === 'psa_daily_usage') {
+                const date = row.value?.date;
+                const count = row.value?.count || 0;
+                const today = new Date().toISOString().split('T')[0];
+                if (date === today) {
+                    _dailyCallCount = count;
+                    _dailyCallDate = date;
+                    console.log(`[PSA] Restored daily usage from DB — ${count} calls today`);
+                }
+            }
+        }
+    } catch (err) {
+        // system_state table may not exist yet — that's fine
+        if (err.code !== '42P01') { // 42P01 = undefined_table
+            console.error('[PSA] Failed to load rate limit state:', err.message);
+        }
+    }
+};
+
+const _persistRateLimit = async () => {
+    try {
+        await db.query(
+            `INSERT INTO system_state (key, value, updated_at)
+             VALUES ('psa_rate_limited_until', $1, NOW())
+             ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [JSON.stringify({ until: _rateLimitedUntil })]
+        );
+    } catch { /* table may not exist */ }
+};
+
+const _persistDailyUsage = async () => {
+    try {
+        await db.query(
+            `INSERT INTO system_state (key, value, updated_at)
+             VALUES ('psa_daily_usage', $1, NOW())
+             ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
+            [JSON.stringify({ date: _dailyCallDate, count: _dailyCallCount })]
+        );
+    } catch { /* table may not exist */ }
+};
+
+// Persist daily usage every 10 calls to avoid excessive DB writes
+let _persistCounter = 0;
+
+// Load persisted state on first import
+_loadState();
+
+/**
+ * Check if we're currently rate limited by PSA.
+ * Returns { limited: true, retryAfterMs, retryAfterMin } or { limited: false }.
+ */
+const isRateLimited = () => {
+    const now = Date.now();
+    if (_rateLimitedUntil > now) {
+        const retryAfterMs = _rateLimitedUntil - now;
+        return { limited: true, retryAfterMs, retryAfterMin: Math.ceil(retryAfterMs / 60000) };
+    }
+    return { limited: false };
+};
+
+/**
+ * Wait until the minimum interval between requests has elapsed.
+ * Uses short interval for single user-initiated requests.
+ */
+const throttle = async () => {
+    const now = Date.now();
+    const elapsed = now - _lastRequestAt;
+    if (elapsed < MIN_REQUEST_INTERVAL_MS) {
+        const waitMs = MIN_REQUEST_INTERVAL_MS - elapsed;
+        await new Promise(r => setTimeout(r, waitMs));
+    }
+    _lastRequestAt = Date.now();
+    _trackDailyCall();
+};
+
+/**
+ * Longer throttle for batch operations (refresh-all, scheduled refresh).
+ * 10 seconds between requests keeps us safely under PSA limits.
+ */
+const batchThrottle = async () => {
+    const now = Date.now();
+    const elapsed = now - _lastRequestAt;
+    if (elapsed < BATCH_INTERVAL_MS) {
+        const waitMs = BATCH_INTERVAL_MS - elapsed;
+        await new Promise(r => setTimeout(r, waitMs));
+    }
+    _lastRequestAt = Date.now();
+    _trackDailyCall();
+};
+
+/** Track daily API calls and reset counter at midnight UTC. */
+const _trackDailyCall = () => {
+    const today = new Date().toISOString().split('T')[0];
+    if (today !== _dailyCallDate) {
+        _dailyCallCount = 0;
+        _dailyCallDate = today;
+    }
+    _dailyCallCount++;
+    // Persist every 10 calls to avoid excessive DB writes
+    _persistCounter++;
+    if (_persistCounter >= 10) {
+        _persistCounter = 0;
+        _persistDailyUsage().catch(() => {});
+    }
+};
+
+/** Get current daily API usage stats. */
+const getDailyUsage = () => ({
+    callsToday: _dailyCallCount,
+    limit: DAILY_CALL_LIMIT,
+    remaining: Math.max(0, DAILY_CALL_LIMIT - _dailyCallCount),
+    nearLimit: _dailyCallCount >= DAILY_CALL_LIMIT * 0.8,
+    atLimit: _dailyCallCount >= DAILY_CALL_LIMIT,
+});
+
+/**
+ * Set global rate limit cooldown from a 429 response.
+ * Respects the retry-after header but caps at MAX_COOLDOWN_MS (15 min)
+ * to avoid absurdly long lockouts from PSA's aggressive headers.
+ * Persists to database so it survives server restarts.
+ */
+const setRateLimited = (error) => {
+    const retryAfterHeader = error.response?.headers?.['retry-after'];
+    let cooldownMs;
+
+    if (retryAfterHeader) {
+        const retryAfterSec = parseInt(retryAfterHeader, 10);
+        if (!isNaN(retryAfterSec) && retryAfterSec > 0) {
+            cooldownMs = Math.min(retryAfterSec * 1000, MAX_COOLDOWN_MS);
+        } else {
+            cooldownMs = DEFAULT_COOLDOWN_MS;
+        }
+    } else {
+        cooldownMs = DEFAULT_COOLDOWN_MS;
+    }
+
+    _rateLimitedUntil = Date.now() + cooldownMs;
+    const cooldownMin = Math.ceil(cooldownMs / 60000);
+    console.log(`[PSA] Rate limited — cooling down for ${cooldownMin} minutes (until ${new Date(_rateLimitedUntil).toLocaleTimeString()})`);
+
+    // Persist to DB so restart doesn't lose the rate limit
+    _persistRateLimit().catch(() => {});
+    _persistDailyUsage().catch(() => {});
+};
+
 const STEP_NAMES = {
     'Arrived': 'Arrived',
     'OrderPrep': 'Order Prep',
+    'Order Prep': 'Order Prep',
     'ResearchAndID': 'Research & ID',
+    'Research & ID': 'Research & ID',
+    'ResearchAndId': 'Research & ID',
+    'Research And ID': 'Research & ID',
     'Grading': 'Grading',
     'Assembly': 'Assembly',
-    'QACheck1': 'QA Check 1',
-    'QACheck2': 'QA Check 2',
-    'Shipped': 'Shipped'
+    'GradesReady': 'Grades Ready',
+    'Grades Ready': 'Grades Ready',
+    'QAChecks': 'QA Checks',
+    'QA Checks': 'QA Checks',
+    'QACheck': 'QA Checks',
+    'QA Check': 'QA Checks',
+    // Legacy step names (pre-Sept 2023) — map to current names
+    'QACheck1': 'Grading',
+    'QA Check 1': 'Grading',
+    'QACheck2': 'QA Checks',
+    'QA Check 2': 'QA Checks',
+    'Shipped': 'Shipped',
+    'Complete': 'Shipped',
 };
+
+// Step order for progress tracking (current PSA tracker as of 2024+)
+const STEP_ORDER = ['Arrived', 'Order Prep', 'Research & ID', 'Grading', 'Assembly', 'Grades Ready', 'QA Checks', 'Shipped'];
 
 const createPsaClient = (apiKey) => axios.create({
     baseURL: PSA_API_BASE,
-    headers: { 'Authorization': `Bearer ${apiKey}`, 'Accept': 'application/json' },
+    headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Accept': 'application/json',
+        'User-Agent': 'SlabDash/2.0'
+    },
     timeout: 30000
 });
 
-const getSubmissionProgress = async (apiKey, submissionNumber) => {
-    try {
-        const response = await createPsaClient(apiKey).get(`/order/GetSubmissionProgress/${submissionNumber}`);
-        return { success: true, data: response.data };
-    } catch (error) {
-        const status = error.response?.status;
-        const message = error.response?.data?.message || error.message;
+// ============================================
+// CORE API FUNCTIONS
+// ============================================
 
-        // Handle specific error codes gracefully
-        if (status === 404) {
-            return { success: false, error: 'Submission not found', status: 404 };
-        }
-        if (status === 500) {
-            console.log(`PSA API returned 500 for submission ${submissionNumber} - this is a PSA API issue, will skip`);
-            return { success: false, error: 'PSA API server error (500)', status: 500 };
-        }
-        if (status === 429) {
-            // Let rate limit errors bubble up for retry logic
-            throw error;
-        }
-
-        // Log other errors and return gracefully
-        console.error(`PSA API error for submission ${submissionNumber}:`, message);
-        return { success: false, error: message || 'Unknown PSA API error', status: status || 0 };
+const getSubmissionProgress = async (apiKey, submissionNumber, { retries = 2, batch = false } = {}) => {
+    // Check global rate limit before making any request
+    const rl = isRateLimited();
+    if (rl.limited) {
+        return { success: false, error: `Rate limited — retry in ${rl.retryAfterMin}m`, status: 429, rateLimited: true };
     }
+
+    // Check daily limit
+    const usage = getDailyUsage();
+    if (usage.atLimit) {
+        return { success: false, error: `Daily API limit reached (${usage.limit} calls). Resets at midnight UTC.`, status: 429, rateLimited: true, dailyLimitReached: true };
+    }
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            // Use longer interval for batch operations
+            if (batch) { await batchThrottle(); } else { await throttle(); }
+            const response = await createPsaClient(apiKey).get(`/order/GetSubmissionProgress/${submissionNumber}`);
+            const raw = response.data;
+            const data = raw?.PSAOrder || raw?.psaOrder || raw;
+            return { success: true, data };
+        } catch (error) {
+            const status = error.response?.status;
+            const message = error.response?.data?.message || error.message;
+
+            if (status === 404) {
+                return { success: false, error: 'Submission not found', status: 404, errorType: 'not_found' };
+            }
+            // 401/403 — bad API key
+            if (status === 401 || status === 403) {
+                return { success: false, error: 'PSA API key is invalid or expired', status, errorType: 'auth_error' };
+            }
+            // 429 rate limit — set global cooldown and return failure (don't throw)
+            if (status === 429) {
+                setRateLimited(error);
+                return { success: false, error: 'PSA rate limit reached', status: 429, rateLimited: true, errorType: 'rate_limit' };
+            }
+            // 5xx server errors and network timeouts — retry with backoff
+            if ((status >= 500 || !status) && attempt < retries) {
+                const delay = (attempt + 1) * 3000 + Math.random() * 2000;
+                console.log(`[PSA] API error (${status || 'network'}) for ${submissionNumber}, retry ${attempt + 1}/${retries} in ${Math.round(delay/1000)}s`);
+                await new Promise(r => setTimeout(r, delay));
+                continue;
+            }
+
+            const errorType = status >= 500 ? 'server_error' : (!status ? 'network_error' : 'unknown');
+            console.error(`[PSA] API error for submission ${submissionNumber}: ${message} (${errorType})`);
+            return { success: false, error: message || 'Unknown PSA API error', status: status || 0, errorType };
+        }
+    }
+    return { success: false, error: 'Max retries exceeded', status: 0, errorType: 'network_error' };
 };
 
 const getCertificate = async (apiKey, certNumber) => {
     try {
+        await throttle();
         const response = await createPsaClient(apiKey).get(`/cert/GetByCertNumber/${certNumber}`);
         const data = response.data;
         if (data.ServerMessage === 'No data found') return { success: false, error: 'Certificate not found' };
         return { success: true, data: data.PSACert || data };
     } catch (error) {
-        throw error;
+        if (error.response?.status === 404) {
+            return { success: false, error: 'Certificate not found' };
+        }
+        console.error(`PSA cert lookup error for ${certNumber}:`, error.message);
+        return { success: false, error: error.message };
     }
 };
 
-// Try multiple PSA API endpoints to find card data
-const tryGetOrderDetails = async (apiKey, orderNumber, submissionNumber) => {
-    const client = createPsaClient(apiKey);
-    const results = { attempted: [], successful: null, allResponses: {} };
-
-    // Endpoint 1: Try GetOrder with order number
+const getCertImages = async (apiKey, certNumber) => {
     try {
-        console.log(`Trying GetOrder with orderNumber: ${orderNumber}`);
-        const response = await client.get(`/order/GetOrder/${orderNumber}`);
-        results.attempted.push({ endpoint: `/order/GetOrder/${orderNumber}`, status: 'success' });
-        results.allResponses.GetOrder = response.data;
-        console.log('GetOrder response:', JSON.stringify(response.data, null, 2));
-        if (response.data && Object.keys(response.data).length > 0) {
-            results.successful = { endpoint: 'GetOrder', data: response.data };
+        await throttle();
+        const response = await createPsaClient(apiKey).get(`/cert/GetImagesByCertNumber/${certNumber}`);
+        const data = response.data;
+        if (!data || data.ServerMessage === 'No data found') {
+            return { success: false, error: 'No images found' };
         }
-    } catch (error) {
-        results.attempted.push({ endpoint: `/order/GetOrder/${orderNumber}`, status: 'failed', error: error.message });
-        console.log(`GetOrder failed: ${error.message}`);
-    }
-
-    // Endpoint 2: Try GetSubmission with submission number
-    try {
-        console.log(`Trying GetSubmission with submissionNumber: ${submissionNumber}`);
-        const response = await client.get(`/order/GetSubmission/${submissionNumber}`);
-        results.attempted.push({ endpoint: `/order/GetSubmission/${submissionNumber}`, status: 'success' });
-        results.allResponses.GetSubmission = response.data;
-        console.log('GetSubmission response:', JSON.stringify(response.data, null, 2));
-        if (!results.successful && response.data && Object.keys(response.data).length > 0) {
-            results.successful = { endpoint: 'GetSubmission', data: response.data };
+        const images = [];
+        if (data.FrontImageURL) images.push(data.FrontImageURL);
+        if (data.BackImageURL) images.push(data.BackImageURL);
+        if (data.Images && Array.isArray(data.Images)) {
+            for (const img of data.Images) {
+                const url = typeof img === 'string' ? img : img.ImageURL || img.imageUrl;
+                if (url && !images.includes(url)) images.push(url);
+            }
         }
+        return { success: true, images, raw: data };
     } catch (error) {
-        results.attempted.push({ endpoint: `/order/GetSubmission/${submissionNumber}`, status: 'failed', error: error.message });
-        console.log(`GetSubmission failed: ${error.message}`);
+        return { success: false, error: error.message, images: [] };
     }
-
-    // Endpoint 3: Try GetOrderDetails
-    try {
-        console.log(`Trying GetOrderDetails with orderNumber: ${orderNumber}`);
-        const response = await client.get(`/order/GetOrderDetails/${orderNumber}`);
-        results.attempted.push({ endpoint: `/order/GetOrderDetails/${orderNumber}`, status: 'success' });
-        results.allResponses.GetOrderDetails = response.data;
-        console.log('GetOrderDetails response:', JSON.stringify(response.data, null, 2));
-        if (!results.successful && response.data && Object.keys(response.data).length > 0) {
-            results.successful = { endpoint: 'GetOrderDetails', data: response.data };
-        }
-    } catch (error) {
-        results.attempted.push({ endpoint: `/order/GetOrderDetails/${orderNumber}`, status: 'failed', error: error.message });
-        console.log(`GetOrderDetails failed: ${error.message}`);
-    }
-
-    // Endpoint 4: Try GetSubmissionDetails
-    try {
-        console.log(`Trying GetSubmissionDetails with submissionNumber: ${submissionNumber}`);
-        const response = await client.get(`/order/GetSubmissionDetails/${submissionNumber}`);
-        results.attempted.push({ endpoint: `/order/GetSubmissionDetails/${submissionNumber}`, status: 'success' });
-        results.allResponses.GetSubmissionDetails = response.data;
-        console.log('GetSubmissionDetails response:', JSON.stringify(response.data, null, 2));
-        if (!results.successful && response.data && Object.keys(response.data).length > 0) {
-            results.successful = { endpoint: 'GetSubmissionDetails', data: response.data };
-        }
-    } catch (error) {
-        results.attempted.push({ endpoint: `/order/GetSubmissionDetails/${submissionNumber}`, status: 'failed', error: error.message });
-        console.log(`GetSubmissionDetails failed: ${error.message}`);
-    }
-
-    // Endpoint 5: Try submissions (plural) endpoint
-    try {
-        console.log(`Trying /submissions/${submissionNumber}`);
-        const response = await client.get(`/submissions/${submissionNumber}`);
-        results.attempted.push({ endpoint: `/submissions/${submissionNumber}`, status: 'success' });
-        results.allResponses.submissions = response.data;
-        console.log('submissions response:', JSON.stringify(response.data, null, 2));
-        if (!results.successful && response.data && Object.keys(response.data).length > 0) {
-            results.successful = { endpoint: 'submissions', data: response.data };
-        }
-    } catch (error) {
-        results.attempted.push({ endpoint: `/submissions/${submissionNumber}`, status: 'failed', error: error.message });
-        console.log(`submissions endpoint failed: ${error.message}`);
-    }
-
-    console.log('\n=== ENDPOINT EXPLORATION SUMMARY ===');
-    console.log('Attempted endpoints:', results.attempted.length);
-    console.log('Successful endpoint:', results.successful?.endpoint || 'NONE');
-    console.log('All attempts:', JSON.stringify(results.attempted, null, 2));
-
-    return results;
 };
 
-const parseProgressData = (data) => {
-    const steps = data.orderProgressSteps || [];
-    let completedCount = 0;
-    let currentStep = 'Unknown';
-    
-    for (let i = 0; i < steps.length; i++) {
-        if (steps[i].completed) completedCount++;
-        else if (currentStep === 'Unknown') {
-            currentStep = STEP_NAMES[steps[i].step] || steps[i].step;
-        }
-    }
-    
-    if (completedCount === steps.length && steps.length > 0) currentStep = 'Shipped';
+const getCertWithImages = async (apiKey, certNumber) => {
+    const [certResult, imagesResult] = await Promise.all([
+        getCertificate(apiKey, certNumber),
+        getCertImages(apiKey, certNumber).catch(() => ({ success: false, images: [] }))
+    ]);
+
+    if (!certResult.success) return certResult;
 
     return {
-        orderNumber: data.orderNumber,
-        currentStep,
-        progressPercent: steps.length > 0 ? Math.round((completedCount / steps.length) * 100) : 0,
-        gradesReady: data.gradesReady || false,
-        shipped: data.shipped || false,
-        problemOrder: data.problemOrder || false,
-        accountingHold: data.accountingHold || false,
-        steps: steps.map(s => ({ index: s.index, name: STEP_NAMES[s.step] || s.step, completed: s.completed }))
+        success: true,
+        data: {
+            ...certResult.data,
+            images: imagesResult.images || [],
+            frontImage: imagesResult.raw?.FrontImageURL || null,
+            backImage: imagesResult.raw?.BackImageURL || null
+        }
     };
 };
 
+// ============================================
+// DATA PARSING
+// ============================================
+
+/**
+ * Parse PSA progress data into a clean, normalized structure.
+ * Handles BOTH camelCase and PascalCase field names from PSA API.
+ * PSA sometimes wraps data in PSAOrder or similar container objects.
+ */
+const parseProgressData = (rawData) => {
+    // Handle possible PSA API response wrappers
+    const data = rawData.PSAOrder || rawData.psaOrder || rawData;
+
+    // Handle both camelCase and PascalCase for the steps array
+    const rawSteps = data.orderProgressSteps || data.OrderProgressSteps || data.steps || data.Steps || [];
+    let completedCount = 0;
+    let currentStep = 'Unknown';
+    let lastCompletedStep = null;
+
+    // Normalize each step — PSA can return any combination of casing
+    const normalizedSteps = rawSteps.map((s, idx) => {
+        const rawStepName = (s.step || s.Step || s.name || s.Name || `Step ${idx + 1}`).trim();
+        const isCompleted = !!(s.completed || s.Completed || s.isComplete || s.IsComplete);
+        const completedDate = s.completedDate || s.CompletedDate || s.completedOn || s.CompletedOn || null;
+        const index = s.index !== undefined ? s.index : (s.Index !== undefined ? s.Index : idx);
+        // Try exact match first, then case-insensitive lookup
+        let stepName = STEP_NAMES[rawStepName];
+        if (!stepName) {
+            const lcRaw = rawStepName.replace(/\s+/g, ' ').toLowerCase();
+            for (const [key, val] of Object.entries(STEP_NAMES)) {
+                if (key.toLowerCase() === lcRaw) { stepName = val; break; }
+            }
+        }
+        return { stepName: stepName || rawStepName, isCompleted, completedDate, index, rawStep: rawStepName };
+    });
+
+    for (let i = 0; i < normalizedSteps.length; i++) {
+        if (normalizedSteps[i].isCompleted) {
+            completedCount++;
+            lastCompletedStep = normalizedSteps[i].stepName;
+        } else if (currentStep === 'Unknown') {
+            currentStep = normalizedSteps[i].stepName;
+        }
+    }
+
+    if (completedCount === normalizedSteps.length && normalizedSteps.length > 0) currentStep = 'Shipped';
+
+    const progressPercent = normalizedSteps.length > 0 ? Math.round((completedCount / normalizedSteps.length) * 100) : 0;
+
+    return {
+        orderNumber: data.orderNumber || data.OrderNumber || null,
+        currentStep,
+        lastCompletedStep,
+        progressPercent,
+        completedSteps: completedCount,
+        totalSteps: normalizedSteps.length,
+        gradesReady: data.gradesReady || data.GradesComplete || data.GradesReady || data.gradesComplete || false,
+        shipped: data.shipped || data.Shipped || (currentStep === 'Shipped') || false,
+        problemOrder: data.problemOrder || data.ProblemOrder || false,
+        accountingHold: data.accountingHold || data.AccountingHold || false,
+        // Extract any extra fields PSA might include
+        serviceLevel: data.serviceLevel || data.ServiceLevel || null,
+        estimatedCompletionDate: data.estimatedCompletionDate || data.EstimatedCompletionDate || null,
+        cardCount: data.cardCount || data.CardCount || data.numberOfCards || data.NumberOfCards || null,
+        steps: normalizedSteps.map(s => ({
+            index: s.index,
+            name: STEP_NAMES[s.rawStep] || s.stepName,
+            rawStep: s.rawStep,
+            completed: s.isCompleted,
+            completedDate: s.completedDate
+        }))
+    };
+};
+
+/**
+ * Extract rich data from a PSA certificate response.
+ * Normalizes all the different field name formats PSA uses.
+ */
+const parseCertData = (cert) => {
+    return {
+        certNumber: cert.CertNumber || cert.certNumber || null,
+        grade: cert.CardGrade || cert.Grade || cert.grade || null,
+        gradeDescription: cert.GradeDescription || cert.gradeDescription || null,
+        year: cert.Year || cert.year || null,
+        brand: cert.Brand || cert.brand || null,
+        cardNumber: cert.CardNumber || cert.cardNumber || null,
+        playerName: cert.Subject || cert.PlayerName || cert.subject || null,
+        category: cert.Category || cert.category || null,
+        variety: cert.Variety || cert.variety || null,
+        labelType: cert.LabelType || cert.labelType || null,
+        reversal: cert.Reversal || cert.reversal || null,
+        specId: cert.SpecID || cert.specId || null,
+        specNumber: cert.SpecNumber || cert.specNumber || null,
+        cardDescription: cert.CardDescription || cert.cardDescription || null,
+        totalPopulation: cert.TotalPopulation || cert.totalPopulation || null,
+        populationHigher: cert.PopulationHigher || cert.populationHigher || null,
+        isCrossover: cert.IsCrossover || cert.isCrossover || false,
+        isDualGrade: cert.IsDualGrade || cert.isDualGrade || false,
+    };
+};
+
+// ============================================
+// DATABASE UPDATE FUNCTIONS
+// ============================================
+
+/**
+ * Update a submission from PSA API data.
+ * Detects changes, updates milestone dates, sends notifications.
+ */
 const updateSubmissionFromPsa = async (submissionId, psaData) => {
     const parsed = parseProgressData(psaData);
 
     // Get current state before update to detect changes
     const currentResult = await db.query(
-        'SELECT psa_submission_number, current_step, progress_percent, grades_ready, shipped, problem_order FROM submissions WHERE id = $1',
+        `SELECT company_id, psa_submission_number, current_step, progress_percent, grades_ready, shipped,
+                problem_order, date_received, date_graded, date_shipped, service_level
+         FROM submissions WHERE id = $1`,
         [submissionId]
     );
-    const previousState = currentResult.rows[0];
+    const prev = currentResult.rows[0];
 
-    await db.query(`
-        UPDATE submissions SET
-            psa_order_number = $1, current_step = $2, progress_percent = $3,
-            grades_ready = $4, shipped = $5, problem_order = $6, accounting_hold = $7,
-            psa_api_response = $8, last_api_update = NOW()
-        WHERE id = $9
-    `, [parsed.orderNumber, parsed.currentStep, parsed.progressPercent, parsed.gradesReady,
-        parsed.shipped, parsed.problemOrder, parsed.accountingHold, JSON.stringify(psaData), submissionId]);
+    // Build update query with milestone dates
+    const updateFields = {
+        psa_order_number: parsed.orderNumber,
+        current_step: parsed.currentStep,
+        progress_percent: parsed.progressPercent,
+        grades_ready: parsed.gradesReady,
+        shipped: parsed.shipped,
+        problem_order: parsed.problemOrder,
+        accounting_hold: parsed.accountingHold,
+        psa_api_response: JSON.stringify(psaData),
+        last_api_update: new Date(),
+        last_refreshed_at: new Date(),
+    };
 
+    // Track when step actually changed (for accurate days-at-step calculation)
+    if (prev.current_step !== parsed.currentStep) {
+        updateFields.step_entered_at = new Date();
+    }
+
+    // Auto-set service level from PSA if we don't have one
+    if (!prev.service_level && parsed.serviceLevel) {
+        updateFields.service_level = parsed.serviceLevel;
+    }
+
+    // Auto-set milestone dates based on progress
+    if (!prev.date_received && parsed.completedSteps >= 1) {
+        updateFields.date_received = new Date();
+    }
+    if (!prev.date_graded && parsed.gradesReady && !prev.grades_ready) {
+        updateFields.date_graded = new Date();
+    }
+    if (!prev.date_shipped && parsed.shipped && !prev.shipped) {
+        updateFields.date_shipped = new Date();
+    }
+
+    // Build dynamic SET clause
+    const setClauses = [];
+    const values = [];
+    let paramIndex = 1;
+    for (const [key, value] of Object.entries(updateFields)) {
+        setClauses.push(`${key} = $${paramIndex++}`);
+        values.push(value);
+    }
+    values.push(submissionId);
+
+    await db.query(
+        `UPDATE submissions SET ${setClauses.join(', ')} WHERE id = $${paramIndex}`,
+        values
+    );
+
+    // Update submission steps with completion timestamps
     await db.query('DELETE FROM submission_steps WHERE submission_id = $1', [submissionId]);
 
     for (const step of parsed.steps) {
         await db.query(
-            `INSERT INTO submission_steps (submission_id, step_index, step_name, completed) VALUES ($1, $2, $3, $4)`,
-            [submissionId, step.index, step.name, step.completed]
+            `INSERT INTO submission_steps (submission_id, step_index, step_name, completed, completed_at)
+             VALUES ($1, $2, $3, $4, $5)`,
+            [submissionId, step.index, step.name, step.completed, step.completedDate || (step.completed ? new Date() : null)]
         );
     }
 
     // Track what changed
     const changes = {
-        submissionNumber: previousState.psa_submission_number,
+        submissionNumber: prev.psa_submission_number,
         hadChanges: false,
         stepChanged: false,
         progressChanged: false,
         statusChanged: false,
-        previousStep: previousState.current_step,
+        previousStep: prev.current_step,
         newStep: parsed.currentStep,
-        previousProgress: previousState.progress_percent,
+        previousProgress: prev.progress_percent,
         newProgress: parsed.progressPercent,
-        previousGradesReady: previousState.grades_ready,
+        previousGradesReady: prev.grades_ready,
         newGradesReady: parsed.gradesReady,
-        previousShipped: previousState.shipped,
+        previousShipped: prev.shipped,
         newShipped: parsed.shipped,
-        previousProblem: previousState.problem_order,
-        newProblem: parsed.problemOrder
+        previousProblem: prev.problem_order,
+        newProblem: parsed.problemOrder,
+        milestonesSet: {},
     };
 
-    // Detect what changed
-    if (previousState.current_step !== parsed.currentStep) {
+    if (prev.current_step !== parsed.currentStep) {
         changes.hadChanges = true;
         changes.stepChanged = true;
     }
-    if (previousState.progress_percent !== parsed.progressPercent) {
+    if (prev.progress_percent !== parsed.progressPercent) {
         changes.hadChanges = true;
         changes.progressChanged = true;
-        changes.progressDelta = parsed.progressPercent - previousState.progress_percent;
+        changes.progressDelta = parsed.progressPercent - prev.progress_percent;
     }
-    if (previousState.grades_ready !== parsed.gradesReady ||
-        previousState.shipped !== parsed.shipped ||
-        previousState.problem_order !== parsed.problemOrder) {
+    if (prev.grades_ready !== parsed.gradesReady ||
+        prev.shipped !== parsed.shipped ||
+        prev.problem_order !== parsed.problemOrder) {
         changes.hadChanges = true;
         changes.statusChanged = true;
     }
+    if (updateFields.date_received && !prev.date_received) changes.milestonesSet.received = true;
+    if (updateFields.date_graded && !prev.date_graded) changes.milestonesSet.graded = true;
+    if (updateFields.date_shipped && !prev.date_shipped) changes.milestonesSet.shipped = true;
+
+    // Log step transition to history table (for activity feeds and analytics)
+    if (changes.hadChanges && prev.company_id) {
+        try {
+            const events = [];
+
+            if (changes.stepChanged) {
+                events.push({
+                    type: 'step_change',
+                    details: { from: prev.current_step, to: parsed.currentStep }
+                });
+            }
+            if (parsed.gradesReady && !prev.grades_ready) {
+                events.push({ type: 'grades_ready', details: {} });
+            }
+            if (parsed.shipped && !prev.shipped) {
+                events.push({ type: 'shipped', details: {} });
+            }
+            if (parsed.problemOrder && !prev.problem_order) {
+                events.push({ type: 'problem_flagged', details: {} });
+            }
+            if (prev.problem_order && !parsed.problemOrder) {
+                events.push({ type: 'problem_resolved', details: {} });
+            }
+
+            for (const evt of events) {
+                await db.query(
+                    `INSERT INTO submission_status_history
+                     (submission_id, company_id, from_step, to_step, from_progress, to_progress, event_type, details)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                    [submissionId, prev.company_id, prev.current_step, parsed.currentStep,
+                     prev.progress_percent, parsed.progressPercent, evt.type, JSON.stringify(evt.details)]
+                );
+            }
+        } catch (histErr) {
+            // Don't fail the update if history logging fails
+            console.error('Failed to log status history:', histErr.message);
+        }
+    }
 
     // Send email notification if step changed
-    if (previousState.current_step !== parsed.currentStep && parsed.currentStep) {
+    if (prev.current_step !== parsed.currentStep && parsed.currentStep) {
         try {
             const { sendSubmissionUpdateEmail } = require('./emailService');
             await sendSubmissionUpdateEmail(submissionId, parsed.currentStep, parsed.progressPercent);
         } catch (emailError) {
             console.error('Failed to send email notification:', emailError);
-            // Don't fail the update if email fails
+        }
+    }
+
+    // Send dedicated shipped email with tracking when shipped flag flips
+    if (parsed.shipped && !prev.shipped) {
+        try {
+            const { sendShippedEmail } = require('./emailService');
+            await sendShippedEmail(submissionId);
+        } catch (emailError) {
+            console.error('Failed to send shipped email:', emailError.message);
+        }
+        if (prev.company_id) {
+            const { fireWebhook } = require('./webhookService');
+            fireWebhook(prev.company_id, 'submission.shipped', {
+                submission_id: submissionId,
+                psa_number: prev.psa_submission_number,
+            }).catch(() => {});
+        }
+    }
+
+    // Notify shop owner when grades first become ready — queue for daily digest
+    if (parsed.gradesReady && !prev.grades_ready) {
+        try {
+            await db.query(
+                `UPDATE submissions SET grades_ready_pending_digest = true WHERE id = $1`,
+                [submissionId]
+            );
+        } catch (digestErr) {
+            console.error('Failed to queue grades-ready digest:', digestErr.message);
+        }
+        if (prev.company_id) {
+            const { fireWebhook } = require('./webhookService');
+            fireWebhook(prev.company_id, 'submission.grades_ready', {
+                submission_id: submissionId,
+                psa_number: prev.psa_submission_number,
+            }).catch(() => {});
+        }
+    }
+
+    // Send problem order email when problem flag is set (customers + owner)
+    if (parsed.problemOrder && !prev.problem_order) {
+        try {
+            const { sendProblemOrderEmail, sendOwnerProblemOrderEmail } = require('./emailService');
+            await sendProblemOrderEmail(submissionId);
+            await sendOwnerProblemOrderEmail(submissionId);
+        } catch (emailError) {
+            console.error('Failed to send problem order email:', emailError.message);
+        }
+        if (prev.company_id) {
+            const { fireWebhook } = require('./webhookService');
+            fireWebhook(prev.company_id, 'submission.problem', {
+                submission_id: submissionId,
+                psa_number: prev.psa_submission_number,
+            }).catch(() => {});
+        }
+    }
+
+    // Send push notifications to linked portal customers on significant changes
+    if (changes.hadChanges && prev.company_id) {
+        try {
+            const { notifyCustomersOfStatusChange } = require('../routes/push');
+            const significantEvents = [];
+            if (changes.stepChanged) significantEvents.push({ type: 'step_change', details: { from: prev.current_step, to: parsed.currentStep } });
+            if (parsed.gradesReady && !prev.grades_ready) significantEvents.push({ type: 'grades_ready', details: {} });
+            if (parsed.shipped && !prev.shipped) significantEvents.push({ type: 'shipped', details: {} });
+            if (parsed.problemOrder && !prev.problem_order) significantEvents.push({ type: 'problem_flagged', details: {} });
+            if (prev.problem_order && !parsed.problemOrder) significantEvents.push({ type: 'problem_resolved', details: {} });
+
+            for (const evt of significantEvents) {
+                await notifyCustomersOfStatusChange(submissionId, prev.company_id, evt.type, evt.details);
+            }
+        } catch (pushError) {
+            // Silent fail — push notifications shouldn't block the update
+            console.error('Customer push notification failed:', pushError.message);
+        }
+    }
+
+    // Auto-fetch cert data for all cards when grades become ready
+    if (parsed.gradesReady && !prev.grades_ready) {
+        try {
+            await autoFetchCertData(submissionId);
+        } catch (certError) {
+            console.error('Auto cert fetch failed:', certError.message);
         }
     }
 
     return { parsed, changes };
 };
 
-const refreshAllSubmissions = async () => {
-    const companies = await db.query(
-        `SELECT id, psa_api_key FROM companies WHERE auto_refresh_enabled = true AND psa_api_key IS NOT NULL`
+/**
+ * When grades become ready, automatically look up cert data for all cards
+ * in the submission that have cert numbers but no grade yet.
+ */
+const autoFetchCertData = async (submissionId) => {
+    // Get the company's API key and all cards for this submission
+    const subResult = await db.query(
+        `SELECT s.company_id, c.psa_api_key
+         FROM submissions s
+         JOIN companies c ON s.company_id = c.id
+         WHERE s.id = $1`,
+        [submissionId]
     );
-    
-    for (const company of companies.rows) {
+    if (subResult.rows.length === 0) return;
+
+    const apiKey = subResult.rows[0].psa_api_key;
+    if (!apiKey) return;
+
+    const cardsResult = await db.query(
+        `SELECT id, psa_cert_number FROM cards
+         WHERE submission_id = $1 AND psa_cert_number IS NOT NULL AND (grade IS NULL OR grade = '')`,
+        [submissionId]
+    );
+
+    if (cardsResult.rows.length === 0) return;
+
+    console.log(`Auto-fetching cert data for ${cardsResult.rows.length} cards in submission ${submissionId}`);
+
+    let updated = 0;
+    for (const card of cardsResult.rows) {
+        try {
+            const certResult = await getCertWithImages(apiKey, card.psa_cert_number);
+            if (certResult.success) {
+                const cert = certResult.data;
+                const parsed = parseCertData(cert);
+
+                const updateData = {
+                    grade: parsed.grade,
+                    psa_cert_data: JSON.stringify(cert),
+                    status: 'graded',
+                };
+
+                // Add player name if not already set
+                if (parsed.playerName) {
+                    updateData.player_name = parsed.playerName;
+                }
+
+                // Add images if available
+                if (cert.images && cert.images.length > 0) {
+                    updateData.card_images = cert.images;
+                }
+
+                const setClauses = [];
+                const values = [];
+                let pi = 1;
+                for (const [key, value] of Object.entries(updateData)) {
+                    if (key === 'card_images') {
+                        setClauses.push(`${key} = $${pi++}`);
+                        values.push(value);
+                    } else {
+                        setClauses.push(`${key} = $${pi++}`);
+                        values.push(value);
+                    }
+                }
+                values.push(card.id);
+
+                await db.query(
+                    `UPDATE cards SET ${setClauses.join(', ')} WHERE id = $${pi}`,
+                    values
+                );
+                updated++;
+            }
+            // Throttle between cert lookups (throttle() enforces 5s min)
+            await new Promise(r => setTimeout(r, 3000));
+        } catch (err) {
+            console.error(`Auto cert fetch failed for ${card.psa_cert_number}:`, err.message);
+        }
+    }
+
+    console.log(`Auto cert fetch complete: ${updated}/${cardsResult.rows.length} cards updated`);
+};
+
+// ============================================
+// PROGRESS ESTIMATION ENGINE
+// ============================================
+
+/**
+ * Expected business days per step, by service level.
+ * Based on real-world collector data (not PSA marketing numbers).
+ */
+const STEP_DURATION_ESTIMATES = {
+    'Value Bulk':    { 'Arrived': 1, 'Order Prep': 15, 'Research & ID': 5, 'Grading': 20, 'Assembly': 5, 'Grades Ready': 5, 'QA Checks': 10, 'Shipped': 2 },
+    'Bulk':          { 'Arrived': 1, 'Order Prep': 15, 'Research & ID': 5, 'Grading': 20, 'Assembly': 5, 'Grades Ready': 5, 'QA Checks': 10, 'Shipped': 2 },
+    'Value':         { 'Arrived': 1, 'Order Prep': 12, 'Research & ID': 5, 'Grading': 18, 'Assembly': 5, 'Grades Ready': 5, 'QA Checks': 8, 'Shipped': 2 },
+    'Value Plus':    { 'Arrived': 1, 'Order Prep': 8, 'Research & ID': 4, 'Grading': 12, 'Assembly': 4, 'Grades Ready': 4, 'QA Checks': 6, 'Shipped': 2 },
+    'Plus':          { 'Arrived': 1, 'Order Prep': 8, 'Research & ID': 4, 'Grading': 12, 'Assembly': 4, 'Grades Ready': 4, 'QA Checks': 6, 'Shipped': 2 },
+    'Value Max':     { 'Arrived': 1, 'Order Prep': 6, 'Research & ID': 3, 'Grading': 10, 'Assembly': 3, 'Grades Ready': 3, 'QA Checks': 5, 'Shipped': 2 },
+    'Regular':       { 'Arrived': 1, 'Order Prep': 3, 'Research & ID': 2, 'Grading': 8, 'Assembly': 2, 'Grades Ready': 2, 'QA Checks': 4, 'Shipped': 2 },
+    'Standard':      { 'Arrived': 1, 'Order Prep': 3, 'Research & ID': 2, 'Grading': 8, 'Assembly': 2, 'Grades Ready': 2, 'QA Checks': 4, 'Shipped': 2 },
+    'Express':       { 'Arrived': 1, 'Order Prep': 2, 'Research & ID': 1, 'Grading': 4, 'Assembly': 1, 'Grades Ready': 1, 'QA Checks': 2, 'Shipped': 1 },
+    'Super Express': { 'Arrived': 0.5, 'Order Prep': 1, 'Research & ID': 0.5, 'Grading': 1.5, 'Assembly': 0.5, 'Grades Ready': 0.5, 'QA Checks': 1, 'Shipped': 0.5 },
+    'Walk-Through':  { 'Arrived': 0.25, 'Order Prep': 0.5, 'Research & ID': 0.25, 'Grading': 0.5, 'Assembly': 0.25, 'Grades Ready': 0.25, 'QA Checks': 0.25, 'Shipped': 0.25 },
+    'Walk-Thru':     { 'Arrived': 0.25, 'Order Prep': 0.5, 'Research & ID': 0.25, 'Grading': 0.5, 'Assembly': 0.25, 'Grades Ready': 0.25, 'QA Checks': 0.25, 'Shipped': 0.25 },
+};
+
+const DEFAULT_DURATIONS = { 'Arrived': 1, 'Order Prep': 8, 'Research & ID': 3, 'Grading': 12, 'Assembly': 3, 'Grades Ready': 3, 'QA Checks': 6, 'Shipped': 2 };
+
+// In-memory cache for historical durations (1 hour TTL)
+let _historicalCache = {};
+let _historicalCacheTime = {};
+const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+/**
+ * Load actual average step durations from submission_status_history.
+ * Uses real transition data to improve time estimates over static defaults.
+ * Returns a map of { serviceLevel: { step: avgDays } }.
+ */
+const getHistoricalDurations = async (companyId) => {
+    const cacheKey = companyId;
+    if (_historicalCache[cacheKey] && Date.now() - _historicalCacheTime[cacheKey] < CACHE_TTL_MS) {
+        return _historicalCache[cacheKey];
+    }
+
+    try {
+        // Calculate average step durations from consecutive step_change events
+        const result = await db.query(`
+            WITH ordered_events AS (
+                SELECT
+                    ssh.submission_id,
+                    ssh.from_step,
+                    ssh.to_step,
+                    ssh.created_at,
+                    LAG(ssh.created_at) OVER (
+                        PARTITION BY ssh.submission_id ORDER BY ssh.created_at
+                    ) AS prev_event_at,
+                    s.service_level
+                FROM submission_status_history ssh
+                JOIN submissions s ON s.id = ssh.submission_id
+                WHERE ssh.company_id = $1
+                  AND ssh.event_type = 'step_change'
+            ),
+            step_durations AS (
+                SELECT
+                    service_level,
+                    from_step,
+                    EXTRACT(EPOCH FROM (created_at - prev_event_at)) / 86400.0 AS days_at_step
+                FROM ordered_events
+                WHERE prev_event_at IS NOT NULL
+                  AND service_level IS NOT NULL
+            )
+            SELECT
+                service_level,
+                from_step AS step_name,
+                ROUND(AVG(days_at_step)::numeric, 1) AS avg_days,
+                COUNT(*) AS sample_count
+            FROM step_durations
+            WHERE days_at_step > 0 AND days_at_step < 365
+            GROUP BY service_level, from_step
+            HAVING COUNT(*) >= 2
+        `, [companyId]);
+
+        const historical = {};
+        for (const row of result.rows) {
+            if (!historical[row.service_level]) historical[row.service_level] = {};
+            historical[row.service_level][row.step_name] = parseFloat(row.avg_days);
+        }
+
+        _historicalCache[cacheKey] = historical;
+        _historicalCacheTime[cacheKey] = Date.now();
+        return historical;
+    } catch (err) {
+        // Table might not exist yet or no data — return empty
+        return {};
+    }
+};
+
+/**
+ * Calculate estimated progress with time-based sub-step interpolation.
+ * Makes customers see movement even when PSA hasn't moved to a new step.
+ * Accepts optional historicalDurations to use real data over static defaults.
+ */
+const estimateSubmissionProgress = (submission, historicalDurations) => {
+    if (!submission || submission.shipped || submission.picked_up) return null;
+
+    const currentStep = submission.current_step;
+    if (!currentStep) return null;
+
+    const stepIndex = STEP_ORDER.indexOf(currentStep);
+    if (stepIndex < 0) return null;
+
+    const serviceLevel = submission.service_level || 'Regular';
+    const staticDurations = STEP_DURATION_ESTIMATES[serviceLevel] || DEFAULT_DURATIONS;
+
+    // Merge: prefer historical data when available, fall back to static estimates
+    const histForLevel = historicalDurations?.[serviceLevel] || {};
+    const durations = {};
+    let historicalStepCount = 0;
+    for (const step of STEP_ORDER) {
+        if (histForLevel[step]) {
+            durations[step] = histForLevel[step];
+            historicalStepCount++;
+        } else {
+            durations[step] = staticDurations[step] || DEFAULT_DURATIONS[step] || 5;
+        }
+    }
+    const usesHistoricalData = historicalStepCount > 0;
+
+    // Total expected days across all steps
+    let totalExpectedDays = 0;
+    let completedDays = 0;
+    for (let i = 0; i < STEP_ORDER.length; i++) {
+        const dur = durations[STEP_ORDER[i]] || 5;
+        totalExpectedDays += dur;
+        if (i < stepIndex) completedDays += dur;
+    }
+
+    // How long at current step — use step_entered_at (tracks actual step transitions)
+    // If step_entered_at isn't set, use last_api_update but cap at 2x expected step duration
+    // to prevent wildly inaccurate estimates from old submissions
+    const stepEnteredAt = submission.step_entered_at || submission.last_api_update || submission.last_refreshed_at || submission.created_at;
+    const msAtStep = Date.now() - new Date(stepEnteredAt).getTime();
+    let daysAtStep = msAtStep / (1000 * 60 * 60 * 24);
+    // Cap days-at-step when using fallback timestamps to prevent absurd estimates
+    if (!submission.step_entered_at) {
+        const maxReasonable = (durations[currentStep] || 5) * 3;
+        daysAtStep = Math.min(daysAtStep, maxReasonable);
+    }
+    const expectedStepDays = durations[currentStep] || 5;
+
+    // Detect overdue: step has taken 1.5x longer than expected
+    const isOverdue = daysAtStep > expectedStepDays * 1.5;
+    const overdueBy = isOverdue ? Math.round(daysAtStep - expectedStepDays) : 0;
+
+    // Sub-step progress within current step (0 to 0.95, never reaches 1.0 — that's the next step's job)
+    const subStepProgress = Math.min(daysAtStep / expectedStepDays, 0.95);
+
+    // Smooth estimated progress: base + sub-step contribution
+    const stepsCount = STEP_ORDER.length;
+    const baseProgress = (stepIndex / stepsCount) * 100;
+    const stepSliceWidth = (1 / stepsCount) * 100;
+    const estimatedProgress = Math.min(Math.round(baseProgress + (subStepProgress * stepSliceWidth)), 99);
+
+    // Estimated days remaining from current position
+    const currentStepRemaining = Math.max(0, expectedStepDays - daysAtStep);
+    let remainingDays = currentStepRemaining;
+    for (let i = stepIndex + 1; i < STEP_ORDER.length; i++) {
+        remainingDays += durations[STEP_ORDER[i]] || 5;
+    }
+
+    // Estimated completion date
+    const estCompletion = new Date(Date.now() + remainingDays * 24 * 60 * 60 * 1000);
+
+    return {
+        estimatedProgress,
+        daysAtCurrentStep: Math.round(daysAtStep * 10) / 10,
+        expectedStepDuration: Math.round(expectedStepDays),
+        stepProgressPercent: Math.round(subStepProgress * 100),
+        estimatedDaysRemaining: Math.round(remainingDays),
+        estimatedCompletionDate: estCompletion.toISOString(),
+        isOverdue,
+        overdueBy,
+        currentStepLabel: isOverdue
+            ? `Overdue at ${currentStep} — day ${Math.ceil(daysAtStep)} (expected ~${Math.round(expectedStepDays)})`
+            : daysAtStep < 1
+            ? `Started ${currentStep} today`
+            : `Day ${Math.ceil(daysAtStep)} of ~${Math.round(expectedStepDays)} at ${currentStep}`,
+        totalExpectedDays: Math.round(totalExpectedDays),
+        usesHistoricalData,
+    };
+};
+
+/**
+ * Determine how frequently a submission should be refreshed (in hours).
+ * Higher-priority submissions get refreshed more often.
+ */
+const getRefreshPriority = (submission) => {
+    const step = submission.current_step;
+    const service = (submission.service_level || '').toLowerCase();
+    const isExpress = service.includes('express') || service.includes('walk');
+    // Slow tiers: Value Bulk, Value, Economy, Bulk — can take weeks to months
+    const isSlow = service.includes('bulk') || service.includes('economy') || service.includes('value');
+
+    // Shipped or picked up — no refresh needed
+    if (submission.shipped || submission.picked_up) return { hours: 0, tier: 'none' };
+
+    // Problem orders — check for resolution
+    if (submission.problem_order) return { hours: isExpress ? 4 : 8, tier: 'urgent' };
+
+    // Express/premium tiers — faster refresh but conservative
+    if (isExpress) {
+        if (!step || step === 'Arrived' || step === 'Order Prep') return { hours: 4, tier: 'high' };
+        return { hours: 6, tier: 'high' };
+    }
+
+    // Slow service levels (Value Bulk, Economy, Bulk) — check infrequently until near done
+    if (isSlow) {
+        // Near completion — check daily
+        if (['Grades Ready', 'QA Checks', 'Assembly'].includes(step)) return { hours: 24, tier: 'low' };
+        // Active processing — check every 2 days
+        if (['Research & ID', 'Grading'].includes(step)) return { hours: 48, tier: 'low' };
+        // Early stages — check every 3 days
+        return { hours: 72, tier: 'low' };
+    }
+
+    // Standard tiers (Regular, etc.)
+    // Early stages (Arrived, Order Prep) — package just landed
+    if (!step || step === 'Arrived' || step === 'Order Prep') return { hours: 8, tier: 'medium' };
+
+    // Active processing (Research & ID through Assembly) — core pipeline
+    if (['Research & ID', 'Grading', 'Assembly'].includes(step)) return { hours: 12, tier: 'medium' };
+
+    // Grades Ready / QA — waiting for shipping, low urgency
+    if (['Grades Ready', 'QA Checks'].includes(step)) return { hours: 24, tier: 'low' };
+
+    // Fallback
+    return { hours: 12, tier: 'medium' };
+};
+
+// ============================================
+// BATCH / UTILITY FUNCTIONS
+// ============================================
+
+const refreshAllSubmissions = async () => {
+    let companiesResult;
+    try {
+        companiesResult = await db.query(
+            `SELECT id, psa_api_key FROM companies WHERE auto_refresh_enabled = true AND psa_api_key IS NOT NULL`
+        );
+    } catch (err) {
+        if (err.code === '42703') {
+            console.log('Auto-refresh columns not found. Run migration 021.');
+            return;
+        }
+        throw err;
+    }
+
+    // Deduplicate: skip companies sharing the same PSA API key to avoid
+    // doubling API calls against the same PSA account
+    const seenKeys = new Set();
+    const companies = companiesResult.rows.filter(c => {
+        if (seenKeys.has(c.psa_api_key)) {
+            console.log(`[PSA] Skipping company ${c.id} — duplicate PSA API key`);
+            return false;
+        }
+        seenKeys.add(c.psa_api_key);
+        return true;
+    });
+
+    for (const company of companies) {
+        // Check rate limit before each company
+        if (isRateLimited().limited) {
+            console.log('[PSA] Rate limited — skipping remaining companies');
+            break;
+        }
+
         const submissions = await db.query(
             `SELECT id, psa_submission_number FROM submissions WHERE company_id = $1 AND shipped = false AND psa_submission_number IS NOT NULL`,
             [company.id]
         );
-        
+
         for (const sub of submissions.rows) {
-            try {
-                const result = await getSubmissionProgress(company.psa_api_key, sub.psa_submission_number);
-                if (result.success) await updateSubmissionFromPsa(sub.id, result.data);
-                await new Promise(r => setTimeout(r, 500));
-            } catch (error) {
-                console.error(`Failed to refresh ${sub.psa_submission_number}:`, error.message);
+            const result = await getSubmissionProgress(company.psa_api_key, sub.psa_submission_number, { batch: true });
+            if (result.rateLimited) {
+                console.log(`[PSA] Rate limited — stopping refresh`);
+                break;
+            }
+            if (result.success) {
+                try {
+                    await updateSubmissionFromPsa(sub.id, result.data);
+                } catch (err) {
+                    console.error(`[PSA] Update failed for ${sub.psa_submission_number}: ${err.message}`);
+                }
             }
         }
     }
@@ -281,77 +1074,30 @@ const logApiCall = async (companyId, endpoint, method, params, status, response)
             [companyId, endpoint, method, JSON.stringify(params), status, JSON.stringify(response)]
         );
     } catch (error) {
-        console.error('Failed to log API call:', error);
+        // api_logs table may not exist — silently skip
     }
 };
 
-// Scrape PSA cert page to get card images
-const scrapePsaCertImages = async (certNumber) => {
-    try {
-        const url = `https://www.psacard.com/cert/${certNumber}`;
-        console.log(`Scraping PSA cert page: ${url}`);
-
-        const response = await axios.get(url, {
-            timeout: 10000,
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9',
-                'Accept-Encoding': 'gzip, deflate, br',
-                'Referer': 'https://www.psacard.com/',
-                'Connection': 'keep-alive',
-                'Upgrade-Insecure-Requests': '1',
-                'Sec-Fetch-Dest': 'document',
-                'Sec-Fetch-Mode': 'navigate',
-                'Sec-Fetch-Site': 'same-origin',
-                'Cache-Control': 'max-age=0'
-            }
-        });
-
-        const $ = cheerio.load(response.data);
-        const images = [];
-
-        // Try multiple selectors to find images
-        // PSA displays front and back images
-        $('img[src*="cert"]').each((i, elem) => {
-            const src = $(elem).attr('src');
-            if (src && !src.includes('logo') && !src.includes('icon')) {
-                // Convert relative URLs to absolute
-                const absoluteUrl = src.startsWith('http') ? src : `https://www.psacard.com${src}`;
-                images.push(absoluteUrl);
-            }
-        });
-
-        // Also check for images in specific cert image containers
-        $('.cert-image img, .card-image img, [class*="cert"] img, [class*="card"] img').each((i, elem) => {
-            const src = $(elem).attr('src');
-            if (src && !images.includes(src)) {
-                const absoluteUrl = src.startsWith('http') ? src : `https://www.psacard.com${src}`;
-                if (!absoluteUrl.includes('logo') && !absoluteUrl.includes('icon')) {
-                    images.push(absoluteUrl);
-                }
-            }
-        });
-
-        // Look for background images in style attributes
-        $('[style*="background-image"]').each((i, elem) => {
-            const style = $(elem).attr('style');
-            const match = style.match(/url\(['"]?([^'"]+)['"]?\)/);
-            if (match && match[1]) {
-                const src = match[1];
-                const absoluteUrl = src.startsWith('http') ? src : `https://www.psacard.com${src}`;
-                if (!absoluteUrl.includes('logo') && !absoluteUrl.includes('icon') && !images.includes(absoluteUrl)) {
-                    images.push(absoluteUrl);
-                }
-            }
-        });
-
-        console.log(`Found ${images.length} images on PSA cert page`);
-        return { success: true, images: images.filter((img, index, self) => self.indexOf(img) === index) }; // Remove duplicates
-    } catch (error) {
-        console.error('PSA scraping error:', error.message);
-        return { success: false, error: error.message, images: [] };
-    }
+module.exports = {
+    getSubmissionProgress,
+    getCertificate,
+    getCertImages,
+    getCertWithImages,
+    parseProgressData,
+    parseCertData,
+    updateSubmissionFromPsa,
+    autoFetchCertData,
+    refreshAllSubmissions,
+    estimateSubmissionProgress,
+    getHistoricalDurations,
+    getRefreshPriority,
+    isRateLimited,
+    throttle,
+    batchThrottle,
+    getDailyUsage,
+    logApiCall,
+    STEP_NAMES,
+    STEP_ORDER,
+    STEP_DURATION_ESTIMATES,
+    createPsaClient,
 };
-
-module.exports = { getSubmissionProgress, getCertificate, parseProgressData, updateSubmissionFromPsa, refreshAllSubmissions, logApiCall, tryGetOrderDetails, scrapePsaCertImages, STEP_NAMES };

@@ -42,8 +42,8 @@ export default function NewCustomer() {
     <div className="max-w-2xl mx-auto">
       {/* Header */}
       <PageHeader
-        title="Add Customer"
-        subtitle="Create a new customer record"
+        title="New Customer"
+        subtitle="Register a customer profile"
         backLink="/customers"
       />
 
