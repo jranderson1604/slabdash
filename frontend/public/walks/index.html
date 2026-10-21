@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Our Streets">
+<meta name="theme-color" content="#16301f">
+<link rel="apple-touch-icon" href="icon.png">
+<title>Our Streets</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: full-bleed map, floating stat strip on top, control dock at bottom, sheets slide up for Log and Streets */
+:root{
+  --ink:#16301f; --paper:#f5f3ec; --card:#ffffff; --line:#d9d6c8;
+  --moss:#2f6b3f; --gold:#e3a72f; --muted:#6c7166; --danger:#b64532;
+  --display:"Bricolage Grotesque",ui-rounded,system-ui,sans-serif;
+  --body:"Atkinson Hyperlegible",system-ui,-apple-system,sans-serif;
+  --st:env(safe-area-inset-top,0px); --sb:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root{
+  --ink:#eef0e6; --paper:#0f1912; --card:#18241b; --line:#2c3a2f;
+  --moss:#6fbf7f; --gold:#f0bd4f; --muted:#9aa594; color-scheme:dark;
+}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;overflow:hidden;-webkit-tap-highlight-color:transparent}
+#map{position:fixed;inset:0;z-index:0;background:var(--paper)}
+@media (prefers-color-scheme:dark){.leaflet-tile-pane{filter:brightness(.62) contrast(1.1) saturate(.7) hue-rotate(-8deg)}}
+.leaflet-control-attribution{font-size:9px}
+.top{position:fixed;left:0;right:0;top:0;z-index:500;padding:calc(var(--st) + 10px) max(12px,env(safe-area-inset-right,0px)) 0 max(12px,env(safe-area-inset-left,0px));pointer-events:none}
+.strip{pointer-events:auto;background:var(--card);border:1px solid var(--line);border-radius:18px;display:grid;grid-template-columns:repeat(3,1fr);padding:10px 4px;box-shadow:0 6px 24px rgb(0 0 0/.12)}
+.strip div{text-align:center;min-width:0}
+.strip b{display:block;font-family:var(--display);font-weight:800;font-size:22px;font-variant-numeric:tabular-nums;line-height:1.1}
+.strip span{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:500;padding:0 max(12px,env(safe-area-inset-right,0px)) calc(var(--sb) + 12px) max(12px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:10px}
+.live{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:12px 14px;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;box-shadow:0 6px 24px rgb(0 0 0/.12)}
+.live div{min-width:0}
+.live b{display:block;font-family:var(--display);font-weight:800;font-size:28px;font-variant-numeric:tabular-nums;line-height:1}
+.live span{font-size:11px;color:var(--muted)}
+.row{display:flex;gap:10px}
+button{font:inherit;border:0;cursor:pointer;color:inherit}
+button:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.big{flex:1;height:58px;border-radius:16px;font-family:var(--display);font-weight:800;font-size:19px;background:var(--moss);color:#fff}
+@media (prefers-color-scheme:dark){.big{color:#0f1912}}
+.big.pause{background:var(--gold);color:#1b1b12}
+.big.stop{background:var(--danger);color:#fff;flex:0 0 96px}
+.small{height:58px;flex:0 0 58px;border-radius:16px;background:var(--card);border:1px solid var(--line);display:grid;place-items:center}
+.small svg{width:24px;height:24px}
+.gps{font-size:12px;color:var(--muted);text-align:center;min-height:16px}
+.toast{position:fixed;left:50%;top:calc(var(--st) + 86px);transform:translate(-50%,-20px);opacity:0;z-index:700;background:var(--gold);color:#1b1b12;padding:10px 16px;border-radius:999px;font-weight:700;transition:.3s;max-width:90vw;text-align:center;pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.sheet{position:fixed;inset:0;z-index:800;background:var(--paper);display:flex;flex-direction:column;transform:translateY(100%);transition:transform .28s ease}
+.sheet.open{transform:none}
+.sheet header{padding:calc(var(--st) + 12px) max(16px,env(safe-area-inset-right,0px)) 10px max(16px,env(safe-area-inset-left,0px));display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}
+.sheet h2{margin:0;font-family:var(--display);font-weight:800;font-size:26px}
+.close{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:8px 14px;font-weight:700}
+.sheet .body{overflow:auto;flex:1;padding:14px max(16px,env(safe-area-inset-right,0px)) calc(var(--sb) + 24px) max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:10px}
+.item{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+.item .t{font-weight:700}
+.item .s{font-size:12px;color:var(--muted)}
+.item .n{font-family:var(--display);font-weight:800;font-size:20px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.chip{display:inline-block;background:var(--gold);color:#1b1b12;border-radius:999px;font-size:11px;font-weight:700;padding:2px 8px;margin-left:6px}
+.empty{color:var(--muted);text-align:center;padding:30px 10px}
+.tools{display:flex;gap:8px;flex-wrap:wrap}
+.tools button,.tools label{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-weight:700;font-size:14px;cursor:pointer}
+.del{background:none;color:var(--danger);font-size:12px;font-weight:700;padding:4px}
+.summary{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.summary div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+.summary b{display:block;font-family:var(--display);font-weight:800;font-size:24px;font-variant-numeric:tabular-nums}
+.summary span{font-size:12px;color:var(--muted)}
+.search{width:100%;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--card);color:var(--ink);font:inherit}
+.confirm{position:fixed;inset:0;z-index:900;background:rgb(0 0 0/.45);display:grid;place-items:center;padding:20px}
+.confirm>div{background:var(--paper);border-radius:18px;padding:20px;max-width:340px;width:100%;display:flex;flex-direction:column;gap:14px}
+.confirm h3{margin:0;font-family:var(--display);font-size:22px}
+.me{width:18px;height:18px;border-radius:50%;background:#2b7cff;border:3px solid #fff;box-shadow:0 0 0 6px rgb(43 124 255/.25)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="top"><div class="strip">
+  <div><b id="tMiles">0.0</b><span>Total miles</span></div>
+  <div><b id="tStreets">0</b><span>Streets</span></div>
+  <div><b id="tBlocks">0</b><span>Blocks</span></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+
+<div class="dock">
+  <div class="live" id="live" hidden>
+    <div><b id="lDist">0.00</b><span>miles</span></div>
+    <div><b id="lTime">0:00</b><span>time</span></div>
+    <div><b id="lNew">0</b><span>new streets</span></div>
+  </div>
+  <div class="gps" id="gps"></div>
+  <div class="row" id="idleRow">
+    <button class="small" id="btnLog" aria-label="Walk log"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg></button>
+    <button class="big" id="btnStart">Start walk</button>
+    <button class="small" id="btnStreets" aria-label="Streets unlocked"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3 3 6v15l6-3 6 3 6-3V3l-6 3-6-3zM9 3v15M15 6v15"/></svg></button>
+  </div>
+  <div class="row" id="walkRow" hidden>
+    <button class="small" id="btnCenter" aria-label="Center on me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg></button>
+    <button class="big pause" id="btnPause">Pause</button>
+    <button class="big stop" id="btnStop">Finish</button>
+  </div>
+</div>
+
+<section class="sheet" id="logSheet" aria-label="Walk log">
+  <header><h2>Walk log</h2><button class="close" data-close>Done</button></header>
+  <div class="body" id="logBody"></div>
+</section>
+<section class="sheet" id="streetSheet" aria-label="Streets">
+  <header><h2>Streets unlocked</h2><button class="close" data-close>Done</button></header>
+  <div class="body">
+    <input class="search" id="streetSearch" placeholder="Search streets" autocomplete="off">
+    <div id="streetBody" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div>
+</section>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+"use strict";
+const KEY="ourstreets_v1", ACTIVE="ourstreets_active";
+const M_PER_MI=1609.344, CELL_LAT=0.0003, CELL_LON=0.0004;
+const $=id=>document.getElementById(id);
+
+/* ---------- storage ---------- */
+function load(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}}
+function save(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){toast("Storage full. Export a backup.")}}
+let db=load(KEY,{walks:[],streets:{},cells:{}});
+function persist(){save(KEY,db)}
+
+/* ---------- geo helpers ---------- */
+function hav(a,b){const R=6371000,r=Math.PI/180,dLa=(b[0]-a[0])*r,dLo=(b[1]-a[1])*r;
+  const x=Math.sin(dLa/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(x))}
+function cellKey(p){return Math.floor(p[0]/CELL_LAT)+":"+Math.floor(p[1]/CELL_LON)}
+function cellBounds(k){const [a,b]=k.split(":").map(Number);return [[a*CELL_LAT,b*CELL_LON],[(a+1)*CELL_LAT,(b+1)*CELL_LON]]}
+function segDist(p,a,b){ // meters, local flat projection
+  const kx=111320*Math.cos(p[0]*Math.PI/180),ky=110540;
+  const ax=(a[1]-p[1])*kx,ay=(a[0]-p[0])*ky,bx=(b[1]-p[1])*kx,by=(b[0]-p[0])*ky;
+  const dx=bx-ax,dy=by-ay,L=dx*dx+dy*dy;let t=L?-(ax*dx+ay*dy)/L:0;t=Math.max(0,Math.min(1,t));
+  return Math.hypot(ax+t*dx,ay+t*dy)}
+const fmtMi=m=>(m/M_PER_MI).toFixed(2);
+function fmtTime(s){s=Math.floor(s);const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60;
+  return h?`${h}:${String(m).padStart(2,"0")}:${String(x).padStart(2,"0")}`:`${m}:${String(x).padStart(2,"0")}`}
+const fmtDate=t=>new Date(t).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric",year:"numeric"});
+
+/* ---------- map ---------- */
+const map=L.map("map",{zoomControl:false,attributionControl:true,preferCanvas:true}).setView([43.55,-91.2],14);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"© OpenStreetMap"}).addTo(map);
+const canvas=L.canvas({padding:.5});
+const cellLayer=L.layerGroup().addTo(map), pastLayer=L.layerGroup().addTo(map), liveLayer=L.layerGroup().addTo(map);
+let meMarker=null;
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()}
+function drawCells(){cellLayer.clearLayers();const c=css("--moss");
+  for(const k in db.cells)L.rectangle(cellBounds(k),{renderer:canvas,stroke:false,fillColor:c,fillOpacity:.22,interactive:false}).addTo(cellLayer)}
+function drawPast(){pastLayer.clearLayers();const c=css("--moss");
+  for(const w of db.walks)if(w.pts.length>1)L.polyline(w.pts,{renderer:canvas,color:c,weight:4,opacity:.75}).addTo(pastLayer)}
+function drawAll(){drawCells();drawPast();renderTotals()}
+
+/* ---------- totals ---------- */
+function renderTotals(){
+  $("tMiles").textContent=(db.walks.reduce((s,w)=>s+w.dist,0)/M_PER_MI).toFixed(1);
+  $("tStreets").textContent=Object.keys(db.streets).length;
+  $("tBlocks").textContent=Object.keys(db.cells).length;
+}
+
+/* ---------- streets from OpenStreetMap (Overpass) ---------- */
+let ways=new Map(), lastFetch=null, fetching=false;
+async function fetchStreets(p){
+  if(fetching)return;fetching=true;lastFetch=p;
+  const q=`[out:json][timeout:20];way["highway"]["name"](around:600,${p[0]},${p[1]});out geom;`;
+  for(const url of["https://overpass-api.de/api/interpreter","https://overpass.kumi.systems/api/interpreter"]){
+    try{const r=await fetch(url,{method:"POST",body:"data="+encodeURIComponent(q),headers:{"Content-Type":"application/x-www-form-urlencoded"}});
+      if(!r.ok)continue;const j=await r.json();
+      for(const e of j.elements||[])if(e.geometry&&e.tags&&e.tags.name)ways.set(e.id,{name:e.tags.name,g:e.geometry.map(n=>[n.lat,n.lon])});
+      break}catch(e){}
+  }
+  fetching=false;
+}
+function nearestStreet(p){let best=null,bd=18;
+  for(const w of ways.values()){const g=w.g;
+    for(let i=1;i<g.length;i++){const d=segDist(p,g[i-1],g[i]);if(d<bd){bd=d;best=w.name}}}
+  return best}
+
+/* ---------- walk state ---------- */
+let walk=null, watchId=null, tick=null, wake=null;
+function newWalk(){return{id:Date.now(),start:Date.now(),elapsed:0,runFrom:Date.now(),paused:false,dist:0,pts:[],hits:{},streets:[],newStreets:[],newCells:[]}}
+function elapsed(){return walk.elapsed+(walk.paused?0:(Date.now()-walk.runFrom)/1000)}
+function saveActive(){walk.savedAt=Date.now();save(ACTIVE,walk)}
+
+async function keepAwake(){try{if("wakeLock"in navigator){wake=await navigator.wakeLock.request("screen")}}catch(e){}}
+document.addEventListener("visibilitychange",()=>{if(walk&&!walk.paused&&document.visibilityState==="visible")keepAwake()});
+
+function startGPS(){
+  if(!("geolocation"in navigator)){$("gps").textContent="This browser cannot read GPS.";return}
+  $("gps").textContent="Finding you…";
+  watchId=navigator.geolocation.watchPosition(onPos,err=>{
+    $("gps").textContent=err.code===1?"Location is off. Allow it in Settings > Privacy > Location Services > Safari Websites.":"GPS signal lost. Keep walking, it will reconnect.";
+  },{enableHighAccuracy:true,maximumAge:0,timeout:20000});
+}
+function stopGPS(){if(watchId!==null)navigator.geolocation.clearWatch(watchId);watchId=null}
+
+function onPos(pos){
+  const p=[+pos.coords.latitude.toFixed(6),+pos.coords.longitude.toFixed(6)],acc=pos.coords.accuracy;
+  if(!meMarker)meMarker=L.marker(p,{icon:L.divIcon({className:"",html:'<div class="me"></div>',iconSize:[18,18]}),interactive:false}).addTo(map);
+  else meMarker.setLatLng(p);
+  $("gps").textContent=`GPS ±${Math.round(acc)} m`;
+  if(!walk||walk.paused)return;
+  if(acc>35)return; // too fuzzy to count
+  if(!lastFetch||hav(lastFetch,p)>350)fetchStreets(p);
+  const last=walk.pts[walk.pts.length-1];
+  if(last&&walk.gap){walk.gap=false}
+  else if(last){const d=hav(last,p),dt=(pos.timestamp-(walk.lastT||pos.timestamp))/1000;
+    if(d<5)return;                       // jitter
+    if(dt>0&&d/dt>7)return;              // faster than a run: bad fix or car
+    walk.dist+=d}
+  else map.setView(p,17);
+  walk.lastT=pos.timestamp;walk.pts.push(p);
+  // blocks
+  const k=cellKey(p);
+  if(!db.cells[k]&&!walk.newCells.includes(k)){walk.newCells.push(k);
+    L.rectangle(cellBounds(k),{renderer:canvas,stroke:false,fillColor:css("--gold"),fillOpacity:.45,interactive:false}).addTo(liveLayer)}
+  // streets: need 3 fixes on a street so crossing an intersection doesn't count
+  const s=nearestStreet(p);
+  if(s){walk.hits[s]=(walk.hits[s]||0)+1;
+    if(walk.hits[s]===3&&!walk.streets.includes(s)){walk.streets.push(s);
+      if(!db.streets[s]){walk.newStreets.push(s);toast("New street unlocked: "+s)}}}
+  livePath.setLatLngs(walk.pts);
+  if(follow)map.panTo(p,{animate:true});
+  renderLive();
+  if(walk.pts.length%5===0)saveActive();
+}
+let livePath=L.polyline([],{color:"#e3a72f",weight:6,opacity:.95}).addTo(liveLayer), follow=true;
+map.on("dragstart",()=>{follow=false});
+function renderLive(){$("lDist").textContent=fmtMi(walk.dist);$("lTime").textContent=fmtTime(elapsed());$("lNew").textContent=walk.newStreets.length}
+
+function setMode(on){$("idleRow").hidden=on;$("walkRow").hidden=!on;$("live").hidden=!on}
+function beginWalk(w){
+  walk=w||newWalk();setMode(true);follow=true;
+  livePath.setLatLngs(walk.pts);
+  for(const k of walk.newCells)L.rectangle(cellBounds(k),{renderer:canvas,stroke:false,fillColor:css("--gold"),fillOpacity:.45,interactive:false}).addTo(liveLayer);
+  updatePauseBtn();renderLive();keepAwake();startGPS();
+  tick=setInterval(renderLive,1000);saveActive();
+}
+function updatePauseBtn(){$("btnPause").textContent=walk.paused?"Resume":"Pause";$("btnPause").classList.toggle("pause",!walk.paused)}
+$("btnStart").onclick=()=>beginWalk();
+$("btnPause").onclick=()=>{
+  if(walk.paused){walk.paused=false;walk.runFrom=Date.now();walk.lastT=null;walk.gap=true;keepAwake()}
+  else{walk.elapsed=elapsed();walk.paused=true;try{wake&&wake.release()}catch(e){}}
+  updatePauseBtn();saveActive()};
+$("btnCenter").onclick=()=>{follow=true;if(meMarker)map.setView(meMarker.getLatLng(),17)};
+$("btnStop").onclick=()=>ask("Finish this walk?",`${fmtMi(walk.dist)} miles so far.`,[
+  ["Keep walking",()=>{}],
+  ["Discard",()=>ask("Discard this walk?","It will not be saved.",[["Cancel",()=>{}],["Discard",()=>endWalk(false),"danger"]])],
+  ["Save walk",()=>endWalk(true),"primary"]]);
+
+function endWalk(keep){
+  clearInterval(tick);stopGPS();try{wake&&wake.release()}catch(e){}
+  if(keep&&walk.pts.length>1){
+    const now=Date.now();
+    for(const k of walk.newCells)db.cells[k]=now;
+    for(const s of walk.streets){const e=db.streets[s]||{first:now,count:0};e.count++;e.last=now;db.streets[s]=e}
+    db.walks.unshift({id:walk.id,start:walk.start,end:now,dur:Math.round(elapsed()),dist:Math.round(walk.dist),
+      pts:walk.pts,streets:walk.streets,newStreets:walk.newStreets,newCells:walk.newCells.length});
+    persist();
+    toast(`Saved: ${fmtMi(walk.dist)} mi, ${walk.newStreets.length} new street${walk.newStreets.length===1?"":"s"}`);
+  }else if(keep)toast("Too short to save.");
+  try{localStorage.removeItem(ACTIVE)}catch(e){}
+  walk=null;liveLayer.clearLayers();livePath=L.polyline([],{color:"#e3a72f",weight:6,opacity:.95}).addTo(liveLayer);
+  setMode(false);$("gps").textContent="";drawAll();
+}
+
+/* ---------- sheets ---------- */
+function openSheet(id){$(id).classList.add("open")}
+document.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>b.closest(".sheet").classList.remove("open"));
+$("btnLog").onclick=()=>{renderLog();openSheet("logSheet")};
+$("btnStreets").onclick=()=>{renderStreets();openSheet("streetSheet")};
+
+function renderLog(){
+  const b=$("logBody");b.innerHTML="";
+  const tot=db.walks.reduce((s,w)=>s+w.dist,0),dur=db.walks.reduce((s,w)=>s+w.dur,0);
+  const longest=db.walks.reduce((m,w)=>Math.max(m,w.dist),0);
+  const sum=document.createElement("div");sum.className="summary";
+  sum.innerHTML=`<div><b>${(tot/M_PER_MI).toFixed(1)}</b><span>miles together</span></div>
+    <div><b>${db.walks.length}</b><span>walks</span></div>
+    <div><b>${fmtTime(dur)}</b><span>time walking</span></div>
+    <div><b>${fmtMi(longest)}</b><span>longest walk (mi)</span></div>`;
+  b.appendChild(sum);
+  if(!db.walks.length){const e=document.createElement("p");e.className="empty";e.textContent="No walks yet. Tap Start walk when you head out.";b.appendChild(e)}
+  for(const w of db.walks){
+    const it=document.createElement("div");it.className="item";it.style.cursor="pointer";
+    const l=document.createElement("div");l.style.minWidth="0";
+    const t=document.createElement("div");t.className="t";t.textContent=fmtDate(w.start);
+    if(w.newStreets.length){const c=document.createElement("span");c.className="chip";c.textContent=`+${w.newStreets.length} streets`;t.appendChild(c)}
+    const s=document.createElement("div");s.className="s";s.textContent=`${fmtTime(w.dur)} · ${w.streets.length} streets · ${w.newCells} new blocks`;
+    const del=document.createElement("button");del.className="del";del.textContent="Delete";
+    del.onclick=ev=>{ev.stopPropagation();ask("Delete this walk?","Streets and blocks it unlocked stay unlocked.",[["Cancel",()=>{}],["Delete",()=>{db.walks=db.walks.filter(x=>x.id!==w.id);persist();drawAll();renderLog()},"danger"]])};
+    l.append(t,s,del);
+    const n=document.createElement("div");n.className="n";n.textContent=fmtMi(w.dist)+" mi";
+    it.append(l,n);
+    it.onclick=()=>{$("logSheet").classList.remove("open");follow=false;map.fitBounds(L.latLngBounds(w.pts),{padding:[60,60]})};
+    b.appendChild(it);
+  }
+  const tools=document.createElement("div");tools.className="tools";tools.style.marginTop="14px";
+  tools.innerHTML=`<button id="exp">Export backup</button><label>Import backup<input type="file" id="imp" accept="application/json,.json" hidden></label>`;
+  b.appendChild(tools);
+  $("exp").onclick=exportData;$("imp").onchange=importData;
+}
+function renderStreets(){
+  const q=$("streetSearch").value.trim().toLowerCase(),b=$("streetBody");b.innerHTML="";
+  const list=Object.entries(db.streets).filter(([n])=>n.toLowerCase().includes(q)).sort((a,b)=>b[1].first-a[1].first);
+  if(!list.length){const e=document.createElement("p");e.className="empty";e.textContent=q?"No street by that name yet.":"Walk a street for a few steps and it unlocks here.";b.appendChild(e);return}
+  for(const [name,e] of list){
+    const it=document.createElement("div");it.className="item";
+    const l=document.createElement("div");l.style.minWidth="0";
+    const t=document.createElement("div");t.className="t";t.textContent=name;
+    const s=document.createElement("div");s.className="s";s.textContent="First walked "+fmtDate(e.first);
+    l.append(t,s);
+    const n=document.createElement("div");n.className="n";n.textContent="×"+e.count;
+    it.append(l,n);b.appendChild(it);
+  }
+}
+$("streetSearch").oninput=renderStreets;
+
+/* ---------- backup ---------- */
+function exportData(){
+  const blob=new Blob([JSON.stringify(db)],{type:"application/json"});
+  const f=new File([blob],`our-streets-${new Date().toISOString().slice(0,10)}.json`,{type:"application/json"});
+  if(navigator.canShare&&navigator.canShare({files:[f]})){navigator.share({files:[f]}).catch(()=>{});return}
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=f.name;a.click();
+}
+function importData(ev){
+  const file=ev.target.files[0];if(!file)return;const r=new FileReader();
+  r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.walks))throw 0;
+    const ids=new Set(db.walks.map(w=>w.id));
+    for(const w of d.walks)if(!ids.has(w.id))db.walks.push(w);
+    db.walks.sort((a,b)=>b.start-a.start);
+    for(const [k,v] of Object.entries(d.cells||{}))if(!db.cells[k]||v<db.cells[k])db.cells[k]=v;
+    for(const [k,v] of Object.entries(d.streets||{})){const e=db.streets[k];db.streets[k]=e?{first:Math.min(e.first,v.first),count:Math.max(e.count,v.count),last:Math.max(e.last||0,v.last||0)}:v}
+    persist();drawAll();renderLog();toast("Backup merged in.")}catch(e){toast("That file is not an Our Streets backup.")}};
+  r.readAsText(file);
+}
+
+/* ---------- ui bits ---------- */
+let tt;function toast(m){const t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(tt);tt=setTimeout(()=>t.classList.remove("show"),3200)}
+function ask(title,msg,btns){
+  const o=document.createElement("div");o.className="confirm";
+  const box=document.createElement("div");const h=document.createElement("h3");h.textContent=title;
+  const p=document.createElement("p");p.style.margin="0";p.style.color="var(--muted)";p.textContent=msg;
+  const r=document.createElement("div");r.style.cssText="display:flex;flex-direction:column;gap:8px";
+  for(const [label,fn,kind] of btns){const b=document.createElement("button");b.textContent=label;
+    b.style.cssText="height:50px;border-radius:12px;font-weight:700;font-size:16px;"+(kind==="primary"?"background:var(--moss);color:var(--paper)":kind==="danger"?"background:var(--danger);color:#fff":"background:var(--card);border:1px solid var(--line)");
+    b.onclick=()=>{o.remove();fn()};r.appendChild(b)}
+  box.append(h,p,r);o.appendChild(box);document.body.appendChild(o);
+}
+
+/* ---------- boot ---------- */
+drawAll();
+const bounds=[];for(const w of db.walks)bounds.push(...w.pts);
+if(bounds.length)map.fitBounds(L.latLngBounds(bounds),{padding:[60,60]});
+const pending=load(ACTIVE,null);
+if(pending&&pending.pts){pending.elapsed=pending.elapsed||0;
+  if(!pending.paused){pending.elapsed+=((pending.savedAt||pending.runFrom)-pending.runFrom)/1000;pending.paused=true}
+  pending.gap=true;
+  beginWalk(pending);toast("Walk restored. Tap Resume to keep going.")}
+else if("geolocation"in navigator)navigator.geolocation.getCurrentPosition(p=>{if(!bounds.length)map.setView([p.coords.latitude,p.coords.longitude],16);onPos(p)},()=>{},{enableHighAccuracy:true,timeout:10000});
+</script>
+</body>
+</html>
